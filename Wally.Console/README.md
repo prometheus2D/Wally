@@ -7,8 +7,8 @@ Wally is an AI Actor Environment Manager. It helps you create, manage, and inter
 To get started quickly:
 
 1. Download the latest wally.exe from the releases page.
-2. Run `wally setup` in your project directory to create the Wally workspace structure with default prompts and templates.
-3. If you need a sample project, run `wally create-todo <path>` or `wally create-weather <path>` to add a simple app to work with.
+2. Run `wally setup` in the directory where you want to create the Wally workspace (e.g., your project's root folder) to create the Wally workspace structure with default prompts and templates.
+3. Create a sample project to work with: `wally create-todo ./MyTodoApp`
 
 That's it! Your workspace is ready for AI Actor interactions.
 
@@ -24,12 +24,45 @@ That's it! Your workspace is ready for AI Actor interactions.
 
 This creates a standalone exe named wally.exe that can be run directly on Windows without dotnet.
 
+### Interactive Mode
+
+For iterative use, run `wally` without arguments to enter interactive mode, where you can issue multiple commands in a session, and the environment persists across commands.
+
 ### Development Setup
 
 For development:
 
 1. Build the solution: `dotnet build`
 2. Run the console app: `dotnet run --project Wally.Console`
+
+## Using Wally for Code Assistance like GitHub Copilot
+
+Wally integrates with AI Actors to provide code assistance similar to GitHub Copilot in Visual Studio. You can operate in two modes: Ask Mode for getting suggestions and explanations, and Agent Mode for autonomous code changes.
+
+### Ask Mode
+
+In Ask Mode, Wally queries the loaded Actors for suggestions, explanations, or code snippets without modifying your files.
+
+1. Set up your workspace: `wally setup`
+2. Load default Actors: `wally load-Actors Wally.Default/default-Actors.json`
+3. Add files to the environment (optional): `wally add-file <path-to-your-code-file>`
+4. Run a prompt: `wally run "Implement a function to reverse a string"`
+
+The Actors will respond with AI-generated suggestions based on the loaded Roles, Acceptance Criteria, and Intents. Responses are displayed in the console.
+
+### Agent Mode
+
+In Agent Mode, Wally allows Actors to autonomously apply code changes to your files based on the prompt.
+
+To use Agent Mode:
+
+1. Set up your workspace as above.
+2. Load Actors that support code changes, such as custom Actors or the CopilotAutopilotActor (if configured).
+3. Run a prompt: `wally run "Add error handling to the login method"`
+
+Actors that decide to make changes will apply them directly to the code files. Note that currently, the default Actors provide suggestions; for autonomous changes, you may need to load or configure Actors like CopilotAutopilotActor that implement `ShouldMakeChanges` to return true.
+
+For a simple actor/RBA combination mimicking Copilot, use the default WallyActor with the Developer Role, CodeQuality Acceptance Criteria, and ImplementFeature Intent. This combination leverages GitHub Copilot CLI for intelligent responses.
 
 ## Basic Usage
 

@@ -5,7 +5,7 @@ using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Wally.Core.Actors;
-using Wally.Core.Actors.RBA;
+using Wally.Core.RBA;
 
 namespace Wally.Core
 {
