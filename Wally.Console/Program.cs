@@ -1,80 +1,42 @@
 ﻿using System;
-using System.CommandLine;
+using CommandLine;
 using Wally.Core;
 
-public static class WallyCliCommands
+namespace Wally.Console
 {
-    public static Command CreateLoadCommand()
+    public static class Program
     {
-        var loadCommand = new Command("load", "Load a Wally workspace from the specified path.");
-        var loadPathArgument = new Argument<string>("path", "The path to the workspace folder.");
-        loadCommand.AddArgument(loadPathArgument);
-        loadCommand.SetHandler((path) => WallyCommands.HandleLoad(path), loadPathArgument);
-        return loadCommand;
-    }
-
-    public static Command CreateSaveCommand()
-    {
-        var saveCommand = new Command("save", "Save the current Wally environment to the specified path.");
-        var savePathArgument = new Argument<string>("path", "The path to save the workspace.");
-        saveCommand.AddArgument(savePathArgument);
-        saveCommand.SetHandler((path) => WallyCommands.HandleSave(path), savePathArgument);
-        return saveCommand;
-    }
-
-    public static Command CreateCreateCommand()
-    {
-        var createCommand = new Command("create", "Create a new default Wally workspace at the specified path.");
-        var createPathArgument = new Argument<string>("path", "The path for the new workspace.");
-        createCommand.AddArgument(createPathArgument);
-        createCommand.SetHandler((path) => WallyCommands.HandleCreate(path), createPathArgument);
-        return createCommand;
-    }
-
-    public static Command CreateRunCommand()
-    {
-        var runCommand = new Command("run", "Run all agents on the given prompt.");
-        var runPromptArgument = new Argument<string>("prompt", "The prompt to process.");
-        runCommand.AddArgument(runPromptArgument);
-        runCommand.SetHandler((prompt) =>
+        public static int Main(string[] args)
         {
-            var responses = WallyCommands.HandleRun(prompt);
-            foreach (var response in responses)
-            {
-                Console.WriteLine(response);
-            }
-            if (responses.Count == 0)
-            {
-                Console.WriteLine("No responses from agents.");
-            }
-        }, runPromptArgument);
-        return runCommand;
-    }
+            var environment = new WallyEnvironment();
+            WallyCommands.SetEnvironment(environment);
 
-    public static Command CreateListCommand()
-    {
-        var listCommand = new Command("list", "List agents and configuration files.");
-        listCommand.SetHandler(() => WallyCommands.HandleList());
-        return listCommand;
-    }
-}
-
-public static class Program
-{
-    public static int Main(string[] args)
-    {
-        var environment = new WallyEnvironment();
-        WallyCommands.SetEnvironment(environment);
-
-        var rootCommand = new RootCommand("Wally - AI Agent Environment Manager");
-
-        rootCommand.AddCommand(WallyCliCommands.CreateLoadCommand());
-        rootCommand.AddCommand(WallyCliCommands.CreateSaveCommand());
-        rootCommand.AddCommand(WallyCliCommands.CreateCreateCommand());
-        rootCommand.AddCommand(WallyCliCommands.CreateRunCommand());
-        rootCommand.AddCommand(WallyCliCommands.CreateListCommand());
-
-        return rootCommand.Invoke(args);
+            return Parser.Default.ParseArguments<LoadOptions, SaveOptions, CreateOptions, RunOptions, ListOptions, AddFileOptions, LoadConfigOptions, LoadAgentsOptions, EnsureFoldersOptions>(args)
+                .MapResult(
+                    (LoadOptions opts) => { WallyCommands.HandleLoad(opts.Path); return 0; },
+                    (SaveOptions opts) => { WallyCommands.HandleSave(opts.Path); return 0; },
+                    (CreateOptions opts) => { WallyCommands.HandleCreate(opts.Path); return 0; },
+                    (RunOptions opts) =>
+                    {
+                        var responses = WallyCommands.HandleRun(opts.Prompt);
+                        foreach (var response in responses)
+                        {
+                            System.Console.WriteLine(response);
+                        }
+                        if (responses.Count == 0)
+                        {
+                            System.Console.WriteLine("No responses from agents.");
+                        }
+                        return 0;
+                    },
+                    (ListOptions opts) => { WallyCommands.HandleList(); return 0; },
+                    (AddFileOptions opts) => { WallyCommands.HandleAddFile(opts.FilePath); return 0; },
+                    (LoadConfigOptions opts) => { WallyCommands.HandleLoadConfig(opts.JsonPath); return 0; },
+                    (LoadAgentsOptions opts) => { WallyCommands.HandleLoadAgents(opts.JsonPath); return 0; },
+                    (EnsureFoldersOptions opts) => { WallyCommands.HandleEnsureFolders(); return 0; },
+                    errs => 1
+                );
+        }
     }
 }
 

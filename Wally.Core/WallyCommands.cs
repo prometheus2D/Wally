@@ -80,5 +80,48 @@ namespace Wally.Core
                 Console.WriteLine($"- {file}");
             }
         }
+
+        /// <summary>
+        /// Handles the add-file command.
+        /// </summary>
+        /// <param name="filePath">The file path to add.</param>
+        public static void HandleAddFile(string filePath)
+        {
+            if (_environment == null) throw new InvalidOperationException("Environment not set.");
+            _environment.AddFilePath(filePath);
+            Console.WriteLine($"File path added: {filePath}");
+        }
+
+        /// <summary>
+        /// Handles the load-config command.
+        /// </summary>
+        /// <param name="jsonPath">The path to the JSON file.</param>
+        public static void HandleLoadConfig(string jsonPath)
+        {
+            if (_environment == null) throw new InvalidOperationException("Environment not set.");
+            _environment.LoadConfigurationFromJson(jsonPath);
+            Console.WriteLine($"Configuration loaded from {jsonPath}");
+        }
+
+        /// <summary>
+        /// Handles the load-agents command.
+        /// </summary>
+        /// <param name="jsonPath">The path to the JSON file.</param>
+        public static void HandleLoadAgents(string jsonPath)
+        {
+            if (_environment == null) throw new InvalidOperationException("Environment not set.");
+            _environment.LoadDefaultAgents(jsonPath);
+            Console.WriteLine($"Agents loaded from {jsonPath}");
+        }
+
+        /// <summary>
+        /// Handles the ensure-folders command.
+        /// </summary>
+        public static void HandleEnsureFolders()
+        {
+            if (_environment == null) throw new InvalidOperationException("Environment not set.");
+            _environment.EnsureFoldersExist();
+            Console.WriteLine("All required folders ensured to exist.");
+        }
     }
 }
