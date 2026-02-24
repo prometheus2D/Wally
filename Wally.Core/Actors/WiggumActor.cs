@@ -1,19 +1,19 @@
-using Wally.Core.Agents.RBA;
+using Wally.Core.RBA;
 
-namespace Wally.Core.Agents
+namespace Wally.Core.Actors
 {
     /// <summary>
-    /// A simple custom Wiggum agent for roleplaying and responding.
+    /// A simple custom Wiggum Actor for roleplaying and responding.
     /// </summary>
-    public class WiggumAgent : Agent
+    public class WiggumActor : Actor
     {
         /// <summary>
-        /// Initializes a new instance of the WiggumAgent class.
+        /// Initializes a new instance of the WiggumActor class.
         /// </summary>
         /// <param name="role">The role.</param>
         /// <param name="acceptanceCriteria">The acceptance criteria.</param>
         /// <param name="intent">The intent.</param>
-        public WiggumAgent(Role role, AcceptanceCriteria acceptanceCriteria, Intent intent)
+        public WiggumActor(Role role, AcceptanceCriteria acceptanceCriteria, Intent intent)
             : base(role, acceptanceCriteria, intent)
         {
         }

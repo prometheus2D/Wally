@@ -1,11 +1,11 @@
 # Wally.Instance
 
-This project contains core structures for the Wally AI agent system.
+This project contains core structures for the Wally AI Actor system.
 
 ## Classes and Responsibilities
 
 ### WallyInstance
-- **Purpose**: Main entry point or container for the Wally instance. Currently empty, intended for future expansion to manage overall AI agent lifecycle.
+- **Purpose**: Main entry point or container for the Wally instance. Currently empty, intended for future expansion to manage overall AI Actor lifecycle.
 
 ### Role
 - **Purpose**: Defines a role to be roleplayed by an AI, based on human-provided prompts.
@@ -29,39 +29,39 @@ This project contains core structures for the Wally AI agent system.
   - Implement the `PerformRole` method to handle roleplaying logic using LLMs.
   - Examples of concrete implementations: WiggumBrain, AutopilotBrain, LoopingAIBrain.
 
-### Agent
-- **Purpose**: Abstract base class for comprehensive agents that act on environments, taking roles, acceptance criteria, intents, and prompts to perform actions like code changes or text responses.
+### Actor
+- **Purpose**: Abstract base class for comprehensive Actors that act on environments, taking roles, acceptance criteria, intents, and prompts to perform actions like code changes or text responses.
 - **Properties**:
   - `Role`: The associated role.
   - `AcceptanceCriteria`: The acceptance criteria.
   - `Intent`: The intent.
 - **Responsibilities**:
   - Implement the `Act` method to process prompts and act accordingly.
-  - Concrete implementations: CopilotAutopilotAgent, WiggumAgent, WallyAgent.
+  - Concrete implementations: CopilotAutopilotActor, WiggumActor, WallyActor.
 
-### CopilotAutopilotAgent
+### CopilotAutopilotActor
 - **Purpose**: Simulates GitHub Copilot's autopilot mode for automatic code suggestions and changes.
 - **Responsibilities**: Processes prompts to activate autopilot for code modifications.
 
-### WiggumAgent
-- **Purpose**: A simple custom agent for roleplaying responses in a fun, Wiggum-inspired style.
+### WiggumActor
+- **Purpose**: A simple custom Actor for roleplaying responses in a fun, Wiggum-inspired style.
 - **Responsibilities**: Provides text responses based on role, intent, and criteria.
 
-### WallyAgent
-- **Purpose**: A custom agent that fully integrates RBA components for comprehensive actions.
+### WallyActor
+- **Purpose**: A custom Actor that fully integrates RBA components for comprehensive actions.
 - **Responsibilities**: Combines all prompts to make decisions on code changes or responses.
 
 ### WallyEnvironment
-- **Purpose**: Manages a collection of agents in the Wally system.
+- **Purpose**: Manages a collection of Actors in the Wally system.
 - **Properties**:
-  - `Agents`: A list of agents.
+  - `Actors`: A list of Actors.
 - **Responsibilities**:
-  - Add agents to the environment.
-  - Run all agents on a prompt and collect responses.
-  - Retrieve agents by type.
+  - Add Actors to the environment.
+  - Run all Actors on a prompt and collect responses.
+  - Retrieve Actors by type.
 
 ## RBA Namespace (Wally.Instance.RBA)
 Contains simplified classes for Role, AcceptanceCriteria, and Intent, each with `Name` and `Prompt` properties.
 
-## Agents\RBA Namespace (Wally.Instance.Agents.RBA)
+## Actors\RBA Namespace (Wally.Instance.Actors.RBA)
 Updated location for RBA classes with constructors.

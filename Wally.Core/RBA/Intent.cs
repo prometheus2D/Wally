@@ -1,4 +1,4 @@
-namespace Wally.Core.Agents.RBA
+namespace Wally.Core.RBA
 {
     public class Intent
     {

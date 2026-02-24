@@ -1,7 +1,10 @@
 ﻿using System;
+using System.Linq;
+using System.Reflection;
 using CommandLine;
 using Wally.Console.Options;
 using Wally.Core;
+using Wally.Default.Options;
 
 namespace Wally.Console
 {
@@ -12,34 +15,44 @@ namespace Wally.Console
             var environment = new WallyEnvironment();
             WallyCommands.SetEnvironment(environment);
 
-            return Parser.Default.ParseArguments<LoadOptions, SaveOptions, CreateOptions, RunOptions, ListOptions, AddFileOptions, LoadConfigOptions, LoadAgentsOptions, EnsureFoldersOptions, SetupOptions, InfoOptions, HelpOptions>(args)
-                .MapResult(
-                    (LoadOptions opts) => { WallyCommands.HandleLoad(opts.Path); return 0; },
-                    (SaveOptions opts) => { WallyCommands.HandleSave(opts.Path); return 0; },
-                    (CreateOptions opts) => { WallyCommands.HandleCreate(opts.Path); return 0; },
-                    (RunOptions opts) =>
+            var defaultAssembly = typeof(CreateTodoOptions).Assembly;
+            var assemblies = new[] { Assembly.GetExecutingAssembly(), typeof(WallyEnvironment).Assembly, defaultAssembly };
+            var types = assemblies.SelectMany(a => a.GetTypes()).Where(t => t.GetCustomAttribute<VerbAttribute>() != null).ToArray();
+
+            var result = Parser.Default.ParseArguments(args, types);
+            return result.MapResult(
+                (opts) =>
+                {
+                    if (opts is LoadOptions lo) { WallyCommands.HandleLoad(lo.Path); return 0; }
+                    if (opts is SaveOptions so) { WallyCommands.HandleSave(so.Path); return 0; }
+                    if (opts is CreateOptions co) { WallyCommands.HandleCreate(co.Path); return 0; }
+                    if (opts is RunOptions ro)
                     {
-                        var responses = WallyCommands.HandleRun(opts.Prompt);
+                        var responses = WallyCommands.HandleRun(ro.Prompt);
                         foreach (var response in responses)
                         {
                             System.Console.WriteLine(response);
                         }
                         if (responses.Count == 0)
                         {
-                            System.Console.WriteLine("No responses from agents.");
+                            System.Console.WriteLine("No responses from Actors.");
                         }
                         return 0;
-                    },
-                    (ListOptions opts) => { WallyCommands.HandleList(); return 0; },
-                    (AddFileOptions opts) => { WallyCommands.HandleAddFile(opts.FilePath); return 0; },
-                    (LoadConfigOptions opts) => { WallyCommands.HandleLoadConfig(opts.JsonPath); return 0; },
-                    (LoadAgentsOptions opts) => { WallyCommands.HandleLoadAgents(opts.JsonPath); return 0; },
-                    (EnsureFoldersOptions opts) => { WallyCommands.HandleEnsureFolders(); return 0; },
-                    (SetupOptions opts) => { WallyCommands.HandleSetup(); return 0; },
-                    (InfoOptions opts) => { WallyCommands.HandleInfo(); return 0; },
-                    (HelpOptions opts) => { WallyCommands.HandleHelp(); return 0; },
-                    errs => 1
-                );
+                    }
+                    if (opts is ListOptions) { WallyCommands.HandleList(); return 0; }
+                    if (opts is AddFileOptions afo) { WallyCommands.HandleAddFile(afo.FilePath); return 0; }
+                    if (opts is LoadConfigOptions lco) { WallyCommands.HandleLoadConfig(lco.JsonPath); return 0; }
+                    if (opts is LoadActorsOptions lao) { WallyCommands.HandleLoadActors(lao.JsonPath); return 0; }
+                    if (opts is EnsureFoldersOptions) { WallyCommands.HandleEnsureFolders(); return 0; }
+                    if (opts is SetupOptions) { WallyCommands.HandleSetup(); return 0; }
+                    if (opts is InfoOptions) { WallyCommands.HandleInfo(); return 0; }
+                    if (opts is HelpOptions) { WallyCommands.HandleHelp(); return 0; }
+                    if (opts is CreateTodoOptions cto) { WallyCommands.HandleCreateTodo(cto.Path); return 0; }
+                    if (opts is CreateWeatherOptions cwo) { WallyCommands.HandleCreateWeather(cwo.Path); return 0; }
+                    return 0;
+                },
+                errs => 1
+            );
         }
     }
 }

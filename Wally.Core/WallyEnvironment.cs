@@ -4,13 +4,13 @@ using System.IO;
 using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using Wally.Core.Agents;
-using Wally.Core.Agents.RBA;
+using Wally.Core.Actors;
+using Wally.Core.Actors.RBA;
 
 namespace Wally.Core
 {
     /// <summary>
-    /// Represents the Wally environment that manages a collection of agents.
+    /// Represents the Wally environment that manages a collection of Actors.
     /// </summary>
     public class WallyEnvironment
     {
@@ -40,10 +40,15 @@ namespace Wally.Core
         public string CompletedDocumentationFolder { get; set; }
 
         /// <summary>
-        /// The list of agents in the environment.
+        /// The path to the code directory where code changes occur.
+        /// </summary>
+        public string CodeDirectory { get; set; }
+
+        /// <summary>
+        /// The list of Actors in the environment.
         /// </summary>
         [JsonIgnore]
-        public List<Agent> Agents { get; set; } = new List<Agent>();
+        public List<Actor> Actors { get; set; } = new List<Actor>();
 
         /// <summary>
         /// Adds a file path to the configuration.
@@ -98,52 +103,52 @@ namespace Wally.Core
         }
 
         /// <summary>
-        /// Adds an agent to the environment.
+        /// Adds an Actor to the environment.
         /// </summary>
-        /// <param name="agent">The agent to add.</param>
-        public void AddAgent(Agent agent)
+        /// <param name="Actor">The Actor to add.</param>
+        public void AddActor(Actor Actor)
         {
-            Agents.Add(agent);
+            Actors.Add(Actor);
         }
 
         /// <summary>
-        /// Runs all agents on the given prompt and collects responses.
+        /// Runs all Actors on the given prompt and collects responses.
         /// </summary>
         /// <param name="prompt">The input prompt.</param>
-        /// <returns>A list of responses from agents that returned text.</returns>
-        public List<string> RunAgents(string prompt)
+        /// <returns>A list of responses from Actors that returned text.</returns>
+        public List<string> RunActors(string prompt)
         {
             var responses = new List<string>();
-            foreach (var agent in Agents)
+            foreach (var Actor in Actors)
             {
-                string response = agent.Act(prompt);
+                string response = Actor.Act(prompt);
                 if (response != null)
                 {
-                    responses.Add($"{agent.GetType().Name}: {response}");
+                    responses.Add($"{Actor.GetType().Name}: {response}");
                 }
             }
             return responses;
         }
 
         /// <summary>
-        /// Gets an agent by type.
+        /// Gets an Actor by type.
         /// </summary>
-        /// <typeparam name="T">The type of agent.</typeparam>
-        /// <returns>The first agent of the specified type, or null.</returns>
-        public T GetAgent<T>() where T : Agent
+        /// <typeparam name="T">The type of Actor.</typeparam>
+        /// <returns>The first Actor of the specified type, or null.</returns>
+        public T GetActor<T>() where T : Actor
         {
-            return Agents.Find(a => a is T) as T;
+            return Actors.Find(a => a is T) as T;
         }
 
         /// <summary>
-        /// Loads default agents from a JSON file and adds them to the environment.
-        /// Creates WallyAgent instances for each combination of Role, AcceptanceCriteria, and Intent.
+        /// Loads default Actors from a JSON file and adds them to the environment.
+        /// Creates WallyActor instances for each combination of Role, AcceptanceCriteria, and Intent.
         /// </summary>
         /// <param name="jsonPath">The path to the JSON file.</param>
-        public void LoadDefaultAgents(string jsonPath)
+        public void LoadDefaultActors(string jsonPath)
         {
             string json = File.ReadAllText(jsonPath);
-            var data = JsonSerializer.Deserialize<DefaultAgentsData>(json);
+            var data = JsonSerializer.Deserialize<DefaultActorsData>(json);
             if (data != null)
             {
                 foreach (var role in data.Roles)
@@ -152,8 +157,8 @@ namespace Wally.Core
                     {
                         foreach (var intent in data.Intents)
                         {
-                            var agent = new WallyAgent(role, criteria, intent);
-                            AddAgent(agent);
+                            var Actor = new WallyActor(role, criteria, intent);
+                            AddActor(Actor);
                         }
                     }
                 }
@@ -162,7 +167,7 @@ namespace Wally.Core
 
         /// <summary>
         /// Loads the entire Wally environment from a workspace folder.
-        /// Sets the top file path, loads default configuration and agents from Wally.Default, and scans for relevant files.
+        /// Sets the top file path, loads default configuration and Actors from Wally.Default, and scans for relevant files.
         /// </summary>
         /// <param name="workspacePath">The path to the workspace folder.</param>
         public void LoadFromWorkspace(string workspacePath)
@@ -185,11 +190,11 @@ namespace Wally.Core
                 LoadConfigurationFromJson(configPath);
             }
 
-            // Load default agents if exists
-            string agentsPath = Path.Combine(workspacePath, "Wally.Default", "default-agents.json");
-            if (File.Exists(agentsPath))
+            // Load default Actors if exists
+            string ActorsPath = Path.Combine(workspacePath, "Wally.Default", "default-Actors.json");
+            if (File.Exists(ActorsPath))
             {
-                LoadDefaultAgents(agentsPath);
+                LoadDefaultActors(ActorsPath);
             }
 
             // Scan for .cs files in the workspace and add to file paths
@@ -218,7 +223,7 @@ namespace Wally.Core
             string configJson = JsonSerializer.Serialize(this, new JsonSerializerOptions { WriteIndented = true });
             File.WriteAllText(configPath, configJson);
 
-            // Note: Agents are typically loaded from defaults, so not saved here. Custom agents could be added later.
+            // Note: Actors are typically loaded from defaults, so not saved here. Custom Actors could be added later.
         }
 
         /// <summary>
@@ -239,9 +244,9 @@ namespace Wally.Core
 }";
             File.WriteAllText(configPath, defaultConfig);
 
-            // Create default agents JSON
-            string agentsPath = Path.Combine(defaultDir, "default-agents.json");
-            string defaultAgents = @"{
+            // Create default Actors JSON
+            string ActorsPath = Path.Combine(defaultDir, "default-Actors.json");
+            string defaultActors = @"{
   ""Roles"": [
     {
       ""Name"": ""Developer"",
@@ -279,7 +284,7 @@ namespace Wally.Core
     }
   ]
 }";
-            File.WriteAllText(agentsPath, defaultAgents);
+            File.WriteAllText(ActorsPath, defaultActors);
 
             // Create basic project structure
             Directory.CreateDirectory(Path.Combine(newWorkspacePath, "Wally.Console"));
@@ -304,6 +309,50 @@ namespace Wally.Core
             string workspacePath = Directory.GetCurrentDirectory();
             env.LoadFromWorkspace(workspacePath);
             return env;
+        }
+
+        /// <summary>
+        /// Copies a directory recursively.
+        /// </summary>
+        /// <param name="sourceDir">The source directory.</param>
+        /// <param name="destDir">The destination directory.</param>
+        private static void CopyDirectory(string sourceDir, string destDir)
+        {
+            Directory.CreateDirectory(destDir);
+            foreach (string file in Directory.GetFiles(sourceDir))
+            {
+                string destFile = Path.Combine(destDir, Path.GetFileName(file));
+                File.Copy(file, destFile, true);
+            }
+            foreach (string subDir in Directory.GetDirectories(sourceDir))
+            {
+                string destSubDir = Path.Combine(destDir, Path.GetFileName(subDir));
+                CopyDirectory(subDir, destSubDir);
+            }
+        }
+
+        /// <summary>
+        /// Creates a Todo app by copying the default TodoApp to the specified path.
+        /// </summary>
+        /// <param name="targetPath">The path where to create the Todo app.</param>
+        public void CreateTodoApp(string targetPath)
+        {
+            string sourcePath = Path.Combine(Directory.GetCurrentDirectory(), "Wally.Default", "TodoApp");
+            CopyDirectory(sourcePath, targetPath);
+            CodeDirectory = targetPath;
+            Console.WriteLine($"Todo app created at {targetPath}.");
+        }
+
+        /// <summary>
+        /// Creates a Weather app by copying the default WeatherApp to the specified path.
+        /// </summary>
+        /// <param name="targetPath">The path where to create the Weather app.</param>
+        public void CreateWeatherApp(string targetPath)
+        {
+            string sourcePath = Path.Combine(Directory.GetCurrentDirectory(), "Wally.Default", "WeatherApp");
+            CopyDirectory(sourcePath, targetPath);
+            CodeDirectory = targetPath;
+            Console.WriteLine($"Weather app created at {targetPath}.");
         }
     }
 }

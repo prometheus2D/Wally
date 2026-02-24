@@ -1,17 +1,17 @@
-namespace Wally.Core.Agents.RBA
+namespace Wally.Core.RBA
 {
     /// <summary>
-    /// Represents a role to be roleplayed by an AI, with core prompts provided by a human.
+    /// Represents the acceptance criteria for evaluating the success of a roleplay.
     /// </summary>
-    public class Role
+    public class AcceptanceCriteria
     {
         /// <summary>
-        /// The role to play, e.g., "detective", "teacher".
+        /// The name of the criteria.
         /// </summary>
         public string Name { get; set; }
 
         /// <summary>
-        /// The intent or goal of the role.
+        /// The prompt associated with the criteria.
         /// </summary>
         public string Prompt { get; set; }
 
@@ -21,12 +21,12 @@ namespace Wally.Core.Agents.RBA
         public string Tier { get; set; }
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="Role"/> class.
+        /// Initializes a new instance of the AcceptanceCriteria class.
         /// </summary>
-        /// <param name="name">The name of the role.</param>
-        /// <param name="prompt">The prompt or goal of the role.</param>
+        /// <param name="name">The name.</param>
+        /// <param name="prompt">The prompt.</param>
         /// <param name="tier">The tier (optional).</param>
-        public Role(string name, string prompt, string tier = null)
+        public AcceptanceCriteria(string name, string prompt, string tier = null)
         {
             Name = name;
             Prompt = prompt;

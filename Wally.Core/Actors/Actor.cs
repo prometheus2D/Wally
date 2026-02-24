@@ -1,35 +1,35 @@
-using Wally.Core.Agents.RBA;
+using Wally.Core.RBA;
 
-namespace Wally.Core.Agents
+namespace Wally.Core.Actors
 {
     /// <summary>
-    /// Abstract base class for Wally agents that can act on an environment based on roles, acceptance criteria, intents, and prompts.
-    /// Agents can make code changes or respond with text, similar to a Copilot agent.
+    /// Abstract base class for Wally Actors that can act on an environment based on roles, acceptance criteria, intents, and prompts.
+    /// Actors can make code changes or respond with text, similar to a Copilot Actor.
     /// </summary>
-    public abstract class Agent
+    public abstract class Actor
     {
         /// <summary>
-        /// The role for this agent.
+        /// The role for this Actor.
         /// </summary>
         public Role Role { get; set; }
 
         /// <summary>
-        /// The acceptance criteria for this agent.
+        /// The acceptance criteria for this Actor.
         /// </summary>
         public AcceptanceCriteria AcceptanceCriteria { get; set; }
 
         /// <summary>
-        /// The intent for this agent.
+        /// The intent for this Actor.
         /// </summary>
         public Intent Intent { get; set; }
 
         /// <summary>
-        /// Initializes a new instance of the Agent class.
+        /// Initializes a new instance of the Actor class.
         /// </summary>
         /// <param name="role">The role.</param>
         /// <param name="acceptanceCriteria">The acceptance criteria.</param>
         /// <param name="intent">The intent.</param>
-        protected Agent(Role role, AcceptanceCriteria acceptanceCriteria, Intent intent)
+        protected Actor(Role role, AcceptanceCriteria acceptanceCriteria, Intent intent)
         {
             Role = role;
             AcceptanceCriteria = acceptanceCriteria;
@@ -37,7 +37,7 @@ namespace Wally.Core.Agents
         }
 
         /// <summary>
-        /// Sets up the agent with necessary configurations.
+        /// Sets up the Actor with necessary configurations.
         /// </summary>
         public virtual void Setup() { }
 

@@ -1,20 +1,20 @@
 using System;
-using Wally.Core.Agents.RBA;
+using Wally.Core.RBA;
 
-namespace Wally.Core.Agents
+namespace Wally.Core.Actors
 {
     /// <summary>
-    /// A Copilot autopilot agent that acts like GitHub Copilot's autopilot mode.
+    /// A Copilot autopilot Actor that acts like GitHub Copilot's autopilot mode.
     /// </summary>
-    public class CopilotAutopilotAgent : Agent
+    public class CopilotAutopilotActor : Actor
     {
         /// <summary>
-        /// Initializes a new instance of the CopilotAutopilotAgent class.
+        /// Initializes a new instance of the CopilotAutopilotActor class.
         /// </summary>
         /// <param name="role">The role.</param>
         /// <param name="acceptanceCriteria">The acceptance criteria.</param>
         /// <param name="intent">The intent.</param>
-        public CopilotAutopilotAgent(Role role, AcceptanceCriteria acceptanceCriteria, Intent intent)
+        public CopilotAutopilotActor(Role role, AcceptanceCriteria acceptanceCriteria, Intent intent)
             : base(role, acceptanceCriteria, intent)
         {
         }

@@ -1,12 +1,12 @@
 using System.Collections.Generic;
-using Wally.Core.Agents.RBA;
+using Wally.Core.RBA;
 
 namespace Wally.Core
 {
     /// <summary>
-    /// Represents the default data for agents loaded from JSON.
+    /// Represents the default data for Actors loaded from JSON.
     /// </summary>
-    public class DefaultAgentsData
+    public class DefaultActorsData
     {
         /// <summary>
         /// List of default roles.

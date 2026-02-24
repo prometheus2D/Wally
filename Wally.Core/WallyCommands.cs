@@ -60,7 +60,7 @@ namespace Wally.Core
         public static List<string> HandleRun(string prompt)
         {
             if (_environment == null) throw new InvalidOperationException("Environment not set.");
-            return _environment.RunAgents(prompt);
+            return _environment.RunActors(prompt);
         }
 
         /// <summary>
@@ -69,10 +69,10 @@ namespace Wally.Core
         public static void HandleList()
         {
             if (_environment == null) throw new InvalidOperationException("Environment not set.");
-            Console.WriteLine("Agents:");
-            foreach (var agent in _environment.Agents)
+            Console.WriteLine("Actors:");
+            foreach (var Actor in _environment.Actors)
             {
-                Console.WriteLine($"- {agent.GetType().Name}: Role '{agent.Role.Name}', Intent '{agent.Intent.Name}'");
+                Console.WriteLine($"- {Actor.GetType().Name}: Role '{Actor.Role.Name}', Intent '{Actor.Intent.Name}'");
             }
             Console.WriteLine("Configuration Files:");
             foreach (var file in _environment.FilePaths)
@@ -104,14 +104,14 @@ namespace Wally.Core
         }
 
         /// <summary>
-        /// Handles the load-agents command.
+        /// Handles the load-Actors command.
         /// </summary>
         /// <param name="jsonPath">The path to the JSON file.</param>
-        public static void HandleLoadAgents(string jsonPath)
+        public static void HandleLoadActors(string jsonPath)
         {
             if (_environment == null) throw new InvalidOperationException("Environment not set.");
-            _environment.LoadDefaultAgents(jsonPath);
-            Console.WriteLine($"Agents loaded from {jsonPath}");
+            _environment.LoadDefaultActors(jsonPath);
+            Console.WriteLine($"Actors loaded from {jsonPath}");
         }
 
         /// <summary>
@@ -148,7 +148,8 @@ namespace Wally.Core
             Console.WriteLine($"Documentation Folder: {_environment.DocumentationFolder ?? "N/A"}");
             Console.WriteLine($"Working Folder: {_environment.WorkingFolder ?? "N/A"}");
             Console.WriteLine($"Completed Documentation Folder: {_environment.CompletedDocumentationFolder ?? "N/A"}");
-            Console.WriteLine($"Agents Loaded: {_environment.Agents.Count}");
+            Console.WriteLine($"Code Directory: {_environment.CodeDirectory ?? "N/A"}");
+            Console.WriteLine($"Actors Loaded: {_environment.Actors.Count}");
             Console.WriteLine($"Files Tracked: {_environment.FilePaths.Count}");
         }
 
@@ -157,24 +158,45 @@ namespace Wally.Core
         /// </summary>
         public static void HandleHelp()
         {
-            Console.WriteLine("Wally - AI Agent Environment Manager");
+            Console.WriteLine("Wally - AI Actor Environment Manager");
             Console.WriteLine("=====================================");
             Console.WriteLine();
             Console.WriteLine("Available Commands:");
             Console.WriteLine("  load <path>       - Load a Wally workspace from the specified path.");
             Console.WriteLine("  save <path>       - Save the current Wally environment to the specified path.");
             Console.WriteLine("  create <path>     - Create a new default Wally workspace at the specified path.");
-            Console.WriteLine("  run <prompt>      - Run all agents on the given prompt.");
-            Console.WriteLine("  list              - List agents and configuration files.");
+            Console.WriteLine("  run <prompt>      - Run all Actors on the given prompt.");
+            Console.WriteLine("  list              - List Actors and configuration files.");
             Console.WriteLine("  add-file <path>   - Add a file path to the Wally environment.");
             Console.WriteLine("  load-config <path>- Load configuration from a JSON file.");
-            Console.WriteLine("  load-agents <path>- Load default agents from a JSON file.");
+            Console.WriteLine("  load-Actors <path>- Load default Actors from a JSON file.");
             Console.WriteLine("  ensure-folders    - Ensure all required folders exist in the workspace.");
             Console.WriteLine("  setup             - Set up a Wally workspace in the current directory.");
             Console.WriteLine("  info              - Display information about the current Wally workspace.");
-            Console.WriteLine("  help              - Display this help message and workspace info.");
+            Console.WriteLine("  create-todo <path>- Create a Todo app at the specified path.");
+            Console.WriteLine("  create-weather <path> - Create a Weather app at the specified path.");
+            Console.WriteLine("  help              - Display this help message.");
             Console.WriteLine();
-            HandleInfo(); // Also show current workspace info
+        }
+
+        /// <summary>
+        /// Handles the create-todo command.
+        /// </summary>
+        /// <param name="path">The path to create the Todo app.</param>
+        public static void HandleCreateTodo(string path)
+        {
+            if (_environment == null) throw new InvalidOperationException("Environment not set.");
+            _environment.CreateTodoApp(path);
+        }
+
+        /// <summary>
+        /// Handles the create-weather command.
+        /// </summary>
+        /// <param name="path">The path to create the Weather app.</param>
+        public static void HandleCreateWeather(string path)
+        {
+            if (_environment == null) throw new InvalidOperationException("Environment not set.");
+            _environment.CreateWeatherApp(path);
         }
     }
 }

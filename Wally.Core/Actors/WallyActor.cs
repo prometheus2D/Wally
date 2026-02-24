@@ -1,20 +1,20 @@
 using System.Diagnostics;
-using Wally.Core.Agents.RBA;
+using Wally.Core.RBA;
 
-namespace Wally.Core.Agents
+namespace Wally.Core.Actors
 {
     /// <summary>
-    /// A custom Wally agent that integrates all components for comprehensive action.
+    /// A custom Wally Actor that integrates all components for comprehensive action.
     /// </summary>
-    public class WallyAgent : Agent
+    public class WallyActor : Actor
     {
         /// <summary>
-        /// Initializes a new instance of the WallyAgent class.
+        /// Initializes a new instance of the WallyActor class.
         /// </summary>
         /// <param name="role">The role.</param>
         /// <param name="acceptanceCriteria">The acceptance criteria.</param>
         /// <param name="intent">The intent.</param>
-        public WallyAgent(Role role, AcceptanceCriteria acceptanceCriteria, Intent intent)
+        public WallyActor(Role role, AcceptanceCriteria acceptanceCriteria, Intent intent)
             : base(role, acceptanceCriteria, intent)
         {
         }
