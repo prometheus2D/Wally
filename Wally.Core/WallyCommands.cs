@@ -123,5 +123,58 @@ namespace Wally.Core
             _environment.EnsureFoldersExist();
             Console.WriteLine("All required folders ensured to exist.");
         }
+
+        /// <summary>
+        /// Handles the setup command.
+        /// </summary>
+        public static void HandleSetup()
+        {
+            string currentDir = Directory.GetCurrentDirectory();
+            WallyEnvironment.CreateDefaultWorkspace(currentDir);
+            Console.WriteLine($"Wally workspace set up in {currentDir}.");
+        }
+
+        /// <summary>
+        /// Handles the info command.
+        /// </summary>
+        public static void HandleInfo()
+        {
+            if (_environment == null)
+            {
+                Console.WriteLine("No Wally environment set.");
+                return;
+            }
+            Console.WriteLine($"Current Workspace: {_environment.TopFilePath ?? "Not loaded"}");
+            Console.WriteLine($"Documentation Folder: {_environment.DocumentationFolder ?? "N/A"}");
+            Console.WriteLine($"Working Folder: {_environment.WorkingFolder ?? "N/A"}");
+            Console.WriteLine($"Completed Documentation Folder: {_environment.CompletedDocumentationFolder ?? "N/A"}");
+            Console.WriteLine($"Agents Loaded: {_environment.Agents.Count}");
+            Console.WriteLine($"Files Tracked: {_environment.FilePaths.Count}");
+        }
+
+        /// <summary>
+        /// Handles the help command.
+        /// </summary>
+        public static void HandleHelp()
+        {
+            Console.WriteLine("Wally - AI Agent Environment Manager");
+            Console.WriteLine("=====================================");
+            Console.WriteLine();
+            Console.WriteLine("Available Commands:");
+            Console.WriteLine("  load <path>       - Load a Wally workspace from the specified path.");
+            Console.WriteLine("  save <path>       - Save the current Wally environment to the specified path.");
+            Console.WriteLine("  create <path>     - Create a new default Wally workspace at the specified path.");
+            Console.WriteLine("  run <prompt>      - Run all agents on the given prompt.");
+            Console.WriteLine("  list              - List agents and configuration files.");
+            Console.WriteLine("  add-file <path>   - Add a file path to the Wally environment.");
+            Console.WriteLine("  load-config <path>- Load configuration from a JSON file.");
+            Console.WriteLine("  load-agents <path>- Load default agents from a JSON file.");
+            Console.WriteLine("  ensure-folders    - Ensure all required folders exist in the workspace.");
+            Console.WriteLine("  setup             - Set up a Wally workspace in the current directory.");
+            Console.WriteLine("  info              - Display information about the current Wally workspace.");
+            Console.WriteLine("  help              - Display this help message and workspace info.");
+            Console.WriteLine();
+            HandleInfo(); // Also show current workspace info
+        }
     }
 }

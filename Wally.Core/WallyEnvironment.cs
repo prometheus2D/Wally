@@ -227,25 +227,59 @@ namespace Wally.Core
         /// <param name="newWorkspacePath">The path for the new workspace.</param>
         public static void CreateDefaultWorkspace(string newWorkspacePath)
         {
-            // Assume default files are in the current assembly's directory or a known path
-            // For simplicity, copy from a template. Here, we'll create basic structure.
-            // In a real scenario, you'd copy from Wally.Default project output or embedded resources.
-
+            // Create Wally.Default directory
             string defaultDir = Path.Combine(newWorkspacePath, "Wally.Default");
             Directory.CreateDirectory(defaultDir);
 
-            // Copy default JSON files (assuming they exist in the default location)
-            string sourceConfig = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Wally.Default", "default-configuration.json");
-            string sourceAgents = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Wally.Default", "default-agents.json");
+            // Create default configuration JSON
+            string configPath = Path.Combine(defaultDir, "default-configuration.json");
+            string defaultConfig = @"{
+  ""TopFilePath"": """",
+  ""FilePaths"": []
+}";
+            File.WriteAllText(configPath, defaultConfig);
 
-            if (File.Exists(sourceConfig))
-            {
-                File.Copy(sourceConfig, Path.Combine(defaultDir, "default-configuration.json"), true);
-            }
-            if (File.Exists(sourceAgents))
-            {
-                File.Copy(sourceAgents, Path.Combine(defaultDir, "default-agents.json"), true);
-            }
+            // Create default agents JSON
+            string agentsPath = Path.Combine(defaultDir, "default-agents.json");
+            string defaultAgents = @"{
+  ""Roles"": [
+    {
+      ""Name"": ""Developer"",
+      ""Prompt"": ""Act as an expert software developer, writing clean and efficient code."",
+      ""Tier"": ""task""
+    },
+    {
+      ""Name"": ""Tester"",
+      ""Prompt"": ""Act as a QA tester, identifying bugs and ensuring functionality."",
+      ""Tier"": ""task""
+    }
+  ],
+  ""AcceptanceCriterias"": [
+    {
+      ""Name"": ""CodeQuality"",
+      ""Prompt"": ""Code must compile without errors, follow best practices, and pass unit tests."",
+      ""Tier"": ""task""
+    },
+    {
+      ""Name"": ""UserSatisfaction"",
+      ""Prompt"": ""The output must meet user requirements and be user-friendly."",
+      ""Tier"": ""story""
+    }
+  ],
+  ""Intents"": [
+    {
+      ""Name"": ""ImplementFeature"",
+      ""Prompt"": ""Implement the requested feature with proper error handling."",
+      ""Tier"": ""task""
+    },
+    {
+      ""Name"": ""FixBug"",
+      ""Prompt"": ""Identify and fix the reported bug."",
+      ""Tier"": ""task""
+    }
+  ]
+}";
+            File.WriteAllText(agentsPath, defaultAgents);
 
             // Create basic project structure
             Directory.CreateDirectory(Path.Combine(newWorkspacePath, "Wally.Console"));

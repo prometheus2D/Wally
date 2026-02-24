@@ -1,5 +1,6 @@
 ﻿using System;
 using CommandLine;
+using Wally.Console.Options;
 using Wally.Core;
 
 namespace Wally.Console
@@ -11,7 +12,7 @@ namespace Wally.Console
             var environment = new WallyEnvironment();
             WallyCommands.SetEnvironment(environment);
 
-            return Parser.Default.ParseArguments<LoadOptions, SaveOptions, CreateOptions, RunOptions, ListOptions, AddFileOptions, LoadConfigOptions, LoadAgentsOptions, EnsureFoldersOptions>(args)
+            return Parser.Default.ParseArguments<LoadOptions, SaveOptions, CreateOptions, RunOptions, ListOptions, AddFileOptions, LoadConfigOptions, LoadAgentsOptions, EnsureFoldersOptions, SetupOptions, InfoOptions, HelpOptions>(args)
                 .MapResult(
                     (LoadOptions opts) => { WallyCommands.HandleLoad(opts.Path); return 0; },
                     (SaveOptions opts) => { WallyCommands.HandleSave(opts.Path); return 0; },
@@ -34,6 +35,9 @@ namespace Wally.Console
                     (LoadConfigOptions opts) => { WallyCommands.HandleLoadConfig(opts.JsonPath); return 0; },
                     (LoadAgentsOptions opts) => { WallyCommands.HandleLoadAgents(opts.JsonPath); return 0; },
                     (EnsureFoldersOptions opts) => { WallyCommands.HandleEnsureFolders(); return 0; },
+                    (SetupOptions opts) => { WallyCommands.HandleSetup(); return 0; },
+                    (InfoOptions opts) => { WallyCommands.HandleInfo(); return 0; },
+                    (HelpOptions opts) => { WallyCommands.HandleHelp(); return 0; },
                     errs => 1
                 );
         }

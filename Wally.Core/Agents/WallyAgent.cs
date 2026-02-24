@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Wally.Core.Agents.RBA;
 
 namespace Wally.Core.Agents
@@ -19,13 +20,50 @@ namespace Wally.Core.Agents
         }
 
         /// <summary>
-        /// Generates a comprehensive response.
+        /// Generates a comprehensive response using GitHub Copilot CLI.
         /// </summary>
         /// <param name="processedPrompt">The processed prompt.</param>
-        /// <returns>A response string.</returns>
+        /// <returns>A response string from Copilot.</returns>
         public override string Respond(string processedPrompt)
         {
-            return $"Wally Agent: Comprehensive response to '{processedPrompt}' using role prompt '{Role.Prompt}', intent prompt '{Intent.Prompt}', and criteria prompt '{AcceptanceCriteria.Prompt}'. Ready for action!";
+            try
+            {
+                // Construct the full prompt including role, intent, and criteria
+                string fullPrompt = $"Role: {Role.Prompt}\nIntent: {Intent.Prompt}\nAcceptance Criteria: {AcceptanceCriteria.Prompt}\nPrompt: {processedPrompt}";
+
+                // Use GitHub Copilot CLI to explain or suggest based on the prompt
+                // Assuming 'gh copilot explain' can handle general prompts; adjust as needed
+                var process = new Process
+                {
+                    StartInfo = new ProcessStartInfo
+                    {
+                        FileName = "gh",
+                        Arguments = $"copilot explain \"{fullPrompt.Replace("\"", "\\\"")}\"", // Escape quotes
+                        RedirectStandardOutput = true,
+                        RedirectStandardError = true,
+                        UseShellExecute = false,
+                        CreateNoWindow = true
+                    }
+                };
+
+                process.Start();
+                string output = process.StandardOutput.ReadToEnd();
+                string error = process.StandardError.ReadToEnd();
+                process.WaitForExit();
+
+                if (process.ExitCode == 0)
+                {
+                    return $"Copilot Response:\n{output}";
+                }
+                else
+                {
+                    return $"Error from Copilot: {error}";
+                }
+            }
+            catch (Exception ex)
+            {
+                return $"Failed to call Copilot CLI: {ex.Message}";
+            }
         }
     }
 }
