@@ -129,9 +129,14 @@ namespace Wally.Core
         /// </summary>
         public static void HandleSetup()
         {
-            string currentDir = Directory.GetCurrentDirectory();
-            WallyEnvironment.CreateDefaultWorkspace(currentDir);
-            Console.WriteLine($"Wally workspace set up in {currentDir}.");
+            string exeDir = Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location);
+            if (exeDir == null)
+            {
+                exeDir = Directory.GetCurrentDirectory();
+            }
+            string workspaceDir = Path.Combine(exeDir, "WallyWorkspace");
+            WallyEnvironment.CreateDefaultWorkspace(workspaceDir);
+            Console.WriteLine($"Wally workspace set up in {workspaceDir}.");
         }
 
         /// <summary>

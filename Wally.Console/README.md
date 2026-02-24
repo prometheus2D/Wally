@@ -7,7 +7,7 @@ Wally is an AI Actor Environment Manager. It helps you create, manage, and inter
 To get started quickly:
 
 1. Download the latest wally.exe from the releases page.
-2. Run `wally setup` in the directory where you want to create the Wally workspace (e.g., your project's root folder) to create the Wally workspace structure with default prompts and templates.
+2. Run `wally setup` to create the Wally workspace folder in the exe directory with default prompts and templates.
 3. Create a sample project to work with: `wally create-todo ./MyTodoApp`
 
 That's it! Your workspace is ready for AI Actor interactions.
@@ -44,7 +44,7 @@ Wally integrates with AI Actors to provide code assistance similar to GitHub Cop
 In Ask Mode, Wally queries the loaded Actors for suggestions, explanations, or code snippets without modifying your files.
 
 1. Set up your workspace: `wally setup`
-2. Load default Actors: `wally load-Actors Wally.Default/default-Actors.json`
+2. Load the workspace: `wally load WallyWorkspace`
 3. Add files to the environment (optional): `wally add-file <path-to-your-code-file>`
 4. Run a prompt: `wally run "Implement a function to reverse a string"`
 
@@ -57,7 +57,7 @@ In Agent Mode, Wally allows Actors to autonomously apply code changes to your fi
 To use Agent Mode:
 
 1. Set up your workspace as above.
-2. Load Actors that support code changes, such as custom Actors or the CopilotAutopilotActor (if configured).
+2. Load the workspace: `wally load WallyWorkspace`
 3. Run a prompt: `wally run "Add error handling to the login method"`
 
 Actors that decide to make changes will apply them directly to the code files. Note that currently, the default Actors provide suggestions; for autonomous changes, you may need to load or configure Actors like CopilotAutopilotActor that implement `ShouldMakeChanges` to return true.
@@ -87,7 +87,7 @@ After running the app, use these commands to manage your Wally environment.
 - `run <prompt>`: Run all Actors on the given prompt and display their responses. Useful for getting AI suggestions or actions on your code.
 - `list`: List the Actors and files in your workspace. Useful to see what's loaded.
 - `info`: Show details about your workspace setup, like paths and counts. Useful to check your configuration.
-- `help`: Show the list of commands. Use this when you need a reminder of what to type.
+- `commands`: Display the list of commands. Use this when you need a reminder of what to type.
 
 ### Default Projects
 
@@ -102,8 +102,8 @@ After running the app, use these commands to manage your Wally environment.
 ## Example Workflow
 
 1. Set up a new workspace: `wally setup`
-2. Load default Actors: `wally load-Actors Wally.Default/default-Actors.json`
+2. Load the workspace: `wally load WallyWorkspace`
 3. Create a Todo app: `wally create-todo ./MyTodoApp`
 4. Run Actors on a prompt: `wally run "Implement a new feature"`
 
-For more details on each command, use `wally help <command>`.
+For more details on each command, use `wally commands`.

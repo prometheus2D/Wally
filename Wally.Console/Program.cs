@@ -34,7 +34,7 @@ namespace Wally.Console
             var environment = new WallyEnvironment();
             WallyCommands.SetEnvironment(environment);
 
-            System.Console.WriteLine("Wally Interactive Mode. Type 'help' for commands, 'exit' to quit.");
+            System.Console.WriteLine("Wally Interactive Mode. Type 'commands' for commands, 'exit' to quit.");
             while (true)
             {
                 System.Console.Write("wally> ");
@@ -87,7 +87,11 @@ namespace Wally.Console
                     if (opts is EnsureFoldersOptions) { WallyCommands.HandleEnsureFolders(); return 0; }
                     if (opts is SetupOptions) { WallyCommands.HandleSetup(); return 0; }
                     if (opts is InfoOptions) { WallyCommands.HandleInfo(); return 0; }
-                    if (opts is HelpOptions) { WallyCommands.HandleHelp(); return 0; }
+                    if (opts is HelpOptions) 
+                    { 
+                        WallyCommands.HandleHelp(); 
+                        return 0; 
+                    }
                     if (opts is CreateTodoOptions cto) { WallyCommands.HandleCreateTodo(cto.Path); return 0; }
                     if (opts is CreateWeatherOptions cwo) { WallyCommands.HandleCreateWeather(cwo.Path); return 0; }
                     return 0;
@@ -96,7 +100,7 @@ namespace Wally.Console
                 {
                     if (args.Length == 0) // Assuming interactive if called with empty, but wait, no.
                     // Actually, since in interactive we call with interactiveArgs, and for invalid, print here.
-                    System.Console.WriteLine("Invalid command. Type 'help' for available commands.");
+                    System.Console.WriteLine("Invalid command. Type 'commands' for available commands.");
                     return 1;
                 }
             );
