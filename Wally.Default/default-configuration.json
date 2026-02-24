@@ -1,0 +1,8 @@
+{
+  "TopFilePath": "C:\\Users\\rjwal\\source\\repos\\Wally",
+  "FilePaths": [
+    "Wally.Console\\Program.cs",
+    "Wally.Core\\WallyConfiguration.cs",
+    "Wally.Instance\\WallyInstance.cs"
+  ]
+}

@@ -1,0 +1,38 @@
+{
+  "Roles": [
+    {
+      "Name": "Developer",
+      "Prompt": "Act as an expert software developer, writing clean and efficient code.",
+      "Tier": "task"
+    },
+    {
+      "Name": "Tester",
+      "Prompt": "Act as a QA tester, identifying bugs and ensuring functionality.",
+      "Tier": "task"
+    }
+  ],
+  "AcceptanceCriterias": [
+    {
+      "Name": "CodeQuality",
+      "Prompt": "Code must compile without errors, follow best practices, and pass unit tests.",
+      "Tier": "task"
+    },
+    {
+      "Name": "UserSatisfaction",
+      "Prompt": "The output must meet user requirements and be user-friendly.",
+      "Tier": "story"
+    }
+  ],
+  "Intents": [
+    {
+      "Name": "ImplementFeature",
+      "Prompt": "Implement the requested feature with proper error handling.",
+      "Tier": "task"
+    },
+    {
+      "Name": "FixBug",
+      "Prompt": "Identify and fix the reported bug.",
+      "Tier": "task"
+    }
+  ]
+}

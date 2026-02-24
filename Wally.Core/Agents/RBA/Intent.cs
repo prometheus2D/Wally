@@ -5,10 +5,16 @@ namespace Wally.Core.Agents.RBA
         public string Name { get; set; }
         public string Prompt { get; set; }
 
-        public Intent(string name, string prompt)
+        /// <summary>
+        /// The time-length tier: "epoch" (long-term), "story" (medium), "task" (short).
+        /// </summary>
+        public string Tier { get; set; }
+
+        public Intent(string name, string prompt, string tier = null)
         {
             Name = name;
             Prompt = prompt;
+            Tier = tier;
         }
     }
 }

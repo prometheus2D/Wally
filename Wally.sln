@@ -9,6 +9,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Wally.Forms", "Wally.Forms\
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Wally.Core", "Wally.Core\Wally.Core.csproj", "{381277C5-C886-21C3-FA6E-22955282B6B9}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Wally.Default", "Wally.Default\Wally.Default.csproj", "{D55DB8C5-C41D-41A4-B3E0-9CC7D3D3E1FB}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -27,6 +29,10 @@ Global
 		{381277C5-C886-21C3-FA6E-22955282B6B9}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{381277C5-C886-21C3-FA6E-22955282B6B9}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{381277C5-C886-21C3-FA6E-22955282B6B9}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D55DB8C5-C41D-41A4-B3E0-9CC7D3D3E1FB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D55DB8C5-C41D-41A4-B3E0-9CC7D3D3E1FB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D55DB8C5-C41D-41A4-B3E0-9CC7D3D3E1FB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D55DB8C5-C41D-41A4-B3E0-9CC7D3D3E1FB}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

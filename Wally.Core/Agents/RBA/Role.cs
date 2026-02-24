@@ -16,14 +16,21 @@ namespace Wally.Core.Agents.RBA
         public string Prompt { get; set; }
 
         /// <summary>
+        /// The time-length tier: "epoch" (long-term), "story" (medium), "task" (short).
+        /// </summary>
+        public string Tier { get; set; }
+
+        /// <summary>
         /// Initializes a new instance of the <see cref="Role"/> class.
         /// </summary>
         /// <param name="name">The name of the role.</param>
         /// <param name="prompt">The prompt or goal of the role.</param>
-        public Role(string name, string prompt)
+        /// <param name="tier">The tier (optional).</param>
+        public Role(string name, string prompt, string tier = null)
         {
             Name = name;
             Prompt = prompt;
+            Tier = tier;
         }
     }
 }
