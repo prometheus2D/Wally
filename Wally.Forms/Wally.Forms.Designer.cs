@@ -1,6 +1,6 @@
 ﻿namespace Wally.Forms
 {
-    partial class Form1
+    partial class WallyForms
     {
         /// <summary>
         ///  Required designer variable.
