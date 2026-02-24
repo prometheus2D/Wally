@@ -4,5 +4,11 @@ namespace Wally.Instance.RBA
     {
         public string Name { get; set; }
         public string Prompt { get; set; }
+
+        public Intent(string name, string prompt)
+        {
+            Name = name;
+            Prompt = prompt;
+        }
     }
 }

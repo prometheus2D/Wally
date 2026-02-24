@@ -14,5 +14,16 @@ namespace Wally.Instance.RBA
         /// The intent or goal of the role.
         /// </summary>
         public string Prompt { get; set; }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="Role"/> class.
+        /// </summary>
+        /// <param name="name">The name of the role.</param>
+        /// <param name="prompt">The prompt or goal of the role.</param>
+        public Role(string name, string prompt)
+        {
+            Name = name;
+            Prompt = prompt;
+        }
     }
 }

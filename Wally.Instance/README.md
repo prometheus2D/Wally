@@ -28,3 +28,28 @@ This project contains core structures for the Wally AI agent system.
 - **Responsibilities**:
   - Implement the `PerformRole` method to handle roleplaying logic using LLMs.
   - Examples of concrete implementations: WiggumBrain, AutopilotBrain, LoopingAIBrain.
+
+### Agent
+- **Purpose**: Abstract base class for comprehensive agents that act on environments, taking roles, acceptance criteria, intents, and prompts to perform actions like code changes or text responses.
+- **Properties**:
+  - `Role`: The associated role.
+  - `AcceptanceCriteria`: The acceptance criteria.
+  - `Intent`: The intent.
+- **Responsibilities**:
+  - Implement the `Act` method to process prompts and act accordingly.
+  - Concrete implementations: CopilotAutopilotAgent, WiggumAgent, WallyAgent.
+
+### CopilotAutopilotAgent
+- **Purpose**: Simulates GitHub Copilot's autopilot mode for automatic code suggestions and changes.
+- **Responsibilities**: Processes prompts to activate autopilot for code modifications.
+
+### WiggumAgent
+- **Purpose**: A simple custom agent for roleplaying responses in a fun, Wiggum-inspired style.
+- **Responsibilities**: Provides text responses based on role, intent, and criteria.
+
+### WallyAgent
+- **Purpose**: A custom agent that fully integrates RBA components for comprehensive actions.
+- **Responsibilities**: Combines all prompts to make decisions on code changes or responses.
+
+## RBA Namespace (Wally.Instance.RBA)
+Contains simplified classes for Role, AcceptanceCriteria, and Intent, each with `Name` and `Prompt` properties.
