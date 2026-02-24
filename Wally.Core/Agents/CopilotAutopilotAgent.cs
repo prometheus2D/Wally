@@ -1,7 +1,7 @@
 using System;
-using Wally.Instance.RBA;
+using Wally.Core.Agents.RBA;
 
-namespace Wally.Instance.Agents
+namespace Wally.Core.Agents
 {
     /// <summary>
     /// A Copilot autopilot agent that acts like GitHub Copilot's autopilot mode.

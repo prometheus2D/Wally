@@ -51,5 +51,17 @@ This project contains core structures for the Wally AI agent system.
 - **Purpose**: A custom agent that fully integrates RBA components for comprehensive actions.
 - **Responsibilities**: Combines all prompts to make decisions on code changes or responses.
 
+### WallyEnvironment
+- **Purpose**: Manages a collection of agents in the Wally system.
+- **Properties**:
+  - `Agents`: A list of agents.
+- **Responsibilities**:
+  - Add agents to the environment.
+  - Run all agents on a prompt and collect responses.
+  - Retrieve agents by type.
+
 ## RBA Namespace (Wally.Instance.RBA)
 Contains simplified classes for Role, AcceptanceCriteria, and Intent, each with `Name` and `Prompt` properties.
+
+## Agents\RBA Namespace (Wally.Instance.Agents.RBA)
+Updated location for RBA classes with constructors.

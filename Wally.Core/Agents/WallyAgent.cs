@@ -1,6 +1,6 @@
-using Wally.Instance.RBA;
+using Wally.Core.Agents.RBA;
 
-namespace Wally.Instance.Agents
+namespace Wally.Core.Agents
 {
     /// <summary>
     /// A custom Wally agent that integrates all components for comprehensive action.

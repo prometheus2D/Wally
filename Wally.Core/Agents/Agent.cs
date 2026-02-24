@@ -1,6 +1,6 @@
-using Wally.Instance.RBA;
+using Wally.Core.Agents.RBA;
 
-namespace Wally.Instance.Agents
+namespace Wally.Core.Agents
 {
     /// <summary>
     /// Abstract base class for Wally agents that can act on an environment based on roles, acceptance criteria, intents, and prompts.

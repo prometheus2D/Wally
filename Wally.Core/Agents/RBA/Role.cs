@@ -1,4 +1,4 @@
-namespace Wally.Instance.RBA
+namespace Wally.Core.Agents.RBA
 {
     /// <summary>
     /// Represents a role to be roleplayed by an AI, with core prompts provided by a human.

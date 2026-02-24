@@ -1,4 +1,4 @@
-﻿namespace Wally.Instance
+﻿namespace Wally.Core
 {
     public class WallyInstance
     {
