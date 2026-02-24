@@ -287,8 +287,8 @@ namespace Wally.Core
             File.WriteAllText(ActorsPath, defaultActors);
 
             // Create basic project structure
-            Directory.CreateDirectory(Path.Combine(newWorkspacePath, "Wally.Console"));
-            Directory.CreateDirectory(Path.Combine(newWorkspacePath, "Wally.Core"));
+            // Directory.CreateDirectory(Path.Combine(newWorkspacePath, "Wally.Console"));
+            // Directory.CreateDirectory(Path.Combine(newWorkspacePath, "Wally.Core"));
 
             // Create Wally environment folders
             Directory.CreateDirectory(Path.Combine(newWorkspacePath, "Documentation"));
