@@ -84,7 +84,7 @@ After running the app, use these commands to manage your Wally environment.
 
 ### Interaction
 
-- `run <prompt>`: Run all Actors on the given prompt and display their responses. Useful for getting AI suggestions or actions on your code.
+- `run <prompt> [actor]`: Run all Actors on the given prompt and display their responses, or a specific Actor if specified. Useful for getting AI suggestions or actions on your code.
 - `list`: List the Actors and files in your workspace. Useful to see what's loaded.
 - `info`: Show details about your workspace setup, like paths and counts. Useful to check your configuration.
 - `commands`: Display the list of commands. Use this when you need a reminder of what to type.

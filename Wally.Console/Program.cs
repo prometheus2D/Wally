@@ -69,7 +69,7 @@ namespace Wally.Console
                     if (opts is CreateOptions co) { WallyCommands.HandleCreate(co.Path); return 0; }
                     if (opts is RunOptions ro)
                     {
-                        var responses = WallyCommands.HandleRun(ro.Prompt);
+                        var responses = WallyCommands.HandleRun(ro.Prompt, ro.ActorName);
                         foreach (var response in responses)
                         {
                             System.Console.WriteLine(response);

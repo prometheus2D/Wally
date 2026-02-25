@@ -354,5 +354,22 @@ namespace Wally.Core
             CodeDirectory = targetPath;
             Console.WriteLine($"Weather app created at {targetPath}.");
         }
+
+        /// <summary>
+        /// Runs a specific Actor on the given prompt and collects the response.
+        /// </summary>
+        /// <param name="prompt">The input prompt.</param>
+        /// <param name="actorName">The name of the actor to run.</param>
+        /// <returns>A list containing the response from the Actor.</returns>
+        public List<string> RunActor(string prompt, string actorName)
+        {
+            var actor = Actors.Find(a => a.GetType().Name == actorName);
+            if (actor == null)
+            {
+                return new List<string> { $"Actor '{actorName}' not found." };
+            }
+            string response = actor.Act(prompt);
+            return response != null ? new List<string> { $"{actor.GetType().Name}: {response}" } : new List<string>();
+        }
     }
 }

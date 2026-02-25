@@ -56,11 +56,19 @@ namespace Wally.Core
         /// Handles the run command.
         /// </summary>
         /// <param name="prompt">The prompt to run.</param>
+        /// <param name="actorName">The optional actor name.</param>
         /// <returns>List of responses.</returns>
-        public static List<string> HandleRun(string prompt)
+        public static List<string> HandleRun(string prompt, string actorName = null)
         {
             if (_environment == null) throw new InvalidOperationException("Environment not set.");
-            return _environment.RunActors(prompt);
+            if (!string.IsNullOrEmpty(actorName))
+            {
+                return _environment.RunActor(prompt, actorName);
+            }
+            else
+            {
+                return _environment.RunActors(prompt);
+            }
         }
 
         /// <summary>
@@ -170,7 +178,7 @@ namespace Wally.Core
             Console.WriteLine("  load <path>       - Load a Wally workspace from the specified path.");
             Console.WriteLine("  save <path>       - Save the current Wally environment to the specified path.");
             Console.WriteLine("  create <path>     - Create a new default Wally workspace at the specified path.");
-            Console.WriteLine("  run <prompt>      - Run all Actors on the given prompt.");
+            Console.WriteLine("  run <prompt> [actor] - Run all Actors on the given prompt, or a specific Actor if specified.");
             Console.WriteLine("  list              - List Actors and configuration files.");
             Console.WriteLine("  add-file <path>   - Add a file path to the Wally environment.");
             Console.WriteLine("  load-config <path>- Load configuration from a JSON file.");
