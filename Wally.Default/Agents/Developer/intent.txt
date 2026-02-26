@@ -1,2 +1,0 @@
-# Tier: task
-Implement the requested feature with proper error handling.

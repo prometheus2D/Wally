@@ -167,9 +167,9 @@ namespace Wally.Core
 
             var ws = env.Workspace!;
 
-            Console.WriteLine($"Agents ({ws.Actors.Count}):");
+            Console.WriteLine($"Actors ({ws.Actors.Count}):");
             if (ws.Actors.Count == 0)
-                Console.WriteLine("  (none — add a subfolder to .wally/Agents/)");
+                Console.WriteLine("  (none — add a subfolder to .wally/Actors/)");
 
             foreach (var actor in ws.Actors)
             {
@@ -206,8 +206,8 @@ namespace Wally.Core
             Console.WriteLine($"Project folder:   {ws.ProjectFolder}");
             Console.WriteLine($"Workspace folder: {ws.WorkspaceFolder}");
             Console.WriteLine();
-            Console.WriteLine($"Agents folder:    {Path.Combine(ws.WorkspaceFolder, cfg.AgentsFolderName)}");
-            Console.WriteLine($"Agents loaded:    {ws.Actors.Count}");
+            Console.WriteLine($"Actors folder:    {Path.Combine(ws.WorkspaceFolder, cfg.ActorsFolderName)}");
+            Console.WriteLine($"Actors loaded:    {ws.Actors.Count}");
             foreach (var a in ws.Actors)
                 Console.WriteLine($"  {a.Name}");
             Console.WriteLine();
@@ -253,13 +253,12 @@ namespace Wally.Core
             Console.WriteLine("  run-iterative \"<prompt>\"      Run all agents iteratively; -m N to cap.");
             Console.WriteLine("  run-iterative \"<prompt>\" -a <agent>  Run one agent iteratively; -m N to cap.");
             Console.WriteLine();
-            Console.WriteLine("Agent folders:");
-            Console.WriteLine("  .wally/Agents/<AgentName>/");
-            Console.WriteLine("    role.txt      — Role prompt  (optional first line: # Tier: task)");
-            Console.WriteLine("    criteria.txt  — Acceptance criteria prompt");
-            Console.WriteLine("    intent.txt    — Intent prompt");
-            Console.WriteLine("  Add a new subfolder to create a new agent.");
-            Console.WriteLine("  Each agent is independent — no shared RBA state.");
+            Console.WriteLine("Actor folders:");
+            Console.WriteLine("  .wally/Actors/<ActorName>/");
+            Console.WriteLine("    actor.json    — RBA definition (name, rolePrompt, roleTier,");
+            Console.WriteLine("                    criteriaPrompt, criteriaTier, intentPrompt, intentTier)");
+            Console.WriteLine("  Add a new subfolder with an actor.json to create a new actor.");
+            Console.WriteLine("  Each actor is independent — no shared RBA state.");
         }
 
         // ?? Private helpers ???????????????????????????????????????????????????

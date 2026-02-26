@@ -16,10 +16,13 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Content Include=".wally\Actors\Developer\actor.json" />
+    <Content Include=".wally\Actors\Tester\actor.json" />
+    <Content Include=".wally\wally-config.json" />
     <Content Include="wally-config.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <Content Include="Agents\**\*.txt">
+    <Content Include=".wally\**\*">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>

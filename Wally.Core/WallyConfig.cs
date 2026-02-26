@@ -10,19 +10,16 @@ namespace Wally.Core
     /// Holds all configuration for a Wally environment.
     /// Defines folder names and runtime settings.
     ///
-    /// RBA definitions are no longer stored here — they are loaded at runtime from each
-    /// agent's subfolder under <see cref="AgentsFolderName"/>:
+    /// Actor definitions are loaded at runtime from each actor's subfolder under
+    /// <see cref="ActorsFolderName"/>. Each subfolder contains a single
+    /// <c>actor.json</c> file with the full RBA definition:
     /// <code>
     ///   .wally/
-    ///       Agents/
+    ///       Actors/
     ///           Developer/
-    ///               role.txt
-    ///               criteria.txt
-    ///               intent.txt
+    ///               actor.json
     ///           Tester/
-    ///               role.txt
-    ///               criteria.txt
-    ///               intent.txt
+    ///               actor.json
     /// </code>
     /// </summary>
     public class WallyConfig
@@ -36,11 +33,12 @@ namespace Wally.Core
         public string ProjectFolderName { get; set; } = "Project";
 
         /// <summary>
-        /// Subfolder inside the workspace folder that holds one directory per agent.
-        /// Each agent directory contains <c>role.txt</c>, <c>criteria.txt</c>, and
-        /// <c>intent.txt</c>. Default: <c>Agents</c>.
+        /// Subfolder inside the workspace folder that holds one directory per actor.
+        /// Each actor directory contains a single <c>actor.json</c> file with the
+        /// full RBA (Role / AcceptanceCriteria / Intent) definition.
+        /// Default: <c>Actors</c>.
         /// </summary>
-        public string AgentsFolderName { get; set; } = "Agents";
+        public string ActorsFolderName { get; set; } = "Actors";
 
         // ?? Runtime settings ??????????????????????????????????????????????????
 

@@ -15,16 +15,14 @@ namespace Wally.Core
     ///       &lt;ProjectFolderName&gt;/    ? codebase  (default: "Project")
     ///       &lt;WorkspaceFolderName&gt;/  ? Wally     (default: ".wally")
     ///           wally-config.json
-    ///           Agents/
-    ///               &lt;AgentName&gt;/     ? one folder per agent
-    ///                   role.txt       ? Role prompt  (optional: # Tier: task)
-    ///                   criteria.txt   ? AcceptanceCriteria prompt
-    ///                   intent.txt     ? Intent prompt
+    ///           Actors/
+    ///               &lt;ActorName&gt;/     ? one folder per actor
+    ///                   actor.json     ? full RBA definition (name, role, criteria, intent)
     /// </code>
     ///
-    /// Each subfolder under <c>Agents/</c> defines exactly one <see cref="CopilotActor"/>
+    /// Each subfolder under <c>Actors/</c> defines exactly one <see cref="CopilotActor"/>
     /// with its own private Role, AcceptanceCriteria, and Intent. Add a subfolder to
-    /// create a new agent; edit its <c>.txt</c> files to change its behaviour.
+    /// create a new actor; edit its <c>actor.json</c> to change its behaviour.
     ///
     /// <see cref="ProjectFolder"/> and <see cref="WorkspaceFolder"/> are always siblings
     /// — both children of <see cref="ParentFolder"/>.
