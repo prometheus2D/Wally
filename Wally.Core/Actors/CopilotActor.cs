@@ -1,20 +1,20 @@
 using System;
-using System.Diagnostics;
 using Wally.Core.RBA;
 
 namespace Wally.Core.Actors
 {
     /// <summary>
-    /// A Copilot Actor that forwards workspace-enriched prompts to the GitHub Copilot CLI
-    /// for suggestions (read-only — never applies code changes directly).
+    /// A read-only Copilot actor. Forwards the workspace-enriched prompt to
+    /// <c>gh copilot suggest</c> and returns the suggestion as text — never
+    /// applies code changes directly.
+    /// The prompt is fully structured by <see cref="Actor.ProcessPrompt"/> before
+    /// this method is called.
     /// </summary>
     public class CopilotActor : Actor
     {
         public CopilotActor(Role role, AcceptanceCriteria acceptanceCriteria, Intent intent,
                             WallyWorkspace? workspace = null)
-            : base(role, acceptanceCriteria, intent, workspace)
-        {
-        }
+            : base(role, acceptanceCriteria, intent, workspace) { }
 
         /// <summary>Copilot Actor never applies changes directly; it always responds with text.</summary>
         public override bool ShouldMakeChanges(string processedPrompt) => false;
@@ -27,22 +27,16 @@ namespace Wally.Core.Actors
         {
             try
             {
-                string fullPrompt =
-                    $"Role: {Role.Prompt}\n" +
-                    $"Intent: {Intent.Prompt}\n" +
-                    $"Acceptance Criteria: {AcceptanceCriteria.Prompt}\n" +
-                    $"Prompt: {processedPrompt}";
-
-                var process = new Process
+                var process = new System.Diagnostics.Process
                 {
-                    StartInfo = new ProcessStartInfo
+                    StartInfo = new System.Diagnostics.ProcessStartInfo
                     {
-                        FileName = "gh",
-                        Arguments = $"copilot suggest \"{fullPrompt.Replace("\"", "\\\"")}\"",
+                        FileName               = "gh",
+                        Arguments              = $"copilot suggest \"{processedPrompt.Replace("\"", "\\\"")}\"",
                         RedirectStandardOutput = true,
-                        RedirectStandardError = true,
-                        UseShellExecute = false,
-                        CreateNoWindow = true
+                        RedirectStandardError  = true,
+                        UseShellExecute        = false,
+                        CreateNoWindow         = true
                     }
                 };
 

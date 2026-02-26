@@ -2,7 +2,7 @@
 
 **Role-Based Actor (RBA) framework that wraps GitHub Copilot CLI into a structured, prompt-driven AI environment.**
 
-Wally scaffolds a workspace next to any codebase, loads actors defined by Role × AcceptanceCriteria × Intent triples, enriches every prompt with your registered files and folders, and forwards the result to `gh copilot`. Works as a standalone CLI, an interactive REPL, or embedded in your own .NET app via `Wally.Core`.
+Wally scaffolds a workspace next to any codebase, loads agents defined by individual folders under `.wally/Agents/`, enriches every prompt with your registered files and folders, and forwards the result to `gh copilot`. Works as a standalone CLI, an interactive REPL, or embedded in your own .NET app via `Wally.Core`.
 
 ---
 
@@ -10,27 +10,26 @@ Wally scaffolds a workspace next to any codebase, loads actors defined by Role ×
 
 ```
 <ParentFolder>/
-    Project/          ? your codebase (configurable name)
-    .wally/           ? Wally's workspace
+    Project/              ? your codebase (configurable name)
+    .wally/               ? Wally's workspace
         wally-config.json
-        default-agents.json
-        Roles/
-            Developer.txt       ? edit to change the role's prompt
-            Tester.txt
-        Criteria/
-            CodeQuality.txt
-            UserSatisfaction.txt
-        Intents/
-            ImplementFeature.txt
-            FixBug.txt
+        Agents/
+            Developer/    ? one folder = one agent
+                role.txt
+                criteria.txt
+                intent.txt
+            Tester/
+                role.txt
+                criteria.txt
+                intent.txt
 ```
 
-- **Parent folder** — the root you point Wally at. Can be any directory.
+- **Parent folder** — the root you point Wally at.
 - **Project folder** — sibling subfolder Wally treats as the codebase.
-- **Workspace folder** — sibling subfolder holding config and RBA prompt files.
-- **Prompt files** — each `.txt` file under `Roles/`, `Criteria/`, or `Intents/` defines one RBA item. The filename stem is the name; the file content is the prompt. Edit them directly — no JSON required.
-- **Actors** — built from every `Role × AcceptanceCriteria × Intent` combination. Prompt files are re-read on every `load`.
-- **References** — explicit opt-in: add files and folders with `add-file` / `add-folder`. Only those paths are sent to Copilot.
+- **Workspace folder** — sibling subfolder holding config and all agent folders.
+- **Agent folders** — each subfolder under `Agents/` defines one independent agent. The folder name is the agent name. Add a folder to create a new agent; delete a folder to remove one.
+- **Prompt files** — each agent folder contains `role.txt`, `criteria.txt`, and `intent.txt`. The first line of any file may be a metadata header (`# Tier: task`). Edit the files directly — no JSON required.
+- **References** — explicit opt-in: register files and folders with `add-file` / `add-folder`. Only those paths are appended to every prompt.
 
 ---
 
@@ -50,36 +49,27 @@ Wally scaffolds a workspace next to any codebase, loads actors defined by Role ×
 
 ```sh
 # 1. Copy wally.exe into your project root (or any parent folder)
-# 2. Self-assemble the workspace next to the exe
+# 2. Self-assemble the workspace next to the exe (copies default agents)
 wally setup
 
-# 3. Load actors from the default agents file
-wally load-actors .wally\default-agents.json
-
-# 4. Register the code you want Copilot to reason about
+# 3. Register the code you want Copilot to reason about
 wally add-folder .\Project\src
 wally add-file   .\Project\src\Program.cs
 
-# 5. Run a prompt
+# 4. Run a prompt against all agents
 wally run "Implement input validation for the login form"
+
+# 5. Run against one specific agent by name
+wally run "Implement input validation" Developer
 ```
 
 ### Option B — point at an existing project path
 
 ```sh
-# Create a workspace at an explicit parent folder
 wally create C:\repos\MyApp
+wally load   C:\repos\MyApp
 
-# Load it back later (parent folder, not the .wally subfolder)
-wally load C:\repos\MyApp
-
-# Load actors
-wally load-actors C:\repos\MyApp\.wally\default-agents.json
-
-# Register context
 wally add-folder C:\repos\MyApp\Project\src
-
-# Ask
 wally run "Refactor the repository layer to use the Unit of Work pattern"
 ```
 
@@ -89,10 +79,10 @@ Run `wally` with no arguments to enter interactive mode. The environment persist
 
 ```
 wally> setup
-wally> load-actors .wally\default-agents.json
 wally> add-folder .\Project\src
 wally> run "Add retry logic to the HTTP client"
 wally> run-iterative "Improve test coverage" -m 3
+wally> list
 wally> exit
 ```
 
@@ -104,7 +94,7 @@ wally> exit
 git clone https://github.com/prometheus2D/Wally.git
 cd Wally
 dotnet publish Wally.Console -c Release -r win-x64 --self-contained
-# Binary is at: Wally.Console\bin\Release\net8.0\win-x64\publish\wally.exe
+# Binary: Wally.Console\bin\Release\net8.0\win-x64\publish\wally.exe
 ```
 
 ---
@@ -115,18 +105,18 @@ dotnet publish Wally.Console -c Release -r win-x64 --self-contained
 
 | Command | Description |
 |---|---|
-| `setup` | Scaffold `.wally/` + `Project/` next to the exe, load the workspace. |
+| `setup` | Scaffold `.wally/` + `Project/` next to the exe, copy default agents, load. |
 | `create <path>` | Scaffold a new workspace at `<path>` and load it. |
 | `load <path>` | Load an existing workspace from `<path>` (parent folder). |
-| `save <path>` | Persist the current config to `<path>`. |
-| `info` | Print parent, project, and workspace paths plus loaded counts. |
+| `save <path>` | Persist the current config and all agent prompt files to `<path>`. |
+| `info` | Print paths, loaded agents, reference counts, and settings. |
 
-### Actors
+### Agents
 
 | Command | Description |
 |---|---|
-| `load-actors <path>` | Load RBA actor definitions from a JSON file (see `default-agents.json`). |
-| `list` | List all loaded actors, folder references, and file references. |
+| `list` | List all agents (with prompts), folder references, and file references. |
+| `reload-agents` | Re-read agent folders from disk and rebuild actors without a full reload. |
 
 ### Context (what Copilot can see)
 
@@ -142,16 +132,14 @@ dotnet publish Wally.Console -c Release -r win-x64 --self-contained
 
 | Command | Description |
 |---|---|
-| `run "<prompt>" [actor]` | Run all actors (or one by name) on the prompt. |
-| `run-iterative "<prompt>" [-m N]` | Run actors iteratively, feeding each response back as the next prompt. Stops after N iterations or when no response is returned. |
+| `run "<prompt>" [agent]` | Run all agents (or one by name) on the prompt. |
+| `run-iterative "<prompt>" [-m N]` | Run agents iteratively, feeding each response back as the next prompt. |
 
 ### Other
 
 | Command | Description |
 |---|---|
 | `help` | Print command reference. |
-| `--help` | CommandLine parser help. |
-| `--version` | Print version. |
 
 ---
 
@@ -161,28 +149,30 @@ dotnet publish Wally.Console -c Release -r win-x64 --self-contained
 {
   "WorkspaceFolderName": ".wally",   // name of the workspace subfolder
   "ProjectFolderName":   "Project",  // name of the project subfolder
-  "MaxIterations": 10,               // default cap for run-iterative
-  "Roles": [ ... ],
-  "AcceptanceCriterias": [ ... ],
-  "Intents": [ ... ]
+  "AgentsFolderName":    "Agents",   // name of the agents subfolder inside .wally
+  "MaxIterations": 10                // default cap for run-iterative
 }
 ```
-
-Actors are the cartesian product of all Roles × AcceptanceCriterias × Intents. The `default-agents.json` file (2 Roles × 2 Criteria × 2 Intents = 8 actors) is the recommended starting point.
 
 ---
 
-## Actor agents file (`default-agents.json`)
+## Agent folders
 
-```json
-{
-  "Roles":              [{ "Name": "Developer", "Prompt": "...", "Tier": "task" }, ...],
-  "AcceptanceCriterias":[{ "Name": "CodeQuality", "Prompt": "...", "Tier": "task" }, ...],
-  "Intents":            [{ "Name": "ImplementFeature", "Prompt": "...", "Tier": "task" }, ...]
-}
+```
+.wally/Agents/<AgentName>/
+    role.txt      — Role prompt
+    criteria.txt  — Acceptance criteria prompt
+    intent.txt    — Intent prompt
 ```
 
-The `Tier` field is metadata only — it has no effect on execution.
+Each file is plain text. An optional first line in the form `# Tier: <value>` sets the tier metadata (e.g. `task`, `story`, `epoch`):
+
+```
+# Tier: task
+Act as an expert software developer, writing clean and efficient code.
+```
+
+Add a new subfolder to create a new agent. Each agent is fully independent — no shared state.
 
 ---
 
@@ -191,20 +181,24 @@ The `Tier` field is metadata only — it has no effect on execution.
 ```
 User prompt
   ? Actor.ProcessPrompt()
-Enriched prompt:
-  <original prompt>
-  [Project Folder: C:\repos\MyApp\Project]
-  [Folder References]
-    C:\repos\MyApp\Project\src
-  [File References]
-    C:\repos\MyApp\Project\src\Program.cs
+# Agent: Developer
+## Role
+Act as an expert software developer…
+## Acceptance Criteria
+Code must compile without errors…
+## Intent
+Implement the requested feature…
+
+## Prompt
+<user's prompt>
+
+[Project Folder: C:\repos\MyApp\Project]
+[Folder References]
+  C:\repos\MyApp\Project\src
+[File References]
+  C:\repos\MyApp\Project\src\Program.cs
   ?
-Role: <role prompt>
-Intent: <intent prompt>
-Acceptance Criteria: <criteria prompt>
-Prompt: <enriched prompt>
-  ?
-gh copilot explain "<full prompt>"
+gh copilot explain "<full structured prompt>"
 ```
 
 ---
@@ -215,7 +209,7 @@ gh copilot explain "<full prompt>"
 |---|---|
 | `Wally.Core` | Domain model — `WallyWorkspace`, `WallyEnvironment`, `Actor`, `WallyConfig`, RBA types. |
 | `Wally.Console` | CLI entry point — verb-based command dispatch, interactive REPL. |
-| `Wally.Default` | Shipped defaults — `wally-config.json`, `default-agents.json`. |
+| `Wally.Default` | Shipped defaults — `wally-config.json`, default `Agents/` tree. |
 | `Wally.Forms` | Windows Forms UI (in progress). |
 
 ---

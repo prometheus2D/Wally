@@ -1,16 +1,12 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text.Json.Serialization;
 using Wally.Core.Actors;
 
 namespace Wally.Core
 {
-    /// <summary>
-    /// Runtime environment for Wally. Holds a reference to the active workspace and exposes
-    /// actor-execution and workspace-management operations.
-    /// Once loaded, three sibling folders are accessible: ParentFolder, ProjectFolder, WorkspaceFolder.
-    /// </summary>
     public class WallyEnvironment
     {
         // ?? Active workspace ??????????????????????????????????????????????????
@@ -39,7 +35,7 @@ namespace Wally.Core
         }
         private int _maxIterations = 10;
 
-        // ?? Reference pass-throughs ???????????????????????????????????????????
+        // ?? Pass-throughs ?????????????????????????????????????????????????????
 
         [JsonIgnore] public List<string> FolderReferences => Workspace?.FolderReferences ?? _emptyStrings;
         [JsonIgnore] public List<string> FileReferences   => Workspace?.FileReferences   ?? _emptyStrings;
@@ -48,22 +44,21 @@ namespace Wally.Core
         [JsonIgnore] public List<Actor> Actors => Workspace?.Actors ?? _emptyActors;
         private static readonly List<Actor> _emptyActors = new();
 
+        [JsonIgnore]
+        public IReadOnlyList<AgentDefinition> AgentDefinitions =>
+            Workspace?.AgentDefinitions ?? Array.Empty<AgentDefinition>();
+
         // ?? Workspace lifecycle ???????????????????????????????????????????????
 
-        /// <summary>Loads an existing workspace from <paramref name="parentFolder"/>.</summary>
         public void LoadWorkspace(string parentFolder) =>
             Workspace = WallyWorkspace.Load(parentFolder);
 
-        /// <summary>Scaffolds a new workspace under <paramref name="parentFolder"/> then loads it.</summary>
         public void CreateWorkspace(string parentFolder, WallyConfig config = null)
         {
             WallyHelper.CreateDefaultWorkspace(parentFolder, config);
             LoadWorkspace(parentFolder);
         }
 
-        /// <summary>
-        /// Self-assembly: uses the exe directory as the parent folder, scaffolding if needed.
-        /// </summary>
         public void SetupLocal()
         {
             string parentFolder = WallyHelper.GetDefaultParentFolder();
@@ -78,10 +73,9 @@ namespace Wally.Core
             LoadWorkspace(parentFolder);
         }
 
-        /// <summary>Saves the current workspace config back to disk.</summary>
         public void SaveWorkspace() => RequireWorkspace().Save();
 
-        // ?? Legacy compatibility ??????????????????????????????????????????????
+        // ?? Legacy compat ?????????????????????????????????????????????????????
 
         public void LoadFromWorkspace(string path) => LoadWorkspace(path);
 
@@ -101,33 +95,21 @@ namespace Wally.Core
             }
         }
 
-        public void LoadDefaultActors(string jsonPath)
-        {
-            var ws   = RequireWorkspace();
-            string json = File.ReadAllText(jsonPath);
-            var data = System.Text.Json.JsonSerializer.Deserialize<DefaultActorsData>(json);
-            if (data != null)
-                foreach (var role in data.Roles)
-                    foreach (var criteria in data.AcceptanceCriterias)
-                        foreach (var intent in data.Intents)
-                            ws.AddActor(new WallyActor(role, criteria, intent, ws));
-        }
+        /// <summary>
+        /// Re-reads all agent folders from disk and rebuilds the actor list.
+        /// Use after adding or editing agent folders without reloading the whole workspace.
+        /// </summary>
+        public void ReloadAgents() => RequireWorkspace().ReloadAgents();
+
+        // ?? Agent management ??????????????????????????????????????????????????
 
         /// <summary>
-        /// Loads the default actor definitions from <c>default-agents.json</c>, resolving
-        /// the file from the workspace folder or the exe directory automatically.
-        /// Throws <see cref="FileNotFoundException"/> when the file cannot be located.
+        /// Returns the <see cref="AgentDefinition"/> whose name matches
+        /// <paramref name="name"/> (case-insensitive), or <see langword="null"/>.
         /// </summary>
-        public void LoadDefaultActors()
-        {
-            var ws   = RequireWorkspace();
-            string? path = WallyHelper.ResolveDefaultAgentsPath(ws.WorkspaceFolder);
-            if (path == null)
-                throw new FileNotFoundException(
-                    $"Could not find '{WallyHelper.DefaultAgentsFileName}' in the workspace " +
-                    $"folder or the exe directory. Run 'setup' first or pass an explicit path.");
-            LoadDefaultActors(path);
-        }
+        public AgentDefinition? GetAgent(string name) =>
+            AgentDefinitions.FirstOrDefault(a =>
+                string.Equals(a.Name, name, StringComparison.OrdinalIgnoreCase));
 
         // ?? Reference management ??????????????????????????????????????????????
 
@@ -159,21 +141,28 @@ namespace Wally.Core
             {
                 string response = actor.Act(prompt);
                 if (response != null)
-                    responses.Add($"{actor.GetType().Name}: {response}");
+                    responses.Add($"{actor.Role.Name}: {response}");
             }
             return responses;
         }
 
+        /// <summary>
+        /// Runs the actor whose agent name (Role.Name) or type name matches
+        /// <paramref name="actorName"/> (case-insensitive).
+        /// </summary>
         public List<string> RunActor(string prompt, string actorName)
         {
             RequireWorkspace();
-            var actor = Actors.Find(a => a.GetType().Name == actorName);
+            var actor = Actors.Find(a =>
+                string.Equals(a.Role.Name, actorName, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(a.GetType().Name, actorName, StringComparison.OrdinalIgnoreCase));
+
             if (actor == null)
                 return new List<string> { $"Actor '{actorName}' not found." };
 
             string response = actor.Act(prompt);
             return response != null
-                ? new List<string> { $"{actor.GetType().Name}: {response}" }
+                ? new List<string> { $"{actor.Role.Name}: {response}" }
                 : new List<string>();
         }
 
@@ -181,7 +170,7 @@ namespace Wally.Core
             Action<int, List<string>>? onIteration = null)
         {
             RequireWorkspace();
-            string currentPrompt    = initialPrompt;
+            string currentPrompt      = initialPrompt;
             List<string> lastResponses = new List<string>();
 
             for (int i = 1; i <= MaxIterations; i++)

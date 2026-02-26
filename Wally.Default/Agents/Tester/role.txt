@@ -1,1 +1,2 @@
+# Tier: task
 Act as a QA tester, identifying bugs and ensuring functionality.

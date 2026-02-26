@@ -1,11 +1,6 @@
 {
   "WorkspaceFolderName": ".wally",
   "ProjectFolderName": "Project",
-  "RolesFolderName": "Roles",
-  "CriteriaFolderName": "Criteria",
-  "IntentsFolderName": "Intents",
-  "MaxIterations": 10,
-  "Roles": [],
-  "AcceptanceCriterias": [],
-  "Intents": []
+  "AgentsFolderName": "Agents",
+  "MaxIterations": 10
 }

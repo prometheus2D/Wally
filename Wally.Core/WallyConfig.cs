@@ -8,61 +8,44 @@ namespace Wally.Core
 {
     /// <summary>
     /// Holds all configuration for a Wally environment.
-    /// Defines folder names, actor RBA definitions, and runtime settings.
+    /// Defines folder names and runtime settings.
+    ///
+    /// RBA definitions are no longer stored here — they are loaded at runtime from each
+    /// agent's subfolder under <see cref="AgentsFolderName"/>:
+    /// <code>
+    ///   .wally/
+    ///       Agents/
+    ///           Developer/
+    ///               role.txt
+    ///               criteria.txt
+    ///               intent.txt
+    ///           Tester/
+    ///               role.txt
+    ///               criteria.txt
+    ///               intent.txt
+    /// </code>
     /// </summary>
     public class WallyConfig
     {
         // ?? Folder names ??????????????????????????????????????????????????????
 
-        /// <summary>
-        /// Name of the workspace subfolder (sibling of <see cref="ProjectFolderName"/>)
-        /// where Wally's config file lives. Defaults to <c>.wally</c>.
-        /// </summary>
+        /// <summary>Workspace subfolder name. Default: <c>.wally</c>.</summary>
         public string WorkspaceFolderName { get; set; } = ".wally";
 
+        /// <summary>Project (codebase) subfolder name. Default: <c>Project</c>.</summary>
+        public string ProjectFolderName { get; set; } = "Project";
+
         /// <summary>
-        /// Name of the project subfolder (sibling of <see cref="WorkspaceFolderName"/>)
-        /// that contains the codebase Wally operates on. Defaults to <c>Project</c>.
+        /// Subfolder inside the workspace folder that holds one directory per agent.
+        /// Each agent directory contains <c>role.txt</c>, <c>criteria.txt</c>, and
+        /// <c>intent.txt</c>. Default: <c>Agents</c>.
         /// </summary>
-        public string ProjectFolderName   { get; set; } = "Project";
-
-        /// <summary>Subfolder inside the workspace folder that holds per-role prompt files.</summary>
-        public string RolesFolderName    { get; set; } = "Roles";
-
-        /// <summary>Subfolder inside the workspace folder that holds per-criteria prompt files.</summary>
-        public string CriteriaFolderName { get; set; } = "Criteria";
-
-        /// <summary>Subfolder inside the workspace folder that holds per-intent prompt files.</summary>
-        public string IntentsFolderName  { get; set; } = "Intents";
+        public string AgentsFolderName { get; set; } = "Agents";
 
         // ?? Runtime settings ??????????????????????????????????????????????????
 
-        /// <summary>Maximum number of iterations when running actors in iterative mode.</summary>
+        /// <summary>Maximum number of iterations in iterative actor runs.</summary>
         public int MaxIterations { get; set; } = 10;
-
-        // ?? Actor RBA definitions (runtime-only — loaded from .txt files) ?????
-
-        /// <summary>
-        /// Populated at runtime from the <see cref="RolesFolderName"/> prompt files.
-        /// Not serialised to <c>wally-config.json</c> — the <c>.txt</c> files are the
-        /// source of truth.
-        /// </summary>
-        [JsonIgnore]
-        public List<Role> Roles { get; set; } = new List<Role>();
-
-        /// <summary>
-        /// Populated at runtime from the <see cref="CriteriaFolderName"/> prompt files.
-        /// Not serialised to <c>wally-config.json</c>.
-        /// </summary>
-        [JsonIgnore]
-        public List<AcceptanceCriteria> AcceptanceCriterias { get; set; } = new List<AcceptanceCriteria>();
-
-        /// <summary>
-        /// Populated at runtime from the <see cref="IntentsFolderName"/> prompt files.
-        /// Not serialised to <c>wally-config.json</c>.
-        /// </summary>
-        [JsonIgnore]
-        public List<Intent> Intents { get; set; } = new List<Intent>();
 
         // ?? Factory ???????????????????????????????????????????????????????????
 

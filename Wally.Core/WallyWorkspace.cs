@@ -12,87 +12,66 @@ namespace Wally.Core
     /// Layout on disk:
     /// <code>
     ///   &lt;ParentFolder&gt;/
-    ///       &lt;ProjectFolderName&gt;/        ? codebase  (default: "Project")
-    ///       &lt;WorkspaceFolderName&gt;/      ? Wally     (default: ".wally")
+    ///       &lt;ProjectFolderName&gt;/    ? codebase  (default: "Project")
+    ///       &lt;WorkspaceFolderName&gt;/  ? Wally     (default: ".wally")
     ///           wally-config.json
-    ///           default-agents.json
-    ///           Roles/                   ? one .txt per role      (name = filename stem)
-    ///           Criteria/                ? one .txt per criterion
-    ///           Intents/                 ? one .txt per intent
+    ///           Agents/
+    ///               &lt;AgentName&gt;/     ? one folder per agent
+    ///                   role.txt       ? Role prompt  (optional: # Tier: task)
+    ///                   criteria.txt   ? AcceptanceCriteria prompt
+    ///                   intent.txt     ? Intent prompt
     /// </code>
     ///
-    /// <see cref="ProjectFolder"/> and <see cref="WorkspaceFolder"/> are always siblings —
-    /// both children of <see cref="ParentFolder"/>.
+    /// Each subfolder under <c>Agents/</c> defines exactly one actor with its own private
+    /// Role, AcceptanceCriteria, and Intent. Add a subfolder to create a new agent;
+    /// edit its <c>.txt</c> files to change its behaviour. No shared RBA state exists.
     ///
-    /// RBA prompts are loaded from the <c>Roles/</c>, <c>Criteria/</c>, and <c>Intents/</c>
-    /// subdirectories on every <see cref="LoadFrom"/> call. Edit the <c>.txt</c> files
-    /// directly to change actor behaviour without touching any JSON.
+    /// <see cref="ProjectFolder"/> and <see cref="WorkspaceFolder"/> are always siblings
+    /// — both children of <see cref="ParentFolder"/>.
     ///
-    /// Folders and files that actors should have access to are registered explicitly via
+    /// Files and folders that actors should have access to are registered explicitly via
     /// <see cref="AddFolderReference"/> and <see cref="AddFileReference"/>.
     /// </summary>
     public class WallyWorkspace
     {
         // ?? Identity ??????????????????????????????????????????????????????????
 
-        /// <summary>
-        /// The absolute path to the common parent folder that contains both
-        /// <see cref="ProjectFolder"/> and <see cref="WorkspaceFolder"/> as siblings.
-        /// </summary>
-        public string ParentFolder { get; private set; }
-
-        /// <summary>
-        /// The absolute path to the project subfolder — the codebase Wally operates on.
-        /// Sibling of <see cref="WorkspaceFolder"/> inside <see cref="ParentFolder"/>.
-        /// </summary>
-        public string ProjectFolder { get; private set; }
-
-        /// <summary>
-        /// The absolute path to Wally's workspace subfolder where the config file lives.
-        /// Sibling of <see cref="ProjectFolder"/> inside <see cref="ParentFolder"/>.
-        /// </summary>
+        public string ParentFolder    { get; private set; }
+        public string ProjectFolder   { get; private set; }
         public string WorkspaceFolder { get; private set; }
 
-        /// <summary>
-        /// <see langword="true"/> when the workspace has been successfully loaded from disk.
-        /// </summary>
         public bool IsLoaded => !string.IsNullOrEmpty(ParentFolder);
 
         // ?? Configuration ?????????????????????????????????????????????????????
 
-        /// <summary>
-        /// The configuration that drives this workspace's actor RBA and runtime settings.
-        /// Never null — a default <see cref="WallyConfig"/> is used as fallback.
-        /// </summary>
         public WallyConfig Config { get; private set; } = new WallyConfig();
+
+        // ?? Agent definitions ?????????????????????????????????????????????????
+
+        /// <summary>
+        /// One entry per agent folder under <c>Agents/</c>.
+        /// Each definition owns its own Role, Criteria, and Intent loaded from that folder.
+        /// </summary>
+        [JsonIgnore]
+        public IReadOnlyList<AgentDefinition> AgentDefinitions { get; private set; }
+            = Array.Empty<AgentDefinition>();
 
         // ?? References ????????????????????????????????????????????????????????
 
-        /// <summary>
-        /// Folder paths registered for actor/copilot access, stored as absolute paths.
-        /// Add entries via <see cref="AddFolderReference"/>.
-        /// </summary>
         public List<string> FolderReferences { get; private set; } = new List<string>();
-
-        /// <summary>
-        /// File paths registered for actor/copilot access, stored as absolute paths.
-        /// Add entries via <see cref="AddFileReference"/>.
-        /// </summary>
-        public List<string> FileReferences { get; private set; } = new List<string>();
+        public List<string> FileReferences   { get; private set; } = new List<string>();
 
         // ?? Actor list ????????????????????????????????????????????????????????
 
-        /// <summary>Actors built from the workspace config's RBA definitions.</summary>
+        /// <summary>
+        /// One <see cref="WallyActor"/> per <see cref="AgentDefinition"/>.
+        /// Each actor carries its own private RBA — no shared or cartesian-product state.
+        /// </summary>
         [JsonIgnore]
         public List<Actor> Actors { get; private set; } = new List<Actor>();
 
         // ?? Static factory ????????????????????????????????????????????????????
 
-        /// <summary>
-        /// Loads a workspace from <paramref name="parentFolder"/>. The workspace and project
-        /// subfolders are resolved from the config inside the workspace subfolder, or from
-        /// defaults when no config exists yet.
-        /// </summary>
         public static WallyWorkspace Load(string parentFolder)
         {
             var ws = new WallyWorkspace();
@@ -101,23 +80,16 @@ namespace Wally.Core
         }
 
         /// <summary>
-        /// Initialises this instance from <paramref name="path"/>, which may be any one of:
-        /// <list type="bullet">
-        ///   <item>The parent folder (contains workspace and project as siblings).</item>
-        ///   <item>The workspace folder itself (contains <c>wally-config.json</c>).</item>
-        ///   <item>The project folder (sibling of the workspace folder).</item>
-        /// </list>
-        /// The method resolves the canonical three-folder layout from wherever it is called.
+        /// Initialises from <paramref name="path"/>, which may be the parent folder,
+        /// the workspace folder (contains <c>wally-config.json</c>), or the project folder.
         /// </summary>
         public void LoadFrom(string path)
         {
             path = Path.GetFullPath(path);
-
             string directConfig = Path.Combine(path, WallyHelper.ConfigFileName);
 
             if (File.Exists(directConfig))
             {
-                // path IS the workspace folder
                 WorkspaceFolder = path;
                 ParentFolder    = Path.GetDirectoryName(path) ?? path;
                 Config          = WallyConfig.LoadFromFile(directConfig);
@@ -125,7 +97,6 @@ namespace Wally.Core
             }
             else
             {
-                // Treat path as the parent folder
                 ParentFolder = path;
                 var defaultConfig = new WallyConfig();
 
@@ -143,65 +114,29 @@ namespace Wally.Core
             Directory.CreateDirectory(WorkspaceFolder);
             Directory.CreateDirectory(ProjectFolder);
 
-            // Populate RBA lists from the per-role/criteria/intent prompt files in the workspace.
-            // This always overrides whatever was in wally-config.json for those lists.
-            WallyHelper.LoadRbaFromPromptFiles(WorkspaceFolder, Config);
-
-            BuildActors(Config);
+            // Build one actor per agent folder — each actor owns its own RBA
+            AgentDefinitions = WallyHelper.LoadAgentDefinitions(WorkspaceFolder, Config);
+            BuildActors();
         }
 
         // ?? Saving ????????????????????????????????????????????????????????????
 
         /// <summary>
-        /// Persists the current <see cref="Config"/> to
-        /// <c>&lt;WorkspaceFolder&gt;/wally-config.json</c>.
+        /// Persists <c>wally-config.json</c> and writes every agent's prompt files back
+        /// to its folder so the on-disk state matches in-memory state.
         /// </summary>
         public void Save()
         {
             RequireLoaded();
             Directory.CreateDirectory(WorkspaceFolder);
             Config.SaveToFile(Path.Combine(WorkspaceFolder, WallyHelper.ConfigFileName));
-            SaveRbaToPromptFiles();
-        }
 
-        /// <summary>
-        /// Writes each Role, AcceptanceCriteria, and Intent in <see cref="Config"/> out to
-        /// its corresponding <c>.txt</c> file under the workspace's RBA subdirectories.
-        /// Existing files are overwritten so the files stay in sync with in-memory state.
-        /// </summary>
-        private void SaveRbaToPromptFiles()
-        {
-            WritePromptFiles(Config.RolesFolderName,    Config.Roles,               r => (r.Name, r.Prompt, r.Tier));
-            WritePromptFiles(Config.CriteriaFolderName, Config.AcceptanceCriterias, c => (c.Name, c.Prompt, c.Tier));
-            WritePromptFiles(Config.IntentsFolderName,  Config.Intents,             i => (i.Name, i.Prompt, i.Tier));
-        }
-
-        private void WritePromptFiles<T>(string subDir, IEnumerable<T> items,
-            Func<T, (string Name, string Prompt, string? Tier)> selector)
-        {
-            string dir = Path.Combine(WorkspaceFolder, subDir);
-            Directory.CreateDirectory(dir);
-            foreach (var item in items)
-            {
-                var (name, prompt, tier) = selector(item);
-                if (string.IsNullOrWhiteSpace(name)) continue;
-
-                // Encode tier in filename when present: "Name.Tier.txt", otherwise "Name.txt"
-                string fileName = string.IsNullOrWhiteSpace(tier)
-                    ? $"{name}.txt"
-                    : $"{name}.{tier}.txt";
-
-                File.WriteAllText(Path.Combine(dir, fileName), prompt ?? string.Empty);
-            }
+            foreach (var agent in AgentDefinitions)
+                WallyHelper.SaveAgentDefinition(WorkspaceFolder, Config, agent);
         }
 
         // ?? Reference management ??????????????????????????????????????????????
 
-        /// <summary>
-        /// Registers a folder path for actor/copilot access.
-        /// Relative paths are resolved against <see cref="ProjectFolder"/>.
-        /// Duplicate entries are ignored.
-        /// </summary>
         public void AddFolderReference(string folderPath)
         {
             string absolute = ResolveAbsolute(folderPath);
@@ -209,15 +144,9 @@ namespace Wally.Core
                 FolderReferences.Add(absolute);
         }
 
-        /// <summary>Removes a folder reference by path (relative or absolute).</summary>
         public bool RemoveFolderReference(string folderPath) =>
             FolderReferences.Remove(ResolveAbsolute(folderPath));
 
-        /// <summary>
-        /// Registers a file path for actor/copilot access.
-        /// Relative paths are resolved against <see cref="ProjectFolder"/>.
-        /// Duplicate entries are ignored.
-        /// </summary>
         public void AddFileReference(string filePath)
         {
             string absolute = ResolveAbsolute(filePath);
@@ -225,11 +154,9 @@ namespace Wally.Core
                 FileReferences.Add(absolute);
         }
 
-        /// <summary>Removes a file reference by path (relative or absolute).</summary>
         public bool RemoveFileReference(string filePath) =>
             FileReferences.Remove(ResolveAbsolute(filePath));
 
-        /// <summary>Clears all registered folder and file references.</summary>
         public void ClearReferences()
         {
             FolderReferences.Clear();
@@ -238,17 +165,23 @@ namespace Wally.Core
 
         // ?? Actor management ??????????????????????????????????????????????????
 
-        /// <summary>Adds an actor to the workspace.</summary>
         public void AddActor(Actor actor) => Actors.Add(actor);
 
-        /// <summary>Returns the first actor of type <typeparamref name="T"/>, or null.</summary>
         public T GetActor<T>() where T : Actor => Actors.Find(a => a is T) as T;
+
+        /// <summary>
+        /// Re-reads all agent folders from disk and rebuilds <see cref="Actors"/>.
+        /// Use after adding or editing agent folders on disk mid-session.
+        /// </summary>
+        public void ReloadAgents()
+        {
+            RequireLoaded();
+            AgentDefinitions = WallyHelper.LoadAgentDefinitions(WorkspaceFolder, Config);
+            BuildActors();
+        }
 
         // ?? Guard ?????????????????????????????????????????????????????????????
 
-        /// <summary>
-        /// Throws <see cref="InvalidOperationException"/> if the workspace has not been loaded.
-        /// </summary>
         public void RequireLoaded()
         {
             if (!IsLoaded)
@@ -258,16 +191,17 @@ namespace Wally.Core
 
         // ?? Private helpers ???????????????????????????????????????????????????
 
-        private void BuildActors(WallyConfig config)
+        /// <summary>
+        /// Builds one <see cref="WallyActor"/> per <see cref="AgentDefinition"/>.
+        /// Each actor receives its own private Role, Criteria, and Intent — nothing is shared.
+        /// </summary>
+        private void BuildActors()
         {
             Actors.Clear();
-            foreach (var role in config.Roles)
-                foreach (var criteria in config.AcceptanceCriterias)
-                    foreach (var intent in config.Intents)
-                        Actors.Add(new WallyActor(role, criteria, intent, this));
+            foreach (var agent in AgentDefinitions)
+                Actors.Add(new WallyActor(agent.Role, agent.Criteria, agent.Intent, this));
         }
 
-        /// <summary>Resolves a path to absolute, using <see cref="ProjectFolder"/> as base.</summary>
         private string ResolveAbsolute(string path) =>
             Path.IsPathRooted(path) ? path : Path.GetFullPath(Path.Combine(ProjectFolder, path));
     }

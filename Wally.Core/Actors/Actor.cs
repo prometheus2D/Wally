@@ -60,27 +60,44 @@ namespace Wally.Core.Actors
         /// </summary>
         public virtual string ProcessPrompt(string prompt)
         {
-            if (Workspace == null)
-                return prompt;
-
             var sb = new System.Text.StringBuilder();
+
+            // ?? Agent system context ??????????????????????????????????????????
+            // Prepend RBA framing so every actor subclass sends a complete
+            // system context without having to repeat this in Respond().
+            sb.AppendLine($"# Agent: {Role.Name}");
+            if (!string.IsNullOrWhiteSpace(Role.Prompt))
+                sb.AppendLine($"## Role\n{Role.Prompt}");
+            if (!string.IsNullOrWhiteSpace(AcceptanceCriteria.Prompt))
+                sb.AppendLine($"## Acceptance Criteria\n{AcceptanceCriteria.Prompt}");
+            if (!string.IsNullOrWhiteSpace(Intent.Prompt))
+                sb.AppendLine($"## Intent\n{Intent.Prompt}");
+
+            sb.AppendLine();
+
+            // ?? User prompt ???????????????????????????????????????????????????
+            sb.AppendLine("## Prompt");
             sb.AppendLine(prompt);
 
-            if (!string.IsNullOrEmpty(Workspace.ProjectFolder))
-                sb.AppendLine($"[Project Folder: {Workspace.ProjectFolder}]");
-
-            if (Workspace.FolderReferences.Count > 0)
+            // ?? Workspace context ?????????????????????????????????????????????
+            if (Workspace != null)
             {
-                sb.AppendLine("[Folder References]");
-                foreach (var folder in Workspace.FolderReferences)
-                    sb.AppendLine($"  {folder}");
-            }
+                if (!string.IsNullOrEmpty(Workspace.ProjectFolder))
+                    sb.AppendLine($"\n[Project Folder: {Workspace.ProjectFolder}]");
 
-            if (Workspace.FileReferences.Count > 0)
-            {
-                sb.AppendLine("[File References]");
-                foreach (var file in Workspace.FileReferences)
-                    sb.AppendLine($"  {file}");
+                if (Workspace.FolderReferences.Count > 0)
+                {
+                    sb.AppendLine("[Folder References]");
+                    foreach (var folder in Workspace.FolderReferences)
+                        sb.AppendLine($"  {folder}");
+                }
+
+                if (Workspace.FileReferences.Count > 0)
+                {
+                    sb.AppendLine("[File References]");
+                    foreach (var file in Workspace.FileReferences)
+                        sb.AppendLine($"  {file}");
+                }
             }
 
             return sb.ToString().TrimEnd();

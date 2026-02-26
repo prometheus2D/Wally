@@ -83,14 +83,12 @@ namespace Wally.Console
                     }
 
                     // ── Inspection ────────────────────────────────────────────
-                    if (opts is ListOptions)           { WallyCommands.HandleList(_environment); return 0; }
-                    if (opts is InfoOptions)           { WallyCommands.HandleInfo(_environment); return 0; }
-
-                    // ── Legacy ────────────────────────────────────────────────
-                    if (opts is LoadActorsOptions lao) { WallyCommands.HandleLoadActors(_environment, lao.JsonPath); return 0; }
+                    if (opts is ListOptions)              { WallyCommands.HandleList(_environment); return 0; }
+                    if (opts is InfoOptions)              { WallyCommands.HandleInfo(_environment); return 0; }
+                    if (opts is ReloadAgentsOptions)      { WallyCommands.HandleReloadAgents(_environment); return 0; }
 
                     // ── Help ──────────────────────────────────────────────────
-                    if (opts is HelpOptions)           { WallyCommands.HandleHelp(); return 0; }
+                    if (opts is HelpOptions)              { WallyCommands.HandleHelp(); return 0; }
 
                     return 0;
                 },

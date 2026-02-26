@@ -131,58 +131,27 @@ namespace Wally.Core
         // ?? Workspace inspection ??????????????????????????????????????????????
 
         /// <summary>
-        /// Lists the loaded RBA definitions (Roles, Criteria, Intents), built actors,
-        /// and all registered folder and file references.
+        /// Lists each loaded agent (name, tier, role/criteria/intent prompts),
+        /// then folder and file references.
         /// </summary>
         public static void HandleList(WallyEnvironment env)
         {
             if (RequireWorkspace(env, "list") == null) return;
 
-            var ws  = env.Workspace!;
-            var cfg = ws.Config;
+            var ws = env.Workspace!;
 
-            // ?? Roles ?????????????????????????????????????????????????????????
-            Console.WriteLine($"Roles ({cfg.Roles.Count}):");
-            if (cfg.Roles.Count == 0)
-                Console.WriteLine("  (none)");
-            foreach (var r in cfg.Roles)
+            Console.WriteLine($"Agents ({ws.AgentDefinitions.Count}):");
+            if (ws.AgentDefinitions.Count == 0)
+                Console.WriteLine("  (none — add a subfolder to .wally/Agents/)");
+
+            foreach (var agent in ws.AgentDefinitions)
             {
-                string tier = string.IsNullOrWhiteSpace(r.Tier) ? "" : $"  [{r.Tier}]";
-                Console.WriteLine($"  {r.Name}{tier}");
-                Console.WriteLine($"    {r.Prompt}");
+                Console.WriteLine($"  [{agent.Name}]  folder: {agent.FolderPath}");
+                PrintRbaLine("    Role",     agent.Role.Prompt,     agent.Role.Tier);
+                PrintRbaLine("    Criteria", agent.Criteria.Prompt, agent.Criteria.Tier);
+                PrintRbaLine("    Intent",   agent.Intent.Prompt,   agent.Intent.Tier);
             }
 
-            // ?? Criteria ??????????????????????????????????????????????????????
-            Console.WriteLine($"Criteria ({cfg.AcceptanceCriterias.Count}):");
-            if (cfg.AcceptanceCriterias.Count == 0)
-                Console.WriteLine("  (none)");
-            foreach (var c in cfg.AcceptanceCriterias)
-            {
-                string tier = string.IsNullOrWhiteSpace(c.Tier) ? "" : $"  [{c.Tier}]";
-                Console.WriteLine($"  {c.Name}{tier}");
-                Console.WriteLine($"    {c.Prompt}");
-            }
-
-            // ?? Intents ???????????????????????????????????????????????????????
-            Console.WriteLine($"Intents ({cfg.Intents.Count}):");
-            if (cfg.Intents.Count == 0)
-                Console.WriteLine("  (none)");
-            foreach (var i in cfg.Intents)
-            {
-                string tier = string.IsNullOrWhiteSpace(i.Tier) ? "" : $"  [{i.Tier}]";
-                Console.WriteLine($"  {i.Name}{tier}");
-                Console.WriteLine($"    {i.Prompt}");
-            }
-
-            // ?? Actors (cartesian product) ????????????????????????????????????
-            Console.WriteLine($"Actors ({ws.Actors.Count}):  " +
-                $"({cfg.Roles.Count} roles × {cfg.AcceptanceCriterias.Count} criteria × {cfg.Intents.Count} intents)");
-            if (ws.Actors.Count == 0)
-                Console.WriteLine("  (none — add prompt files to Roles/, Criteria/, Intents/)");
-            foreach (var actor in ws.Actors)
-                Console.WriteLine($"  {actor.Role.Name} / {actor.AcceptanceCriteria.Name} / {actor.Intent.Name}");
-
-            // ?? Context references ????????????????????????????????????????????
             Console.WriteLine($"Folder References ({ws.FolderReferences.Count}):");
             if (ws.FolderReferences.Count == 0) Console.WriteLine("  (none)");
             foreach (var f in ws.FolderReferences) Console.WriteLine($"  {f}");
@@ -192,7 +161,7 @@ namespace Wally.Core
             foreach (var f in ws.FileReferences) Console.WriteLine($"  {f}");
         }
 
-        /// <summary>Displays workspace paths, RBA counts, reference counts, and runtime settings.</summary>
+        /// <summary>Displays workspace paths, agent count, reference counts, and settings.</summary>
         public static void HandleInfo(WallyEnvironment env)
         {
             if (!env.HasWorkspace)
@@ -210,45 +179,24 @@ namespace Wally.Core
             Console.WriteLine($"Project folder:   {ws.ProjectFolder}");
             Console.WriteLine($"Workspace folder: {ws.WorkspaceFolder}");
             Console.WriteLine();
-            Console.WriteLine($"RBA prompt folders:");
-            Console.WriteLine($"  Roles:          {Path.Combine(ws.WorkspaceFolder, cfg.RolesFolderName)}  ({cfg.Roles.Count} loaded)");
-            Console.WriteLine($"  Criteria:       {Path.Combine(ws.WorkspaceFolder, cfg.CriteriaFolderName)}  ({cfg.AcceptanceCriterias.Count} loaded)");
-            Console.WriteLine($"  Intents:        {Path.Combine(ws.WorkspaceFolder, cfg.IntentsFolderName)}  ({cfg.Intents.Count} loaded)");
+            Console.WriteLine($"Agents folder:    {Path.Combine(ws.WorkspaceFolder, cfg.AgentsFolderName)}");
+            Console.WriteLine($"Agents loaded:    {ws.AgentDefinitions.Count}");
+            foreach (var a in ws.AgentDefinitions)
+                Console.WriteLine($"  {a.Name}");
             Console.WriteLine();
-            Console.WriteLine($"Actors:           {ws.Actors.Count}  ({cfg.Roles.Count}R × {cfg.AcceptanceCriterias.Count}C × {cfg.Intents.Count}I)");
             Console.WriteLine($"Folder refs:      {ws.FolderReferences.Count}");
             Console.WriteLine($"File refs:        {ws.FileReferences.Count}");
             Console.WriteLine($"Max iterations:   {env.MaxIterations}");
         }
 
-        // ?? Legacy actor loading ??????????????????????????????????????????????
-
-        /// <summary>
-        /// Loads actors from <paramref name="jsonPath"/>, or auto-resolves
-        /// <c>default-agents.json</c> from the workspace/exe directory when path is null or empty.
-        /// </summary>
-        public static void HandleLoadActors(WallyEnvironment env, string jsonPath = null)
+        /// <summary>Re-reads agent folders from disk and rebuilds actors without a full reload.</summary>
+        public static void HandleReloadAgents(WallyEnvironment env)
         {
-            if (RequireWorkspace(env, "load-actors") == null) return;
-            try
-            {
-                if (string.IsNullOrWhiteSpace(jsonPath))
-                {
-                    env.LoadDefaultActors();
-                    string resolved = WallyHelper.ResolveDefaultAgentsPath(env.WorkspaceFolder!) ?? "(unknown)";
-                    Console.WriteLine($"Default actors loaded from {resolved}");
-                }
-                else
-                {
-                    env.LoadDefaultActors(jsonPath);
-                    Console.WriteLine($"Actors loaded from {jsonPath}");
-                }
-                Console.WriteLine($"  Actors loaded: {env.Actors.Count}");
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Failed to load actors: {ex.Message}");
-            }
+            if (RequireWorkspace(env, "reload-agents") == null) return;
+            env.ReloadAgents();
+            Console.WriteLine($"Agents reloaded: {env.AgentDefinitions.Count}");
+            foreach (var a in env.AgentDefinitions)
+                Console.WriteLine($"  {a.Name}");
         }
 
         // ?? Help ??????????????????????????????????????????????????????????????
@@ -259,43 +207,50 @@ namespace Wally.Core
             Console.WriteLine("=====================================");
             Console.WriteLine();
             Console.WriteLine("No workspace required:");
-            Console.WriteLine("  setup                    Scaffold workspace + prompt files next to exe, then load.");
-            Console.WriteLine("  create <path>            Scaffold a new workspace at <path> (parent folder).");
-            Console.WriteLine("  load <path>              Load an existing workspace from <path>.");
-            Console.WriteLine("  info                     Show workspace paths, RBA counts, and settings.");
-            Console.WriteLine("  help                     Show this message.");
+            Console.WriteLine("  setup                     Scaffold workspace + default agents next to exe.");
+            Console.WriteLine("  create <path>             Scaffold a new workspace at <path>.");
+            Console.WriteLine("  load <path>               Load an existing workspace from <path>.");
+            Console.WriteLine("  info                      Show workspace paths, agent list, and settings.");
+            Console.WriteLine("  help                      Show this message.");
             Console.WriteLine();
             Console.WriteLine("Workspace required:");
-            Console.WriteLine("  save <path>              Save config + prompt files to <path>.");
-            Console.WriteLine("  list                     List Roles, Criteria, Intents, Actors, and refs.");
-            Console.WriteLine("  add-folder <path>        Register a folder for Copilot context.");
-            Console.WriteLine("  add-file <path>          Register a file for Copilot context.");
-            Console.WriteLine("  remove-folder <path>     Deregister a folder.");
-            Console.WriteLine("  remove-file <path>       Deregister a file.");
-            Console.WriteLine("  clear-refs               Clear all folder and file references.");
-            Console.WriteLine("  run \"<prompt>\" [actor]   Run actors on prompt (all, or one by name).");
-            Console.WriteLine("  run-iterative \"<prompt>\" Run actors iteratively; -m N to cap iterations.");
-            Console.WriteLine("  load-actors [path]       Load legacy actors from JSON (omit to auto-resolve).");
+            Console.WriteLine("  save <path>               Save config and all agent prompt files.");
+            Console.WriteLine("  list                      List agents, prompts, and references.");
+            Console.WriteLine("  reload-agents             Re-read agent folders from disk, rebuild actors.");
+            Console.WriteLine("  add-folder <path>         Register a folder for Copilot context.");
+            Console.WriteLine("  add-file <path>           Register a file for Copilot context.");
+            Console.WriteLine("  remove-folder <path>      Deregister a folder.");
+            Console.WriteLine("  remove-file <path>        Deregister a file.");
+            Console.WriteLine("  clear-refs                Clear all folder and file references.");
+            Console.WriteLine("  run \"<prompt>\" [agent]    Run all agents, or one by name.");
+            Console.WriteLine("  run-iterative \"<prompt>\"  Run agents iteratively; -m N to cap.");
             Console.WriteLine();
-            Console.WriteLine("Prompt files:");
-            Console.WriteLine("  Edit .txt files in .wally/Roles/, .wally/Criteria/, .wally/Intents/");
-            Console.WriteLine("  Filename: <Name>.txt  or  <Name>.<Tier>.txt  (e.g. Developer.task.txt)");
-            Console.WriteLine("  Actors are rebuilt as Roles × Criteria × Intents on every load.");
+            Console.WriteLine("Agent folders:");
+            Console.WriteLine("  .wally/Agents/<AgentName>/");
+            Console.WriteLine("    role.txt      — Role prompt  (optional first line: # Tier: task)");
+            Console.WriteLine("    criteria.txt  — Acceptance criteria prompt");
+            Console.WriteLine("    intent.txt    — Intent prompt");
+            Console.WriteLine("  Add a new subfolder to create a new agent.");
+            Console.WriteLine("  Each agent is independent — no shared RBA state.");
         }
 
         // ?? Private helpers ???????????????????????????????????????????????????
 
         private static void PrintWorkspaceSummary(string header, WallyEnvironment env)
         {
-            var cfg = env.Workspace!.Config;
             Console.WriteLine(header);
-            Console.WriteLine($"  Parent:     {env.ParentFolder}");
-            Console.WriteLine($"  Project:    {env.ProjectFolder}");
-            Console.WriteLine($"  Workspace:  {env.WorkspaceFolder}");
-            Console.WriteLine($"  Roles:      {cfg.Roles.Count}  " +
-                $"Criteria: {cfg.AcceptanceCriterias.Count}  " +
-                $"Intents: {cfg.Intents.Count}  " +
-                $"? {env.Actors.Count} actors");
+            Console.WriteLine($"  Parent:    {env.ParentFolder}");
+            Console.WriteLine($"  Project:   {env.ProjectFolder}");
+            Console.WriteLine($"  Workspace: {env.WorkspaceFolder}");
+            Console.WriteLine($"  Agents:    {env.AgentDefinitions.Count}");
+        }
+
+        private static void PrintRbaLine(string label, string prompt, string? tier)
+        {
+            string tierTag = string.IsNullOrWhiteSpace(tier) ? "" : $"  [{tier}]";
+            // Truncate long prompts for display
+            string display = prompt?.Length > 80 ? prompt[..80] + "…" : prompt ?? "";
+            Console.WriteLine($"{label}{tierTag}: {display}");
         }
     }
 }

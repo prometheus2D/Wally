@@ -1,14 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using Wally.Core.Actors;
 using Wally.Core.RBA;
 
 namespace Wally.Core
 {
-    /// <summary>
-    /// Provides static helper methods for workspace creation, directory copying, and
-    /// config resolution. No configuration values are hardcoded here.
-    /// </summary>
     public static class WallyHelper
     {
         // ?? Well-known file names ?????????????????????????????????????????????
@@ -16,15 +13,18 @@ namespace Wally.Core
         /// <summary>File name for the canonical workspace configuration file.</summary>
         public const string ConfigFileName = "wally-config.json";
 
-        /// <summary>File name for the default actor definitions file.</summary>
-        public const string DefaultAgentsFileName = "default-agents.json";
+        /// <summary>Name of the role prompt file inside each agent folder.</summary>
+        public const string RoleFileName     = "role.txt";
+        /// <summary>Name of the acceptance criteria prompt file inside each agent folder.</summary>
+        public const string CriteriaFileName = "criteria.txt";
+        /// <summary>Name of the intent prompt file inside each agent folder.</summary>
+        public const string IntentFileName   = "intent.txt";
 
         // ?? Default parent folder ?????????????????????????????????????????????
 
         /// <summary>
-        /// Returns the default parent folder: the directory that contains the executing
-        /// assembly. Both the project subfolder and workspace subfolder will be created
-        /// as siblings inside this folder.
+        /// The directory containing the executing assembly — the natural home for a
+        /// "drop Wally next to your code" setup.
         /// </summary>
         public static string GetDefaultParentFolder() =>
             Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location)
@@ -36,15 +36,20 @@ namespace Wally.Core
         /// Scaffolds a complete workspace under <paramref name="parentFolder"/>:
         /// <code>
         ///   &lt;parentFolder&gt;/
-        ///       Project/            ? codebase root
-        ///       .wally/             ? workspace
+        ///       Project/
+        ///       .wally/
         ///           wally-config.json
-        ///           default-agents.json
-        ///           Roles/          ? one .txt per role      (name = filename stem)
-        ///           Criteria/       ? one .txt per criterion
-        ///           Intents/        ? one .txt per intent
+        ///           Agents/
+        ///               Developer/
+        ///                   role.txt
+        ///                   criteria.txt
+        ///                   intent.txt
+        ///               Tester/
+        ///                   role.txt
+        ///                   criteria.txt
+        ///                   intent.txt
         /// </code>
-        /// Default prompt files are copied from the exe directory when present.
+        /// Default agent folders are copied from the exe directory when present.
         /// Existing files are never overwritten.
         /// </summary>
         public static void CreateDefaultWorkspace(string parentFolder, WallyConfig config = null)
@@ -57,83 +62,89 @@ namespace Wally.Core
             Directory.CreateDirectory(workspaceFolder);
             Directory.CreateDirectory(projectFolder);
 
-            // Config
+            // wally-config.json
             string destConfig = Path.Combine(workspaceFolder, ConfigFileName);
             if (!File.Exists(destConfig))
                 config.SaveToFile(destConfig);
 
-            // default-agents.json
-            CopyDefaultFile(DefaultAgentsFileName, workspaceFolder);
-
-            // RBA prompt directories
-            CopyDefaultDirectory(config.RolesFolderName,    workspaceFolder);
-            CopyDefaultDirectory(config.CriteriaFolderName, workspaceFolder);
-            CopyDefaultDirectory(config.IntentsFolderName,  workspaceFolder);
+            // Agents/ — copy the default agent tree from the exe directory
+            CopyDefaultDirectory(config.AgentsFolderName, workspaceFolder);
         }
 
-        // ?? RBA loading from prompt files ?????????????????????????????????????
+        // ?? Agent loading from folders ????????????????????????????????????????
 
         /// <summary>
-        /// Reads RBA prompt files from the workspace folder and populates
-        /// <paramref name="config"/>. Supported filename conventions:
-        /// <list type="bullet">
-        ///   <item><c>&lt;Name&gt;.txt</c> — name from stem, no tier.</item>
-        ///   <item><c>&lt;Name&gt;.&lt;Tier&gt;.txt</c> — name from first segment, tier from second.</item>
-        /// </list>
-        /// Existing lists in <paramref name="config"/> are replaced.
-        /// Does nothing when the subdirectories do not exist yet.
+        /// Reads every agent subfolder under <c>&lt;workspaceFolder&gt;/Agents/</c> and
+        /// returns one <see cref="AgentDefinition"/> per folder.
+        ///
+        /// Each subfolder must contain at least one of <c>role.txt</c>,
+        /// <c>criteria.txt</c>, or <c>intent.txt</c>. Missing files produce empty-prompt
+        /// RBA items rather than errors so partially configured agents still load.
         /// </summary>
-        public static void LoadRbaFromPromptFiles(string workspaceFolder, WallyConfig config)
+        public static List<AgentDefinition> LoadAgentDefinitions(
+            string workspaceFolder, WallyConfig config)
         {
-            config.Roles               = LoadRbaItems(workspaceFolder, config.RolesFolderName,
-                                             (n, p, t) => new Role(n, p, t));
-            config.AcceptanceCriterias = LoadRbaItems(workspaceFolder, config.CriteriaFolderName,
-                                             (n, p, t) => new AcceptanceCriteria(n, p, t));
-            config.Intents             = LoadRbaItems(workspaceFolder, config.IntentsFolderName,
-                                             (n, p, t) => new Intent(n, p, t));
+            var agents = new List<AgentDefinition>();
+            string agentsDir = Path.Combine(workspaceFolder, config.AgentsFolderName);
+            if (!Directory.Exists(agentsDir)) return agents;
+
+            foreach (string agentDir in Directory.GetDirectories(agentsDir))
+            {
+                string name = Path.GetFileName(agentDir);
+
+                var (rolePrompt, roleTier)         = ReadPromptFile(agentDir, RoleFileName);
+                var (criteriaPrompt, criteriaTier)  = ReadPromptFile(agentDir, CriteriaFileName);
+                var (intentPrompt, intentTier)      = ReadPromptFile(agentDir, IntentFileName);
+
+                agents.Add(new AgentDefinition(
+                    name,
+                    agentDir,
+                    new Role(name, rolePrompt, roleTier),
+                    new AcceptanceCriteria(name, criteriaPrompt, criteriaTier),
+                    new Intent(name, intentPrompt, intentTier)));
+            }
+            return agents;
+        }
+
+        /// <summary>
+        /// Writes an agent's RBA prompt files back to its folder, creating the folder if
+        /// needed. Overwrites existing files.
+        /// </summary>
+        public static void SaveAgentDefinition(string workspaceFolder, WallyConfig config,
+                                               AgentDefinition agent)
+        {
+            string agentDir = Path.Combine(workspaceFolder, config.AgentsFolderName, agent.Name);
+            Directory.CreateDirectory(agentDir);
+
+            WritePromptFile(agentDir, RoleFileName,     agent.Role.Prompt,     agent.Role.Tier);
+            WritePromptFile(agentDir, CriteriaFileName, agent.Criteria.Prompt, agent.Criteria.Tier);
+            WritePromptFile(agentDir, IntentFileName,   agent.Intent.Prompt,   agent.Intent.Tier);
         }
 
         // ?? Config resolution ?????????????????????????????????????????????????
 
-        /// <summary>
-        /// Resolves a <see cref="WallyConfig"/> by searching for a <c>wally-config.json</c>
-        /// in the workspace subfolder of the default parent folder.
-        /// Returns a default <see cref="WallyConfig"/> when no file is found.
-        /// </summary>
         public static WallyConfig ResolveConfig()
         {
-            string parentFolder              = GetDefaultParentFolder();
+            string parentFolder               = GetDefaultParentFolder();
             string defaultWorkspaceFolderName = new WallyConfig().WorkspaceFolderName;
 
-            string subFolderConfig = Path.Combine(parentFolder, defaultWorkspaceFolderName, ConfigFileName);
-            if (File.Exists(subFolderConfig))
-                return WallyConfig.LoadFromFile(subFolderConfig);
+            string subFolderConfig = Path.Combine(
+                parentFolder, defaultWorkspaceFolderName, ConfigFileName);
 
-            return new WallyConfig();
+            return File.Exists(subFolderConfig)
+                ? WallyConfig.LoadFromFile(subFolderConfig)
+                : new WallyConfig();
         }
 
-        /// <summary>
-        /// Returns the path to <c>default-agents.json</c> inside
-        /// <paramref name="workspaceFolder"/>, or inside the exe directory as fallback.
-        /// Returns <see langword="null"/> when the file cannot be found in either location.
-        /// </summary>
         public static string? ResolveDefaultAgentsPath(string workspaceFolder)
         {
-            string inWorkspace = Path.Combine(workspaceFolder, DefaultAgentsFileName);
-            if (File.Exists(inWorkspace)) return inWorkspace;
-
-            string inExeDir = Path.Combine(GetDefaultParentFolder(), DefaultAgentsFileName);
-            if (File.Exists(inExeDir)) return inExeDir;
-
+            // Kept for backward compatibility; always returns null now that
+            // agents are defined by folders rather than a JSON file.
             return null;
         }
 
         // ?? Default environment loading ???????????????????????????????????????
 
-        /// <summary>
-        /// Loads a <see cref="WallyEnvironment"/> using the default parent folder.
-        /// Scaffolds a workspace there if one does not exist yet.
-        /// </summary>
         public static WallyEnvironment LoadDefault()
         {
             var env = new WallyEnvironment();
@@ -143,7 +154,7 @@ namespace Wally.Core
 
         // ?? Directory utilities ???????????????????????????????????????????????
 
-        /// <summary>Copies a directory and all its contents recursively.</summary>
+        /// <summary>Recursively copies <paramref name="sourceDir"/> into <paramref name="destDir"/>.</summary>
         public static void CopyDirectory(string sourceDir, string destDir)
         {
             Directory.CreateDirectory(destDir);
@@ -156,21 +167,8 @@ namespace Wally.Core
         // ?? Private helpers ???????????????????????????????????????????????????
 
         /// <summary>
-        /// Copies a single file from the exe directory into <paramref name="destFolder"/>.
-        /// Skipped silently when the source does not exist or the dest already exists.
-        /// </summary>
-        private static void CopyDefaultFile(string fileName, string destFolder)
-        {
-            string src  = Path.Combine(GetDefaultParentFolder(), fileName);
-            string dest = Path.Combine(destFolder, fileName);
-            if (File.Exists(src) && !File.Exists(dest))
-                File.Copy(src, dest);
-        }
-
-        /// <summary>
-        /// Copies an entire subdirectory (e.g. <c>Roles/</c>) from the exe directory
-        /// into <paramref name="destFolder"/>. Each file is copied individually;
-        /// existing destination files are not overwritten.
+        /// Copies a subdirectory tree from the exe directory into <paramref name="destFolder"/>.
+        /// Existing destination files are not overwritten.
         /// </summary>
         private static void CopyDefaultDirectory(string subDirName, string destFolder)
         {
@@ -179,39 +177,68 @@ namespace Wally.Core
             if (!Directory.Exists(srcDir)) return;
 
             Directory.CreateDirectory(destDir);
-            foreach (string srcFile in Directory.GetFiles(srcDir, "*.txt"))
+            foreach (string srcSubDir in Directory.GetDirectories(srcDir))
             {
-                string destFile = Path.Combine(destDir, Path.GetFileName(srcFile));
-                if (!File.Exists(destFile))
-                    File.Copy(srcFile, destFile);
+                string agentDest = Path.Combine(destDir, Path.GetFileName(srcSubDir));
+                Directory.CreateDirectory(agentDest);
+                foreach (string srcFile in Directory.GetFiles(srcSubDir))
+                {
+                    string destFile = Path.Combine(agentDest, Path.GetFileName(srcFile));
+                    if (!File.Exists(destFile))
+                        File.Copy(srcFile, destFile);
+                }
             }
         }
 
         /// <summary>
-        /// Reads all <c>.txt</c> files from <c>&lt;workspaceFolder&gt;/&lt;subDir&gt;/</c>
-        /// and converts each into an RBA item.
-        /// Filename convention: <c>&lt;Name&gt;.txt</c> or <c>&lt;Name&gt;.&lt;Tier&gt;.txt</c>.
+        /// Reads a prompt file, parsing an optional first-line metadata header
+        /// <c># Tier: value</c>. Returns the prompt body and the tier (or null).
+        /// Returns empty strings when the file does not exist.
         /// </summary>
-        private static List<T> LoadRbaItems<T>(
-            string workspaceFolder, string subDir, Func<string, string, string?, T> factory)
+        private static (string Prompt, string? Tier) ReadPromptFile(
+            string agentDir, string fileName)
         {
-            var items = new List<T>();
-            string dir = Path.Combine(workspaceFolder, subDir);
-            if (!Directory.Exists(dir)) return items;
+            string path = Path.Combine(agentDir, fileName);
+            if (!File.Exists(path)) return (string.Empty, null);
 
-            foreach (string file in Directory.GetFiles(dir, "*.txt"))
+            string[] lines = File.ReadAllLines(path);
+            string? tier   = null;
+            int bodyStart  = 0;
+
+            // Parse leading "# Key: Value" metadata lines
+            for (int i = 0; i < lines.Length; i++)
             {
-                // Split on '.' to detect optional tier segment: "Name.Tier.txt" ? ["Name","Tier","txt"]
-                string fileNameNoExt = Path.GetFileNameWithoutExtension(file); // "Name" or "Name.Tier"
-                int dotIdx = fileNameNoExt.IndexOf('.');
-                string name = dotIdx >= 0 ? fileNameNoExt[..dotIdx]    : fileNameNoExt;
-                string? tier = dotIdx >= 0 ? fileNameNoExt[(dotIdx + 1)..] : null;
+                string line = lines[i].Trim();
+                if (!line.StartsWith('#')) break;
 
-                string prompt = File.ReadAllText(file).Trim();
-                if (!string.IsNullOrWhiteSpace(name))
-                    items.Add(factory(name, prompt, tier));
+                int colon = line.IndexOf(':');
+                if (colon > 0)
+                {
+                    string key = line[1..colon].Trim().ToLowerInvariant();
+                    string val = line[(colon + 1)..].Trim();
+                    if (key == "tier") tier = val;
+                }
+                bodyStart = i + 1;
             }
-            return items;
+
+            string prompt = string.Join(Environment.NewLine,
+                lines[bodyStart..]).Trim();
+
+            return (prompt, tier);
+        }
+
+        /// <summary>
+        /// Writes a prompt file, prepending a <c># Tier: value</c> header line when
+        /// <paramref name="tier"/> is non-null.
+        /// </summary>
+        private static void WritePromptFile(
+            string agentDir, string fileName, string prompt, string? tier)
+        {
+            string path    = Path.Combine(agentDir, fileName);
+            string content = string.IsNullOrWhiteSpace(tier)
+                ? prompt ?? string.Empty
+                : $"# Tier: {tier}{Environment.NewLine}{prompt ?? string.Empty}";
+            File.WriteAllText(path, content);
         }
     }
 }
