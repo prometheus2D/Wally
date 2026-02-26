@@ -28,6 +28,9 @@ namespace Wally.Core
         /// <summary>The absolute path to the workspace folder (e.g. <c>/repo/.wally</c>).</summary>
         public string WorkspaceFolder { get; private set; }
 
+        /// <summary>The absolute path to the project folder (parent of workspace folder).</summary>
+        public string ProjectFolder { get; private set; }
+
         public bool IsLoaded => !string.IsNullOrEmpty(WorkspaceFolder);
 
         // ?? Configuration ?????????????????????????????????????????????????????
@@ -73,6 +76,7 @@ namespace Wally.Core
                 : new WallyConfig();
 
             WorkspaceFolder = workspaceFolder;
+            ProjectFolder = Path.GetDirectoryName(WorkspaceFolder);
             Actors = WallyHelper.LoadActors(WorkspaceFolder, Config, this);
         }
 

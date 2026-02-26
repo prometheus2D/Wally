@@ -70,49 +70,58 @@ namespace Wally.Core
         /// Reads every actor subfolder under <c>&lt;workspaceFolder&gt;/Actors/</c> and
         /// returns one <see cref="CopilotActor"/> per folder.
         /// Missing <c>actor.json</c> produces an empty-prompt actor rather than an error.
+        /// If no actors are found on disk, loads default actors from embedded resources.
         /// </summary>
         public static List<Actor> LoadActors(
             string workspaceFolder, WallyConfig config, WallyWorkspace workspace = null)
         {
             var actors   = new List<Actor>();
             string actorsDir = Path.Combine(workspaceFolder, config.ActorsFolderName);
-            if (!Directory.Exists(actorsDir)) return actors;
-
-            foreach (string actorDir in Directory.GetDirectories(actorsDir))
+            if (Directory.Exists(actorsDir))
             {
-                string folderName = Path.GetFileName(actorDir);
-                string jsonPath   = Path.Combine(actorDir, ActorFileName);
-
-                string  name           = folderName;
-                string  rolePrompt     = string.Empty;
-                string? roleTier       = null;
-                string  criteriaPrompt = string.Empty;
-                string? criteriaTier   = null;
-                string  intentPrompt   = string.Empty;
-                string? intentTier     = null;
-
-                if (File.Exists(jsonPath))
+                foreach (string actorDir in Directory.GetDirectories(actorsDir))
                 {
-                    var doc  = JsonDocument.Parse(File.ReadAllText(jsonPath));
-                    var root = doc.RootElement;
+                    string folderName = Path.GetFileName(actorDir);
+                    string jsonPath   = Path.Combine(actorDir, ActorFileName);
 
-                    name           = TryGetString(root, "name")           ?? folderName;
-                    rolePrompt     = TryGetString(root, "rolePrompt")     ?? string.Empty;
-                    roleTier       = TryGetString(root, "roleTier");
-                    criteriaPrompt = TryGetString(root, "criteriaPrompt") ?? string.Empty;
-                    criteriaTier   = TryGetString(root, "criteriaTier");
-                    intentPrompt   = TryGetString(root, "intentPrompt")   ?? string.Empty;
-                    intentTier     = TryGetString(root, "intentTier");
+                    string  name           = folderName;
+                    string  rolePrompt     = string.Empty;
+                    string? roleTier       = null;
+                    string  criteriaPrompt = string.Empty;
+                    string? criteriaTier   = null;
+                    string  intentPrompt   = string.Empty;
+                    string? intentTier     = null;
+
+                    if (File.Exists(jsonPath))
+                    {
+                        var doc  = JsonDocument.Parse(File.ReadAllText(jsonPath));
+                        var root = doc.RootElement;
+
+                        name           = TryGetString(root, "name")           ?? folderName;
+                        rolePrompt     = TryGetString(root, "rolePrompt")     ?? string.Empty;
+                        roleTier       = TryGetString(root, "roleTier");
+                        criteriaPrompt = TryGetString(root, "criteriaPrompt") ?? string.Empty;
+                        criteriaTier   = TryGetString(root, "criteriaTier");
+                        intentPrompt   = TryGetString(root, "intentPrompt")   ?? string.Empty;
+                        intentTier     = TryGetString(root, "intentTier");
+                    }
+
+                    actors.Add(new CopilotActor(
+                        name,
+                        actorDir,
+                        new Role(name, rolePrompt, roleTier),
+                        new AcceptanceCriteria(name, criteriaPrompt, criteriaTier),
+                        new Intent(name, intentPrompt, intentTier),
+                        workspace));
                 }
-
-                actors.Add(new CopilotActor(
-                    name,
-                    actorDir,
-                    new Role(name, rolePrompt, roleTier),
-                    new AcceptanceCriteria(name, criteriaPrompt, criteriaTier),
-                    new Intent(name, intentPrompt, intentTier),
-                    workspace));
             }
+
+            // If no actors loaded from disk, load defaults from embedded resources
+            if (actors.Count == 0)
+            {
+                actors.AddRange(LoadDefaultActors(workspace));
+            }
+
             return actors;
         }
 
@@ -201,6 +210,58 @@ namespace Wally.Core
                         File.Copy(srcFile, destFile);
                 }
             }
+        }
+
+        /// <summary>
+        /// Loads default actors from the Wally.Default project's .wally/Actors/ directory.
+        /// </summary>
+        private static List<Actor> LoadDefaultActors(WallyWorkspace workspace)
+        {
+            var actors = new List<Actor>();
+
+            // Path to Wally.Default\.wally\Actors\
+            string exeDir = Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location) ?? Directory.GetCurrentDirectory();
+            string defaultActorsDir = Path.Combine(exeDir, "..", "..", "..", "Wally.Default", ".wally", "Actors");
+
+            if (!Directory.Exists(defaultActorsDir)) return actors;
+
+            foreach (string actorDir in Directory.GetDirectories(defaultActorsDir))
+            {
+                string folderName = Path.GetFileName(actorDir);
+                string jsonPath = Path.Combine(actorDir, ActorFileName);
+
+                string name = folderName;
+                string rolePrompt = string.Empty;
+                string? roleTier = null;
+                string criteriaPrompt = string.Empty;
+                string? criteriaTier = null;
+                string intentPrompt = string.Empty;
+                string? intentTier = null;
+
+                if (File.Exists(jsonPath))
+                {
+                    var doc = JsonDocument.Parse(File.ReadAllText(jsonPath));
+                    var root = doc.RootElement;
+
+                    name = TryGetString(root, "name") ?? folderName;
+                    rolePrompt = TryGetString(root, "rolePrompt") ?? string.Empty;
+                    roleTier = TryGetString(root, "roleTier");
+                    criteriaPrompt = TryGetString(root, "criteriaPrompt") ?? string.Empty;
+                    criteriaTier = TryGetString(root, "criteriaTier");
+                    intentPrompt = TryGetString(root, "intentPrompt") ?? string.Empty;
+                    intentTier = TryGetString(root, "intentTier");
+                }
+
+                actors.Add(new CopilotActor(
+                    name,
+                    string.Empty, // No folder path for default actors
+                    new Role(name, rolePrompt, roleTier),
+                    new AcceptanceCriteria(name, criteriaPrompt, criteriaTier),
+                    new Intent(name, intentPrompt, intentTier),
+                    workspace));
+            }
+
+            return actors;
         }
 
         private static string? TryGetString(JsonElement element, string propertyName) =>
