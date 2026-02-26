@@ -1,215 +1,301 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using Wally.Core;
 
 namespace Wally.Core
 {
     /// <summary>
     /// Contains the implementation logic for Wally commands.
+    /// Each method accepts the <see cref="WallyEnvironment"/> it should operate on —
+    /// no static environment state is held here.
     /// </summary>
     public static class WallyCommands
     {
-        private static WallyEnvironment? _environment;
+        // ?? Guard ?????????????????????????????????????????????????????????????
 
-        /// <summary>
-        /// Sets the Wally environment for command operations.
-        /// </summary>
-        /// <param name="environment">The environment instance.</param>
-        public static void SetEnvironment(WallyEnvironment environment)
+        private static WallyEnvironment? RequireWorkspace(WallyEnvironment env, string commandName)
         {
-            _environment = environment;
-        }
-
-        /// <summary>
-        /// Handles the load command.
-        /// </summary>
-        /// <param name="path">The path to load from.</param>
-        public static void HandleLoad(string path)
-        {
-            if (_environment == null) throw new InvalidOperationException("Environment not set.");
-            _environment.LoadFromWorkspace(path);
-            Console.WriteLine($"Workspace loaded from {path}.");
-        }
-
-        /// <summary>
-        /// Handles the save command.
-        /// </summary>
-        /// <param name="path">The path to save to.</param>
-        public static void HandleSave(string path)
-        {
-            if (_environment == null) throw new InvalidOperationException("Environment not set.");
-            _environment.SaveToWorkspace(path);
-            Console.WriteLine($"Environment saved to {path}.");
-        }
-
-        /// <summary>
-        /// Handles the create command.
-        /// </summary>
-        /// <param name="path">The path for the new workspace.</param>
-        public static void HandleCreate(string path)
-        {
-            WallyEnvironment.CreateDefaultWorkspace(path);
-            Console.WriteLine($"Default workspace created at {path}.");
-        }
-
-        /// <summary>
-        /// Handles the run command.
-        /// </summary>
-        /// <param name="prompt">The prompt to run.</param>
-        /// <param name="actorName">The optional actor name.</param>
-        /// <returns>List of responses.</returns>
-        public static List<string> HandleRun(string prompt, string actorName = null)
-        {
-            if (_environment == null) throw new InvalidOperationException("Environment not set.");
-            if (!string.IsNullOrEmpty(actorName))
+            if (!env.HasWorkspace)
             {
-                return _environment.RunActor(prompt, actorName);
+                Console.WriteLine(
+                    $"Command '{commandName}' requires a workspace. " +
+                    $"Use 'load <path>' or 'create <path>' first.");
+                return null;
             }
-            else
+            return env;
+        }
+
+        // ?? Workspace lifecycle ???????????????????????????????????????????????
+
+        /// <summary>Loads a workspace from <paramref name="path"/> into <paramref name="env"/>.</summary>
+        public static void HandleLoad(WallyEnvironment env, string path)
+        {
+            env.LoadWorkspace(path);
+            PrintWorkspaceSummary("Workspace loaded.", env);
+        }
+
+        /// <summary>Scaffolds a new workspace at <paramref name="path"/> and loads it.</summary>
+        public static void HandleCreate(WallyEnvironment env, string path)
+        {
+            env.CreateWorkspace(path, WallyHelper.ResolveConfig());
+            PrintWorkspaceSummary("Workspace created.", env);
+        }
+
+        /// <summary>Self-assembles a workspace in the exe directory and loads it.</summary>
+        public static void HandleSetup(WallyEnvironment env)
+        {
+            env.SetupLocal();
+            PrintWorkspaceSummary("Workspace ready.", env);
+        }
+
+        /// <summary>Saves the active workspace config and all prompt files to <paramref name="path"/>.</summary>
+        public static void HandleSave(WallyEnvironment env, string path)
+        {
+            if (RequireWorkspace(env, "save") == null) return;
+            env.SaveToWorkspace(path);
+            Console.WriteLine($"Workspace saved to: {path}");
+        }
+
+        // ?? Reference management ??????????????????????????????????????????????
+
+        public static void HandleAddFolder(WallyEnvironment env, string folderPath)
+        {
+            if (RequireWorkspace(env, "add-folder") == null) return;
+            env.AddFolderReference(folderPath);
+            Console.WriteLine($"Folder reference added: {folderPath}");
+        }
+
+        public static void HandleAddFile(WallyEnvironment env, string filePath)
+        {
+            if (RequireWorkspace(env, "add-file") == null) return;
+            env.AddFileReference(filePath);
+            Console.WriteLine($"File reference added: {filePath}");
+        }
+
+        public static void HandleRemoveFolder(WallyEnvironment env, string folderPath)
+        {
+            if (RequireWorkspace(env, "remove-folder") == null) return;
+            bool removed = env.RemoveFolderReference(folderPath);
+            Console.WriteLine(removed
+                ? $"Folder reference removed: {folderPath}"
+                : $"Folder reference not found: {folderPath}");
+        }
+
+        public static void HandleRemoveFile(WallyEnvironment env, string filePath)
+        {
+            if (RequireWorkspace(env, "remove-file") == null) return;
+            bool removed = env.RemoveFileReference(filePath);
+            Console.WriteLine(removed
+                ? $"File reference removed: {filePath}"
+                : $"File reference not found: {filePath}");
+        }
+
+        public static void HandleClearReferences(WallyEnvironment env)
+        {
+            if (RequireWorkspace(env, "clear-refs") == null) return;
+            env.ClearReferences();
+            Console.WriteLine("All folder and file references cleared.");
+        }
+
+        // ?? Running actors ????????????????????????????????????????????????????
+
+        public static List<string> HandleRun(WallyEnvironment env, string prompt, string actorName = null)
+        {
+            if (RequireWorkspace(env, "run") == null) return new List<string>();
+            return !string.IsNullOrEmpty(actorName)
+                ? env.RunActor(prompt, actorName)
+                : env.RunActors(prompt);
+        }
+
+        public static List<string> HandleRunIterative(
+            WallyEnvironment env, string prompt, int maxIterationsOverride = 0)
+        {
+            if (RequireWorkspace(env, "run-iterative") == null) return new List<string>();
+
+            if (maxIterationsOverride > 0)
+                env.MaxIterations = maxIterationsOverride;
+
+            Console.WriteLine($"Running iterative mode (max {env.MaxIterations} iterations)...");
+
+            return env.RunActorsIterative(prompt, (iteration, responses) =>
             {
-                return _environment.RunActors(prompt);
+                Console.WriteLine($"--- Iteration {iteration} ---");
+                foreach (var response in responses)
+                    Console.WriteLine(response);
+                if (responses.Count == 0)
+                    Console.WriteLine("No responses. Stopping early.");
+            });
+        }
+
+        // ?? Workspace inspection ??????????????????????????????????????????????
+
+        /// <summary>
+        /// Lists the loaded RBA definitions (Roles, Criteria, Intents), built actors,
+        /// and all registered folder and file references.
+        /// </summary>
+        public static void HandleList(WallyEnvironment env)
+        {
+            if (RequireWorkspace(env, "list") == null) return;
+
+            var ws  = env.Workspace!;
+            var cfg = ws.Config;
+
+            // ?? Roles ?????????????????????????????????????????????????????????
+            Console.WriteLine($"Roles ({cfg.Roles.Count}):");
+            if (cfg.Roles.Count == 0)
+                Console.WriteLine("  (none)");
+            foreach (var r in cfg.Roles)
+            {
+                string tier = string.IsNullOrWhiteSpace(r.Tier) ? "" : $"  [{r.Tier}]";
+                Console.WriteLine($"  {r.Name}{tier}");
+                Console.WriteLine($"    {r.Prompt}");
             }
-        }
 
-        /// <summary>
-        /// Handles the list command.
-        /// </summary>
-        public static void HandleList()
-        {
-            if (_environment == null) throw new InvalidOperationException("Environment not set.");
-            Console.WriteLine("Actors:");
-            foreach (var Actor in _environment.Actors)
+            // ?? Criteria ??????????????????????????????????????????????????????
+            Console.WriteLine($"Criteria ({cfg.AcceptanceCriterias.Count}):");
+            if (cfg.AcceptanceCriterias.Count == 0)
+                Console.WriteLine("  (none)");
+            foreach (var c in cfg.AcceptanceCriterias)
             {
-                Console.WriteLine($"- {Actor.GetType().Name}: Role '{Actor.Role.Name}', Intent '{Actor.Intent.Name}'");
+                string tier = string.IsNullOrWhiteSpace(c.Tier) ? "" : $"  [{c.Tier}]";
+                Console.WriteLine($"  {c.Name}{tier}");
+                Console.WriteLine($"    {c.Prompt}");
             }
-            Console.WriteLine("Configuration Files:");
-            foreach (var file in _environment.FilePaths)
+
+            // ?? Intents ???????????????????????????????????????????????????????
+            Console.WriteLine($"Intents ({cfg.Intents.Count}):");
+            if (cfg.Intents.Count == 0)
+                Console.WriteLine("  (none)");
+            foreach (var i in cfg.Intents)
             {
-                Console.WriteLine($"- {file}");
+                string tier = string.IsNullOrWhiteSpace(i.Tier) ? "" : $"  [{i.Tier}]";
+                Console.WriteLine($"  {i.Name}{tier}");
+                Console.WriteLine($"    {i.Prompt}");
             }
+
+            // ?? Actors (cartesian product) ????????????????????????????????????
+            Console.WriteLine($"Actors ({ws.Actors.Count}):  " +
+                $"({cfg.Roles.Count} roles × {cfg.AcceptanceCriterias.Count} criteria × {cfg.Intents.Count} intents)");
+            if (ws.Actors.Count == 0)
+                Console.WriteLine("  (none — add prompt files to Roles/, Criteria/, Intents/)");
+            foreach (var actor in ws.Actors)
+                Console.WriteLine($"  {actor.Role.Name} / {actor.AcceptanceCriteria.Name} / {actor.Intent.Name}");
+
+            // ?? Context references ????????????????????????????????????????????
+            Console.WriteLine($"Folder References ({ws.FolderReferences.Count}):");
+            if (ws.FolderReferences.Count == 0) Console.WriteLine("  (none)");
+            foreach (var f in ws.FolderReferences) Console.WriteLine($"  {f}");
+
+            Console.WriteLine($"File References ({ws.FileReferences.Count}):");
+            if (ws.FileReferences.Count == 0) Console.WriteLine("  (none)");
+            foreach (var f in ws.FileReferences) Console.WriteLine($"  {f}");
         }
 
-        /// <summary>
-        /// Handles the add-file command.
-        /// </summary>
-        /// <param name="filePath">The file path to add.</param>
-        public static void HandleAddFile(string filePath)
+        /// <summary>Displays workspace paths, RBA counts, reference counts, and runtime settings.</summary>
+        public static void HandleInfo(WallyEnvironment env)
         {
-            if (_environment == null) throw new InvalidOperationException("Environment not set.");
-            _environment.AddFilePath(filePath);
-            Console.WriteLine($"File path added: {filePath}");
-        }
-
-        /// <summary>
-        /// Handles the load-config command.
-        /// </summary>
-        /// <param name="jsonPath">The path to the JSON file.</param>
-        public static void HandleLoadConfig(string jsonPath)
-        {
-            if (_environment == null) throw new InvalidOperationException("Environment not set.");
-            _environment.LoadConfigurationFromJson(jsonPath);
-            Console.WriteLine($"Configuration loaded from {jsonPath}");
-        }
-
-        /// <summary>
-        /// Handles the load-Actors command.
-        /// </summary>
-        /// <param name="jsonPath">The path to the JSON file.</param>
-        public static void HandleLoadActors(string jsonPath)
-        {
-            if (_environment == null) throw new InvalidOperationException("Environment not set.");
-            _environment.LoadDefaultActors(jsonPath);
-            Console.WriteLine($"Actors loaded from {jsonPath}");
-        }
-
-        /// <summary>
-        /// Handles the ensure-folders command.
-        /// </summary>
-        public static void HandleEnsureFolders()
-        {
-            if (_environment == null) throw new InvalidOperationException("Environment not set.");
-            _environment.EnsureFoldersExist();
-            Console.WriteLine("All required folders ensured to exist.");
-        }
-
-        /// <summary>
-        /// Handles the setup command.
-        /// </summary>
-        public static void HandleSetup()
-        {
-            string exeDir = Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location);
-            if (exeDir == null)
+            if (!env.HasWorkspace)
             {
-                exeDir = Directory.GetCurrentDirectory();
-            }
-            string workspaceDir = Path.Combine(exeDir, "WallyWorkspace");
-            WallyEnvironment.CreateDefaultWorkspace(workspaceDir);
-            Console.WriteLine($"Wally workspace set up in {workspaceDir}.");
-        }
-
-        /// <summary>
-        /// Handles the info command.
-        /// </summary>
-        public static void HandleInfo()
-        {
-            if (_environment == null)
-            {
-                Console.WriteLine("No Wally environment set.");
+                Console.WriteLine("Status:           No workspace loaded.");
+                Console.WriteLine("                  Use 'load <path>' or 'create <path>' first.");
                 return;
             }
-            Console.WriteLine($"Current Workspace: {_environment.TopFilePath ?? "Not loaded"}");
-            Console.WriteLine($"Documentation Folder: {_environment.DocumentationFolder ?? "N/A"}");
-            Console.WriteLine($"Working Folder: {_environment.WorkingFolder ?? "N/A"}");
-            Console.WriteLine($"Completed Documentation Folder: {_environment.CompletedDocumentationFolder ?? "N/A"}");
-            Console.WriteLine($"Code Directory: {_environment.CodeDirectory ?? "N/A"}");
-            Console.WriteLine($"Actors Loaded: {_environment.Actors.Count}");
-            Console.WriteLine($"Files Tracked: {_environment.FilePaths.Count}");
+
+            var ws  = env.Workspace!;
+            var cfg = ws.Config;
+
+            Console.WriteLine($"Status:           Workspace loaded");
+            Console.WriteLine($"Parent folder:    {ws.ParentFolder}");
+            Console.WriteLine($"Project folder:   {ws.ProjectFolder}");
+            Console.WriteLine($"Workspace folder: {ws.WorkspaceFolder}");
+            Console.WriteLine();
+            Console.WriteLine($"RBA prompt folders:");
+            Console.WriteLine($"  Roles:          {Path.Combine(ws.WorkspaceFolder, cfg.RolesFolderName)}  ({cfg.Roles.Count} loaded)");
+            Console.WriteLine($"  Criteria:       {Path.Combine(ws.WorkspaceFolder, cfg.CriteriaFolderName)}  ({cfg.AcceptanceCriterias.Count} loaded)");
+            Console.WriteLine($"  Intents:        {Path.Combine(ws.WorkspaceFolder, cfg.IntentsFolderName)}  ({cfg.Intents.Count} loaded)");
+            Console.WriteLine();
+            Console.WriteLine($"Actors:           {ws.Actors.Count}  ({cfg.Roles.Count}R × {cfg.AcceptanceCriterias.Count}C × {cfg.Intents.Count}I)");
+            Console.WriteLine($"Folder refs:      {ws.FolderReferences.Count}");
+            Console.WriteLine($"File refs:        {ws.FileReferences.Count}");
+            Console.WriteLine($"Max iterations:   {env.MaxIterations}");
         }
 
+        // ?? Legacy actor loading ??????????????????????????????????????????????
+
         /// <summary>
-        /// Handles the help command.
+        /// Loads actors from <paramref name="jsonPath"/>, or auto-resolves
+        /// <c>default-agents.json</c> from the workspace/exe directory when path is null or empty.
         /// </summary>
+        public static void HandleLoadActors(WallyEnvironment env, string jsonPath = null)
+        {
+            if (RequireWorkspace(env, "load-actors") == null) return;
+            try
+            {
+                if (string.IsNullOrWhiteSpace(jsonPath))
+                {
+                    env.LoadDefaultActors();
+                    string resolved = WallyHelper.ResolveDefaultAgentsPath(env.WorkspaceFolder!) ?? "(unknown)";
+                    Console.WriteLine($"Default actors loaded from {resolved}");
+                }
+                else
+                {
+                    env.LoadDefaultActors(jsonPath);
+                    Console.WriteLine($"Actors loaded from {jsonPath}");
+                }
+                Console.WriteLine($"  Actors loaded: {env.Actors.Count}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Failed to load actors: {ex.Message}");
+            }
+        }
+
+        // ?? Help ??????????????????????????????????????????????????????????????
+
         public static void HandleHelp()
         {
-            Console.WriteLine("Wally - AI Actor Environment Manager");
+            Console.WriteLine("Wally — AI Actor Environment Manager");
             Console.WriteLine("=====================================");
             Console.WriteLine();
-            Console.WriteLine("Available Commands:");
-            Console.WriteLine("  load <path>       - Load a Wally workspace from the specified path.");
-            Console.WriteLine("  save <path>       - Save the current Wally environment to the specified path.");
-            Console.WriteLine("  create <path>     - Create a new default Wally workspace at the specified path.");
-            Console.WriteLine("  run <prompt> [actor] - Run all Actors on the given prompt, or a specific Actor if specified.");
-            Console.WriteLine("  list              - List Actors and configuration files.");
-            Console.WriteLine("  add-file <path>   - Add a file path to the Wally environment.");
-            Console.WriteLine("  load-config <path>- Load configuration from a JSON file.");
-            Console.WriteLine("  load-Actors <path>- Load default Actors from a JSON file.");
-            Console.WriteLine("  ensure-folders    - Ensure all required folders exist in the workspace.");
-            Console.WriteLine("  setup             - Set up a Wally workspace in the current directory.");
-            Console.WriteLine("  info              - Display information about the current Wally workspace.");
-            Console.WriteLine("  create-todo <path>- Create a Todo app at the specified path.");
-            Console.WriteLine("  create-weather <path> - Create a Weather app at the specified path.");
-            Console.WriteLine("  help              - Display this help message.");
+            Console.WriteLine("No workspace required:");
+            Console.WriteLine("  setup                    Scaffold workspace + prompt files next to exe, then load.");
+            Console.WriteLine("  create <path>            Scaffold a new workspace at <path> (parent folder).");
+            Console.WriteLine("  load <path>              Load an existing workspace from <path>.");
+            Console.WriteLine("  info                     Show workspace paths, RBA counts, and settings.");
+            Console.WriteLine("  help                     Show this message.");
             Console.WriteLine();
+            Console.WriteLine("Workspace required:");
+            Console.WriteLine("  save <path>              Save config + prompt files to <path>.");
+            Console.WriteLine("  list                     List Roles, Criteria, Intents, Actors, and refs.");
+            Console.WriteLine("  add-folder <path>        Register a folder for Copilot context.");
+            Console.WriteLine("  add-file <path>          Register a file for Copilot context.");
+            Console.WriteLine("  remove-folder <path>     Deregister a folder.");
+            Console.WriteLine("  remove-file <path>       Deregister a file.");
+            Console.WriteLine("  clear-refs               Clear all folder and file references.");
+            Console.WriteLine("  run \"<prompt>\" [actor]   Run actors on prompt (all, or one by name).");
+            Console.WriteLine("  run-iterative \"<prompt>\" Run actors iteratively; -m N to cap iterations.");
+            Console.WriteLine("  load-actors [path]       Load legacy actors from JSON (omit to auto-resolve).");
+            Console.WriteLine();
+            Console.WriteLine("Prompt files:");
+            Console.WriteLine("  Edit .txt files in .wally/Roles/, .wally/Criteria/, .wally/Intents/");
+            Console.WriteLine("  Filename: <Name>.txt  or  <Name>.<Tier>.txt  (e.g. Developer.task.txt)");
+            Console.WriteLine("  Actors are rebuilt as Roles × Criteria × Intents on every load.");
         }
 
-        /// <summary>
-        /// Handles the create-todo command.
-        /// </summary>
-        /// <param name="path">The path to create the Todo app.</param>
-        public static void HandleCreateTodo(string path)
-        {
-            if (_environment == null) throw new InvalidOperationException("Environment not set.");
-            _environment.CreateTodoApp(path);
-        }
+        // ?? Private helpers ???????????????????????????????????????????????????
 
-        /// <summary>
-        /// Handles the create-weather command.
-        /// </summary>
-        /// <param name="path">The path to create the Weather app.</param>
-        public static void HandleCreateWeather(string path)
+        private static void PrintWorkspaceSummary(string header, WallyEnvironment env)
         {
-            if (_environment == null) throw new InvalidOperationException("Environment not set.");
-            _environment.CreateWeatherApp(path);
+            var cfg = env.Workspace!.Config;
+            Console.WriteLine(header);
+            Console.WriteLine($"  Parent:     {env.ParentFolder}");
+            Console.WriteLine($"  Project:    {env.ProjectFolder}");
+            Console.WriteLine($"  Workspace:  {env.WorkspaceFolder}");
+            Console.WriteLine($"  Roles:      {cfg.Roles.Count}  " +
+                $"Criteria: {cfg.AcceptanceCriterias.Count}  " +
+                $"Intents: {cfg.Intents.Count}  " +
+                $"? {env.Actors.Count} actors");
         }
     }
 }

@@ -3,76 +3,107 @@ using Wally.Core.RBA;
 namespace Wally.Core.Actors
 {
     /// <summary>
-    /// Abstract base class for Wally Actors that can act on an environment based on roles, acceptance criteria, intents, and prompts.
-    /// Actors can make code changes or respond with text, similar to a Copilot Actor.
+    /// Abstract base class for Wally Actors.
+    /// Each Actor is given a <see cref="WallyWorkspace"/> reference at construction time
+    /// so that <see cref="ProcessPrompt"/> can enrich prompts with workspace context
+    /// (registered file and folder references, project path, etc.).
     /// </summary>
     public abstract class Actor
     {
-        /// <summary>
-        /// The role for this Actor.
-        /// </summary>
+        // ?? RBA identity ??????????????????????????????????????????????????????
+
+        /// <summary>The role this Actor plays.</summary>
         public Role Role { get; set; }
 
-        /// <summary>
-        /// The acceptance criteria for this Actor.
-        /// </summary>
+        /// <summary>The acceptance criteria this Actor targets.</summary>
         public AcceptanceCriteria AcceptanceCriteria { get; set; }
 
-        /// <summary>
-        /// The intent for this Actor.
-        /// </summary>
+        /// <summary>The intent this Actor pursues.</summary>
         public Intent Intent { get; set; }
 
+        // ?? Workspace context ?????????????????????????????????????????????????
+
         /// <summary>
-        /// Initializes a new instance of the Actor class.
+        /// The workspace this Actor operates in. Provides access to
+        /// <see cref="WallyWorkspace.FileReferences"/>,
+        /// <see cref="WallyWorkspace.FolderReferences"/>, and
+        /// <see cref="WallyWorkspace.ProjectFolder"/> for prompt enrichment.
+        /// May be <see langword="null"/> when an Actor is constructed outside a workspace.
         /// </summary>
-        /// <param name="role">The role.</param>
-        /// <param name="acceptanceCriteria">The acceptance criteria.</param>
-        /// <param name="intent">The intent.</param>
-        protected Actor(Role role, AcceptanceCriteria acceptanceCriteria, Intent intent)
+        public WallyWorkspace? Workspace { get; set; }
+
+        // ?? Constructor ???????????????????????????????????????????????????????
+
+        /// <summary>
+        /// Initializes an Actor with RBA components and an optional workspace.
+        /// </summary>
+        protected Actor(Role role, AcceptanceCriteria acceptanceCriteria, Intent intent,
+                        WallyWorkspace? workspace = null)
         {
             Role = role;
             AcceptanceCriteria = acceptanceCriteria;
             Intent = intent;
+            Workspace = workspace;
         }
 
-        /// <summary>
-        /// Sets up the Actor with necessary configurations.
-        /// </summary>
+        // ?? Overridable pipeline ??????????????????????????????????????????????
+
+        /// <summary>Called once before every <see cref="Act"/> to perform any setup.</summary>
         public virtual void Setup() { }
 
         /// <summary>
-        /// Processes the prompt and prepares for action.
+        /// Enriches <paramref name="prompt"/> with workspace context (file and folder
+        /// references, project path) before it is passed to <see cref="Respond"/> or
+        /// <see cref="ApplyCodeChanges"/>.
+        /// Override to customise prompt shaping; call <c>base.ProcessPrompt</c> to retain
+        /// the default workspace enrichment.
         /// </summary>
-        /// <param name="prompt">The input prompt.</param>
-        /// <returns>Processed information.</returns>
-        public virtual string ProcessPrompt(string prompt) { return prompt; }
+        public virtual string ProcessPrompt(string prompt)
+        {
+            if (Workspace == null)
+                return prompt;
+
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine(prompt);
+
+            if (!string.IsNullOrEmpty(Workspace.ProjectFolder))
+                sb.AppendLine($"[Project Folder: {Workspace.ProjectFolder}]");
+
+            if (Workspace.FolderReferences.Count > 0)
+            {
+                sb.AppendLine("[Folder References]");
+                foreach (var folder in Workspace.FolderReferences)
+                    sb.AppendLine($"  {folder}");
+            }
+
+            if (Workspace.FileReferences.Count > 0)
+            {
+                sb.AppendLine("[File References]");
+                foreach (var file in Workspace.FileReferences)
+                    sb.AppendLine($"  {file}");
+            }
+
+            return sb.ToString().TrimEnd();
+        }
 
         /// <summary>
-        /// Determines if the action should result in code changes or text response.
+        /// Returns <see langword="true"/> when this Actor wants to apply code changes
+        /// rather than return a text response.
         /// </summary>
-        /// <param name="processedPrompt">The processed prompt.</param>
-        /// <returns>True if code changes, false for text response.</returns>
-        public virtual bool ShouldMakeChanges(string processedPrompt) { return false; }
+        public virtual bool ShouldMakeChanges(string processedPrompt) => false;
 
-        /// <summary>
-        /// Applies code changes based on the prompt.
-        /// </summary>
-        /// <param name="processedPrompt">The processed prompt.</param>
+        /// <summary>Applies code changes directly based on the processed prompt.</summary>
         public virtual void ApplyCodeChanges(string processedPrompt) { }
 
-        /// <summary>
-        /// Generates a text response based on the processed prompt.
-        /// </summary>
-        /// <param name="processedPrompt">The processed prompt.</param>
-        /// <returns>The response string.</returns>
+        /// <summary>Generates a text response based on the processed prompt.</summary>
         public abstract string Respond(string processedPrompt);
 
+        // ?? Entry point ???????????????????????????????????????????????????????
+
         /// <summary>
-        /// Acts on the given prompt, potentially making code changes or returning a text response.
+        /// Runs the full actor pipeline: Setup ? ProcessPrompt ? (ApplyCodeChanges | Respond).
+        /// Returns the text response, or <see langword="null"/> when code changes were applied.
         /// </summary>
-        /// <param name="prompt">The input prompt.</param>
-        /// <returns>A response string, or null if changes are made directly.</returns>
         public string Act(string prompt)
         {
             Setup();
@@ -80,12 +111,9 @@ namespace Wally.Core.Actors
             if (ShouldMakeChanges(processed))
             {
                 ApplyCodeChanges(processed);
-                return null; // Indicate changes were made
+                return null;
             }
-            else
-            {
-                return Respond(processed);
-            }
+            return Respond(processed);
         }
     }
 }

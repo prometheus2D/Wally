@@ -1,3 +1,4 @@
+using System;
 using System.Diagnostics;
 using Wally.Core.RBA;
 
@@ -14,8 +15,10 @@ namespace Wally.Core.Actors
         /// <param name="role">The role.</param>
         /// <param name="acceptanceCriteria">The acceptance criteria.</param>
         /// <param name="intent">The intent.</param>
-        public WallyActor(Role role, AcceptanceCriteria acceptanceCriteria, Intent intent)
-            : base(role, acceptanceCriteria, intent)
+        /// <param name="workspace">The optional workspace.</param>
+        public WallyActor(Role role, AcceptanceCriteria acceptanceCriteria, Intent intent,
+                          WallyWorkspace? workspace = null)
+            : base(role, acceptanceCriteria, intent, workspace)
         {
         }
 

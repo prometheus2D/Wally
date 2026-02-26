@@ -5,47 +5,40 @@ using Wally.Core.RBA;
 namespace Wally.Core.Actors
 {
     /// <summary>
-    /// A Copilot Actor that uses GitHub Copilot CLI for code suggestions and explanations.
+    /// A Copilot Actor that forwards workspace-enriched prompts to the GitHub Copilot CLI
+    /// for suggestions (read-only — never applies code changes directly).
     /// </summary>
     public class CopilotActor : Actor
     {
-        /// <summary>
-        /// Initializes a new instance of the CopilotActor class.
-        /// </summary>
-        /// <param name="role">The role.</param>
-        /// <param name="acceptanceCriteria">The acceptance criteria.</param>
-        /// <param name="intent">The intent.</param>
-        public CopilotActor(Role role, AcceptanceCriteria acceptanceCriteria, Intent intent)
-            : base(role, acceptanceCriteria, intent)
+        public CopilotActor(Role role, AcceptanceCriteria acceptanceCriteria, Intent intent,
+                            WallyWorkspace? workspace = null)
+            : base(role, acceptanceCriteria, intent, workspace)
         {
         }
 
-        /// <summary>
-        /// Determines if changes should be made (false for suggestions only).
-        /// </summary>
-        /// <param name="processedPrompt">The processed prompt.</param>
-        /// <returns>False.</returns>
+        /// <summary>Copilot Actor never applies changes directly; it always responds with text.</summary>
         public override bool ShouldMakeChanges(string processedPrompt) => false;
 
         /// <summary>
-        /// Generates a response using GitHub Copilot CLI suggest.
+        /// Generates a suggestion by forwarding the workspace-enriched prompt to
+        /// <c>gh copilot suggest</c>.
         /// </summary>
-        /// <param name="processedPrompt">The processed prompt.</param>
-        /// <returns>A response string from Copilot.</returns>
         public override string Respond(string processedPrompt)
         {
             try
             {
-                // Construct the full prompt including role, intent, and criteria
-                string fullPrompt = $"Role: {Role.Prompt}\nIntent: {Intent.Prompt}\nAcceptance Criteria: {AcceptanceCriteria.Prompt}\nPrompt: {processedPrompt}";
+                string fullPrompt =
+                    $"Role: {Role.Prompt}\n" +
+                    $"Intent: {Intent.Prompt}\n" +
+                    $"Acceptance Criteria: {AcceptanceCriteria.Prompt}\n" +
+                    $"Prompt: {processedPrompt}";
 
-                // Use GitHub Copilot CLI to suggest code
                 var process = new Process
                 {
                     StartInfo = new ProcessStartInfo
                     {
                         FileName = "gh",
-                        Arguments = $"copilot suggest \"{fullPrompt.Replace("\"", "\\\"")}\"", // Escape quotes
+                        Arguments = $"copilot suggest \"{fullPrompt.Replace("\"", "\\\"")}\"",
                         RedirectStandardOutput = true,
                         RedirectStandardError = true,
                         UseShellExecute = false,
@@ -55,17 +48,12 @@ namespace Wally.Core.Actors
 
                 process.Start();
                 string output = process.StandardOutput.ReadToEnd();
-                string error = process.StandardError.ReadToEnd();
+                string error  = process.StandardError.ReadToEnd();
                 process.WaitForExit();
 
-                if (process.ExitCode == 0)
-                {
-                    return $"Copilot Suggestion:\n{output}";
-                }
-                else
-                {
-                    return $"Error from Copilot: {error}";
-                }
+                return process.ExitCode == 0
+                    ? $"Copilot Suggestion:\n{output}"
+                    : $"Error from Copilot: {error}";
             }
             catch (Exception ex)
             {

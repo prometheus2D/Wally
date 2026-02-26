@@ -1,375 +1,214 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
-using System.Text.Json;
 using System.Text.Json.Serialization;
 using Wally.Core.Actors;
-using Wally.Core.RBA;
 
 namespace Wally.Core
 {
     /// <summary>
-    /// Represents the Wally environment that manages a collection of Actors.
+    /// Runtime environment for Wally. Holds a reference to the active workspace and exposes
+    /// actor-execution and workspace-management operations.
+    /// Once loaded, three sibling folders are accessible: ParentFolder, ProjectFolder, WorkspaceFolder.
     /// </summary>
     public class WallyEnvironment
     {
-        /// <summary>
-        /// The top-level file path for the project or workspace.
-        /// </summary>
-        public string TopFilePath { get; set; }
+        // ?? Active workspace ??????????????????????????????????????????????????
 
-        /// <summary>
-        /// A list of file paths relevant to the Wally environment.
-        /// </summary>
-        public List<string> FilePaths { get; set; } = new List<string>();
-
-        /// <summary>
-        /// The path to the documentation folder.
-        /// </summary>
-        public string DocumentationFolder { get; set; }
-
-        /// <summary>
-        /// The path to the working folder.
-        /// </summary>
-        public string WorkingFolder { get; set; }
-
-        /// <summary>
-        /// The path to the completed documentation folder.
-        /// </summary>
-        public string CompletedDocumentationFolder { get; set; }
-
-        /// <summary>
-        /// The path to the code directory where code changes occur.
-        /// </summary>
-        public string CodeDirectory { get; set; }
-
-        /// <summary>
-        /// The list of Actors in the environment.
-        /// </summary>
         [JsonIgnore]
-        public List<Actor> Actors { get; set; } = new List<Actor>();
+        public WallyWorkspace? Workspace { get; private set; }
 
-        /// <summary>
-        /// Adds a file path to the configuration.
-        /// </summary>
-        /// <param name="filePath">The file path to add.</param>
-        public void AddFilePath(string filePath)
+        public bool HasWorkspace => Workspace?.IsLoaded == true;
+
+        // ?? Folder pass-throughs ??????????????????????????????????????????????
+
+        public string? ParentFolder    => Workspace?.ParentFolder;
+        public string? ProjectFolder   => Workspace?.ProjectFolder;
+        public string? WorkspaceFolder => Workspace?.WorkspaceFolder;
+
+        // ?? Runtime settings ??????????????????????????????????????????????????
+
+        public int MaxIterations
         {
-            FilePaths.Add(filePath);
-        }
-
-        /// <summary>
-        /// Gets the path to the pending subfolder in the working folder.
-        /// </summary>
-        public string GetPendingFolder() => Path.Combine(WorkingFolder, "Pending");
-
-        /// <summary>
-        /// Gets the path to the active subfolder in the working folder.
-        /// </summary>
-        public string GetActiveFolder() => Path.Combine(WorkingFolder, "Active");
-
-        /// <summary>
-        /// Gets the path to the completed subfolder in the working folder.
-        /// </summary>
-        public string GetWorkingCompletedFolder() => Path.Combine(WorkingFolder, "Completed");
-
-        /// <summary>
-        /// Ensures all required folders exist.
-        /// </summary>
-        public void EnsureFoldersExist()
-        {
-            Directory.CreateDirectory(DocumentationFolder);
-            Directory.CreateDirectory(WorkingFolder);
-            Directory.CreateDirectory(GetPendingFolder());
-            Directory.CreateDirectory(GetActiveFolder());
-            Directory.CreateDirectory(GetWorkingCompletedFolder());
-            Directory.CreateDirectory(CompletedDocumentationFolder);
-        }
-
-        /// <summary>
-        /// Loads the configuration from a JSON file.
-        /// </summary>
-        /// <param name="jsonPath">The path to the JSON file.</param>
-        public void LoadConfigurationFromJson(string jsonPath)
-        {
-            string json = File.ReadAllText(jsonPath);
-            var config = JsonSerializer.Deserialize<WallyEnvironment>(json);
-            if (config != null)
+            get => HasWorkspace ? Workspace!.Config.MaxIterations : _maxIterations;
+            set
             {
-                TopFilePath = config.TopFilePath;
-                FilePaths = config.FilePaths;
+                _maxIterations = value;
+                if (HasWorkspace) Workspace!.Config.MaxIterations = value;
+            }
+        }
+        private int _maxIterations = 10;
+
+        // ?? Reference pass-throughs ???????????????????????????????????????????
+
+        [JsonIgnore] public List<string> FolderReferences => Workspace?.FolderReferences ?? _emptyStrings;
+        [JsonIgnore] public List<string> FileReferences   => Workspace?.FileReferences   ?? _emptyStrings;
+        private static readonly List<string> _emptyStrings = new();
+
+        [JsonIgnore] public List<Actor> Actors => Workspace?.Actors ?? _emptyActors;
+        private static readonly List<Actor> _emptyActors = new();
+
+        // ?? Workspace lifecycle ???????????????????????????????????????????????
+
+        /// <summary>Loads an existing workspace from <paramref name="parentFolder"/>.</summary>
+        public void LoadWorkspace(string parentFolder) =>
+            Workspace = WallyWorkspace.Load(parentFolder);
+
+        /// <summary>Scaffolds a new workspace under <paramref name="parentFolder"/> then loads it.</summary>
+        public void CreateWorkspace(string parentFolder, WallyConfig config = null)
+        {
+            WallyHelper.CreateDefaultWorkspace(parentFolder, config);
+            LoadWorkspace(parentFolder);
+        }
+
+        /// <summary>
+        /// Self-assembly: uses the exe directory as the parent folder, scaffolding if needed.
+        /// </summary>
+        public void SetupLocal()
+        {
+            string parentFolder = WallyHelper.GetDefaultParentFolder();
+            WallyConfig config  = WallyHelper.ResolveConfig();
+
+            string expectedConfig = Path.Combine(
+                parentFolder, config.WorkspaceFolderName, WallyHelper.ConfigFileName);
+
+            if (!File.Exists(expectedConfig))
+                WallyHelper.CreateDefaultWorkspace(parentFolder, config);
+
+            LoadWorkspace(parentFolder);
+        }
+
+        /// <summary>Saves the current workspace config back to disk.</summary>
+        public void SaveWorkspace() => RequireWorkspace().Save();
+
+        // ?? Legacy compatibility ??????????????????????????????????????????????
+
+        public void LoadFromWorkspace(string path) => LoadWorkspace(path);
+
+        public void SaveToWorkspace(string path)
+        {
+            if (HasWorkspace && string.Equals(
+                    Path.GetFullPath(Workspace!.ParentFolder),
+                    Path.GetFullPath(path),
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                Workspace.Save();
+            }
+            else
+            {
+                WallyHelper.CreateDefaultWorkspace(path);
+                LoadWorkspace(path);
             }
         }
 
-        /// <summary>
-        /// Adds an Actor to the environment.
-        /// </summary>
-        /// <param name="Actor">The Actor to add.</param>
-        public void AddActor(Actor Actor)
+        public void LoadDefaultActors(string jsonPath)
         {
-            Actors.Add(Actor);
+            var ws   = RequireWorkspace();
+            string json = File.ReadAllText(jsonPath);
+            var data = System.Text.Json.JsonSerializer.Deserialize<DefaultActorsData>(json);
+            if (data != null)
+                foreach (var role in data.Roles)
+                    foreach (var criteria in data.AcceptanceCriterias)
+                        foreach (var intent in data.Intents)
+                            ws.AddActor(new WallyActor(role, criteria, intent, ws));
         }
 
         /// <summary>
-        /// Runs all Actors on the given prompt and collects responses.
+        /// Loads the default actor definitions from <c>default-agents.json</c>, resolving
+        /// the file from the workspace folder or the exe directory automatically.
+        /// Throws <see cref="FileNotFoundException"/> when the file cannot be located.
         /// </summary>
-        /// <param name="prompt">The input prompt.</param>
-        /// <returns>A list of responses from Actors that returned text.</returns>
+        public void LoadDefaultActors()
+        {
+            var ws   = RequireWorkspace();
+            string? path = WallyHelper.ResolveDefaultAgentsPath(ws.WorkspaceFolder);
+            if (path == null)
+                throw new FileNotFoundException(
+                    $"Could not find '{WallyHelper.DefaultAgentsFileName}' in the workspace " +
+                    $"folder or the exe directory. Run 'setup' first or pass an explicit path.");
+            LoadDefaultActors(path);
+        }
+
+        // ?? Reference management ??????????????????????????????????????????????
+
+        public void AddFolderReference(string folderPath) =>
+            RequireWorkspace().AddFolderReference(folderPath);
+
+        public void AddFileReference(string filePath) =>
+            RequireWorkspace().AddFileReference(filePath);
+
+        public bool RemoveFolderReference(string folderPath) =>
+            RequireWorkspace().RemoveFolderReference(folderPath);
+
+        public bool RemoveFileReference(string filePath) =>
+            RequireWorkspace().RemoveFileReference(filePath);
+
+        public void ClearReferences() => RequireWorkspace().ClearReferences();
+
+        // ?? Actor management ??????????????????????????????????????????????????
+
+        public T? GetActor<T>() where T : Actor => Workspace?.GetActor<T>();
+
+        // ?? Running actors ????????????????????????????????????????????????????
+
         public List<string> RunActors(string prompt)
         {
+            RequireWorkspace();
             var responses = new List<string>();
-            foreach (var Actor in Actors)
+            foreach (var actor in Actors)
             {
-                string response = Actor.Act(prompt);
+                string response = actor.Act(prompt);
                 if (response != null)
-                {
-                    responses.Add($"{Actor.GetType().Name}: {response}");
-                }
+                    responses.Add($"{actor.GetType().Name}: {response}");
             }
             return responses;
         }
 
-        /// <summary>
-        /// Gets an Actor by type.
-        /// </summary>
-        /// <typeparam name="T">The type of Actor.</typeparam>
-        /// <returns>The first Actor of the specified type, or null.</returns>
-        public T GetActor<T>() where T : Actor
-        {
-            return Actors.Find(a => a is T) as T;
-        }
-
-        /// <summary>
-        /// Loads default Actors from a JSON file and adds them to the environment.
-        /// Creates WallyActor instances for each combination of Role, AcceptanceCriteria, and Intent.
-        /// </summary>
-        /// <param name="jsonPath">The path to the JSON file.</param>
-        public void LoadDefaultActors(string jsonPath)
-        {
-            string json = File.ReadAllText(jsonPath);
-            var data = JsonSerializer.Deserialize<DefaultActorsData>(json);
-            if (data != null)
-            {
-                foreach (var role in data.Roles)
-                {
-                    foreach (var criteria in data.AcceptanceCriterias)
-                    {
-                        foreach (var intent in data.Intents)
-                        {
-                            var Actor = new WallyActor(role, criteria, intent);
-                            AddActor(Actor);
-                        }
-                    }
-                }
-            }
-        }
-
-        /// <summary>
-        /// Loads the entire Wally environment from a workspace folder.
-        /// Sets the top file path, loads default configuration and Actors from Wally.Default, and scans for relevant files.
-        /// </summary>
-        /// <param name="workspacePath">The path to the workspace folder.</param>
-        public void LoadFromWorkspace(string workspacePath)
-        {
-            // Set top file path
-            TopFilePath = workspacePath;
-
-            // Set folder paths
-            DocumentationFolder = Path.Combine(workspacePath, "Documentation");
-            WorkingFolder = Path.Combine(workspacePath, "Working");
-            CompletedDocumentationFolder = Path.Combine(workspacePath, "CompletedDocumentation");
-
-            // Ensure folders exist
-            EnsureFoldersExist();
-
-            // Load default configuration if exists
-            string configPath = Path.Combine(workspacePath, "Wally.Default", "default-configuration.json");
-            if (File.Exists(configPath))
-            {
-                LoadConfigurationFromJson(configPath);
-            }
-
-            // Load default Actors if exists
-            string ActorsPath = Path.Combine(workspacePath, "Wally.Default", "default-Actors.json");
-            if (File.Exists(ActorsPath))
-            {
-                LoadDefaultActors(ActorsPath);
-            }
-
-            // Scan for .cs files in the workspace and add to file paths
-            if (Directory.Exists(workspacePath))
-            {
-                var csFiles = Directory.GetFiles(workspacePath, "*.cs", SearchOption.AllDirectories)
-                    .Select(f => Path.GetRelativePath(workspacePath, f))
-                    .ToList();
-                FilePaths.AddRange(csFiles);
-            }
-        }
-
-        /// <summary>
-        /// Saves the Wally environment to a workspace folder.
-        /// Creates the Wally.Default folder and saves the configuration to JSON.
-        /// </summary>
-        /// <param name="workspacePath">The path to the workspace folder.</param>
-        public void SaveToWorkspace(string workspacePath)
-        {
-            // Ensure Wally.Default directory exists
-            string defaultDir = Path.Combine(workspacePath, "Wally.Default");
-            Directory.CreateDirectory(defaultDir);
-
-            // Save configuration to JSON
-            string configPath = Path.Combine(defaultDir, "default-configuration.json");
-            string configJson = JsonSerializer.Serialize(this, new JsonSerializerOptions { WriteIndented = true });
-            File.WriteAllText(configPath, configJson);
-
-            // Note: Actors are typically loaded from defaults, so not saved here. Custom Actors could be added later.
-        }
-
-        /// <summary>
-        /// Creates a new Wally workspace by copying the default structure to the specified path.
-        /// </summary>
-        /// <param name="newWorkspacePath">The path for the new workspace.</param>
-        public static void CreateDefaultWorkspace(string newWorkspacePath)
-        {
-            // Create Wally.Default directory
-            string defaultDir = Path.Combine(newWorkspacePath, "Wally.Default");
-            Directory.CreateDirectory(defaultDir);
-
-            // Create default configuration JSON
-            string configPath = Path.Combine(defaultDir, "default-configuration.json");
-            string defaultConfig = @"{
-  ""TopFilePath"": """",
-  ""FilePaths"": []
-}";
-            File.WriteAllText(configPath, defaultConfig);
-
-            // Create default Actors JSON
-            string ActorsPath = Path.Combine(defaultDir, "default-Actors.json");
-            string defaultActors = @"{
-  ""Roles"": [
-    {
-      ""Name"": ""Developer"",
-      ""Prompt"": ""Act as an expert software developer, writing clean and efficient code."",
-      ""Tier"": ""task""
-    },
-    {
-      ""Name"": ""Tester"",
-      ""Prompt"": ""Act as a QA tester, identifying bugs and ensuring functionality."",
-      ""Tier"": ""task""
-    }
-  ],
-  ""AcceptanceCriterias"": [
-    {
-      ""Name"": ""CodeQuality"",
-      ""Prompt"": ""Code must compile without errors, follow best practices, and pass unit tests."",
-      ""Tier"": ""task""
-    },
-    {
-      ""Name"": ""UserSatisfaction"",
-      ""Prompt"": ""The output must meet user requirements and be user-friendly."",
-      ""Tier"": ""story""
-    }
-  ],
-  ""Intents"": [
-    {
-      ""Name"": ""ImplementFeature"",
-      ""Prompt"": ""Implement the requested feature with proper error handling."",
-      ""Tier"": ""task""
-    },
-    {
-      ""Name"": ""FixBug"",
-      ""Prompt"": ""Identify and fix the reported bug."",
-      ""Tier"": ""task""
-    }
-  ]
-}";
-            File.WriteAllText(ActorsPath, defaultActors);
-
-            // Create basic project structure
-            // Directory.CreateDirectory(Path.Combine(newWorkspacePath, "Wally.Console"));
-            // Directory.CreateDirectory(Path.Combine(newWorkspacePath, "Wally.Core"));
-
-            // Create Wally environment folders
-            Directory.CreateDirectory(Path.Combine(newWorkspacePath, "Documentation"));
-            Directory.CreateDirectory(Path.Combine(newWorkspacePath, "Working"));
-            Directory.CreateDirectory(Path.Combine(newWorkspacePath, "Working", "Pending"));
-            Directory.CreateDirectory(Path.Combine(newWorkspacePath, "Working", "Active"));
-            Directory.CreateDirectory(Path.Combine(newWorkspacePath, "Working", "Completed"));
-            Directory.CreateDirectory(Path.Combine(newWorkspacePath, "CompletedDocumentation"));
-        }
-
-        /// <summary>
-        /// Loads and returns a default WallyEnvironment from the current workspace or default location.
-        /// </summary>
-        /// <returns>A WallyEnvironment loaded with defaults.</returns>
-        public static WallyEnvironment LoadDefault()
-        {
-            var env = new WallyEnvironment();
-            string workspacePath = Directory.GetCurrentDirectory();
-            env.LoadFromWorkspace(workspacePath);
-            return env;
-        }
-
-        /// <summary>
-        /// Copies a directory recursively.
-        /// </summary>
-        /// <param name="sourceDir">The source directory.</param>
-        /// <param name="destDir">The destination directory.</param>
-        private static void CopyDirectory(string sourceDir, string destDir)
-        {
-            Directory.CreateDirectory(destDir);
-            foreach (string file in Directory.GetFiles(sourceDir))
-            {
-                string destFile = Path.Combine(destDir, Path.GetFileName(file));
-                File.Copy(file, destFile, true);
-            }
-            foreach (string subDir in Directory.GetDirectories(sourceDir))
-            {
-                string destSubDir = Path.Combine(destDir, Path.GetFileName(subDir));
-                CopyDirectory(subDir, destSubDir);
-            }
-        }
-
-        /// <summary>
-        /// Creates a Todo app by copying the default TodoApp to the specified path.
-        /// </summary>
-        /// <param name="targetPath">The path where to create the Todo app.</param>
-        public void CreateTodoApp(string targetPath)
-        {
-            string sourcePath = Path.Combine(Directory.GetCurrentDirectory(), "Wally.Default", "TodoApp");
-            CopyDirectory(sourcePath, targetPath);
-            CodeDirectory = targetPath;
-            Console.WriteLine($"Todo app created at {targetPath}.");
-        }
-
-        /// <summary>
-        /// Creates a Weather app by copying the default WeatherApp to the specified path.
-        /// </summary>
-        /// <param name="targetPath">The path where to create the Weather app.</param>
-        public void CreateWeatherApp(string targetPath)
-        {
-            string sourcePath = Path.Combine(Directory.GetCurrentDirectory(), "Wally.Default", "WeatherApp");
-            CopyDirectory(sourcePath, targetPath);
-            CodeDirectory = targetPath;
-            Console.WriteLine($"Weather app created at {targetPath}.");
-        }
-
-        /// <summary>
-        /// Runs a specific Actor on the given prompt and collects the response.
-        /// </summary>
-        /// <param name="prompt">The input prompt.</param>
-        /// <param name="actorName">The name of the actor to run.</param>
-        /// <returns>A list containing the response from the Actor.</returns>
         public List<string> RunActor(string prompt, string actorName)
         {
+            RequireWorkspace();
             var actor = Actors.Find(a => a.GetType().Name == actorName);
             if (actor == null)
-            {
                 return new List<string> { $"Actor '{actorName}' not found." };
-            }
+
             string response = actor.Act(prompt);
-            return response != null ? new List<string> { $"{actor.GetType().Name}: {response}" } : new List<string>();
+            return response != null
+                ? new List<string> { $"{actor.GetType().Name}: {response}" }
+                : new List<string>();
         }
+
+        public List<string> RunActorsIterative(string initialPrompt,
+            Action<int, List<string>>? onIteration = null)
+        {
+            RequireWorkspace();
+            string currentPrompt    = initialPrompt;
+            List<string> lastResponses = new List<string>();
+
+            for (int i = 1; i <= MaxIterations; i++)
+            {
+                lastResponses = RunActors(currentPrompt);
+                onIteration?.Invoke(i, lastResponses);
+                if (lastResponses.Count == 0) break;
+                currentPrompt = string.Join(Environment.NewLine, lastResponses);
+            }
+            return lastResponses;
+        }
+
+        // ?? Guard ?????????????????????????????????????????????????????????????
+
+        public WallyWorkspace RequireWorkspace()
+        {
+            if (!HasWorkspace)
+                throw new InvalidOperationException(
+                    "No workspace is loaded. Use 'load <path>' or 'create <path>' first.");
+            return Workspace!;
+        }
+
+        // ?? Static factory helpers ????????????????????????????????????????????
+
+        public static WallyEnvironment LoadDefault() => WallyHelper.LoadDefault();
+
+        public static void CreateDefaultWorkspace(string parentFolder, WallyConfig config = null) =>
+            WallyHelper.CreateDefaultWorkspace(parentFolder, config);
     }
 }

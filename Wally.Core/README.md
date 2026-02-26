@@ -1,67 +1,53 @@
-# Wally.Instance
+# Wally.Core
 
-This project contains core structures for the Wally AI Actor system.
+Domain library — no CLI, no UI. Contains everything needed to host a Wally workspace in any .NET 8 application.
 
-## Classes and Responsibilities
+## Key types
 
-### WallyInstance
-- **Purpose**: Main entry point or container for the Wally instance. Currently empty, intended for future expansion to manage overall AI Actor lifecycle.
+### `WallyWorkspace`
+Owns a three-folder layout on disk:
 
-### Role
-- **Purpose**: Defines a role to be roleplayed by an AI, based on human-provided prompts.
-- **Properties**:
-  - `RoleToPlay`: The specific role (e.g., "detective", "teacher").
-  - `Intent`: The goal or intent of the role.
-  - `AcceptanceCriteria`: An instance of `AcceptanceCriteria` for evaluating the success of the roleplay.
-- **Responsibilities**: Holds the core prompts and serves as input for AI brains to perform roleplaying.
+```
+<ParentFolder>/
+    <ProjectFolderName>/    ? codebase  (default: "Project")
+    <WorkspaceFolderName>/  ? config    (default: ".wally")
+        wally-config.json
+```
 
-### AcceptanceCriteria
-- **Purpose**: Defines the criteria for accepting the outcome of a roleplay.
-- **Properties**:
-  - `Description`: A string describing the acceptance criteria.
-- **Responsibilities**: Provides a structured way to specify and evaluate roleplay success criteria.
+Call `WallyWorkspace.Load(parentFolder)` or `LoadFrom(path)` (accepts any of the three folders).
+Manages `FolderReferences` and `FileReferences` — explicit opt-in paths sent to actors.
 
-### Brain
-- **Purpose**: Abstract base class for AI brains, which are LLM wrappers responsible for "thinking" and executing roles.
-- **Properties**:
-  - `Name`: Identifier for the brain implementation.
-- **Responsibilities**:
-  - Implement the `PerformRole` method to handle roleplaying logic using LLMs.
-  - Examples of concrete implementations: WiggumBrain, AutopilotBrain, LoopingAIBrain.
+### `WallyEnvironment`
+Thin runtime host over a `WallyWorkspace`. Exposes workspace lifecycle (`LoadWorkspace`, `CreateWorkspace`, `SetupLocal`), reference management, and actor execution (`RunActors`, `RunActor`, `RunActorsIterative`).
 
-### Actor
-- **Purpose**: Abstract base class for comprehensive Actors that act on environments, taking roles, acceptance criteria, intents, and prompts to perform actions like code changes or text responses.
-- **Properties**:
-  - `Role`: The associated role.
-  - `AcceptanceCriteria`: The acceptance criteria.
-  - `Intent`: The intent.
-- **Responsibilities**:
-  - Implement the `Act` method to process prompts and act accordingly.
-  - Concrete implementations: CopilotAutopilotActor, WiggumActor, WallyActor.
+```csharp
+var env = new WallyEnvironment();
+env.SetupLocal();                                    // scaffolds if needed
+env.LoadDefaultActors("default-agents.json");
+env.AddFolderReference(@".\Project\src");
+var responses = env.RunActors("Explain this module");
+```
 
-### CopilotAutopilotActor
-- **Purpose**: Simulates GitHub Copilot's autopilot mode for automatic code suggestions and changes.
-- **Responsibilities**: Processes prompts to activate autopilot for code modifications.
+### `WallyConfig`
+Loaded from / saved to `wally-config.json`. Defines:
+- `WorkspaceFolderName` — workspace subfolder name (default `.wally`)
+- `ProjectFolderName` — project subfolder name (default `Project`)
+- `MaxIterations` — cap for iterative runs
+- `Roles`, `AcceptanceCriterias`, `Intents` — RBA definitions
 
-### WiggumActor
-- **Purpose**: A simple custom Actor for roleplaying responses in a fun, Wiggum-inspired style.
-- **Responsibilities**: Provides text responses based on role, intent, and criteria.
+### `Actor` (abstract)
+Pipeline: `Setup() ? ProcessPrompt() ? ShouldMakeChanges() ? ApplyCodeChanges() | Respond()`
 
-### WallyActor
-- **Purpose**: A custom Actor that fully integrates RBA components for comprehensive actions.
-- **Responsibilities**: Combines all prompts to make decisions on code changes or responses.
+`ProcessPrompt` appends workspace context (project folder, folder refs, file refs) to every prompt before dispatch. Concrete implementations receive a `WallyWorkspace?` at construction.
 
-### WallyEnvironment
-- **Purpose**: Manages a collection of Actors in the Wally system.
-- **Properties**:
-  - `Actors`: A list of Actors.
-- **Responsibilities**:
-  - Add Actors to the environment.
-  - Run all Actors on a prompt and collect responses.
-  - Retrieve Actors by type.
+| Actor | Behaviour |
+|---|---|
+| `WallyActor` | Forwards enriched prompt to `gh copilot explain`. |
+| `CopilotActor` | Forwards enriched prompt to `gh copilot suggest`. Never applies changes. |
 
-## RBA Namespace (Wally.Instance.RBA)
-Contains simplified classes for Role, AcceptanceCriteria, and Intent, each with `Name` and `Prompt` properties.
+### `WallyHelper`
+Static utilities: `GetDefaultParentFolder()` (exe directory), `CreateDefaultWorkspace(parentFolder)`, `ResolveConfig()`.
 
-## Actors\RBA Namespace (Wally.Instance.Actors.RBA)
-Updated location for RBA classes with constructors.
+### RBA types (`Wally.Core.RBA`)
+`Role`, `AcceptanceCriteria`, `Intent` — each has `Name`, `Prompt`, `Tier`.
+Actors are the cartesian product of all three lists.
