@@ -39,13 +39,13 @@ namespace Wally.Core
         /// <summary>Scaffolds a new workspace at <paramref name="path"/> and loads it.</summary>
         public static void HandleCreate(WallyEnvironment env, string path)
         {
-            env.CreateWorkspace(path, WallyHelper.ResolveConfig());
+            env.CreateWorkspace(path, WallyHelper.ResolveConfig(path));
             PrintWorkspaceSummary("Workspace created.", env);
         }
 
         /// <summary>
-        /// Self-assembles a workspace at <paramref name="path"/> (or the exe directory when
-        /// <paramref name="path"/> is null) and loads it.
+        /// Ensures a workspace exists at <paramref name="path"/> (or the default location
+        /// when <paramref name="path"/> is null) and loads it.
         /// </summary>
         public static void HandleSetup(WallyEnvironment env, string path = null)
         {
@@ -53,7 +53,7 @@ namespace Wally.Core
             PrintWorkspaceSummary("Workspace ready.", env);
         }
 
-        /// <summary>Saves the active workspace config and all prompt files to <paramref name="path"/>.</summary>
+        /// <summary>Saves the active workspace config and all actor files to <paramref name="path"/>.</summary>
         public static void HandleSave(WallyEnvironment env, string path)
         {
             if (RequireWorkspace(env, "save") == null) return;
@@ -169,14 +169,14 @@ namespace Wally.Core
 
             Console.WriteLine($"Actors ({ws.Actors.Count}):");
             if (ws.Actors.Count == 0)
-                Console.WriteLine("  (none — add a subfolder to .wally/Actors/)");
+                Console.WriteLine($"  (none — add a subfolder with actor.json to {ws.WorkspaceFolder}/Actors/)");
 
             foreach (var actor in ws.Actors)
             {
                 Console.WriteLine($"  [{actor.Name}]  folder: {actor.FolderPath}");
-                PrintRbaLine("    Role",     actor.Role.Prompt,                   actor.Role.Tier);
-                PrintRbaLine("    Criteria", actor.AcceptanceCriteria.Prompt,     actor.AcceptanceCriteria.Tier);
-                PrintRbaLine("    Intent",   actor.Intent.Prompt,                 actor.Intent.Tier);
+                PrintRbaLine("    Role",     actor.Role.Prompt,                 actor.Role.Tier);
+                PrintRbaLine("    Criteria", actor.AcceptanceCriteria.Prompt,   actor.AcceptanceCriteria.Tier);
+                PrintRbaLine("    Intent",   actor.Intent.Prompt,               actor.Intent.Tier);
             }
 
             Console.WriteLine($"Folder References ({ws.FolderReferences.Count}):");
@@ -193,35 +193,32 @@ namespace Wally.Core
         {
             if (!env.HasWorkspace)
             {
-                Console.WriteLine("Status:           No workspace loaded.");
-                Console.WriteLine("                  Use 'load <path>' or 'create <path>' first.");
+                Console.WriteLine("Status:            No workspace loaded.");
+                Console.WriteLine("                   Use 'load <path>' or 'create <path>' first.");
                 return;
             }
 
             var ws  = env.Workspace!;
             var cfg = ws.Config;
 
-            Console.WriteLine($"Status:           Workspace loaded");
-            Console.WriteLine($"Parent folder:    {ws.ParentFolder}");
-            Console.WriteLine($"Project folder:   {ws.ProjectFolder}");
-            Console.WriteLine($"Workspace folder: {ws.WorkspaceFolder}");
-            Console.WriteLine();
-            Console.WriteLine($"Actors folder:    {Path.Combine(ws.WorkspaceFolder, cfg.ActorsFolderName)}");
-            Console.WriteLine($"Actors loaded:    {ws.Actors.Count}");
+            Console.WriteLine($"Status:            Workspace loaded");
+            Console.WriteLine($"Workspace folder:  {ws.WorkspaceFolder}");
+            Console.WriteLine($"Actors folder:     {Path.Combine(ws.WorkspaceFolder, cfg.ActorsFolderName)}");
+            Console.WriteLine($"Actors loaded:     {ws.Actors.Count}");
             foreach (var a in ws.Actors)
                 Console.WriteLine($"  {a.Name}");
             Console.WriteLine();
-            Console.WriteLine($"Folder refs:      {ws.FolderReferences.Count}");
-            Console.WriteLine($"File refs:        {ws.FileReferences.Count}");
-            Console.WriteLine($"Max iterations:   {env.MaxIterations}");
+            Console.WriteLine($"Folder refs:       {ws.FolderReferences.Count}");
+            Console.WriteLine($"File refs:         {ws.FileReferences.Count}");
+            Console.WriteLine($"Max iterations:    {env.MaxIterations}");
         }
 
         /// <summary>Re-reads agent folders from disk and rebuilds actors without a full reload.</summary>
-        public static void HandleReloadAgents(WallyEnvironment env)
+        public static void HandleReloadActors(WallyEnvironment env)
         {
-            if (RequireWorkspace(env, "reload-agents") == null) return;
-            env.ReloadAgents();
-            Console.WriteLine($"Agents reloaded: {env.Actors.Count}");
+            if (RequireWorkspace(env, "reload-actors") == null) return;
+            env.ReloadActors();
+            Console.WriteLine($"Actors reloaded: {env.Actors.Count}");
             foreach (var a in env.Actors)
                 Console.WriteLine($"  {a.Name}");
         }
@@ -234,31 +231,33 @@ namespace Wally.Core
             Console.WriteLine("=====================================");
             Console.WriteLine();
             Console.WriteLine("No workspace required:");
-            Console.WriteLine("  setup [-p <path>]             Scaffold workspace + default agents. Defaults to exe dir.");
-            Console.WriteLine("  create <path>                 Scaffold a new workspace at <path>.");
-            Console.WriteLine("  load <path>                   Load an existing workspace from <path>.");
-            Console.WriteLine("  info                          Show workspace paths, agent list, and settings.");
-            Console.WriteLine("  help                          Show this message.");
+            Console.WriteLine("  setup [-p <path>]              Scaffold or load a workspace. Defaults to <exeDir>/.wally.");
+            Console.WriteLine("  create <path>                  Scaffold a new workspace at <path>.");
+            Console.WriteLine("  load <path>                    Load an existing workspace from <path>.");
+            Console.WriteLine("  info                           Show workspace info and actor list.");
+            Console.WriteLine("  help                           Show this message.");
             Console.WriteLine();
             Console.WriteLine("Workspace required:");
-            Console.WriteLine("  save <path>                   Save config and all agent prompt files.");
-            Console.WriteLine("  list                          List agents, prompts, and references.");
-            Console.WriteLine("  reload-agents                 Re-read agent folders from disk, rebuild actors.");
-            Console.WriteLine("  add-folder <path>             Register a folder for Copilot context.");
-            Console.WriteLine("  add-file <path>               Register a file for Copilot context.");
-            Console.WriteLine("  remove-folder <path>          Deregister a folder.");
-            Console.WriteLine("  remove-file <path>            Deregister a file.");
-            Console.WriteLine("  clear-refs                    Clear all folder and file references.");
-            Console.WriteLine("  run \"<prompt>\" [agent]        Run all agents, or one by name.");
-            Console.WriteLine("  run-iterative \"<prompt>\"      Run all agents iteratively; -m N to cap.");
-            Console.WriteLine("  run-iterative \"<prompt>\" -a <agent>  Run one agent iteratively; -m N to cap.");
+            Console.WriteLine("  save <path>                    Save config and all actor.json files.");
+            Console.WriteLine("  list                           List actors, prompts, and references.");
+            Console.WriteLine("  reload-actors                  Re-read actor folders from disk, rebuild actors.");
+            Console.WriteLine("  add-folder <path>              Register a folder for context.");
+            Console.WriteLine("  add-file <path>                Register a file for context.");
+            Console.WriteLine("  remove-folder <path>           Deregister a folder.");
+            Console.WriteLine("  remove-file <path>             Deregister a file.");
+            Console.WriteLine("  clear-refs                     Clear all folder and file references.");
+            Console.WriteLine("  run \"<prompt>\" [actor]         Run all actors, or one by name.");
+            Console.WriteLine("  run-iterative \"<prompt>\"       Run all actors iteratively; -m N to cap.");
+            Console.WriteLine("  run-iterative \"<prompt>\" -a <actor>  Run one actor iteratively.");
             Console.WriteLine();
-            Console.WriteLine("Actor folders:");
-            Console.WriteLine("  .wally/Actors/<ActorName>/");
-            Console.WriteLine("    actor.json    — RBA definition (name, rolePrompt, roleTier,");
-            Console.WriteLine("                    criteriaPrompt, criteriaTier, intentPrompt, intentTier)");
-            Console.WriteLine("  Add a new subfolder with an actor.json to create a new actor.");
-            Console.WriteLine("  Each actor is independent — no shared RBA state.");
+            Console.WriteLine("Workspace folder layout:");
+            Console.WriteLine("  <WorkspaceFolder>/             e.g. .wally/");
+            Console.WriteLine("    wally-config.json");
+            Console.WriteLine("    Actors/");
+            Console.WriteLine("      <ActorName>/");
+            Console.WriteLine("        actor.json               name, rolePrompt, roleTier,");
+            Console.WriteLine("                                 criteriaPrompt, criteriaTier,");
+            Console.WriteLine("                                 intentPrompt, intentTier");
         }
 
         // ?? Private helpers ???????????????????????????????????????????????????
@@ -266,10 +265,8 @@ namespace Wally.Core
         private static void PrintWorkspaceSummary(string header, WallyEnvironment env)
         {
             Console.WriteLine(header);
-            Console.WriteLine($"  Parent:    {env.ParentFolder}");
-            Console.WriteLine($"  Project:   {env.ProjectFolder}");
             Console.WriteLine($"  Workspace: {env.WorkspaceFolder}");
-            Console.WriteLine($"  Agents:    {env.Actors.Count}");
+            Console.WriteLine($"  Actors:    {env.Actors.Count}");
         }
 
         private static void PrintRbaLine(string label, string prompt, string? tier)

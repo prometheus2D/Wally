@@ -86,7 +86,7 @@ namespace Wally.Console
                     // ── Inspection ────────────────────────────────────────────
                     if (opts is ListOptions)              { WallyCommands.HandleList(_environment); return 0; }
                     if (opts is InfoOptions)              { WallyCommands.HandleInfo(_environment); return 0; }
-                    if (opts is ReloadAgentsOptions)      { WallyCommands.HandleReloadAgents(_environment); return 0; }
+                    if (opts is ReloadActorsOptions)      { WallyCommands.HandleReloadActors(_environment); return 0; }
 
                     // ── Help ──────────────────────────────────────────────────
                     if (opts is HelpOptions)              { WallyCommands.HandleHelp(); return 0; }

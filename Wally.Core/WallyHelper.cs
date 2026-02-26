@@ -11,72 +11,70 @@ namespace Wally.Core
     {
         // ?? Well-known file names ?????????????????????????????????????????????
 
-        /// <summary>File name for the canonical workspace configuration file.</summary>
+        /// <summary>Name of the config file that lives at the workspace folder root.</summary>
         public const string ConfigFileName = "wally-config.json";
 
-        /// <summary>File name for each actor's definition file inside its actor folder.</summary>
+        /// <summary>Name of each actor's definition file inside its actor folder.</summary>
         public const string ActorFileName = "actor.json";
 
-        // ?? Default parent folder ?????????????????????????????????????????????
+        // ?? Default workspace folder name ?????????????????????????????????????
 
         /// <summary>
-        /// The directory containing the executing assembly — the natural home for a
-        /// "drop Wally next to your code" setup.
+        /// The conventional workspace folder name dropped into a project root.
+        /// Callers that want to locate a workspace relative to a project use this.
         /// </summary>
-        public static string GetDefaultParentFolder() =>
-            Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location)
-            ?? Directory.GetCurrentDirectory();
+        public const string DefaultWorkspaceFolderName = ".wally";
+
+        // ?? Workspace root resolution ?????????????????????????????????????????
+
+        /// <summary>
+        /// Returns the default workspace folder path: <c>&lt;exeDir&gt;/.wally</c>.
+        /// </summary>
+        public static string GetDefaultWorkspaceFolder() =>
+            Path.Combine(
+                Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location)
+                    ?? Directory.GetCurrentDirectory(),
+                DefaultWorkspaceFolderName);
 
         // ?? Workspace scaffolding ?????????????????????????????????????????????
 
         /// <summary>
-        /// Scaffolds a complete workspace under <paramref name="parentFolder"/>:
+        /// Scaffolds a complete workspace at <paramref name="workspaceFolder"/>:
         /// <code>
-        ///   &lt;parentFolder&gt;/
-        ///       Project/
-        ///       .wally/
-        ///           wally-config.json
-        ///           Actors/
-        ///               Developer/
-        ///                   actor.json
-        ///               Tester/
-        ///                   actor.json
+        ///   &lt;workspaceFolder&gt;/
+        ///       wally-config.json
+        ///       Actors/
+        ///           Developer/
+        ///               actor.json
+        ///           Tester/
+        ///               actor.json
         /// </code>
-        /// Default actor folders are copied from the exe directory when present.
+        /// Default actor folders are copied from the exe's own <c>.wally/</c> when present.
         /// Existing files are never overwritten.
         /// </summary>
-        public static void CreateDefaultWorkspace(string parentFolder, WallyConfig config = null)
+        public static void CreateDefaultWorkspace(string workspaceFolder, WallyConfig config = null)
         {
-            config ??= ResolveConfig();
-
-            string workspaceFolder = Path.Combine(parentFolder, config.WorkspaceFolderName);
-            string projectFolder   = Path.Combine(parentFolder, config.ProjectFolderName);
-
+            config ??= ResolveConfig(workspaceFolder);
             Directory.CreateDirectory(workspaceFolder);
-            Directory.CreateDirectory(projectFolder);
 
-            // wally-config.json
             string destConfig = Path.Combine(workspaceFolder, ConfigFileName);
             if (!File.Exists(destConfig))
                 config.SaveToFile(destConfig);
 
-            // Actors/ — copy the default actor tree from the exe directory
-            CopyDefaultDirectory(config.ActorsFolderName, workspaceFolder);
+            CopyDefaultActors(workspaceFolder, config);
         }
 
-        // ?? Actor loading from folders ????????????????????????????????????????
+        // ?? Actor loading ?????????????????????????????????????????????????????
 
         /// <summary>
         /// Reads every actor subfolder under <c>&lt;workspaceFolder&gt;/Actors/</c> and
         /// returns one <see cref="CopilotActor"/> per folder.
-        ///
-        /// Each subfolder must contain an <c>actor.json</c> file. Missing files produce
-        /// empty-prompt RBA items rather than errors so partially configured actors still load.
+        /// Missing <c>actor.json</c> produces an empty-prompt actor rather than an error.
         /// </summary>
         public static List<Actor> LoadActors(
             string workspaceFolder, WallyConfig config, WallyWorkspace workspace = null)
         {
-            var actors    = new List<Actor>();
+            var actors   = new List<Actor>();
             string actorsDir = Path.Combine(workspaceFolder, config.ActorsFolderName);
             if (!Directory.Exists(actorsDir)) return actors;
 
@@ -85,20 +83,20 @@ namespace Wally.Core
                 string folderName = Path.GetFileName(actorDir);
                 string jsonPath   = Path.Combine(actorDir, ActorFileName);
 
-                string name           = folderName;
-                string rolePrompt     = string.Empty;
-                string? roleTier      = null;
-                string criteriaPrompt = string.Empty;
-                string? criteriaTier  = null;
-                string intentPrompt   = string.Empty;
-                string? intentTier    = null;
+                string  name           = folderName;
+                string  rolePrompt     = string.Empty;
+                string? roleTier       = null;
+                string  criteriaPrompt = string.Empty;
+                string? criteriaTier   = null;
+                string  intentPrompt   = string.Empty;
+                string? intentTier     = null;
 
                 if (File.Exists(jsonPath))
                 {
-                    var doc = JsonDocument.Parse(File.ReadAllText(jsonPath));
+                    var doc  = JsonDocument.Parse(File.ReadAllText(jsonPath));
                     var root = doc.RootElement;
 
-                    name           = TryGetString(root, "name") ?? folderName;
+                    name           = TryGetString(root, "name")           ?? folderName;
                     rolePrompt     = TryGetString(root, "rolePrompt")     ?? string.Empty;
                     roleTier       = TryGetString(root, "roleTier");
                     criteriaPrompt = TryGetString(root, "criteriaPrompt") ?? string.Empty;
@@ -119,8 +117,8 @@ namespace Wally.Core
         }
 
         /// <summary>
-        /// Writes an actor's definition back to its <c>actor.json</c>, creating the folder
-        /// if needed. Overwrites any existing file.
+        /// Writes an actor's definition back to its <c>actor.json</c>, creating the
+        /// folder if needed. Overwrites any existing file.
         /// </summary>
         public static void SaveActor(string workspaceFolder, WallyConfig config, Actor actor)
         {
@@ -138,23 +136,23 @@ namespace Wally.Core
                 intentTier     = actor.Intent.Tier
             };
 
-            string json = JsonSerializer.Serialize(obj,
-                new JsonSerializerOptions { WriteIndented = true });
-            File.WriteAllText(Path.Combine(actorDir, ActorFileName), json);
+            File.WriteAllText(
+                Path.Combine(actorDir, ActorFileName),
+                JsonSerializer.Serialize(obj, new JsonSerializerOptions { WriteIndented = true }));
         }
 
         // ?? Config resolution ?????????????????????????????????????????????????
 
-        public static WallyConfig ResolveConfig()
+        /// <summary>
+        /// Loads <c>wally-config.json</c> from <paramref name="workspaceFolder"/> when it
+        /// exists, otherwise returns defaults.
+        /// </summary>
+        public static WallyConfig ResolveConfig(string workspaceFolder = null)
         {
-            string parentFolder               = GetDefaultParentFolder();
-            string defaultWorkspaceFolderName = new WallyConfig().WorkspaceFolderName;
-
-            string subFolderConfig = Path.Combine(
-                parentFolder, defaultWorkspaceFolderName, ConfigFileName);
-
-            return File.Exists(subFolderConfig)
-                ? WallyConfig.LoadFromFile(subFolderConfig)
+            workspaceFolder ??= GetDefaultWorkspaceFolder();
+            string configPath = Path.Combine(workspaceFolder, ConfigFileName);
+            return File.Exists(configPath)
+                ? WallyConfig.LoadFromFile(configPath)
                 : new WallyConfig();
         }
 
@@ -182,21 +180,21 @@ namespace Wally.Core
         // ?? Private helpers ???????????????????????????????????????????????????
 
         /// <summary>
-        /// Copies a subdirectory tree from the exe directory into <paramref name="destFolder"/>.
-        /// Existing destination files are not overwritten.
+        /// Copies the Actors subfolder from the exe's own <c>.wally/</c> directory into
+        /// <paramref name="destWorkspaceFolder"/>. Existing files are not overwritten.
         /// </summary>
-        private static void CopyDefaultDirectory(string subDirName, string destFolder)
+        private static void CopyDefaultActors(string destWorkspaceFolder, WallyConfig config)
         {
-            string srcDir  = Path.Combine(GetDefaultParentFolder(), subDirName);
-            string destDir = Path.Combine(destFolder, subDirName);
-            if (!Directory.Exists(srcDir)) return;
+            string srcActors  = Path.Combine(GetDefaultWorkspaceFolder(), config.ActorsFolderName);
+            string destActors = Path.Combine(destWorkspaceFolder, config.ActorsFolderName);
+            if (!Directory.Exists(srcActors)) return;
 
-            Directory.CreateDirectory(destDir);
-            foreach (string srcSubDir in Directory.GetDirectories(srcDir))
+            Directory.CreateDirectory(destActors);
+            foreach (string srcActorDir in Directory.GetDirectories(srcActors))
             {
-                string actorDest = Path.Combine(destDir, Path.GetFileName(srcSubDir));
+                string actorDest = Path.Combine(destActors, Path.GetFileName(srcActorDir));
                 Directory.CreateDirectory(actorDest);
-                foreach (string srcFile in Directory.GetFiles(srcSubDir))
+                foreach (string srcFile in Directory.GetFiles(srcActorDir))
                 {
                     string destFile = Path.Combine(actorDest, Path.GetFileName(srcFile));
                     if (!File.Exists(destFile))

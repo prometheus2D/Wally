@@ -18,8 +18,7 @@ namespace Wally.Core
 
         // ?? Folder pass-throughs ??????????????????????????????????????????????
 
-        public string? ParentFolder    => Workspace?.ParentFolder;
-        public string? ProjectFolder   => Workspace?.ProjectFolder;
+        /// <summary>The workspace folder path (e.g. <c>/repo/.wally</c>).</summary>
         public string? WorkspaceFolder => Workspace?.WorkspaceFolder;
 
         // ?? Runtime settings ??????????????????????????????????????????????????
@@ -46,56 +45,62 @@ namespace Wally.Core
 
         // ?? Workspace lifecycle ???????????????????????????????????????????????
 
-        public void LoadWorkspace(string parentFolder) =>
-            Workspace = WallyWorkspace.Load(parentFolder);
+        /// <summary>Loads the workspace at <paramref name="workspaceFolder"/>.</summary>
+        public void LoadWorkspace(string workspaceFolder) =>
+            Workspace = WallyWorkspace.Load(workspaceFolder);
 
-        public void CreateWorkspace(string parentFolder, WallyConfig config = null)
+        /// <summary>
+        /// Scaffolds a new workspace at <paramref name="workspaceFolder"/> then loads it.
+        /// </summary>
+        public void CreateWorkspace(string workspaceFolder, WallyConfig config = null)
         {
-            WallyHelper.CreateDefaultWorkspace(parentFolder, config);
-            LoadWorkspace(parentFolder);
+            WallyHelper.CreateDefaultWorkspace(workspaceFolder, config);
+            LoadWorkspace(workspaceFolder);
         }
 
-        public void SetupLocal(string parentFolder = null)
+        /// <summary>
+        /// Ensures a workspace exists at <paramref name="workspaceFolder"/> (or the default
+        /// <c>.wally</c> folder next to the exe when <see langword="null"/>), then loads it.
+        /// </summary>
+        public void SetupLocal(string workspaceFolder = null)
         {
-            parentFolder ??= WallyHelper.GetDefaultParentFolder();
-            WallyConfig config = WallyHelper.ResolveConfig();
+            workspaceFolder ??= WallyHelper.GetDefaultWorkspaceFolder();
+            WallyConfig config = WallyHelper.ResolveConfig(workspaceFolder);
 
-            string expectedConfig = Path.Combine(
-                parentFolder, config.WorkspaceFolderName, WallyHelper.ConfigFileName);
+            string configPath = Path.Combine(workspaceFolder, WallyHelper.ConfigFileName);
+            if (!File.Exists(configPath))
+                WallyHelper.CreateDefaultWorkspace(workspaceFolder, config);
 
-            if (!File.Exists(expectedConfig))
-                WallyHelper.CreateDefaultWorkspace(parentFolder, config);
-
-            LoadWorkspace(parentFolder);
+            LoadWorkspace(workspaceFolder);
         }
 
         public void SaveWorkspace() => RequireWorkspace().Save();
 
         // ?? Legacy compat ?????????????????????????????????????????????????????
 
-        public void LoadFromWorkspace(string path) => LoadWorkspace(path);
+        /// <summary>Alias for <see cref="LoadWorkspace"/>.</summary>
+        public void LoadFromWorkspace(string workspaceFolder) => LoadWorkspace(workspaceFolder);
 
-        public void SaveToWorkspace(string path)
+        public void SaveToWorkspace(string workspaceFolder)
         {
             if (HasWorkspace && string.Equals(
-                    Path.GetFullPath(Workspace!.ParentFolder),
-                    Path.GetFullPath(path),
+                    Path.GetFullPath(Workspace!.WorkspaceFolder),
+                    Path.GetFullPath(workspaceFolder),
                     StringComparison.OrdinalIgnoreCase))
             {
                 Workspace.Save();
             }
             else
             {
-                WallyHelper.CreateDefaultWorkspace(path);
-                LoadWorkspace(path);
+                WallyHelper.CreateDefaultWorkspace(workspaceFolder);
+                LoadWorkspace(workspaceFolder);
             }
         }
 
         /// <summary>
-        /// Re-reads all agent folders from disk and rebuilds the actor list.
-        /// Use after adding or editing agent folders without reloading the whole workspace.
+        /// Re-reads all actor folders from disk and rebuilds the actor list.
         /// </summary>
-        public void ReloadAgents() => RequireWorkspace().ReloadAgents();
+        public void ReloadActors() => RequireWorkspace().ReloadActors();
 
         // ?? Agent management ??????????????????????????????????????????????????
 
@@ -142,10 +147,6 @@ namespace Wally.Core
             return responses;
         }
 
-        /// <summary>
-        /// Runs the actor whose agent name (Role.Name) or type name matches
-        /// <paramref name="actorName"/> (case-insensitive).
-        /// </summary>
         public List<string> RunActor(string prompt, string actorName)
         {
             RequireWorkspace();
@@ -163,16 +164,12 @@ namespace Wally.Core
                 : new List<string>();
         }
 
-        /// <summary>
-        /// Runs all actors iteratively up to <see cref="MaxIterations"/> times, feeding
-        /// the combined responses of each iteration back as the next prompt.
-        /// </summary>
         public List<string> RunActorsIterative(string initialPrompt,
             Action<int, List<string>>? onIteration = null)
         {
             RequireWorkspace();
             string currentPrompt       = initialPrompt;
-            List<string> lastResponses = new List<string>();
+            List<string> lastResponses = new();
 
             for (int i = 1; i <= MaxIterations; i++)
             {
@@ -184,19 +181,6 @@ namespace Wally.Core
             return lastResponses;
         }
 
-        /// <summary>
-        /// Runs a single named actor iteratively, feeding each response back as the next
-        /// prompt until <paramref name="maxIterationsOverride"/> (or <see cref="MaxIterations"/>)
-        /// is reached or the actor returns an empty response. Agent context is re-applied at
-        /// every step via <see cref="Actor.ProcessPrompt"/>.
-        /// </summary>
-        /// <param name="prompt">The initial prompt.</param>
-        /// <param name="actorName">Role.Name or type name of the actor to run (case-insensitive).</param>
-        /// <param name="maxIterationsOverride">Cap for this run; 0 = use <see cref="MaxIterations"/>.</param>
-        /// <param name="onIteration">
-        /// Optional callback invoked after each iteration with the 1-based index and response.
-        /// </param>
-        /// <returns>The final non-empty response, or an error string when the actor is not found.</returns>
         public string RunActorIterative(string prompt, string actorName,
             int maxIterationsOverride = 0, Action<int, string>? onIteration = null)
         {
@@ -207,8 +191,7 @@ namespace Wally.Core
                 string.Equals(a.Role.Name, actorName, StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(a.GetType().Name, actorName, StringComparison.OrdinalIgnoreCase));
 
-            if (actor == null)
-                return $"Actor '{actorName}' not found.";
+            if (actor == null) return $"Actor '{actorName}' not found.";
 
             int cap        = maxIterationsOverride > 0 ? maxIterationsOverride : MaxIterations;
             string current = prompt;
@@ -217,18 +200,15 @@ namespace Wally.Core
             for (int i = 1; i <= cap; i++)
             {
                 string response = actor.Act(current);
-
                 if (string.IsNullOrWhiteSpace(response))
                 {
                     onIteration?.Invoke(i, string.Empty);
                     break;
                 }
-
                 onIteration?.Invoke(i, response);
                 last    = response;
                 current = actor.ProcessPrompt(response);
             }
-
             return last;
         }
 
@@ -246,7 +226,7 @@ namespace Wally.Core
 
         public static WallyEnvironment LoadDefault() => WallyHelper.LoadDefault();
 
-        public static void CreateDefaultWorkspace(string parentFolder, WallyConfig config = null) =>
-            WallyHelper.CreateDefaultWorkspace(parentFolder, config);
+        public static void CreateDefaultWorkspace(string workspaceFolder, WallyConfig config = null) =>
+            WallyHelper.CreateDefaultWorkspace(workspaceFolder, config);
     }
 }

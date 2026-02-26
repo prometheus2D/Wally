@@ -1,20 +1,16 @@
-using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
-using System.Text.Json.Serialization;
-using Wally.Core.RBA;
 
 namespace Wally.Core
 {
     /// <summary>
-    /// Holds all configuration for a Wally environment.
-    /// Defines folder names and runtime settings.
+    /// Holds configuration for a Wally workspace folder.
     ///
-    /// Actor definitions are loaded at runtime from each actor's subfolder under
-    /// <see cref="ActorsFolderName"/>. Each subfolder contains a single
-    /// <c>actor.json</c> file with the full RBA definition:
+    /// The workspace folder IS the root — <c>wally-config.json</c> sits at its top level
+    /// alongside the <see cref="ActorsFolderName"/> subfolder:
     /// <code>
-    ///   .wally/
+    ///   &lt;WorkspaceFolder&gt;/
+    ///       wally-config.json
     ///       Actors/
     ///           Developer/
     ///               actor.json
@@ -26,16 +22,9 @@ namespace Wally.Core
     {
         // ?? Folder names ??????????????????????????????????????????????????????
 
-        /// <summary>Workspace subfolder name. Default: <c>.wally</c>.</summary>
-        public string WorkspaceFolderName { get; set; } = ".wally";
-
-        /// <summary>Project (codebase) subfolder name. Default: <c>Project</c>.</summary>
-        public string ProjectFolderName { get; set; } = "Project";
-
         /// <summary>
         /// Subfolder inside the workspace folder that holds one directory per actor.
-        /// Each actor directory contains a single <c>actor.json</c> file with the
-        /// full RBA (Role / AcceptanceCriteria / Intent) definition.
+        /// Each actor directory contains a single <c>actor.json</c> file.
         /// Default: <c>Actors</c>.
         /// </summary>
         public string ActorsFolderName { get; set; } = "Actors";
@@ -57,7 +46,8 @@ namespace Wally.Core
         /// <summary>Serializes this config to a JSON file.</summary>
         public void SaveToFile(string filePath)
         {
-            string json = JsonSerializer.Serialize(this, new JsonSerializerOptions { WriteIndented = true });
+            string json = JsonSerializer.Serialize(this,
+                new JsonSerializerOptions { WriteIndented = true });
             File.WriteAllText(filePath, json);
         }
     }

@@ -7,35 +7,28 @@ using Wally.Core.Actors;
 namespace Wally.Core
 {
     /// <summary>
-    /// Represents a Wally workspace bound to a parent folder on disk.
+    /// Represents a Wally workspace bound to a folder on disk.
     ///
-    /// Layout on disk:
+    /// The workspace folder is self-contained — everything Wally needs lives inside it:
     /// <code>
-    ///   &lt;ParentFolder&gt;/
-    ///       &lt;ProjectFolderName&gt;/    ? codebase  (default: "Project")
-    ///       &lt;WorkspaceFolderName&gt;/  ? Wally     (default: ".wally")
-    ///           wally-config.json
-    ///           Actors/
-    ///               &lt;ActorName&gt;/     ? one folder per actor
-    ///                   actor.json     ? full RBA definition (name, role, criteria, intent)
+    ///   &lt;WorkspaceFolder&gt;/          ? e.g. ".wally/"
+    ///       wally-config.json
+    ///       Actors/
+    ///           &lt;ActorName&gt;/         ? one folder per actor
+    ///               actor.json         ? full RBA definition
     /// </code>
     ///
-    /// Each subfolder under <c>Actors/</c> defines exactly one <see cref="CopilotActor"/>
-    /// with its own private Role, AcceptanceCriteria, and Intent. Add a subfolder to
-    /// create a new actor; edit its <c>actor.json</c> to change its behaviour.
-    ///
-    /// <see cref="ProjectFolder"/> and <see cref="WorkspaceFolder"/> are always siblings
-    /// — both children of <see cref="ParentFolder"/>.
+    /// Pass the workspace folder path directly to <see cref="Load"/> or
+    /// <see cref="LoadFrom"/>. No parent-folder discovery is performed.
     /// </summary>
     public class WallyWorkspace
     {
         // ?? Identity ??????????????????????????????????????????????????????????
 
-        public string ParentFolder    { get; private set; }
-        public string ProjectFolder   { get; private set; }
+        /// <summary>The absolute path to the workspace folder (e.g. <c>/repo/.wally</c>).</summary>
         public string WorkspaceFolder { get; private set; }
 
-        public bool IsLoaded => !string.IsNullOrEmpty(ParentFolder);
+        public bool IsLoaded => !string.IsNullOrEmpty(WorkspaceFolder);
 
         // ?? Configuration ?????????????????????????????????????????????????????
 
@@ -43,70 +36,51 @@ namespace Wally.Core
 
         // ?? References ????????????????????????????????????????????????????????
 
-        public List<string> FolderReferences { get; private set; } = new List<string>();
-        public List<string> FileReferences   { get; private set; } = new List<string>();
+        public List<string> FolderReferences { get; private set; } = new();
+        public List<string> FileReferences   { get; private set; } = new();
 
         // ?? Actor list ????????????????????????????????????????????????????????
 
         /// <summary>
-        /// One <see cref="CopilotActor"/> per agent folder under <c>Agents/</c>.
+        /// One <see cref="CopilotActor"/> per actor folder under <c>Actors/</c>.
         /// Each actor carries its own private RBA — no shared state.
         /// </summary>
         [JsonIgnore]
-        public List<Actor> Actors { get; private set; } = new List<Actor>();
+        public List<Actor> Actors { get; private set; } = new();
 
         // ?? Static factory ????????????????????????????????????????????????????
 
-        public static WallyWorkspace Load(string parentFolder)
+        /// <summary>Loads the workspace at <paramref name="workspaceFolder"/>.</summary>
+        public static WallyWorkspace Load(string workspaceFolder)
         {
             var ws = new WallyWorkspace();
-            ws.LoadFrom(parentFolder);
+            ws.LoadFrom(workspaceFolder);
             return ws;
         }
 
         /// <summary>
-        /// Initialises from <paramref name="path"/>, which may be the parent folder,
-        /// the workspace folder (contains <c>wally-config.json</c>), or the project folder.
+        /// Initialises from <paramref name="workspaceFolder"/>.
+        /// The folder is created on disk if it does not yet exist.
         /// </summary>
-        public void LoadFrom(string path)
+        public void LoadFrom(string workspaceFolder)
         {
-            path = Path.GetFullPath(path);
-            string directConfig = Path.Combine(path, WallyHelper.ConfigFileName);
+            workspaceFolder = Path.GetFullPath(workspaceFolder);
+            Directory.CreateDirectory(workspaceFolder);
 
-            if (File.Exists(directConfig))
-            {
-                WorkspaceFolder = path;
-                ParentFolder    = Path.GetDirectoryName(path) ?? path;
-                Config          = WallyConfig.LoadFromFile(directConfig);
-                ProjectFolder   = Path.Combine(ParentFolder, Config.ProjectFolderName);
-            }
-            else
-            {
-                ParentFolder = path;
-                var defaultConfig = new WallyConfig();
+            string configPath = Path.Combine(workspaceFolder, WallyHelper.ConfigFileName);
+            Config = File.Exists(configPath)
+                ? WallyConfig.LoadFromFile(configPath)
+                : new WallyConfig();
 
-                string subFolderConfig = Path.Combine(
-                    path, defaultConfig.WorkspaceFolderName, WallyHelper.ConfigFileName);
-
-                Config = File.Exists(subFolderConfig)
-                    ? WallyConfig.LoadFromFile(subFolderConfig)
-                    : new WallyConfig();
-
-                WorkspaceFolder = Path.Combine(ParentFolder, Config.WorkspaceFolderName);
-                ProjectFolder   = Path.Combine(ParentFolder, Config.ProjectFolderName);
-            }
-
-            Directory.CreateDirectory(WorkspaceFolder);
-            Directory.CreateDirectory(ProjectFolder);
-
+            WorkspaceFolder = workspaceFolder;
             Actors = WallyHelper.LoadActors(WorkspaceFolder, Config, this);
         }
 
         // ?? Saving ????????????????????????????????????????????????????????????
 
         /// <summary>
-        /// Persists <c>wally-config.json</c> and writes every actor's prompt files back
-        /// to its folder so the on-disk state matches in-memory state.
+        /// Persists <c>wally-config.json</c> and writes every actor's <c>actor.json</c>
+        /// back to its folder so the on-disk state matches in-memory state.
         /// </summary>
         public void Save()
         {
@@ -122,23 +96,23 @@ namespace Wally.Core
 
         public void AddFolderReference(string folderPath)
         {
-            string absolute = ResolveAbsolute(folderPath);
+            string absolute = Path.GetFullPath(folderPath);
             if (!FolderReferences.Contains(absolute))
                 FolderReferences.Add(absolute);
         }
 
         public bool RemoveFolderReference(string folderPath) =>
-            FolderReferences.Remove(ResolveAbsolute(folderPath));
+            FolderReferences.Remove(Path.GetFullPath(folderPath));
 
         public void AddFileReference(string filePath)
         {
-            string absolute = ResolveAbsolute(filePath);
+            string absolute = Path.GetFullPath(filePath);
             if (!FileReferences.Contains(absolute))
                 FileReferences.Add(absolute);
         }
 
         public bool RemoveFileReference(string filePath) =>
-            FileReferences.Remove(ResolveAbsolute(filePath));
+            FileReferences.Remove(Path.GetFullPath(filePath));
 
         public void ClearReferences()
         {
@@ -153,10 +127,10 @@ namespace Wally.Core
         public T GetActor<T>() where T : Actor => Actors.Find(a => a is T) as T;
 
         /// <summary>
-        /// Re-reads all agent folders from disk and rebuilds <see cref="Actors"/>.
-        /// Use after adding or editing agent folders on disk mid-session.
+        /// Re-reads all actor folders from disk and rebuilds <see cref="Actors"/>.
+        /// Use after adding or editing actor folders on disk mid-session.
         /// </summary>
-        public void ReloadAgents()
+        public void ReloadActors()
         {
             RequireLoaded();
             Actors = WallyHelper.LoadActors(WorkspaceFolder, Config, this);
@@ -170,10 +144,5 @@ namespace Wally.Core
                 throw new InvalidOperationException(
                     "No workspace is loaded. Use 'load <path>' or 'create <path>' first.");
         }
-
-        // ?? Private helpers ???????????????????????????????????????????????????
-
-        private string ResolveAbsolute(string path) =>
-            Path.IsPathRooted(path) ? path : Path.GetFullPath(Path.Combine(ProjectFolder, path));
     }
 }
