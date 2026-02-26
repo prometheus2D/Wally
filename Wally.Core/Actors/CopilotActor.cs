@@ -12,9 +12,10 @@ namespace Wally.Core.Actors
     /// </summary>
     public class CopilotActor : Actor
     {
-        public CopilotActor(Role role, AcceptanceCriteria acceptanceCriteria, Intent intent,
+        public CopilotActor(string name, string folderPath,
+                            Role role, AcceptanceCriteria acceptanceCriteria, Intent intent,
                             WallyWorkspace? workspace = null)
-            : base(role, acceptanceCriteria, intent, workspace) { }
+            : base(name, folderPath, role, acceptanceCriteria, intent, workspace) { }
 
         /// <summary>Copilot Actor never applies changes directly; it always responds with text.</summary>
         public override bool ShouldMakeChanges(string processedPrompt) => false;

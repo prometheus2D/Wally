@@ -44,10 +44,6 @@ namespace Wally.Core
         [JsonIgnore] public List<Actor> Actors => Workspace?.Actors ?? _emptyActors;
         private static readonly List<Actor> _emptyActors = new();
 
-        [JsonIgnore]
-        public IReadOnlyList<AgentDefinition> AgentDefinitions =>
-            Workspace?.AgentDefinitions ?? Array.Empty<AgentDefinition>();
-
         // ?? Workspace lifecycle ???????????????????????????????????????????????
 
         public void LoadWorkspace(string parentFolder) =>
@@ -62,7 +58,7 @@ namespace Wally.Core
         public void SetupLocal(string parentFolder = null)
         {
             parentFolder ??= WallyHelper.GetDefaultParentFolder();
-            WallyConfig config  = WallyHelper.ResolveConfig();
+            WallyConfig config = WallyHelper.ResolveConfig();
 
             string expectedConfig = Path.Combine(
                 parentFolder, config.WorkspaceFolderName, WallyHelper.ConfigFileName);
@@ -104,11 +100,11 @@ namespace Wally.Core
         // ?? Agent management ??????????????????????????????????????????????????
 
         /// <summary>
-        /// Returns the <see cref="AgentDefinition"/> whose name matches
-        /// <paramref name="name"/> (case-insensitive), or <see langword="null"/>.
+        /// Returns the actor whose name matches <paramref name="name"/> (case-insensitive),
+        /// or <see langword="null"/>.
         /// </summary>
-        public AgentDefinition? GetAgent(string name) =>
-            AgentDefinitions.FirstOrDefault(a =>
+        public Actor? GetAgent(string name) =>
+            Actors.FirstOrDefault(a =>
                 string.Equals(a.Name, name, StringComparison.OrdinalIgnoreCase));
 
         // ?? Reference management ??????????????????????????????????????????????
@@ -154,6 +150,7 @@ namespace Wally.Core
         {
             RequireWorkspace();
             var actor = Actors.Find(a =>
+                string.Equals(a.Name, actorName, StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(a.Role.Name, actorName, StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(a.GetType().Name, actorName, StringComparison.OrdinalIgnoreCase));
 
@@ -206,15 +203,16 @@ namespace Wally.Core
             RequireWorkspace();
 
             var actor = Actors.Find(a =>
+                string.Equals(a.Name, actorName, StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(a.Role.Name, actorName, StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(a.GetType().Name, actorName, StringComparison.OrdinalIgnoreCase));
 
             if (actor == null)
                 return $"Actor '{actorName}' not found.";
 
-            int cap           = maxIterationsOverride > 0 ? maxIterationsOverride : MaxIterations;
-            string current    = prompt;
-            string last       = string.Empty;
+            int cap        = maxIterationsOverride > 0 ? maxIterationsOverride : MaxIterations;
+            string current = prompt;
+            string last    = string.Empty;
 
             for (int i = 1; i <= cap; i++)
             {

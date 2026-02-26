@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.IO;
 using Wally.Core;
 using Wally.Core.Actors;
-using Wally.Core.RBA;
 
 namespace Wally.Core
 {
@@ -159,7 +158,7 @@ namespace Wally.Core
         // ?? Workspace inspection ??????????????????????????????????????????????
 
         /// <summary>
-        /// Lists each loaded agent (name, tier, role/criteria/intent prompts),
+        /// Lists each loaded actor (name, tier, role/criteria/intent prompts),
         /// then folder and file references.
         /// </summary>
         public static void HandleList(WallyEnvironment env)
@@ -168,16 +167,16 @@ namespace Wally.Core
 
             var ws = env.Workspace!;
 
-            Console.WriteLine($"Agents ({ws.AgentDefinitions.Count}):");
-            if (ws.AgentDefinitions.Count == 0)
+            Console.WriteLine($"Agents ({ws.Actors.Count}):");
+            if (ws.Actors.Count == 0)
                 Console.WriteLine("  (none — add a subfolder to .wally/Agents/)");
 
-            foreach (var agent in ws.AgentDefinitions)
+            foreach (var actor in ws.Actors)
             {
-                Console.WriteLine($"  [{agent.Name}]  folder: {agent.FolderPath}");
-                PrintRbaLine("    Role",     agent.Role.Prompt,     agent.Role.Tier);
-                PrintRbaLine("    Criteria", agent.Criteria.Prompt, agent.Criteria.Tier);
-                PrintRbaLine("    Intent",   agent.Intent.Prompt,   agent.Intent.Tier);
+                Console.WriteLine($"  [{actor.Name}]  folder: {actor.FolderPath}");
+                PrintRbaLine("    Role",     actor.Role.Prompt,                   actor.Role.Tier);
+                PrintRbaLine("    Criteria", actor.AcceptanceCriteria.Prompt,     actor.AcceptanceCriteria.Tier);
+                PrintRbaLine("    Intent",   actor.Intent.Prompt,                 actor.Intent.Tier);
             }
 
             Console.WriteLine($"Folder References ({ws.FolderReferences.Count}):");
@@ -208,8 +207,8 @@ namespace Wally.Core
             Console.WriteLine($"Workspace folder: {ws.WorkspaceFolder}");
             Console.WriteLine();
             Console.WriteLine($"Agents folder:    {Path.Combine(ws.WorkspaceFolder, cfg.AgentsFolderName)}");
-            Console.WriteLine($"Agents loaded:    {ws.AgentDefinitions.Count}");
-            foreach (var a in ws.AgentDefinitions)
+            Console.WriteLine($"Agents loaded:    {ws.Actors.Count}");
+            foreach (var a in ws.Actors)
                 Console.WriteLine($"  {a.Name}");
             Console.WriteLine();
             Console.WriteLine($"Folder refs:      {ws.FolderReferences.Count}");
@@ -222,8 +221,8 @@ namespace Wally.Core
         {
             if (RequireWorkspace(env, "reload-agents") == null) return;
             env.ReloadAgents();
-            Console.WriteLine($"Agents reloaded: {env.AgentDefinitions.Count}");
-            foreach (var a in env.AgentDefinitions)
+            Console.WriteLine($"Agents reloaded: {env.Actors.Count}");
+            foreach (var a in env.Actors)
                 Console.WriteLine($"  {a.Name}");
         }
 
@@ -271,13 +270,12 @@ namespace Wally.Core
             Console.WriteLine($"  Parent:    {env.ParentFolder}");
             Console.WriteLine($"  Project:   {env.ProjectFolder}");
             Console.WriteLine($"  Workspace: {env.WorkspaceFolder}");
-            Console.WriteLine($"  Agents:    {env.AgentDefinitions.Count}");
+            Console.WriteLine($"  Agents:    {env.Actors.Count}");
         }
 
         private static void PrintRbaLine(string label, string prompt, string? tier)
         {
             string tierTag = string.IsNullOrWhiteSpace(tier) ? "" : $"  [{tier}]";
-            // Truncate long prompts for display
             string display = prompt?.Length > 80 ? prompt[..80] + "…" : prompt ?? "";
             Console.WriteLine($"{label}{tierTag}: {display}");
         }

@@ -22,15 +22,12 @@ namespace Wally.Core
     ///                   intent.txt     ? Intent prompt
     /// </code>
     ///
-    /// Each subfolder under <c>Agents/</c> defines exactly one actor with its own private
-    /// Role, AcceptanceCriteria, and Intent. Add a subfolder to create a new agent;
-    /// edit its <c>.txt</c> files to change its behaviour. No shared RBA state exists.
+    /// Each subfolder under <c>Agents/</c> defines exactly one <see cref="CopilotActor"/>
+    /// with its own private Role, AcceptanceCriteria, and Intent. Add a subfolder to
+    /// create a new agent; edit its <c>.txt</c> files to change its behaviour.
     ///
     /// <see cref="ProjectFolder"/> and <see cref="WorkspaceFolder"/> are always siblings
     /// — both children of <see cref="ParentFolder"/>.
-    ///
-    /// Files and folders that actors should have access to are registered explicitly via
-    /// <see cref="AddFolderReference"/> and <see cref="AddFileReference"/>.
     /// </summary>
     public class WallyWorkspace
     {
@@ -46,16 +43,6 @@ namespace Wally.Core
 
         public WallyConfig Config { get; private set; } = new WallyConfig();
 
-        // ?? Agent definitions ?????????????????????????????????????????????????
-
-        /// <summary>
-        /// One entry per agent folder under <c>Agents/</c>.
-        /// Each definition owns its own Role, Criteria, and Intent loaded from that folder.
-        /// </summary>
-        [JsonIgnore]
-        public IReadOnlyList<AgentDefinition> AgentDefinitions { get; private set; }
-            = Array.Empty<AgentDefinition>();
-
         // ?? References ????????????????????????????????????????????????????????
 
         public List<string> FolderReferences { get; private set; } = new List<string>();
@@ -64,8 +51,8 @@ namespace Wally.Core
         // ?? Actor list ????????????????????????????????????????????????????????
 
         /// <summary>
-        /// One <see cref="WallyActor"/> per <see cref="AgentDefinition"/>.
-        /// Each actor carries its own private RBA — no shared or cartesian-product state.
+        /// One <see cref="CopilotActor"/> per agent folder under <c>Agents/</c>.
+        /// Each actor carries its own private RBA — no shared state.
         /// </summary>
         [JsonIgnore]
         public List<Actor> Actors { get; private set; } = new List<Actor>();
@@ -114,15 +101,13 @@ namespace Wally.Core
             Directory.CreateDirectory(WorkspaceFolder);
             Directory.CreateDirectory(ProjectFolder);
 
-            // Build one actor per agent folder — each actor owns its own RBA
-            AgentDefinitions = WallyHelper.LoadAgentDefinitions(WorkspaceFolder, Config);
-            BuildActors();
+            Actors = WallyHelper.LoadActors(WorkspaceFolder, Config, this);
         }
 
         // ?? Saving ????????????????????????????????????????????????????????????
 
         /// <summary>
-        /// Persists <c>wally-config.json</c> and writes every agent's prompt files back
+        /// Persists <c>wally-config.json</c> and writes every actor's prompt files back
         /// to its folder so the on-disk state matches in-memory state.
         /// </summary>
         public void Save()
@@ -131,8 +116,8 @@ namespace Wally.Core
             Directory.CreateDirectory(WorkspaceFolder);
             Config.SaveToFile(Path.Combine(WorkspaceFolder, WallyHelper.ConfigFileName));
 
-            foreach (var agent in AgentDefinitions)
-                WallyHelper.SaveAgentDefinition(WorkspaceFolder, Config, agent);
+            foreach (var actor in Actors)
+                WallyHelper.SaveActor(WorkspaceFolder, Config, actor);
         }
 
         // ?? Reference management ??????????????????????????????????????????????
@@ -176,8 +161,7 @@ namespace Wally.Core
         public void ReloadAgents()
         {
             RequireLoaded();
-            AgentDefinitions = WallyHelper.LoadAgentDefinitions(WorkspaceFolder, Config);
-            BuildActors();
+            Actors = WallyHelper.LoadActors(WorkspaceFolder, Config, this);
         }
 
         // ?? Guard ?????????????????????????????????????????????????????????????
@@ -190,17 +174,6 @@ namespace Wally.Core
         }
 
         // ?? Private helpers ???????????????????????????????????????????????????
-
-        /// <summary>
-        /// Builds one <see cref="WallyActor"/> per <see cref="AgentDefinition"/>.
-        /// Each actor receives its own private Role, Criteria, and Intent — nothing is shared.
-        /// </summary>
-        private void BuildActors()
-        {
-            Actors.Clear();
-            foreach (var agent in AgentDefinitions)
-                Actors.Add(new WallyActor(agent.Role, agent.Criteria, agent.Intent, this));
-        }
 
         private string ResolveAbsolute(string path) =>
             Path.IsPathRooted(path) ? path : Path.GetFullPath(Path.Combine(ProjectFolder, path));

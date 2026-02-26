@@ -10,6 +10,14 @@ namespace Wally.Core.Actors
     /// </summary>
     public abstract class Actor
     {
+        // ?? Identity ??????????????????????????????????????????????????????????
+
+        /// <summary>The agent name — taken from the folder name on disk.</summary>
+        public string Name { get; set; }
+
+        /// <summary>The absolute path to this actor's agent folder.</summary>
+        public string FolderPath { get; set; }
+
         // ?? RBA identity ??????????????????????????????????????????????????????
 
         /// <summary>The role this Actor plays.</summary>
@@ -26,6 +34,7 @@ namespace Wally.Core.Actors
         /// <summary>
         /// The workspace this Actor operates in. Provides access to
         /// <see cref="WallyWorkspace.FileReferences"/>,
+
         /// <see cref="WallyWorkspace.FolderReferences"/>, and
         /// <see cref="WallyWorkspace.ProjectFolder"/> for prompt enrichment.
         /// May be <see langword="null"/> when an Actor is constructed outside a workspace.
@@ -37,13 +46,16 @@ namespace Wally.Core.Actors
         /// <summary>
         /// Initializes an Actor with RBA components and an optional workspace.
         /// </summary>
-        protected Actor(Role role, AcceptanceCriteria acceptanceCriteria, Intent intent,
+        protected Actor(string name, string folderPath,
+                        Role role, AcceptanceCriteria acceptanceCriteria, Intent intent,
                         WallyWorkspace? workspace = null)
         {
-            Role = role;
+            Name               = name;
+            FolderPath         = folderPath;
+            Role               = role;
             AcceptanceCriteria = acceptanceCriteria;
-            Intent = intent;
-            Workspace = workspace;
+            Intent             = intent;
+            Workspace          = workspace;
         }
 
         // ?? Overridable pipeline ??????????????????????????????????????????????
@@ -63,8 +75,6 @@ namespace Wally.Core.Actors
             var sb = new System.Text.StringBuilder();
 
             // ?? Agent system context ??????????????????????????????????????????
-            // Prepend RBA framing so every actor subclass sends a complete
-            // system context without having to repeat this in Respond().
             sb.AppendLine($"# Agent: {Role.Name}");
             if (!string.IsNullOrWhiteSpace(Role.Prompt))
                 sb.AppendLine($"## Role\n{Role.Prompt}");

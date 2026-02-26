@@ -71,54 +71,54 @@ namespace Wally.Core
             CopyDefaultDirectory(config.AgentsFolderName, workspaceFolder);
         }
 
-        // ?? Agent loading from folders ????????????????????????????????????????
+        // ?? Actor loading from folders ????????????????????????????????????????
 
         /// <summary>
         /// Reads every agent subfolder under <c>&lt;workspaceFolder&gt;/Agents/</c> and
-        /// returns one <see cref="AgentDefinition"/> per folder.
+        /// returns one <see cref="CopilotActor"/> per folder.
         ///
         /// Each subfolder must contain at least one of <c>role.txt</c>,
         /// <c>criteria.txt</c>, or <c>intent.txt</c>. Missing files produce empty-prompt
         /// RBA items rather than errors so partially configured agents still load.
         /// </summary>
-        public static List<AgentDefinition> LoadAgentDefinitions(
-            string workspaceFolder, WallyConfig config)
+        public static List<Actor> LoadActors(
+            string workspaceFolder, WallyConfig config, WallyWorkspace workspace = null)
         {
-            var agents = new List<AgentDefinition>();
+            var actors = new List<Actor>();
             string agentsDir = Path.Combine(workspaceFolder, config.AgentsFolderName);
-            if (!Directory.Exists(agentsDir)) return agents;
+            if (!Directory.Exists(agentsDir)) return actors;
 
             foreach (string agentDir in Directory.GetDirectories(agentsDir))
             {
                 string name = Path.GetFileName(agentDir);
 
-                var (rolePrompt, roleTier)         = ReadPromptFile(agentDir, RoleFileName);
-                var (criteriaPrompt, criteriaTier)  = ReadPromptFile(agentDir, CriteriaFileName);
-                var (intentPrompt, intentTier)      = ReadPromptFile(agentDir, IntentFileName);
+                var (rolePrompt, roleTier)        = ReadPromptFile(agentDir, RoleFileName);
+                var (criteriaPrompt, criteriaTier) = ReadPromptFile(agentDir, CriteriaFileName);
+                var (intentPrompt, intentTier)     = ReadPromptFile(agentDir, IntentFileName);
 
-                agents.Add(new AgentDefinition(
+                actors.Add(new CopilotActor(
                     name,
                     agentDir,
                     new Role(name, rolePrompt, roleTier),
                     new AcceptanceCriteria(name, criteriaPrompt, criteriaTier),
-                    new Intent(name, intentPrompt, intentTier)));
+                    new Intent(name, intentPrompt, intentTier),
+                    workspace));
             }
-            return agents;
+            return actors;
         }
 
         /// <summary>
-        /// Writes an agent's RBA prompt files back to its folder, creating the folder if
-        /// needed. Overwrites existing files.
+        /// Writes an actor's RBA prompt files back to its folder, creating the folder if needed.
+        /// Overwrites existing files.
         /// </summary>
-        public static void SaveAgentDefinition(string workspaceFolder, WallyConfig config,
-                                               AgentDefinition agent)
+        public static void SaveActor(string workspaceFolder, WallyConfig config, Actor actor)
         {
-            string agentDir = Path.Combine(workspaceFolder, config.AgentsFolderName, agent.Name);
+            string agentDir = Path.Combine(workspaceFolder, config.AgentsFolderName, actor.Name);
             Directory.CreateDirectory(agentDir);
 
-            WritePromptFile(agentDir, RoleFileName,     agent.Role.Prompt,     agent.Role.Tier);
-            WritePromptFile(agentDir, CriteriaFileName, agent.Criteria.Prompt, agent.Criteria.Tier);
-            WritePromptFile(agentDir, IntentFileName,   agent.Intent.Prompt,   agent.Intent.Tier);
+            WritePromptFile(agentDir, RoleFileName,     actor.Role.Prompt,             actor.Role.Tier);
+            WritePromptFile(agentDir, CriteriaFileName, actor.AcceptanceCriteria.Prompt, actor.AcceptanceCriteria.Tier);
+            WritePromptFile(agentDir, IntentFileName,   actor.Intent.Prompt,           actor.Intent.Tier);
         }
 
         // ?? Config resolution ?????????????????????????????????????????????????
