@@ -30,11 +30,33 @@ Thin runtime host over a `WallyWorkspace`. Exposes workspace lifecycle, referenc
 
 ```csharp
 var env = new WallyEnvironment();
-env.SetupLocal();                              // scaffolds if needed, copies default agents
+
+// Scaffold or load in the exe directory (default)
+env.SetupLocal();
+
+// Or target a specific folder
+env.SetupLocal(@"C:\repos\MyApp");
+
 env.AddFolderReference(@".\Project\src");
+
+// Run all agents once
 var responses = env.RunActors("Explain this module");
 // responses keyed by agent name: "Developer: <response>", "Tester: <response>"
+
+// Run all agents iteratively — combined responses feed back each iteration
+var final = env.RunActorsIterative("Improve error handling", (i, responses) =>
+    Console.WriteLine($"Iteration {i}: {string.Join(", ", responses)}"));
+
+// Run a single named agent iteratively
+string result = env.RunActorIterative("Refactor to clean architecture", "Developer",
+    maxIterationsOverride: 5,
+    onIteration: (i, response) => Console.WriteLine($"[{i}] {response}"));
 ```
+
+The iterative loop logic lives directly inside `WallyEnvironment`. On each iteration the previous
+response is passed back through `Actor.ProcessPrompt` so the agent's full RBA context (Role,
+AcceptanceCriteria, Intent, file/folder references) is re-applied before the next `Act` call.
+The loop stops early when the actor returns an empty response.
 
 ### `WallyConfig`
 
@@ -45,7 +67,7 @@ Loaded from / saved to `wally-config.json`. Defines:
 | `WorkspaceFolderName` | `.wally` | Workspace subfolder name |
 | `ProjectFolderName` | `Project` | Project subfolder name |
 | `AgentsFolderName` | `Agents` | Agents subfolder name inside workspace |
-| `MaxIterations` | `10` | Cap for `RunActorsIterative` |
+| `MaxIterations` | `10` | Default cap for `RunActorsIterative` and `RunActorIterative` |
 
 RBA definitions are **not** stored in JSON — they live entirely in agent folders on disk.
 

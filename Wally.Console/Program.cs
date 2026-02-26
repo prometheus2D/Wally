@@ -58,7 +58,7 @@ namespace Wally.Console
                     if (opts is LoadOptions lo)       { WallyCommands.HandleLoad(_environment, lo.Path); return 0; }
                     if (opts is SaveOptions so)        { WallyCommands.HandleSave(_environment, so.Path); return 0; }
                     if (opts is CreateOptions co)      { WallyCommands.HandleCreate(_environment, co.Path); return 0; }
-                    if (opts is SetupOptions)          { WallyCommands.HandleSetup(_environment); return 0; }
+                    if (opts is SetupOptions seto)     { WallyCommands.HandleSetup(_environment, seto.Path); return 0; }
 
                     // ── Reference management ──────────────────────────────────
                     if (opts is AddFolderOptions afo)  { WallyCommands.HandleAddFolder(_environment, afo.FolderPath); return 0; }
@@ -77,7 +77,8 @@ namespace Wally.Console
                     }
                     if (opts is RunIterativeOptions rio)
                     {
-                        var responses = WallyCommands.HandleRunIterative(_environment, rio.Prompt, rio.MaxIterations);
+                        var responses = WallyCommands.HandleRunIterative(
+                            _environment, rio.Prompt, rio.ActorName, rio.MaxIterations);
                         if (responses.Count == 0) System.Console.WriteLine("No responses from final iteration.");
                         return 0;
                     }

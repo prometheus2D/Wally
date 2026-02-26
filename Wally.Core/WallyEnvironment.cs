@@ -59,9 +59,9 @@ namespace Wally.Core
             LoadWorkspace(parentFolder);
         }
 
-        public void SetupLocal()
+        public void SetupLocal(string parentFolder = null)
         {
-            string parentFolder = WallyHelper.GetDefaultParentFolder();
+            parentFolder ??= WallyHelper.GetDefaultParentFolder();
             WallyConfig config  = WallyHelper.ResolveConfig();
 
             string expectedConfig = Path.Combine(
@@ -166,11 +166,15 @@ namespace Wally.Core
                 : new List<string>();
         }
 
+        /// <summary>
+        /// Runs all actors iteratively up to <see cref="MaxIterations"/> times, feeding
+        /// the combined responses of each iteration back as the next prompt.
+        /// </summary>
         public List<string> RunActorsIterative(string initialPrompt,
             Action<int, List<string>>? onIteration = null)
         {
             RequireWorkspace();
-            string currentPrompt      = initialPrompt;
+            string currentPrompt       = initialPrompt;
             List<string> lastResponses = new List<string>();
 
             for (int i = 1; i <= MaxIterations; i++)
@@ -181,6 +185,53 @@ namespace Wally.Core
                 currentPrompt = string.Join(Environment.NewLine, lastResponses);
             }
             return lastResponses;
+        }
+
+        /// <summary>
+        /// Runs a single named actor iteratively, feeding each response back as the next
+        /// prompt until <paramref name="maxIterationsOverride"/> (or <see cref="MaxIterations"/>)
+        /// is reached or the actor returns an empty response. Agent context is re-applied at
+        /// every step via <see cref="Actor.ProcessPrompt"/>.
+        /// </summary>
+        /// <param name="prompt">The initial prompt.</param>
+        /// <param name="actorName">Role.Name or type name of the actor to run (case-insensitive).</param>
+        /// <param name="maxIterationsOverride">Cap for this run; 0 = use <see cref="MaxIterations"/>.</param>
+        /// <param name="onIteration">
+        /// Optional callback invoked after each iteration with the 1-based index and response.
+        /// </param>
+        /// <returns>The final non-empty response, or an error string when the actor is not found.</returns>
+        public string RunActorIterative(string prompt, string actorName,
+            int maxIterationsOverride = 0, Action<int, string>? onIteration = null)
+        {
+            RequireWorkspace();
+
+            var actor = Actors.Find(a =>
+                string.Equals(a.Role.Name, actorName, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(a.GetType().Name, actorName, StringComparison.OrdinalIgnoreCase));
+
+            if (actor == null)
+                return $"Actor '{actorName}' not found.";
+
+            int cap           = maxIterationsOverride > 0 ? maxIterationsOverride : MaxIterations;
+            string current    = prompt;
+            string last       = string.Empty;
+
+            for (int i = 1; i <= cap; i++)
+            {
+                string response = actor.Act(current);
+
+                if (string.IsNullOrWhiteSpace(response))
+                {
+                    onIteration?.Invoke(i, string.Empty);
+                    break;
+                }
+
+                onIteration?.Invoke(i, response);
+                last    = response;
+                current = actor.ProcessPrompt(response);
+            }
+
+            return last;
         }
 
         // ?? Guard ?????????????????????????????????????????????????????????????

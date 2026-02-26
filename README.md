@@ -66,22 +66,39 @@ wally run "Implement input validation" Developer
 ### Option B — point at an existing project path
 
 ```sh
-wally create C:\repos\MyApp
-wally load   C:\repos\MyApp
+# setup accepts --path / -p to target any folder directly
+wally setup --path C:\repos\MyApp
 
 wally add-folder C:\repos\MyApp\Project\src
 wally run "Refactor the repository layer to use the Unit of Work pattern"
 ```
 
-### Option C — interactive REPL
+### Option C — iterative loop
+
+`run-iterative` feeds each response back as the next prompt. Omit `-a` to loop all
+agents together; supply `-a <name>` to drive a single agent.
+
+```sh
+wally setup --path C:\repos\MyApp
+wally add-folder C:\repos\MyApp\Project\src
+
+# Loop all agents (combined responses feed back each iteration)
+wally run-iterative "Improve error handling across all services"
+
+# Loop one agent, capped at 4 iterations
+wally run-iterative "Add async/await throughout the data layer" -a Developer -m 4
+```
+
+### Option D — interactive REPL
 
 Run `wally` with no arguments to enter interactive mode. The environment persists across commands in the session.
 
 ```
-wally> setup
+wally> setup --path C:\repos\MyApp
 wally> add-folder .\Project\src
 wally> run "Add retry logic to the HTTP client"
 wally> run-iterative "Improve test coverage" -m 3
+wally> run-iterative "Refactor to clean architecture" -a Developer -m 5
 wally> list
 wally> exit
 ```
@@ -105,7 +122,7 @@ dotnet publish Wally.Console -c Release -r win-x64 --self-contained
 
 | Command | Description |
 |---|---|
-| `setup` | Scaffold `.wally/` + `Project/` next to the exe, copy default agents, load. |
+| `setup [-p <path>]` | Scaffold `.wally/` + `Project/` next to the exe, or at `<path>` when supplied. |
 | `create <path>` | Scaffold a new workspace at `<path>` and load it. |
 | `load <path>` | Load an existing workspace from `<path>` (parent folder). |
 | `save <path>` | Persist the current config and all agent prompt files to `<path>`. |
@@ -133,13 +150,31 @@ dotnet publish Wally.Console -c Release -r win-x64 --self-contained
 | Command | Description |
 |---|---|
 | `run "<prompt>" [agent]` | Run all agents (or one by name) on the prompt. |
-| `run-iterative "<prompt>" [-m N]` | Run agents iteratively, feeding each response back as the next prompt. |
+| `run-iterative "<prompt>" [-m N]` | Loop all agents, feeding combined responses back each iteration. |
+| `run-iterative "<prompt>" -a <agent> [-m N]` | Loop a single named agent, feeding its response back each iteration. |
 
-### Other
+---
 
-| Command | Description |
-|---|---|
-| `help` | Print command reference. |
+## How the iterative loop works
+
+The loop runs directly inside `WallyEnvironment`. On each iteration the previous response is
+passed back through `Actor.ProcessPrompt` so the agent's full RBA context (Role,
+AcceptanceCriteria, Intent, file/folder references) is re-applied before the next `Act` call.
+The loop stops early when the actor returns an empty response.
+
+```
+Initial prompt
+  ? WallyEnvironment.RunActorIterative / RunActorsIterative
+  ?? Iteration 1 ???????????????????????????????????????????
+  ?  actor.Act(prompt)  ?  response?                       ?
+  ??????????????????????????????????????????????????????????
+  ?? Iteration 2 ???????????????????????????????????????????
+  ?  actor.Act( ProcessPrompt(response?) )  ?  response?  ?
+  ??????????????????????????????????????????????????????????
+  … up to MaxIterations or until the actor returns empty
+  ?
+Final response returned
+```
 
 ---
 
@@ -198,7 +233,8 @@ Implement the requested feature…
 [File References]
   C:\repos\MyApp\Project\src\Program.cs
   ?
-gh copilot explain "<full structured prompt>"
+gh copilot suggest "<full structured prompt>"   ? run-iterative (CopilotActor)
+gh copilot explain "<full structured prompt>"   ? run / run-iterative (WallyActor)
 ```
 
 ---

@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using Wally.Core;
+using Wally.Core.Actors;
+using Wally.Core.RBA;
 
 namespace Wally.Core
 {
@@ -42,10 +44,13 @@ namespace Wally.Core
             PrintWorkspaceSummary("Workspace created.", env);
         }
 
-        /// <summary>Self-assembles a workspace in the exe directory and loads it.</summary>
-        public static void HandleSetup(WallyEnvironment env)
+        /// <summary>
+        /// Self-assembles a workspace at <paramref name="path"/> (or the exe directory when
+        /// <paramref name="path"/> is null) and loads it.
+        /// </summary>
+        public static void HandleSetup(WallyEnvironment env, string path = null)
         {
-            env.SetupLocal();
+            env.SetupLocal(path);
             PrintWorkspaceSummary("Workspace ready.", env);
         }
 
@@ -108,13 +113,36 @@ namespace Wally.Core
                 : env.RunActors(prompt);
         }
 
+        /// <summary>
+        /// Runs actors iteratively. When <paramref name="actorName"/> is supplied, a single
+        /// actor is driven via <see cref="ActorLoop"/>; otherwise all actors run together with
+        /// combined responses fed back each iteration.
+        /// </summary>
         public static List<string> HandleRunIterative(
-            WallyEnvironment env, string prompt, int maxIterationsOverride = 0)
+            WallyEnvironment env, string prompt, string actorName = null, int maxIterationsOverride = 0)
         {
             if (RequireWorkspace(env, "run-iterative") == null) return new List<string>();
 
             if (maxIterationsOverride > 0)
                 env.MaxIterations = maxIterationsOverride;
+
+            if (!string.IsNullOrEmpty(actorName))
+            {
+                Console.WriteLine(
+                    $"Running iterative loop on '{actorName}' (max {env.MaxIterations} iterations)...");
+
+                string result = env.RunActorIterative(
+                    prompt, actorName, maxIterationsOverride,
+                    (iteration, response) =>
+                    {
+                        Console.WriteLine($"--- Iteration {iteration} [{actorName}] ---");
+                        Console.WriteLine(response);
+                    });
+
+                return string.IsNullOrWhiteSpace(result)
+                    ? new List<string>()
+                    : new List<string> { $"{actorName}: {result}" };
+            }
 
             Console.WriteLine($"Running iterative mode (max {env.MaxIterations} iterations)...");
 
@@ -207,23 +235,24 @@ namespace Wally.Core
             Console.WriteLine("=====================================");
             Console.WriteLine();
             Console.WriteLine("No workspace required:");
-            Console.WriteLine("  setup                     Scaffold workspace + default agents next to exe.");
-            Console.WriteLine("  create <path>             Scaffold a new workspace at <path>.");
-            Console.WriteLine("  load <path>               Load an existing workspace from <path>.");
-            Console.WriteLine("  info                      Show workspace paths, agent list, and settings.");
-            Console.WriteLine("  help                      Show this message.");
+            Console.WriteLine("  setup [-p <path>]             Scaffold workspace + default agents. Defaults to exe dir.");
+            Console.WriteLine("  create <path>                 Scaffold a new workspace at <path>.");
+            Console.WriteLine("  load <path>                   Load an existing workspace from <path>.");
+            Console.WriteLine("  info                          Show workspace paths, agent list, and settings.");
+            Console.WriteLine("  help                          Show this message.");
             Console.WriteLine();
             Console.WriteLine("Workspace required:");
-            Console.WriteLine("  save <path>               Save config and all agent prompt files.");
-            Console.WriteLine("  list                      List agents, prompts, and references.");
-            Console.WriteLine("  reload-agents             Re-read agent folders from disk, rebuild actors.");
-            Console.WriteLine("  add-folder <path>         Register a folder for Copilot context.");
-            Console.WriteLine("  add-file <path>           Register a file for Copilot context.");
-            Console.WriteLine("  remove-folder <path>      Deregister a folder.");
-            Console.WriteLine("  remove-file <path>        Deregister a file.");
-            Console.WriteLine("  clear-refs                Clear all folder and file references.");
-            Console.WriteLine("  run \"<prompt>\" [agent]    Run all agents, or one by name.");
-            Console.WriteLine("  run-iterative \"<prompt>\"  Run agents iteratively; -m N to cap.");
+            Console.WriteLine("  save <path>                   Save config and all agent prompt files.");
+            Console.WriteLine("  list                          List agents, prompts, and references.");
+            Console.WriteLine("  reload-agents                 Re-read agent folders from disk, rebuild actors.");
+            Console.WriteLine("  add-folder <path>             Register a folder for Copilot context.");
+            Console.WriteLine("  add-file <path>               Register a file for Copilot context.");
+            Console.WriteLine("  remove-folder <path>          Deregister a folder.");
+            Console.WriteLine("  remove-file <path>            Deregister a file.");
+            Console.WriteLine("  clear-refs                    Clear all folder and file references.");
+            Console.WriteLine("  run \"<prompt>\" [agent]        Run all agents, or one by name.");
+            Console.WriteLine("  run-iterative \"<prompt>\"      Run all agents iteratively; -m N to cap.");
+            Console.WriteLine("  run-iterative \"<prompt>\" -a <agent>  Run one agent iteratively; -m N to cap.");
             Console.WriteLine();
             Console.WriteLine("Agent folders:");
             Console.WriteLine("  .wally/Agents/<AgentName>/");
