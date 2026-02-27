@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.IO;
 using Wally.Core.RBA;
 
@@ -25,54 +26,41 @@ namespace Wally.Core.Actors
         /// Generates a response by forwarding the workspace-enriched prompt to
         /// <c>gh copilot explain</c>.
         /// <para>
-        /// The prompt is written to a temporary file and piped via the shell to
-        /// avoid argument-length limits and escaping issues.  The process
-        /// <c>WorkingDirectory</c> is set to <see cref="Actor.Workspace"/>.<see
-        /// cref="WallyWorkspace.SourcePath"/> so that Copilot CLI receives the
-        /// correct file and directory context.
+        /// The process <c>WorkingDirectory</c> is set to
+        /// <see cref="WallyWorkspace.SourcePath"/> so that Copilot CLI receives
+        /// the correct file and directory context.  The <c>--model</c> flag is
+        /// added when a model is configured in <see cref="WallyConfig.Model"/>.
         /// </para>
         /// </summary>
         public override string Respond(string processedPrompt)
         {
-            string? tempFile = null;
             try
             {
-                // Write the full prompt to a temp file so we can pipe it in
-                // without hitting argument-length or escaping issues.
-                tempFile = Path.GetTempFileName();
-                File.WriteAllText(tempFile, processedPrompt);
-
-                // Build a shell command that pipes the prompt file into gh copilot.
-                // "type" on Windows / "cat" on Unix sends the file to stdin.
-                bool isWindows = OperatingSystem.IsWindows();
-                string catCommand = isWindows
-                    ? $"type \"{tempFile}\""
-                    : $"cat '{tempFile}'";
-                string fullCommand = $"{catCommand} | gh copilot explain";
-
-                string shell, shellArgs;
-                if (isWindows)
+                var startInfo = new ProcessStartInfo
                 {
-                    // cmd.exe /c handles pipes natively; do not add outer quotes
-                    // around the full command — that breaks when inner quotes exist.
-                    shell     = "cmd.exe";
-                    shellArgs = $"/c {fullCommand}";
-                }
-                else
-                {
-                    shell     = "/bin/sh";
-                    shellArgs = $"-c \"{fullCommand}\"";
-                }
-
-                var startInfo = new System.Diagnostics.ProcessStartInfo
-                {
-                    FileName               = shell,
-                    Arguments              = shellArgs,
+                    FileName               = "gh",
                     RedirectStandardOutput = true,
                     RedirectStandardError  = true,
+                    RedirectStandardInput  = true,
                     UseShellExecute        = false,
                     CreateNoWindow         = true
                 };
+
+                // Build argument list: gh copilot explain [--model <m>] "<prompt>"
+                // Using ArgumentList avoids all shell-escaping issues — the OS
+                // passes each entry as a discrete argv element.
+                startInfo.ArgumentList.Add("copilot");
+                startInfo.ArgumentList.Add("explain");
+
+                // Resolve model from config (per-actor override ? default ? omit).
+                string? model = Workspace?.Config?.Model?.ResolveForActor(Name);
+                if (!string.IsNullOrWhiteSpace(model))
+                {
+                    startInfo.ArgumentList.Add("--model");
+                    startInfo.ArgumentList.Add(model);
+                }
+
+                startInfo.ArgumentList.Add(processedPrompt);
 
                 // Set working directory to SourcePath so Copilot CLI sees the
                 // target codebase for file context.
@@ -80,9 +68,13 @@ namespace Wally.Core.Actors
                 if (!string.IsNullOrWhiteSpace(sourcePath) && Directory.Exists(sourcePath))
                     startInfo.WorkingDirectory = sourcePath;
 
-                var process = new System.Diagnostics.Process { StartInfo = startInfo };
+                using var process = new Process { StartInfo = startInfo };
 
                 process.Start();
+
+                // Close stdin immediately — we are not sending interactive input.
+                process.StandardInput.Close();
+
                 string output = process.StandardOutput.ReadToEnd();
                 string error  = process.StandardError.ReadToEnd();
                 process.WaitForExit();
@@ -101,14 +93,6 @@ namespace Wally.Core.Actors
             catch (Exception ex)
             {
                 return $"Failed to call Copilot CLI: {ex.Message}";
-            }
-            finally
-            {
-                if (tempFile != null && File.Exists(tempFile))
-                {
-                    try { File.Delete(tempFile); }
-                    catch { /* best-effort cleanup */ }
-                }
             }
         }
     }

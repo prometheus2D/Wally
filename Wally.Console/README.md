@@ -50,7 +50,7 @@ setup [-p <path>] [-s <source>]  Scaffold .wally/ next to exe by default,
 create <path>                    Scaffold a new workspace at <path> and load it.
 load <path>                      Load an existing workspace from <path>.
 save <path>                      Persist config and all actor.json files to <path>.
-info                             Print paths (including SourcePath), loaded actors, settings.
+info                             Print paths, model config, loaded actors, settings.
 
 list                             List all actors and their prompts.
 reload-actors                    Re-read actor folders from disk and rebuild actors.
@@ -80,20 +80,23 @@ Or edit `.wally/wally-config.json`:
 
 When null, defaults to the workspace's parent folder.
 
-## Iterative loop
+## Model Selection
 
-Any actor can be run iteratively via `run-iterative -a <actor>`. On each iteration the
-previous response is re-processed through the actor's full RBA context (Role,
-AcceptanceCriteria, Intent) before the next `Act` call.
-The loop stops early when the actor returns an empty response.
+Control which LLM model Copilot uses by editing `.wally/wally-config.json`:
 
-```sh
-# Loop all actors (responses are combined and fed back each iteration)
-wally run-iterative "Refactor the service layer to use async/await throughout"
-
-# Loop a single actor up to 4 iterations
-wally run-iterative "Add XML doc comments to all public methods" -a Developer -m 4
+```json
+{
+  "Model": {
+    "Default": "gpt-4o",
+    "ActorOverrides": {
+      "Tester": "claude-3.5-sonnet"
+    }
+  }
+}
 ```
+
+Run `gh copilot model list` to see available models. Use `wally info` to verify
+which model each actor is configured to use.
 
 ## Default workspace template
 

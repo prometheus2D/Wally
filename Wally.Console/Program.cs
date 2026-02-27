@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using CommandLine;
@@ -31,15 +32,55 @@ namespace Wally.Console
             while (true)
             {
                 System.Console.Write("wally> ");
-                string input = System.Console.ReadLine();
+                string? input = System.Console.ReadLine();
                 if (string.IsNullOrWhiteSpace(input)) continue;
-                if (input.Trim().ToLower() == "exit") break;
+                if (input.Trim().Equals("exit", StringComparison.OrdinalIgnoreCase)) break;
 
-                string[] interactiveArgs = input.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                string[] interactiveArgs = SplitArgs(input);
                 if (interactiveArgs.Length > 0)
                     HandleArguments(interactiveArgs);
             }
             return 0;
+        }
+
+        /// <summary>
+        /// Splits a raw input line into arguments, respecting double-quoted strings.
+        /// <c>run "Add input validation" Developer</c> →
+        /// <c>["run", "Add input validation", "Developer"]</c>.
+        /// </summary>
+        private static string[] SplitArgs(string input)
+        {
+            var args = new List<string>();
+            bool inQuotes = false;
+            var current = new System.Text.StringBuilder();
+
+            for (int i = 0; i < input.Length; i++)
+            {
+                char c = input[i];
+
+                if (c == '"')
+                {
+                    inQuotes = !inQuotes;
+                    continue;               // consume the quote character itself
+                }
+
+                if (c == ' ' && !inQuotes)
+                {
+                    if (current.Length > 0)
+                    {
+                        args.Add(current.ToString());
+                        current.Clear();
+                    }
+                    continue;
+                }
+
+                current.Append(c);
+            }
+
+            if (current.Length > 0)
+                args.Add(current.ToString());
+
+            return args.ToArray();
         }
 
         private static int HandleArguments(string[] args)
