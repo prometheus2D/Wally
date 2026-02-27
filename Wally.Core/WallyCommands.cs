@@ -194,7 +194,7 @@ namespace Wally.Core
             Console.WriteLine("=====================================");
             Console.WriteLine();
             Console.WriteLine("No workspace required:");
-            Console.WriteLine("  setup [-p <path>] [-s <source>]  Scaffold or load a workspace. Defaults to <exeDir>/.wally.");
+            Console.WriteLine("  setup [<path>] [-s <source>]     Scaffold or load a workspace. Defaults to <exeDir>/.wally.");
             Console.WriteLine("                                   -s sets the source directory for Copilot file context.");
             Console.WriteLine("  create <path>                  Scaffold a new workspace at <path>.");
             Console.WriteLine("  load <path>                    Load an existing workspace from <path>.");

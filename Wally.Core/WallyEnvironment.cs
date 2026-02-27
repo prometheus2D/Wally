@@ -73,6 +73,8 @@ namespace Wally.Core
         /// <summary>
         /// Ensures a workspace exists at <paramref name="workspaceFolder"/> (or the default
         /// <c>.wally</c> folder next to the exe when <see langword="null"/>), then loads it.
+        /// If the workspace folder does not yet contain a config, a default workspace is
+        /// scaffolded from the shipped template.
         /// </summary>
         public void SetupLocal(string workspaceFolder = null)
         {
