@@ -28,18 +28,23 @@ namespace Wally.Core.Actors
         {
             try
             {
-                var process = new System.Diagnostics.Process
+                var startInfo = new System.Diagnostics.ProcessStartInfo
                 {
-                    StartInfo = new System.Diagnostics.ProcessStartInfo
-                    {
-                        FileName               = "gh",
-                        Arguments              = $"copilot suggest \"{processedPrompt.Replace("\"", "\\\"")}\"",
-                        RedirectStandardOutput = true,
-                        RedirectStandardError  = true,
-                        UseShellExecute        = false,
-                        CreateNoWindow         = true
-                    }
+                    FileName               = "gh",
+                    Arguments              = $"copilot suggest \"{processedPrompt.Replace("\"", "\\\"")}\"",
+                    RedirectStandardOutput = true,
+                    RedirectStandardError  = true,
+                    UseShellExecute        = false,
+                    CreateNoWindow         = true
                 };
+
+                // Use the workspace's SourcePath as the working directory so
+                // Copilot CLI receives the correct file/directory context.
+                string sourcePath = Workspace?.SourcePath;
+                if (!string.IsNullOrWhiteSpace(sourcePath) && System.IO.Directory.Exists(sourcePath))
+                    startInfo.WorkingDirectory = sourcePath;
+
+                var process = new System.Diagnostics.Process { StartInfo = startInfo };
 
                 process.Start();
                 string output = process.StandardOutput.ReadToEnd();

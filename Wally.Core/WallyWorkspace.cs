@@ -31,6 +31,16 @@ namespace Wally.Core
         /// <summary>The absolute path to the project folder (parent of workspace folder).</summary>
         public string ProjectFolder { get; private set; }
 
+        /// <summary>
+        /// The directory whose contents provide file context to <c>gh copilot</c>.
+        /// Resolved from <see cref="WallyConfig.SourcePath"/> when set; otherwise
+        /// falls back to <see cref="ProjectFolder"/>.
+        /// </summary>
+        public string SourcePath =>
+            !string.IsNullOrWhiteSpace(Config.SourcePath)
+                ? Path.GetFullPath(Config.SourcePath)
+                : ProjectFolder;
+
         public bool IsLoaded => !string.IsNullOrEmpty(WorkspaceFolder);
 
         // — Configuration —————————————————————————————————————————————————————

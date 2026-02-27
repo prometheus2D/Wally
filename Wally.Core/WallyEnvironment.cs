@@ -21,6 +21,22 @@ namespace Wally.Core
         /// <summary>The workspace folder path (e.g. <c>/repo/.wally</c>).</summary>
         public string? WorkspaceFolder => Workspace?.WorkspaceFolder;
 
+        /// <summary>
+        /// The source directory whose files provide context to <c>gh copilot</c>.
+        /// Delegates to <see cref="WallyWorkspace.SourcePath"/>.
+        /// </summary>
+        public string? SourcePath
+        {
+            get => HasWorkspace ? Workspace!.SourcePath : _sourcePath;
+            set
+            {
+                _sourcePath = value;
+                if (HasWorkspace && value != null)
+                    Workspace!.Config.SourcePath = value;
+            }
+        }
+        private string? _sourcePath;
+
         // — Runtime settings ——————————————————————————————————————————————————
 
         public int MaxIterations
