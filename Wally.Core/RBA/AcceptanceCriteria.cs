@@ -16,21 +16,14 @@ namespace Wally.Core.RBA
         public string Prompt { get; set; }
 
         /// <summary>
-        /// The time-length tier: "epoch" (long-term), "story" (medium), "task" (short).
-        /// </summary>
-        public string Tier { get; set; }
-
-        /// <summary>
         /// Initializes a new instance of the AcceptanceCriteria class.
         /// </summary>
         /// <param name="name">The name.</param>
         /// <param name="prompt">The prompt.</param>
-        /// <param name="tier">The tier (optional).</param>
-        public AcceptanceCriteria(string name, string prompt, string tier = null)
+        public AcceptanceCriteria(string name, string prompt)
         {
             Name = name;
             Prompt = prompt;
-            Tier = tier;
         }
     }
 }

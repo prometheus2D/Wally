@@ -1,9 +1,6 @@
 {
   "name": "Tester",
   "rolePrompt": "Act as a QA tester, identifying bugs and ensuring functionality.",
-  "roleTier": "task",
   "criteriaPrompt": "The output must meet user requirements and be user-friendly.",
-  "criteriaTier": "story",
-  "intentPrompt": "Identify and fix the reported bug.",
-  "intentTier": "task"
+  "intentPrompt": "Identify and fix the reported bug."
 }

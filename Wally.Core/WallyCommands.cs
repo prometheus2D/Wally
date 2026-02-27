@@ -158,7 +158,7 @@ namespace Wally.Core
         // ?? Workspace inspection ??????????????????????????????????????????????
 
         /// <summary>
-        /// Lists each loaded actor (name, tier, role/criteria/intent prompts),
+        /// Lists each loaded actor (name, role/criteria/intent prompts),
         /// then folder and file references.
         /// </summary>
         public static void HandleList(WallyEnvironment env)
@@ -174,9 +174,9 @@ namespace Wally.Core
             foreach (var actor in ws.Actors)
             {
                 Console.WriteLine($"  [{actor.Name}]  folder: {actor.FolderPath}");
-                PrintRbaLine("    Role",     actor.Role.Prompt,                 actor.Role.Tier);
-                PrintRbaLine("    Criteria", actor.AcceptanceCriteria.Prompt,   actor.AcceptanceCriteria.Tier);
-                PrintRbaLine("    Intent",   actor.Intent.Prompt,               actor.Intent.Tier);
+                PrintRbaLine("    Role",     actor.Role.Prompt);
+                PrintRbaLine("    Criteria", actor.AcceptanceCriteria.Prompt);
+                PrintRbaLine("    Intent",   actor.Intent.Prompt);
             }
 
             Console.WriteLine($"Folder References ({ws.FolderReferences.Count}):");
@@ -188,7 +188,7 @@ namespace Wally.Core
             foreach (var f in ws.FileReferences) Console.WriteLine($"  {f}");
         }
 
-        /// <summary>Displays workspace paths, agent count, reference counts, and settings.</summary>
+        /// <summary>Displays workspace paths, actor count, reference counts, and settings.</summary>
         public static void HandleInfo(WallyEnvironment env)
         {
             if (!env.HasWorkspace)
@@ -213,7 +213,7 @@ namespace Wally.Core
             Console.WriteLine($"Max iterations:    {env.MaxIterations}");
         }
 
-        /// <summary>Re-reads agent folders from disk and rebuilds actors without a full reload.</summary>
+        /// <summary>Re-reads actor folders from disk and rebuilds actors without a full reload.</summary>
         public static void HandleReloadActors(WallyEnvironment env)
         {
             if (RequireWorkspace(env, "reload-actors") == null) return;
@@ -255,9 +255,8 @@ namespace Wally.Core
             Console.WriteLine("    wally-config.json");
             Console.WriteLine("    Actors/");
             Console.WriteLine("      <ActorName>/");
-            Console.WriteLine("        actor.json               name, rolePrompt, roleTier,");
-            Console.WriteLine("                                 criteriaPrompt, criteriaTier,");
-            Console.WriteLine("                                 intentPrompt, intentTier");
+            Console.WriteLine("        actor.json               name, rolePrompt,");
+            Console.WriteLine("                                 criteriaPrompt, intentPrompt");
         }
 
         // ?? Private helpers ???????????????????????????????????????????????????
@@ -269,11 +268,10 @@ namespace Wally.Core
             Console.WriteLine($"  Actors:    {env.Actors.Count}");
         }
 
-        private static void PrintRbaLine(string label, string prompt, string? tier)
+        private static void PrintRbaLine(string label, string prompt)
         {
-            string tierTag = string.IsNullOrWhiteSpace(tier) ? "" : $"  [{tier}]";
             string display = prompt?.Length > 80 ? prompt[..80] + "…" : prompt ?? "";
-            Console.WriteLine($"{label}{tierTag}: {display}");
+            Console.WriteLine($"{label}: {display}");
         }
     }
 }

@@ -1,9 +1,6 @@
 {
   "name": "Developer",
   "rolePrompt": "Act as an expert software developer, writing clean and efficient code.",
-  "roleTier": "task",
   "criteriaPrompt": "Code must compile without errors, follow best practices, and pass unit tests.",
-  "criteriaTier": "task",
-  "intentPrompt": "Implement the requested feature with proper error handling.",
-  "intentTier": "task"
+  "intentPrompt": "Implement the requested feature with proper error handling."
 }

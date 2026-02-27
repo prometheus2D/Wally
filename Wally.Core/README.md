@@ -9,20 +9,28 @@ Domain library — no CLI, no UI. Contains everything needed to host a Wally works
 Owns the workspace layout on disk:
 
 ```
-<ParentFolder>/
-    <ProjectFolderName>/        ? codebase  (default: "Project")
-    <WorkspaceFolderName>/      ? Wally     (default: ".wally")
-        wally-config.json
-        Agents/
-            <AgentName>/        ? one folder per agent
-                role.txt        ? Role prompt  (optional header: # Tier: task)
-                criteria.txt    ? AcceptanceCriteria prompt
-                intent.txt      ? Intent prompt
+<WorkspaceFolder>/              e.g. ".wally/"
+    wally-config.json
+    Actors/
+        <ActorName>/            one folder per actor
+            actor.json          name, rolePrompt, criteriaPrompt, intentPrompt
 ```
 
-Call `WallyWorkspace.Load(parentFolder)` or `LoadFrom(path)` (accepts the parent, workspace, or project folder).
-Each agent folder produces exactly one `WallyActor` — no cartesian-product expansion.
-Call `ReloadAgents()` to re-read agent folders from disk mid-session without a full reload.
+Call `WallyWorkspace.Load(workspaceFolder)` or `LoadFrom(path)`.
+Each actor folder produces exactly one `CopilotActor` — no cartesian-product expansion.
+Call `ReloadActors()` to re-read actor folders from disk mid-session without a full reload.
+
+### Default workspace template
+
+The application ships a `Default/` folder alongside the executable that contains the
+canonical workspace template (`wally-config.json` + `Actors/`).
+When scaffolding a new workspace the template is copied verbatim (no-overwrite) so
+every new workspace starts with the same files.
+
+Config resolution follows a three-tier fallback:
+1. **Workspace-local** (`<workspaceFolder>/wally-config.json`)
+2. **Template** (`<exeDir>/Default/wally-config.json`)
+3. **Hard-coded** (`new WallyConfig()`)
 
 ### `WallyEnvironment`
 
@@ -35,26 +43,26 @@ var env = new WallyEnvironment();
 env.SetupLocal();
 
 // Or target a specific folder
-env.SetupLocal(@"C:\repos\MyApp");
+env.SetupLocal(@"C:\repos\MyApp\.wally");
 
-env.AddFolderReference(@".\Project\src");
+env.AddFolderReference(@".\src");
 
-// Run all agents once
+// Run all actors once
 var responses = env.RunActors("Explain this module");
-// responses keyed by agent name: "Developer: <response>", "Tester: <response>"
+// responses: "Developer: <response>", "Tester: <response";
 
-// Run all agents iteratively — combined responses feed back each iteration
+// Run all actors iteratively — combined responses feed back each iteration
 var final = env.RunActorsIterative("Improve error handling", (i, responses) =>
     Console.WriteLine($"Iteration {i}: {string.Join(", ", responses)}"));
 
-// Run a single named agent iteratively
+// Run a single named actor iteratively
 string result = env.RunActorIterative("Refactor to clean architecture", "Developer",
     maxIterationsOverride: 5,
     onIteration: (i, response) => Console.WriteLine($"[{i}] {response}"));
 ```
 
 The iterative loop logic lives directly inside `WallyEnvironment`. On each iteration the previous
-response is passed back through `Actor.ProcessPrompt` so the agent's full RBA context (Role,
+response is passed back through `Actor.ProcessPrompt` so the actor's full RBA context (Role,
 AcceptanceCriteria, Intent, file/folder references) is re-applied before the next `Act` call.
 The loop stops early when the actor returns an empty response.
 
@@ -64,59 +72,15 @@ Loaded from / saved to `wally-config.json`. Defines:
 
 | Property | Default | Description |
 |---|---|---|
-| `WorkspaceFolderName` | `.wally` | Workspace subfolder name |
-| `ProjectFolderName` | `Project` | Project subfolder name |
-| `AgentsFolderName` | `Agents` | Agents subfolder name inside workspace |
-| `MaxIterations` | `10` | Default cap for `RunActorsIterative` and `RunActorIterative` |
+| `ActorsFolderName` | `Actors` | Subfolder inside the workspace that holds actor directories |
+| `MaxIterations` | `10` | Maximum iterations for iterative actor runs |
 
-RBA definitions are **not** stored in JSON — they live entirely in agent folders on disk.
+### RBA (Role, AcceptanceCriteria, Intent)
 
-### `AgentDefinition`
+Each actor carries three prompt components:
 
-Loaded from one agent folder. Holds:
-- `Name` — the folder name
-- `FolderPath` — absolute path to the agent folder
-- `Role`, `Criteria`, `Intent` — each loaded from its `.txt` file, with optional `Tier` parsed from the `# Tier:` header
-
-### `Actor` (abstract)
-
-Pipeline: `Setup() ? ProcessPrompt() ? ShouldMakeChanges() ? ApplyCodeChanges() | Respond()`
-
-`ProcessPrompt` builds a fully-structured Markdown prompt:
-
-```
-# Agent: <name>
-## Role
-<role prompt>
-## Acceptance Criteria
-<criteria prompt>
-## Intent
-<intent prompt>
-
-## Prompt
-<user's prompt>
-
-[Project Folder: ...]
-[Folder References] ...
-[File References] ...
-```
-
-Subclasses receive this complete prompt in `Respond()` — no duplication needed.
-
-| Actor | Behaviour |
-|---|---|
-| `WallyActor` | Forwards structured prompt to `gh copilot explain`. |
-| `CopilotActor` | Forwards structured prompt to `gh copilot suggest`. Never applies changes. |
-
-### `WallyHelper`
-
-Static utilities:
-
-| Method | Description |
-|---|---|
-| `GetDefaultParentFolder()` | Returns the exe directory. |
-| `CreateDefaultWorkspace(path)` | Scaffolds workspace + copies default agent tree. |
-| `LoadAgentDefinitions(folder, config)` | Reads all agent subfolders, returns `AgentDefinition` list. |
-| `SaveAgentDefinition(folder, config, agent)` | Writes one agent's prompt files back to disk. |
-| `ResolveConfig()` | Loads `wally-config.json` from the default workspace, or returns defaults. |
-| `CopyDirectory(src, dest)` | Recursive directory copy (overwrite). |
+| Component | JSON key | Description |
+|---|---|---|
+| **Role** | `rolePrompt` | The persona the AI adopts |
+| **AcceptanceCriteria** | `criteriaPrompt` | Success criteria the output must meet |
+| **Intent** | `intentPrompt` | The goal or task the actor pursues |

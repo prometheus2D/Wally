@@ -15,7 +15,12 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Wally.Core\Wally.Core.csproj" />
-    <ProjectReference Include="..\Wally.Default\Wally.Default.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="Default\**\*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
 </Project>

@@ -11,11 +11,11 @@ namespace Wally.Core
     ///
     /// The workspace folder is self-contained — everything Wally needs lives inside it:
     /// <code>
-    ///   &lt;WorkspaceFolder&gt;/          ? e.g. ".wally/"
+    ///   &lt;WorkspaceFolder&gt;/          e.g. ".wally/"
     ///       wally-config.json
     ///       Actors/
-    ///           &lt;ActorName&gt;/         ? one folder per actor
-    ///               actor.json         ? full RBA definition
+    ///           &lt;ActorName&gt;/         one folder per actor
+    ///               actor.json         name, rolePrompt, criteriaPrompt, intentPrompt
     /// </code>
     ///
     /// Pass the workspace folder path directly to <see cref="Load"/> or
@@ -64,16 +64,15 @@ namespace Wally.Core
         /// <summary>
         /// Initialises from <paramref name="workspaceFolder"/>.
         /// The folder is created on disk if it does not yet exist.
+        /// Config is resolved using the standard fallback chain:
+        /// workspace-local ? shipped template ? hard-coded defaults.
         /// </summary>
         public void LoadFrom(string workspaceFolder)
         {
             workspaceFolder = Path.GetFullPath(workspaceFolder);
             Directory.CreateDirectory(workspaceFolder);
 
-            string configPath = Path.Combine(workspaceFolder, WallyHelper.ConfigFileName);
-            Config = File.Exists(configPath)
-                ? WallyConfig.LoadFromFile(configPath)
-                : new WallyConfig();
+            Config = WallyHelper.ResolveConfig(workspaceFolder);
 
             WorkspaceFolder = workspaceFolder;
             ProjectFolder = Path.GetDirectoryName(WorkspaceFolder);
