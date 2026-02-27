@@ -20,6 +20,14 @@ Call `WallyWorkspace.Load(workspaceFolder)` or `LoadFrom(path)`.
 Each actor folder produces exactly one `CopilotActor` — no cartesian-product expansion.
 Call `ReloadActors()` to re-read actor folders from disk mid-session without a full reload.
 
+### `SourcePath`
+
+`WallyWorkspace.SourcePath` controls the working directory used when launching
+`gh copilot`. This determines which files and directories Copilot CLI sees for context.
+
+- Resolved from `WallyConfig.SourcePath` when set.
+- Falls back to `ProjectFolder` (the workspace's parent directory) when null/empty.
+
 ### Default workspace template
 
 The application ships a `Default/` folder alongside the executable that contains the
@@ -45,6 +53,10 @@ env.SetupLocal();
 // Or target a specific folder
 env.SetupLocal(@"C:\repos\MyApp\.wally");
 
+// Set where Copilot looks for file context
+env.SourcePath = @"C:\repos\MyApp";
+env.SaveWorkspace();
+
 // Run all actors once
 var responses = env.RunActors("Explain this module");
 // responses: "Developer: <response>", "Tester: <response>"
@@ -64,8 +76,6 @@ response is passed back through `Actor.ProcessPrompt` so the actor's full RBA co
 AcceptanceCriteria, Intent) is re-applied before the next `Act` call.
 The loop stops early when the actor returns an empty response.
 
-> **Note:** File context is handled automatically by Copilot CLI based on the working directory.
-
 ### `WallyConfig`
 
 Loaded from / saved to `wally-config.json`. Defines:
@@ -73,7 +83,14 @@ Loaded from / saved to `wally-config.json`. Defines:
 | Property | Default | Description |
 |---|---|---|
 | `ActorsFolderName` | `Actors` | Subfolder inside the workspace that holds actor directories |
+| `SourcePath` | `null` | Directory whose files give context to `gh copilot`. Defaults to workspace parent when null. |
 | `MaxIterations` | `10` | Maximum iterations for iterative actor runs |
+
+### `CopilotActor`
+
+The default actor implementation. Writes the full RBA-enriched prompt to a temp file,
+pipes it to `gh copilot explain`, and captures stdout. The process working directory is
+set to `SourcePath` so Copilot sees the target codebase.
 
 ### RBA (Role, AcceptanceCriteria, Intent)
 

@@ -4,17 +4,110 @@
 
 Wally scaffolds a workspace next to any codebase, loads actors defined by individual folders under `.wally/Actors/`, enriches every prompt with RBA context (Role, AcceptanceCriteria, Intent), and forwards the result to `gh copilot`. Works as a standalone CLI, an interactive REPL, or embedded in your own .NET app via `Wally.Core`.
 
-> **Context:** Copilot CLI automatically uses the current working directory and its subdirectories for file context. Run `wally` from your project root so Copilot can see your code.
+---
+
+## ? 2-Minute Quick Start
+
+### Prerequisites
+
+Make sure these are installed before you begin:
+
+```sh
+# .NET 8 SDK — https://dotnet.microsoft.com/download
+dotnet --version          # should print 8.x or later
+
+# GitHub CLI — https://cli.github.com
+gh --version
+
+# Copilot extension
+gh extension install github/gh-copilot
+gh copilot --version      # verify it's installed
+gh auth login             # make sure you're authenticated
+```
+
+### Build & Run
+
+```sh
+git clone https://github.com/prometheus2D/Wally.git
+cd Wally
+dotnet build
+
+# Run from the project you want Copilot to see:
+cd C:\repos\MyApp
+dotnet run --project C:\repos\Wally\Wally.Console -- setup
+dotnet run --project C:\repos\Wally\Wally.Console -- run "Explain the architecture of this project"
+```
+
+Or publish a standalone exe and drop it anywhere:
+
+```sh
+dotnet publish Wally.Console -c Release -r win-x64 --self-contained
+# Binary: Wally.Console\bin\Release\net8.0\win-x64\publish\wally.exe
+```
+
+### Three commands to go from zero to prompt
+
+```sh
+# 1. Scaffold the .wally workspace (creates .wally/ with default actors)
+wally setup
+
+# 2. Point SourcePath at your codebase (so Copilot sees those files)
+wally setup -s C:\repos\MyApp
+
+# 3. Send a prompt — every actor responds with Copilot's answer
+wally run "Explain the error handling strategy in this project"
+```
+
+That's it. Wally enriches your prompt with each actor's Role, AcceptanceCriteria, and Intent, then pipes it to `gh copilot explain` with the working directory set to your `SourcePath`.
+
+### Target a single actor
+
+```sh
+wally run "Add input validation to the login form" Developer
+```
+
+### Interactive REPL
+
+```sh
+wally
+wally> setup -s C:\repos\MyApp
+wally> run "What does the Program.cs entry point do?"
+wally> run "Suggest improvements to the error handling" Developer
+wally> exit
+```
 
 ---
 
 ## How it works
 
 ```
-.wally/                       ? Wally's workspace
+User prompt
+  ? Actor.ProcessPrompt()
+    # Actor: Developer
+    ## Role
+    Act as an expert software developer…
+    ## Acceptance Criteria
+    Code must compile without errors…
+    ## Intent
+    Implement the requested feature…
+
+    ## Prompt
+    <user's prompt>
+  ? piped to gh copilot explain (working directory = SourcePath)
+  ? response returned to the console
+```
+
+Each actor enriches the user's raw prompt with its own RBA context, then Wally pipes the full structured prompt to `gh copilot explain`. The `SourcePath` is set as the process working directory so Copilot CLI can see the target codebase's files and directories for context.
+
+---
+
+## Workspace layout
+
+```
+.wally/                        ? Wally's workspace
     wally-config.json
     Actors/
-        Developer/            ? one folder = one actor
+        Developer/             ? one folder = one actor
             actor.json
         Tester/
             actor.json
@@ -23,132 +116,7 @@ Wally scaffolds a workspace next to any codebase, loads actors defined by indivi
 - **Workspace folder** — the `.wally/` directory holding config and all actor folders.
 - **Actor folders** — each subfolder under `Actors/` defines one independent actor. The folder name is the actor name. Add a folder to create a new actor; delete a folder to remove one.
 - **actor.json** — each actor folder contains an `actor.json` with `name`, `rolePrompt`, `criteriaPrompt`, and `intentPrompt`. Edit the JSON to change prompts.
-- **File context** — handled automatically by Copilot CLI based on your working directory. No manual file registration needed.
-
----
-
-## Prerequisites
-
-| Requirement | Version |
-|---|---|
-| .NET | 8+ |
-| GitHub CLI | latest |
-| GitHub Copilot CLI extension | `gh extension install github/gh-copilot` |
-
----
-
-## Quick start
-
-### Option A — drop into any project
-
-```sh
-# 1. Copy wally.exe into your project root
-# 2. Self-assemble the workspace next to the exe (copies default actors)
-wally setup
-
-# 3. Run a prompt against all actors
-wally run "Implement input validation for the login form"
-
-# 4. Run against one specific actor by name
-wally run "Implement input validation" Developer
-```
-
-### Option B — point at an existing workspace path
-
-```sh
-wally setup --path C:\repos\MyApp\.wally
-wally run "Refactor the repository layer to use the Unit of Work pattern"
-```
-
-### Option C — iterative loop
-
-`run-iterative` feeds each response back as the next prompt. Omit `-a` to loop all
-actors together; supply `-a <name>` to drive a single actor.
-
-```sh
-wally setup
-
-# Loop all actors (combined responses feed back each iteration)
-wally run-iterative "Improve error handling across all services"
-
-# Loop one actor, capped at 4 iterations
-wally run-iterative "Add async/await throughout the data layer" -a Developer -m 4
-```
-
-### Option D — interactive REPL
-
-Run `wally` with no arguments to enter interactive mode. The environment persists across commands in the session.
-
-```
-wally> setup --path C:\repos\MyApp\.wally
-wally> run "Add retry logic to the HTTP client"
-wally> run-iterative "Improve test coverage" -m 3
-wally> run-iterative "Refactor to clean architecture" -a Developer -m 5
-wally> list
-wally> exit
-```
-
----
-
-## Setup from source
-
-```sh
-git clone https://github.com/prometheus2D/Wally.git
-cd Wally
-dotnet publish Wally.Console -c Release -r win-x64 --self-contained
-# Binary: Wally.Console\bin\Release\net8.0\win-x64\publish\wally.exe
-```
-
----
-
-## Command reference
-
-### Workspace
-
-| Command | Description |
-|---|---|
-| `setup [-p <path>]` | Scaffold `.wally/` next to the exe, or at `<path>` when supplied. |
-| `create <path>` | Scaffold a new workspace at `<path>` and load it. |
-| `load <path>` | Load an existing workspace from `<path>`. |
-| `save <path>` | Persist the current config and all actor.json files to `<path>`. |
-| `info` | Print paths, loaded actors, and settings. |
-
-### Actors
-
-| Command | Description |
-|---|---|
-| `list` | List all actors and their prompts. |
-| `reload-actors` | Re-read actor folders from disk and rebuild actors without a full reload. |
-
-### Running
-
-| Command | Description |
-|---|---|
-| `run "<prompt>" [actor]` | Run all actors (or one by name) on the prompt. |
-| `run-iterative "<prompt>" [-m N]` | Loop all actors, feeding combined responses back each iteration. |
-| `run-iterative "<prompt>" -a <actor> [-m N]` | Loop a single named actor, feeding its response back each iteration. |
-
----
-
-## How the iterative loop works
-
-The loop runs directly inside `WallyEnvironment`. On each iteration the previous response is
-passed back through `Actor.ProcessPrompt` so the actor's full RBA context (Role,
-AcceptanceCriteria, Intent) is re-applied before the next `Act` call.
-The loop stops early when the actor returns an empty response.
-
----
-
-## Default workspace template
-
-The `Default/` folder ships alongside the executable (from `Wally.Console/Default/`) and serves
-as the canonical workspace template. When scaffolding a new workspace its entire contents are
-copied recursively into the target folder without overwriting existing files.
-
-Config resolution follows a three-tier fallback:
-1. **Workspace-local** (`<workspaceFolder>/wally-config.json`)
-2. **Template** (`<exeDir>/Default/wally-config.json`)
-3. **Hard-coded** (`new WallyConfig()`)
+- **SourcePath** — the directory whose files provide context to Copilot. Set in `wally-config.json` or via `setup -s <path>`. Defaults to the workspace's parent folder.
 
 ---
 
@@ -157,6 +125,7 @@ Config resolution follows a three-tier fallback:
 ```json
 {
   "ActorsFolderName": "Actors",
+  "SourcePath": "C:\\repos\\MyApp",
   "MaxIterations": 10
 }
 ```
@@ -164,6 +133,7 @@ Config resolution follows a three-tier fallback:
 | Property | Default | Description |
 |---|---|---|
 | `ActorsFolderName` | `Actors` | Subfolder inside the workspace that holds actor directories |
+| `SourcePath` | `null` | Directory whose files give context to `gh copilot`. Defaults to workspace parent when null. |
 | `MaxIterations` | `10` | Default cap for `run-iterative` |
 
 ---
@@ -196,26 +166,91 @@ Add a new subfolder with an `actor.json` to create a new actor. Each actor is fu
 
 ---
 
-## How prompts reach Copilot
+## Command reference
 
+### Workspace
+
+| Command | Description |
+|---|---|
+| `setup [-p <path>] [-s <source>]` | Scaffold `.wally/` next to the exe (or at `<path>`). `-s` sets the source directory for Copilot context. |
+| `create <path>` | Scaffold a new workspace at `<path>` and load it. |
+| `load <path>` | Load an existing workspace from `<path>`. |
+| `save <path>` | Persist the current config and all actor.json files to `<path>`. |
+| `info` | Print paths (including SourcePath), loaded actors, and settings. |
+
+### Actors
+
+| Command | Description |
+|---|---|
+| `list` | List all actors and their prompts. |
+| `reload-actors` | Re-read actor folders from disk and rebuild actors without a full reload. |
+
+### Running
+
+| Command | Description |
+|---|---|
+| `run "<prompt>" [actor]` | Run all actors (or one by name) on the prompt. |
+| `run-iterative "<prompt>" [-m N]` | Loop all actors, feeding combined responses back each iteration. |
+| `run-iterative "<prompt>" -a <actor> [-m N]` | Loop a single named actor, feeding its response back each iteration. |
+
+---
+
+## How the iterative loop works
+
+The loop runs directly inside `WallyEnvironment`. On each iteration the previous response is
+passed back through `Actor.ProcessPrompt` so the actor's full RBA context (Role,
+AcceptanceCriteria, Intent) is re-applied before the next `Act` call.
+The loop stops early when the actor returns an empty response.
+
+```sh
+# Loop all actors (combined responses feed back each iteration)
+wally run-iterative "Improve error handling across all services"
+
+# Loop one actor, capped at 4 iterations
+wally run-iterative "Add async/await throughout the data layer" -a Developer -m 4
 ```
-User prompt
-  ? Actor.ProcessPrompt()
-    # Actor: Developer
-    ## Role
-    Act as an expert software developer…
-    ## Acceptance Criteria
-    Code must compile without errors…
-    ## Intent
-    Implement the requested feature…
 
-    ## Prompt
-    <user's prompt>
-  -->
-    gh copilot -p "<full structured prompt>"
+---
+
+## SourcePath — controlling Copilot's file context
+
+By default, `gh copilot` uses the **current working directory** for file context.
+Wally's `SourcePath` config lets you explicitly control which directory Copilot sees,
+regardless of where `wally.exe` is launched from.
+
+**Set it during setup:**
+```sh
+wally setup -s C:\repos\MyApp
 ```
 
-Copilot CLI automatically uses the current working directory for file context.
+**Or edit `wally-config.json` directly:**
+```json
+{
+  "SourcePath": "C:\\repos\\MyApp"
+}
+```
+
+**Verify with:**
+```sh
+wally info
+# Source path:  C:\repos\MyApp
+```
+
+When `SourcePath` is null or empty, the workspace's parent folder is used (e.g. if your
+workspace is `C:\repos\MyApp\.wally`, the source path defaults to `C:\repos\MyApp`).
+
+---
+
+## Default workspace template
+
+The `Default/` folder ships alongside the executable (from `Wally.Console/Default/`) and serves
+as the canonical workspace template. When scaffolding a new workspace its entire contents are
+copied recursively into the target folder without overwriting existing files.
+
+Config resolution follows a three-tier fallback:
+1. **Workspace-local** (`<workspaceFolder>/wally-config.json`)
+2. **Template** (`<exeDir>/Default/wally-config.json`)
+3. **Hard-coded** (`new WallyConfig()`)
 
 ---
 
@@ -226,6 +261,18 @@ Copilot CLI automatically uses the current working directory for file context.
 | `Wally.Core` | Domain model — `WallyWorkspace`, `WallyEnvironment`, `Actor`, `WallyConfig`, RBA types. |
 | `Wally.Console` | CLI entry point — verb-based command dispatch, interactive REPL, ships `Default/` template. |
 | `Wally.Forms` | Windows Forms UI (in progress). |
+
+---
+
+## Troubleshooting
+
+| Symptom | Fix |
+|---|---|
+| `'gh' is not recognized` | Install [GitHub CLI](https://cli.github.com) and add it to your PATH. |
+| `gh copilot: command not found` | Run `gh extension install github/gh-copilot`. |
+| `HTTP 401 / not authenticated` | Run `gh auth login` and ensure your account has Copilot access. |
+| Empty responses | Check `wally info` — verify SourcePath points to a real directory with code files. |
+| Prompt too long / truncated | Wally writes prompts to a temp file and pipes them in, so length should not be an issue. If Copilot itself truncates, shorten your prompt or actor RBA text. |
 
 ---
 

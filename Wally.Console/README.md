@@ -1,6 +1,6 @@
 # Wally.Console
 
-CLI entry point for Wally. See the [root README](../README.md) for full setup and actor authoring reference.
+CLI entry point for Wally. See the [root README](../README.md) for full setup and usage reference.
 
 ## Build
 
@@ -10,42 +10,75 @@ dotnet publish Wally.Console -c Release -r win-x64 --self-contained
 
 Output: `Wally.Console\bin\Release\net8.0\win-x64\publish\wally.exe`
 
-## Run
+## Quick Start
 
 ```sh
-# One-shot — scaffold next to the exe (default)
-wally setup
+# Scaffold workspace and point SourcePath at your codebase
+wally setup -s C:\repos\MyApp
 
-# One-shot — scaffold at a specific path
-wally setup --path C:\repos\MyApp\.wally
+# Send a prompt (all actors respond)
+wally run "Explain the architecture of this project"
 
-# Interactive REPL (environment persists across commands)
-wally
+# Target a single actor
+wally run "Add input validation" Developer
 ```
 
-> **Tip:** Run `wally` from your project root so Copilot CLI can see your code.
-> Copilot automatically uses the current working directory for file context.
+## Run Modes
+
+**One-shot** — run a single command and exit:
+```sh
+wally setup
+wally run "Describe the main entry point"
+```
+
+**Interactive REPL** — environment persists across commands:
+```sh
+wally
+wally> setup -s C:\repos\MyApp
+wally> run "Explain error handling in this codebase"
+wally> run "Suggest improvements" Developer
+wally> info
+wally> exit
+```
 
 ## Commands
 
 ```
-setup [-p <path>]             Scaffold .wally/ next to exe by default,
-                              or at <path> when --path is supplied. Copies default actors.
-create <path>                 Scaffold a new workspace at <path> and load it.
-load <path>                   Load an existing workspace from <path>.
-save <path>                   Persist config and all actor.json files to <path>.
-info                          Print paths, loaded actors, and settings.
+setup [-p <path>] [-s <source>]  Scaffold .wally/ next to exe by default,
+                                 or at <path> when --path is supplied.
+                                 -s sets the source directory for Copilot file context.
+create <path>                    Scaffold a new workspace at <path> and load it.
+load <path>                      Load an existing workspace from <path>.
+save <path>                      Persist config and all actor.json files to <path>.
+info                             Print paths (including SourcePath), loaded actors, settings.
 
-list                          List all actors and their prompts.
-reload-actors                 Re-read actor folders from disk and rebuild actors.
+list                             List all actors and their prompts.
+reload-actors                    Re-read actor folders from disk and rebuild actors.
 
-run "<prompt>" [actor]        Run all actors, or one by name.
-run-iterative "<prompt>"      Run all actors iteratively; -m N to cap iterations.
-run-iterative "<prompt>" -a <actor>
-                              Run one named actor iteratively; -m N to cap iterations.
+run "<prompt>" [actor]           Run all actors, or one by name.
+run-iterative "<prompt>"         Run all actors iteratively; -m N to cap iterations.
+run-iterative "<prompt>" -a <actor> [-m N]
+                                 Run one named actor iteratively.
 
-help                          Print this reference.
+help                             Print this reference.
 ```
+
+## SourcePath
+
+Controls which directory `gh copilot` uses for file context. Set during setup:
+
+```sh
+wally setup -s C:\repos\MyApp
+```
+
+Or edit `.wally/wally-config.json`:
+```json
+{
+  "SourcePath": "C:\\repos\\MyApp"
+}
+```
+
+When null, defaults to the workspace's parent folder.
 
 ## Iterative loop
 
@@ -60,23 +93,6 @@ wally run-iterative "Refactor the service layer to use async/await throughout"
 
 # Loop a single actor up to 4 iterations
 wally run-iterative "Add XML doc comments to all public methods" -a Developer -m 4
-
-# Interactive — environment persists across commands
-wally
-wally> setup --path C:\repos\MyApp\.wally
-wally> run-iterative "Improve error handling" -a Developer -m 5
-wally> exit
-```
-
-Each iteration is printed as it completes:
-
-```
-Running iterative loop on 'Developer' (max 5 iterations)...
---- Iteration 1 [Developer] ---
-<response from actor>
---- Iteration 2 [Developer] ---
-<response using previous output as context>
-...
 ```
 
 ## Default workspace template
@@ -98,19 +114,3 @@ Default/
 To add a new default actor, create a subfolder under `Default/Actors/` with an `actor.json`.
 The glob `<Content Include="Default\**\*">` in the `.csproj` ensures it is automatically
 copied to the output directory on build.
-
-## Actor folders
-
-Each actor lives in its own subfolder under `<workspace>/Actors/`:
-
-```
-.wally/
-    wally-config.json
-    Actors/
-        Developer/
-            actor.json
-        Tester/
-            actor.json
-```
-
-Add a subfolder with an `actor.json` to create a new actor. Edit the JSON to change its prompts.
