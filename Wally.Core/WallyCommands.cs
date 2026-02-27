@@ -94,9 +94,21 @@ namespace Wally.Core
                 }
             }
 
-            return !string.IsNullOrEmpty(actorName)
+            var responses = !string.IsNullOrEmpty(actorName)
                 ? env.RunActor(prompt, actorName)
                 : env.RunActors(prompt);
+
+            // Print a role header before each response for console context.
+            foreach (var response in responses)
+            {
+                Console.WriteLine(response);
+                Console.WriteLine();
+            }
+
+            if (responses.Count == 0)
+                Console.WriteLine("No responses from Actors.");
+
+            return responses;
         }
 
         // — Workspace inspection ——————————————————————————————————————————————

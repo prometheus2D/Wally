@@ -167,7 +167,7 @@ namespace Wally.Core
                 Logger.LogResponse(actor.Name, response, sw.ElapsedMilliseconds);
 
                 if (response != null)
-                    responses.Add($"{actor.Role.Name}: {response}");
+                    responses.Add($"[Role: {actor.Role.Name}]\n{response}");
             }
             return responses;
         }
@@ -195,7 +195,7 @@ namespace Wally.Core
             Logger.LogResponse(actor.Name, response, sw.ElapsedMilliseconds);
 
             return response != null
-                ? new List<string> { $"{actor.Role.Name}: {response}" }
+                ? new List<string> { $"[Role: {actor.Role.Name}]\n{response}" }
                 : new List<string>();
         }
 

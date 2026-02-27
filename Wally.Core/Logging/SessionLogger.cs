@@ -179,7 +179,8 @@ namespace Wally.Core.Logging
 
         private void Write(LogEntry entry)
         {
-            string line = JsonSerializer.Serialize(entry, _jsonOptions);
+            string json = JsonSerializer.Serialize(entry, _jsonOptions);
+            string line = $"[{entry.Category}] {json}";
 
             lock (_lock)
             {

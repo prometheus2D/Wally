@@ -114,9 +114,7 @@ namespace Wally.Console
                     // ── Running actors ────────────────────────────────────────
                     if (opts is RunOptions ro)
                     {
-                        var responses = WallyCommands.HandleRun(_environment, ro.Prompt, ro.ActorName, ro.Model);
-                        foreach (var response in responses) System.Console.WriteLine(response);
-                        if (responses.Count == 0) System.Console.WriteLine("No responses from Actors.");
+                        WallyCommands.HandleRun(_environment, ro.Prompt, ro.ActorName, ro.Model);
                         return 0;
                     }
 
