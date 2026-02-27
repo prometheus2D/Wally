@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text.Json.Serialization;
 using Wally.Core.Actors;
+using Wally.Core.Logging;
 
 namespace Wally.Core
 {
@@ -15,6 +17,15 @@ namespace Wally.Core
         public WallyWorkspace? Workspace { get; private set; }
 
         public bool HasWorkspace => Workspace?.IsLoaded == true;
+
+        // — Session logging ——————————————————————————————————————————————————
+
+        /// <summary>
+        /// The logger for this environment lifetime. Created once at construction;
+        /// bound to the workspace Logs folder the first time a workspace is loaded.
+        /// </summary>
+        [JsonIgnore]
+        public SessionLogger Logger { get; }
 
         // — Folder pass-throughs ——————————————————————————————————————————————
 
@@ -39,11 +50,21 @@ namespace Wally.Core
         [JsonIgnore] public List<Actor> Actors => Workspace?.Actors ?? _emptyActors;
         private static readonly List<Actor> _emptyActors = new();
 
+        // — Constructor ——————————————————————————————————————————————————————
+
+        public WallyEnvironment()
+        {
+            Logger = new SessionLogger();
+        }
+
         // — Workspace lifecycle ———————————————————————————————————————————————
 
         /// <summary>Loads the workspace at <paramref name="workspaceFolder"/>.</summary>
-        public void LoadWorkspace(string workspaceFolder) =>
+        public void LoadWorkspace(string workspaceFolder)
+        {
             Workspace = WallyWorkspace.Load(workspaceFolder);
+            BindLogger();
+        }
 
         /// <summary>
         /// Scaffolds a new workspace at <paramref name="workspaceFolder"/> then loads it.
@@ -137,7 +158,14 @@ namespace Wally.Core
             var responses = new List<string>();
             foreach (var actor in Actors)
             {
+                Logger.LogPrompt(actor.Name, prompt, actor.ModelOverride ?? Workspace!.Config.DefaultModel);
+                var sw = Stopwatch.StartNew();
+
                 string response = actor.Act(prompt);
+
+                sw.Stop();
+                Logger.LogResponse(actor.Name, response, sw.ElapsedMilliseconds);
+
                 if (response != null)
                     responses.Add($"{actor.Role.Name}: {response}");
             }
@@ -153,9 +181,19 @@ namespace Wally.Core
                 string.Equals(a.GetType().Name, actorName, StringComparison.OrdinalIgnoreCase));
 
             if (actor == null)
+            {
+                Logger.LogError($"Actor '{actorName}' not found.", "run");
                 return new List<string> { $"Actor '{actorName}' not found." };
+            }
+
+            Logger.LogPrompt(actor.Name, prompt, actor.ModelOverride ?? Workspace!.Config.DefaultModel);
+            var sw = Stopwatch.StartNew();
 
             string response = actor.Act(prompt);
+
+            sw.Stop();
+            Logger.LogResponse(actor.Name, response, sw.ElapsedMilliseconds);
+
             return response != null
                 ? new List<string> { $"{actor.Role.Name}: {response}" }
                 : new List<string>();
@@ -168,7 +206,8 @@ namespace Wally.Core
             if (!HasWorkspace)
                 throw new InvalidOperationException(
                     "No workspace is loaded. Use 'load <path>' or 'create <path>' first.");
-            return Workspace!;
+            return Workspace!
+                ;
         }
 
         // — Static factory helpers ————————————————————————————————————————————
@@ -177,5 +216,20 @@ namespace Wally.Core
 
         public static void CreateDefaultWorkspace(string workspaceFolder, WallyConfig config = null) =>
             WallyHelper.CreateDefaultWorkspace(workspaceFolder, config);
+
+        // — Private helpers ———————————————————————————————————————————————————
+
+        /// <summary>
+        /// Binds the session logger to the current workspace's Logs folder.
+        /// Creates the Logs directory on disk if it doesn't exist.
+        /// Safe to call multiple times — only the first bind takes effect
+        /// (subsequent workspace reloads reuse the same session log folder).
+        /// </summary>
+        private void BindLogger()
+        {
+            if (!HasWorkspace || Logger.LogFolder != null) return;
+            Logger.Bind(Workspace!.WorkspaceFolder, Workspace.Config.LogsFolderName);
+            Logger.LogInfo($"Session started — workspace: {Workspace.WorkspaceFolder}");
+        }
     }
 }

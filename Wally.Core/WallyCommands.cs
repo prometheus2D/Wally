@@ -22,6 +22,7 @@ namespace Wally.Core
                 Console.WriteLine(
                     $"Command '{commandName}' requires a workspace. " +
                     $"Use 'load <path>' or 'setup <path>' first.");
+                env.Logger.LogError($"No workspace loaded for command '{commandName}'.", commandName);
                 return null;
             }
             return env;
@@ -33,6 +34,7 @@ namespace Wally.Core
         public static void HandleLoad(WallyEnvironment env, string path)
         {
             env.LoadWorkspace(path);
+            env.Logger.LogCommand("load", $"Loaded workspace from {path}");
             PrintWorkspaceSummary("Workspace loaded.", env);
         }
 
@@ -42,6 +44,7 @@ namespace Wally.Core
             // path is the WorkSource directory — workspace goes inside <path>/.wally
             string workspaceFolder = Path.Combine(Path.GetFullPath(path), WallyHelper.DefaultWorkspaceFolderName);
             env.CreateWorkspace(workspaceFolder, WallyHelper.ResolveConfig(workspaceFolder));
+            env.Logger.LogCommand("create", $"Created workspace at {workspaceFolder}");
             PrintWorkspaceSummary("Workspace created.", env);
         }
 
@@ -53,6 +56,7 @@ namespace Wally.Core
         public static void HandleSetup(WallyEnvironment env, string workSourcePath = null)
         {
             env.SetupLocal(workSourcePath);
+            env.Logger.LogCommand("setup", $"Workspace ready at {env.WorkspaceFolder}");
             PrintWorkspaceSummary("Workspace ready.", env);
         }
 
@@ -61,6 +65,7 @@ namespace Wally.Core
         {
             if (RequireWorkspace(env, "save") == null) return;
             env.SaveToWorkspace(path);
+            env.Logger.LogCommand("save", $"Saved workspace to {path}");
             Console.WriteLine($"Workspace saved to: {path}");
         }
 
@@ -69,6 +74,11 @@ namespace Wally.Core
         public static List<string> HandleRun(WallyEnvironment env, string prompt, string actorName = null, string model = null)
         {
             if (RequireWorkspace(env, "run") == null) return new List<string>();
+
+            env.Logger.LogCommand("run", actorName != null
+                ? $"Running actor '{actorName}' with model override '{model ?? "(none)"}'"
+                : $"Running all actors with model override '{model ?? "(none)"}'"
+            );
 
             // Apply per-run model override to the target actor(s).
             if (!string.IsNullOrWhiteSpace(model))
@@ -97,6 +107,7 @@ namespace Wally.Core
         public static void HandleList(WallyEnvironment env)
         {
             if (RequireWorkspace(env, "list") == null) return;
+            env.Logger.LogCommand("list");
 
             var ws = env.Workspace!;
 
@@ -116,6 +127,8 @@ namespace Wally.Core
         /// <summary>Displays workspace paths, actor count, and settings.</summary>
         public static void HandleInfo(WallyEnvironment env)
         {
+            env.Logger.LogCommand("info");
+
             if (!env.HasWorkspace)
             {
                 Console.WriteLine("Status:            No workspace loaded.");
@@ -130,6 +143,7 @@ namespace Wally.Core
             Console.WriteLine($"WorkSource:        {ws.WorkSource}");
             Console.WriteLine($"Workspace folder:  {ws.WorkspaceFolder}");
             Console.WriteLine($"Actors folder:     {Path.Combine(ws.WorkspaceFolder, cfg.ActorsFolderName)}");
+            Console.WriteLine($"Logs folder:       {Path.Combine(ws.WorkspaceFolder, cfg.LogsFolderName)}");
             Console.WriteLine($"Actors loaded:     {ws.Actors.Count}");
             foreach (var a in ws.Actors)
                 Console.WriteLine($"  {a.Name}");
@@ -139,6 +153,10 @@ namespace Wally.Core
             {
                 Console.WriteLine($"Available models:  {string.Join(", ", cfg.Models)}");
             }
+            Console.WriteLine();
+            Console.WriteLine($"Session ID:        {env.Logger.SessionId:N}");
+            Console.WriteLine($"Session started:   {env.Logger.StartedAt:u}");
+            Console.WriteLine($"Session log:       {env.Logger.LogFolder ?? "(not bound — no workspace loaded)"}");
         }
 
         /// <summary>Re-reads actor folders from disk and rebuilds actors without a full reload.</summary>
@@ -146,6 +164,7 @@ namespace Wally.Core
         {
             if (RequireWorkspace(env, "reload-actors") == null) return;
             env.ReloadActors();
+            env.Logger.LogCommand("reload-actors", $"Reloaded {env.Actors.Count} actors");
             Console.WriteLine($"Actors reloaded: {env.Actors.Count}");
             foreach (var a in env.Actors)
                 Console.WriteLine($"  {a.Name}");
@@ -166,7 +185,7 @@ namespace Wally.Core
             Console.WriteLine("  create <path>                    Scaffold a new workspace inside <path>/.wally/.");
             Console.WriteLine("                                   Creates <path> if it doesn't exist.");
             Console.WriteLine("  load <path>                      Load an existing workspace from <path> (.wally/ folder).");
-            Console.WriteLine("  info                             Show workspace info, model config, and actor list.");
+            Console.WriteLine("  info                             Show workspace info, session info, and actor list.");
             Console.WriteLine("  help                             Show this message.");
             Console.WriteLine();
             Console.WriteLine("Workspace required:");
@@ -178,12 +197,19 @@ namespace Wally.Core
             Console.WriteLine();
             Console.WriteLine("Workspace layout:");
             Console.WriteLine("  <WorkSource>/                  Your codebase root (e.g. C:\\repos\\MyApp)");
-            Console.WriteLine("    .wally/                      Workspace folder (config + actors)");
-            Console.WriteLine("      wally-config.json          DefaultModel, Models, MaxIterations");
+            Console.WriteLine("    .wally/                      Workspace folder (config + actors + logs)");
+            Console.WriteLine("      wally-config.json          DefaultModel, Models, LogsFolderName");
             Console.WriteLine("      Actors/");
             Console.WriteLine("        <ActorName>/");
             Console.WriteLine("          actor.json             name, rolePrompt,");
             Console.WriteLine("                                 criteriaPrompt, intentPrompt");
+            Console.WriteLine("      Logs/                      Session logs (auto-created on first run)");
+            Console.WriteLine("        <timestamp_guid>/        One folder per session");
+            Console.WriteLine("          session.jsonl           Structured log entries (JSON-lines)");
+            Console.WriteLine();
+            Console.WriteLine("Logging:      All commands, prompts, and responses are logged per session.");
+            Console.WriteLine("              Logs are stored in <workspace>/Logs/<session>/session.jsonl.");
+            Console.WriteLine("              A new session is created each time the exe starts.");
             Console.WriteLine();
             Console.WriteLine("WorkSource:   The directory whose files are given as context to gh copilot.");
             Console.WriteLine("              This is always the parent of the .wally/ workspace folder.");

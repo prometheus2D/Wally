@@ -32,6 +32,13 @@ namespace Wally.Core
         /// </summary>
         public string ActorsFolderName { get; set; } = "Actors";
 
+        /// <summary>
+        /// Subfolder inside the workspace folder that holds session log directories.
+        /// Each session creates a timestamped subfolder (e.g. <c>2025-07-13_143022_a1b2c3d4</c>).
+        /// Default: <c>Logs</c>.
+        /// </summary>
+        public string LogsFolderName { get; set; } = "Logs";
+
         // — Model selection ———————————————————————————————————————————————————
 
         /// <summary>

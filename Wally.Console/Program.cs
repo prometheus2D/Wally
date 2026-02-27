@@ -21,10 +21,17 @@ namespace Wally.Console
         {
             System.Console.OutputEncoding = Encoding.UTF8;
 
-            if (args.Length == 0)
-                return RunInteractiveMode();
-            else
-                return RunOneTimeMode(args);
+            try
+            {
+                if (args.Length == 0)
+                    return RunInteractiveMode();
+                else
+                    return RunOneTimeMode(args);
+            }
+            finally
+            {
+                _environment.Logger.Dispose();
+            }
         }
 
         private static int RunOneTimeMode(string[] args) => HandleArguments(args);
