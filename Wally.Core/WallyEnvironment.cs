@@ -22,20 +22,17 @@ namespace Wally.Core
         public string? WorkspaceFolder => Workspace?.WorkspaceFolder;
 
         /// <summary>
-        /// The source directory whose files provide context to <c>gh copilot</c>.
-        /// Delegates to <see cref="WallyWorkspace.SourcePath"/>.
+        /// The WorkSource directory — the root of the user's codebase.
+        /// This is the parent of the <c>.wally/</c> workspace folder and the
+        /// directory whose files provide context to <c>gh copilot</c>.
         /// </summary>
-        public string? SourcePath
-        {
-            get => HasWorkspace ? Workspace!.SourcePath : _sourcePath;
-            set
-            {
-                _sourcePath = value;
-                if (HasWorkspace && value != null)
-                    Workspace!.Config.SourcePath = value;
-            }
-        }
-        private string? _sourcePath;
+        public string? WorkSource => HasWorkspace ? Workspace!.WorkSource : null;
+
+        /// <summary>
+        /// The source directory whose files provide context to <c>gh copilot</c>.
+        /// Delegates to <see cref="WallyWorkspace.SourcePath"/> (which is <see cref="WorkSource"/>).
+        /// </summary>
+        public string? SourcePath => HasWorkspace ? Workspace!.SourcePath : null;
 
         // — Runtime settings ——————————————————————————————————————————————————
 
@@ -71,14 +68,28 @@ namespace Wally.Core
         }
 
         /// <summary>
-        /// Ensures a workspace exists at <paramref name="workspaceFolder"/> (or the default
-        /// <c>.wally</c> folder next to the exe when <see langword="null"/>), then loads it.
+        /// Ensures a workspace exists at the given <paramref name="workSourcePath"/>.
+        /// <para>
+        /// When <paramref name="workSourcePath"/> is supplied, the workspace folder is
+        /// <c>&lt;workSourcePath&gt;/.wally</c>.  When <see langword="null"/>, the default
+        /// workspace folder next to the exe is used.
+        /// </para>
         /// If the workspace folder does not yet contain a config, a default workspace is
         /// scaffolded from the shipped template.
         /// </summary>
-        public void SetupLocal(string workspaceFolder = null)
+        public void SetupLocal(string workSourcePath = null)
         {
-            workspaceFolder ??= WallyHelper.GetDefaultWorkspaceFolder();
+            string workspaceFolder;
+            if (workSourcePath != null)
+            {
+                workSourcePath = Path.GetFullPath(workSourcePath);
+                workspaceFolder = Path.Combine(workSourcePath, WallyHelper.DefaultWorkspaceFolderName);
+            }
+            else
+            {
+                workspaceFolder = WallyHelper.GetDefaultWorkspaceFolder();
+            }
+
             WallyConfig config = WallyHelper.ResolveConfig(workspaceFolder);
 
             string configPath = Path.Combine(workspaceFolder, WallyHelper.ConfigFileName);

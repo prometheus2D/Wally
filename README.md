@@ -2,11 +2,11 @@
 
 **Role-Based Actor (RBA) framework that wraps GitHub Copilot CLI into a structured, prompt-driven AI environment.**
 
-Wally scaffolds a workspace next to any codebase, loads actors defined by individual folders under `.wally/Actors/`, enriches every prompt with RBA context (Role, AcceptanceCriteria, Intent), and forwards the result to `gh copilot`. Works as a standalone CLI, an interactive REPL, or embedded in your own .NET app via `Wally.Core`.
+Wally scaffolds a `.wally/` workspace inside any codebase root (WorkSource), loads actors defined by individual folders under `.wally/Actors/`, enriches every prompt with RBA context (Role, AcceptanceCriteria, Intent), and forwards the result to `gh copilot`. Works as a standalone CLI, an interactive REPL, or embedded in your own .NET app via `Wally.Core`.
 
 ---
 
-## ? 2-Minute Quick Start
+## ?? 2-Minute Quick Start
 
 ### 1. Prerequisites
 
@@ -41,20 +41,53 @@ dotnet publish Wally.Console -c Release -r win-x64 --self-contained
 ### 3. Setup & first prompt
 
 ```sh
-# Scaffold the .wally workspace and point SourcePath at your codebase
-wally setup -s C:\repos\MyApp
+# Point Wally at your codebase root (WorkSource).
+# .wally/ is created inside that directory automatically.
+wally setup C:\repos\MyApp
 
 # Target a specific actor
 wally run Developer "Add input validation to the login form"
 ```
 
-That's it. Wally enriches your prompt with each actor's Role, AcceptanceCriteria, and Intent, then passes the full structured prompt to `gh copilot -p` with the working directory set to your `SourcePath`.
+That's it. Wally enriches your prompt with each actor's Role, AcceptanceCriteria, and Intent, then passes the full structured prompt to `gh copilot -p` with the working directory set to your WorkSource.
+
+#### Setup with a custom path
+
+The `setup` command accepts any directory path as the **WorkSource** — the root directory
+Wally will use for Copilot file context. The `.wally/` workspace folder is created inside it.
+
+```sh
+# Existing directory — .wally/ is scaffolded inside it
+wally setup C:\repos\MyApp
+#  ? WorkSource:  C:\repos\MyApp
+#  ? Workspace:   C:\repos\MyApp\.wally
+
+# New directory — the entire path is created automatically
+wally setup C:\repos\NewProject
+#  ? creates C:\repos\NewProject\
+#  ? creates C:\repos\NewProject\.wally\
+#  ? copies default config + actors into .wally/
+
+# Subdirectory of an existing project
+wally setup C:\repos\MyApp\services\api
+#  ? WorkSource:  C:\repos\MyApp\services\api
+#  ? Workspace:   C:\repos\MyApp\services\api\.wally
+
+# No path — defaults to the exe directory
+wally setup
+#  ? WorkSource:  <directory containing wally.exe>
+#  ? Workspace:   <exeDir>\.wally
+```
+
+> **Note:** The path you pass to `setup` is always the WorkSource (your codebase root).
+> You never pass the `.wally/` folder itself — Wally appends that automatically.
+> If the directory does not exist, Wally creates it along with the `.wally/` workspace inside it.
 
 ### Interactive REPL
 
 ```sh
 wally                           # no arguments ? REPL mode
-wally> setup -s C:\repos\MyApp
+wally> setup C:\repos\MyApp
 wally> run Developer "What does the Program.cs entry point do?"
 wally> run Tester "Suggest improvements"
 wally> exit
@@ -78,33 +111,35 @@ User prompt
     ## Prompt
     <user's prompt>
   ? gh copilot [--model <model>] -p "<full structured prompt>"
-       (working directory = SourcePath)
+       (working directory = WorkSource)
   ? response returned to the console
 ```
 
 Each actor enriches the user's raw prompt with its own RBA context. Wally then invokes
 `gh copilot -p` directly (using `ProcessStartInfo.ArgumentList` — no shell, no
-escaping issues). The `SourcePath` is set as the process working directory so Copilot CLI
-sees the target codebase. If a `DefaultModel` is configured, `--model` is added automatically.
+escaping issues). The WorkSource directory is set as the process working directory so
+Copilot CLI sees the target codebase. If a `DefaultModel` is configured, `--model` is
+added automatically.
 
 ---
 
 ## Workspace layout
 
 ```
-.wally/                        ? Wally's workspace
-    wally-config.json
-    Actors/
-        Developer/             ? one folder = one actor
-            actor.json
-        Tester/
-            actor.json
+<WorkSource>/                  Your codebase root (e.g. C:\repos\MyApp)
+    .wally/                    Wally's workspace folder
+        wally-config.json
+        Actors/
+            Developer/         ? one folder = one actor
+                actor.json
+            Tester/
+                actor.json
 ```
 
-- **Workspace folder** — the `.wally/` directory holding config and all actor folders.
+- **WorkSource** — the root of the user's codebase. This is the directory whose files provide context to `gh copilot`. It is always the parent of the `.wally/` workspace folder.
+- **Workspace folder** — the `.wally/` directory inside WorkSource, holding config and all actor folders.
 - **Actor folders** — each subfolder under `Actors/` defines one actor. The folder name is the actor name.
 - **actor.json** — contains `name`, `rolePrompt`, `criteriaPrompt`, and `intentPrompt`.
-- **SourcePath** — the directory whose files provide context to Copilot. Defaults to the workspace's parent folder.
 
 ---
 
@@ -113,7 +148,6 @@ sees the target codebase. If a `DefaultModel` is configured, `--model` is added 
 ```json
 {
   "ActorsFolderName": "Actors",
-  "SourcePath": "C:\\repos\\MyApp",
   "DefaultModel": "gpt-4.1",
   "Models": [
     "claude-sonnet-4.6",
@@ -141,7 +175,6 @@ sees the target codebase. If a `DefaultModel` is configured, `--model` is added 
 | Property | Default | Description |
 |---|---|---|
 | `ActorsFolderName` | `"Actors"` | Subfolder inside the workspace that holds actor directories. |
-| `SourcePath` | `null` | Directory whose files give context to `gh copilot`. Defaults to workspace parent when null. |
 | `DefaultModel` | `"gpt-4.1"` | LLM model passed via `--model` to all actors. Null = Copilot default. |
 | `Models` | `[…]` | List of available/allowed model identifiers for this workspace. |
 | `MaxIterations` | `10` | Default cap for `run-iterative`. |
@@ -208,9 +241,9 @@ Add a new subfolder with an `actor.json` to create a new actor. Each actor is fu
 
 | Command | Description |
 |---|---|
-| `setup [-p <path>] [-s <source>]` | Scaffold `.wally/` next to the exe (or at `<path>`). `-s` sets the source directory for Copilot context. |
-| `create <path>` | Scaffold a new workspace at `<path>` and load it. |
-| `load <path>` | Load an existing workspace from `<path>`. |
+| `setup [<path>]` | Scaffold `.wally/` inside `<path>` (your WorkSource / codebase root). If `<path>` does not exist it is created automatically. Defaults to the exe directory when omitted. |
+| `create <path>` | Scaffold a new `.wally/` workspace inside `<path>` and load it. Creates the directory if needed. |
+| `load <path>` | Load an existing workspace from `<path>` (the `.wally/` folder itself). |
 | `save <path>` | Persist the current config and all actor.json files to `<path>`. |
 | `info` | Print paths, model config, loaded actors, and settings. |
 
@@ -231,29 +264,41 @@ Add a new subfolder with an `actor.json` to create a new actor. Each actor is fu
 
 ---
 
-## SourcePath — controlling Copilot's file context
+## WorkSource — controlling Copilot's file context
 
-Wally's `SourcePath` config controls which directory `gh copilot` uses for file context.
+The **WorkSource** directory is the root of your codebase. It is always the parent of the
+`.wally/` workspace folder. When Wally invokes `gh copilot`, the WorkSource is set as both
+the working directory and the `--add-dir` target, so Copilot CLI has full visibility of your
+codebase.
+
+### Setting WorkSource with `setup`
+
+The path you give to `setup` **is** the WorkSource. Wally appends `.wally/` automatically.
 
 ```sh
-# Set during setup
-wally setup -s C:\repos\MyApp
+# Existing codebase
+wally setup C:\repos\MyApp
+#  ? WorkSource:  C:\repos\MyApp
+#  ? Workspace:   C:\repos\MyApp\.wally\
 
-# Or edit wally-config.json
-{ "SourcePath": "C:\\repos\\MyApp" }
+# Brand-new directory (created for you)
+wally setup C:\repos\NewProject
+#  ? creates:     C:\repos\NewProject\
+#  ? creates:     C:\repos\NewProject\.wally\
+#  ? scaffolds default config and actors
 
-# Verify
+# Verify what was created
 wally info
 ```
 
-When `SourcePath` is null, the workspace's parent folder is used (e.g. `.wally/` inside
-`C:\repos\MyApp` ? source path = `C:\repos\MyApp`).
+> You never pass the `.wally/` folder directly to `setup` — only the parent WorkSource path.
+> If the directory doesn't exist yet, Wally creates it along with the workspace inside it.
 
 ---
 
 ## Model selection
 
-Control which LLM model Copilot uses by editing `wally-config.json`:
+Control which LLM model Copilot uses by editing `.wally/wally-config.json`:
 
 ```json
 {
@@ -296,7 +341,7 @@ wally run-iterative "Add async/await throughout the data layer" -a Developer -m 
 
 The `Default/` folder ships alongside the executable (from `Wally.Console/Default/`) and serves
 as the canonical workspace template. When scaffolding, its contents are copied recursively
-into the target folder without overwriting existing files.
+into the target `.wally/` folder without overwriting existing files.
 
 Config resolution follows a three-tier fallback:
 1. **Workspace-local** (`<workspaceFolder>/wally-config.json`)
@@ -322,7 +367,7 @@ Config resolution follows a three-tier fallback:
 | `'gh' is not recognized` | Install [GitHub CLI](https://cli.github.com) and add it to your PATH. |
 | `gh copilot: command not found` | Run `gh extension install github/gh-copilot`. |
 | `HTTP 401 / not authenticated` | Run `gh auth login` and ensure your account has Copilot access. |
-| Empty responses | Check `wally info` — verify SourcePath points to a real directory with code. |
+| Empty responses | Check `wally info` — verify WorkSource points to a real directory with code. |
 | Model not available | Run `gh copilot -- --help` and check `--model` choices, then update `DefaultModel` in config. |
 | `Copilot exited with code 1` | Run `gh copilot -p "test"` manually to verify Copilot works outside Wally. |
 

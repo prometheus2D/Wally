@@ -2,15 +2,11 @@ using CommandLine;
 
 namespace Wally.Console.Options
 {
-    [Verb("setup", HelpText = "Set up a Wally workspace. Defaults to the exe directory; supply a path to target a specific folder.")]
+    [Verb("setup", HelpText = "Set up a Wally workspace. Supply a path to your codebase root (WorkSource); .wally/ is created inside it. Defaults to the exe directory.")]
     public class SetupOptions
     {
         [Value(0, Required = false, Default = null,
-            HelpText = "The folder in which to scaffold (or load) the Wally workspace. Defaults to the exe directory.")]
+            HelpText = "The WorkSource directory (your codebase root). The .wally/ workspace folder is created inside it. Defaults to the exe directory.")]
         public string Path { get; set; }
-
-        [Option('s', "source", Required = false, Default = null,
-            HelpText = "The source directory whose files provide context to gh copilot. When omitted, the parent of the workspace folder is used.")]
-        public string SourcePath { get; set; }
     }
 }

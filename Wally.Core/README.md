@@ -6,27 +6,30 @@ Domain library — no CLI, no UI. Contains everything needed to host a Wally works
 
 ### `WallyWorkspace`
 
-Owns the workspace layout on disk:
+Owns the workspace layout on disk. The workspace model is built around two directories:
+
+- **WorkSource** — the root of the user's codebase (e.g. `C:\repos\MyApp`). This is the directory whose files provide context to `gh copilot`.
+- **WorkspaceFolder** — the `.wally/` folder inside the WorkSource that holds config and actor definitions.
 
 ```
-<WorkspaceFolder>/              e.g. ".wally/"
-    wally-config.json
-    Actors/
-        <ActorName>/            one folder per actor
-            actor.json          name, rolePrompt, criteriaPrompt, intentPrompt
+<WorkSource>/                   e.g. C:\repos\MyApp
+    .wally/                     WorkspaceFolder
+        wally-config.json
+        Actors/
+            <ActorName>/        one folder per actor
+                actor.json      name, rolePrompt, criteriaPrompt, intentPrompt
 ```
 
 Call `WallyWorkspace.Load(workspaceFolder)` or `LoadFrom(path)`.
 Each actor folder produces exactly one `CopilotActor` — no cartesian-product expansion.
 Call `ReloadActors()` to re-read actor folders from disk mid-session without a full reload.
 
-### `SourcePath`
+### WorkSource
 
-`WallyWorkspace.SourcePath` controls the working directory used when launching
-`gh copilot`. This determines which files and directories Copilot CLI sees for context.
-
-- Resolved from `WallyConfig.SourcePath` when set.
-- Falls back to `ProjectFolder` (the workspace's parent directory) when null/empty.
+`WallyWorkspace.WorkSource` is the parent of the `.wally/` workspace folder. It controls
+the working directory used when launching `gh copilot`, determining which files and
+directories Copilot CLI sees for context. `SourcePath` is a convenience alias that
+resolves to `WorkSource`.
 
 ### Default workspace template
 
@@ -50,12 +53,12 @@ var env = new WallyEnvironment();
 // Scaffold or load in the exe directory (default)
 env.SetupLocal();
 
-// Or target a specific folder
-env.SetupLocal(@"C:\repos\MyApp\.wally");
+// Or target a specific WorkSource (codebase root) — .wally/ is created inside it.
+// If the directory doesn't exist, it is created automatically.
+env.SetupLocal(@"C:\repos\MyApp");
 
-// Set where Copilot looks for file context
-env.SourcePath = @"C:\repos\MyApp";
-env.SaveWorkspace();
+// Works with new directories too — both the WorkSource and .wally/ are created
+env.SetupLocal(@"C:\repos\NewProject");
 
 // Run all actors once
 var responses = env.RunActors("Explain this module");
@@ -83,7 +86,6 @@ Loaded from / saved to `wally-config.json`. Defines:
 | Property | Default | Description |
 |---|---|---|
 | `ActorsFolderName` | `"Actors"` | Subfolder inside the workspace that holds actor directories. |
-| `SourcePath` | `null` | Directory whose files give context to `gh copilot`. Defaults to workspace parent. |
 | `DefaultModel` | `"gpt-4.1"` | LLM model passed via `--model` to all actors. Null = Copilot default. |
 | `Models` | `[…]` | List of available/allowed model identifiers for this workspace. |
 | `MaxIterations` | `10` | Maximum iterations for iterative actor runs. |
@@ -92,7 +94,7 @@ Loaded from / saved to `wally-config.json`. Defines:
 
 The default actor implementation. Invokes `gh copilot -p` directly using
 `ProcessStartInfo.ArgumentList` (no shell, no escaping issues). The process working
-directory is set to `SourcePath` so Copilot sees the target codebase. When
+directory is set to WorkSource so Copilot sees the target codebase. When
 `WallyConfig.DefaultModel` is set, `--model <id>` is added to the invocation.
 
 Stdin is redirected and immediately closed to prevent `gh copilot` from waiting for

@@ -9,13 +9,21 @@ namespace Wally.Core
     /// <summary>
     /// Represents a Wally workspace bound to a folder on disk.
     ///
-    /// The workspace folder is self-contained — everything Wally needs lives inside it:
+    /// The workspace model is built around two directories:
+    /// <list type="bullet">
+    ///   <item><b>WorkSource</b> — the root of the user's codebase (e.g. <c>C:\repos\MyApp</c>).
+    ///         This is the directory whose files provide context to <c>gh copilot</c>.</item>
+    ///   <item><b>WorkspaceFolder</b> — the <c>.wally/</c> folder inside the WorkSource that
+    ///         holds config and actor definitions.</item>
+    /// </list>
+    ///
     /// <code>
-    ///   &lt;WorkspaceFolder&gt;/          e.g. ".wally/"
-    ///       wally-config.json
-    ///       Actors/
-    ///           &lt;ActorName&gt;/         one folder per actor
-    ///               actor.json         name, rolePrompt, criteriaPrompt, intentPrompt
+    ///   &lt;WorkSource&gt;/                e.g. C:\repos\MyApp
+    ///       .wally/                      WorkspaceFolder
+    ///           wally-config.json
+    ///           Actors/
+    ///               &lt;ActorName&gt;/       one folder per actor
+    ///                   actor.json       name, rolePrompt, criteriaPrompt, intentPrompt
     /// </code>
     ///
     /// Pass the workspace folder path directly to <see cref="Load"/> or
@@ -28,18 +36,17 @@ namespace Wally.Core
         /// <summary>The absolute path to the workspace folder (e.g. <c>/repo/.wally</c>).</summary>
         public string WorkspaceFolder { get; private set; }
 
-        /// <summary>The absolute path to the project folder (parent of workspace folder).</summary>
-        public string ProjectFolder { get; private set; }
+        /// <summary>
+        /// The absolute path to the WorkSource directory — the root of the user's
+        /// codebase.  This is the parent of <see cref="WorkspaceFolder"/>.
+        /// </summary>
+        public string WorkSource { get; private set; }
 
         /// <summary>
         /// The directory whose contents provide file context to <c>gh copilot</c>.
-        /// Resolved from <see cref="WallyConfig.SourcePath"/> when set; otherwise
-        /// falls back to <see cref="ProjectFolder"/>.
+        /// Always resolves to <see cref="WorkSource"/>.
         /// </summary>
-        public string SourcePath =>
-            !string.IsNullOrWhiteSpace(Config.SourcePath)
-                ? Path.GetFullPath(Config.SourcePath)
-                : ProjectFolder;
+        public string SourcePath => WorkSource;
 
         public bool IsLoaded => !string.IsNullOrEmpty(WorkspaceFolder);
 
@@ -80,7 +87,7 @@ namespace Wally.Core
             Config = WallyHelper.ResolveConfig(workspaceFolder);
 
             WorkspaceFolder = workspaceFolder;
-            ProjectFolder = Path.GetDirectoryName(WorkspaceFolder);
+            WorkSource = Path.GetDirectoryName(WorkspaceFolder)!;
             Actors = WallyHelper.LoadActors(WorkspaceFolder, Config, this);
         }
 

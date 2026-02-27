@@ -32,7 +32,7 @@ namespace Wally.Core.Actors
 
         /// <summary>
         /// The workspace this Actor operates in. Provides access to
-        /// <see cref="WallyWorkspace.ProjectFolder"/> for prompt enrichment.
+        /// <see cref="WallyWorkspace.WorkSource"/> for prompt enrichment.
         /// May be <see langword="null"/> when an Actor is constructed outside a workspace.
         /// </summary>
         public WallyWorkspace? Workspace { get; set; }

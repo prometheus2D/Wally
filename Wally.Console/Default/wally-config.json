@@ -1,6 +1,5 @@
 {
   "ActorsFolderName": "Actors",
-  "SourcePath": null,
   "DefaultModel": "gpt-4.1",
   "Models": [
     "claude-sonnet-4.6",

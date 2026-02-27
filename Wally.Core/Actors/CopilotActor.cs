@@ -28,7 +28,7 @@ namespace Wally.Core.Actors
         /// <c>gh copilot -p</c> (non-interactive mode).
         /// <para>
         /// The process <c>WorkingDirectory</c> is set to
-        /// <see cref="WallyWorkspace.SourcePath"/> so that Copilot CLI receives
+        /// <see cref="WallyWorkspace.WorkSource"/> so that Copilot CLI receives
         /// the correct file and directory context.  The <c>--model</c> flag is
         /// added when <see cref="WallyConfig.DefaultModel"/> is configured.
         /// </para>

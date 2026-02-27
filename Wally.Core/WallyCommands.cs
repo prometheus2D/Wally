@@ -21,7 +21,7 @@ namespace Wally.Core
             {
                 Console.WriteLine(
                     $"Command '{commandName}' requires a workspace. " +
-                    $"Use 'load <path>' or 'create <path>' first.");
+                    $"Use 'load <path>' or 'setup <path>' first.");
                 return null;
             }
             return env;
@@ -39,26 +39,20 @@ namespace Wally.Core
         /// <summary>Scaffolds a new workspace at <paramref name="path"/> and loads it.</summary>
         public static void HandleCreate(WallyEnvironment env, string path)
         {
-            env.CreateWorkspace(path, WallyHelper.ResolveConfig(path));
+            // path is the WorkSource directory — workspace goes inside <path>/.wally
+            string workspaceFolder = Path.Combine(Path.GetFullPath(path), WallyHelper.DefaultWorkspaceFolderName);
+            env.CreateWorkspace(workspaceFolder, WallyHelper.ResolveConfig(workspaceFolder));
             PrintWorkspaceSummary("Workspace created.", env);
         }
 
         /// <summary>
-        /// Ensures a workspace exists at <paramref name="path"/> (or the default location
-        /// when <paramref name="path"/> is null) and loads it.
-        /// When <paramref name="sourcePath"/> is supplied the config's
-        /// <see cref="WallyConfig.SourcePath"/> is updated and persisted.
+        /// Ensures a workspace exists at <paramref name="workSourcePath"/> (or the default
+        /// location when <paramref name="workSourcePath"/> is null) and loads it.
+        /// The <c>.wally/</c> workspace folder is created inside the WorkSource directory.
         /// </summary>
-        public static void HandleSetup(WallyEnvironment env, string path = null, string sourcePath = null)
+        public static void HandleSetup(WallyEnvironment env, string workSourcePath = null)
         {
-            env.SetupLocal(path);
-
-            if (!string.IsNullOrWhiteSpace(sourcePath))
-            {
-                env.SourcePath = Path.GetFullPath(sourcePath);
-                env.SaveWorkspace();
-            }
-
+            env.SetupLocal(workSourcePath);
             PrintWorkspaceSummary("Workspace ready.", env);
         }
 
@@ -182,7 +176,7 @@ namespace Wally.Core
             if (!env.HasWorkspace)
             {
                 Console.WriteLine("Status:            No workspace loaded.");
-                Console.WriteLine("                   Use 'load <path>' or 'create <path>' first.");
+                Console.WriteLine("                   Use 'load <path>' or 'setup <path>' first.");
                 return;
             }
 
@@ -190,8 +184,8 @@ namespace Wally.Core
             var cfg = ws.Config;
 
             Console.WriteLine($"Status:            Workspace loaded");
+            Console.WriteLine($"WorkSource:        {ws.WorkSource}");
             Console.WriteLine($"Workspace folder:  {ws.WorkspaceFolder}");
-            Console.WriteLine($"Source path:       {ws.SourcePath}");
             Console.WriteLine($"Actors folder:     {Path.Combine(ws.WorkspaceFolder, cfg.ActorsFolderName)}");
             Console.WriteLine($"Actors loaded:     {ws.Actors.Count}");
             foreach (var a in ws.Actors)
@@ -223,35 +217,40 @@ namespace Wally.Core
             Console.WriteLine("=====================================");
             Console.WriteLine();
             Console.WriteLine("No workspace required:");
-            Console.WriteLine("  setup [<path>] [-s <source>]     Scaffold or load a workspace. Defaults to <exeDir>/.wally.");
-            Console.WriteLine("                                   -s sets the source directory for Copilot file context.");
-            Console.WriteLine("  create <path>                  Scaffold a new workspace at <path>.");
-            Console.WriteLine("  load <path>                    Load an existing workspace from <path>.");
-            Console.WriteLine("  info                           Show workspace info, model config, and actor list.");
-            Console.WriteLine("  help                           Show this message.");
+            Console.WriteLine("  setup [<path>]                   Scaffold or load a workspace. <path> is the WorkSource");
+            Console.WriteLine("                                   directory (your codebase root). .wally/ is created inside it.");
+            Console.WriteLine("                                   If <path> doesn't exist, it is created automatically.");
+            Console.WriteLine("                                   Defaults to the exe directory when omitted.");
+            Console.WriteLine("  create <path>                    Scaffold a new workspace inside <path>/.wally/.");
+            Console.WriteLine("                                   Creates <path> if it doesn't exist.");
+            Console.WriteLine("  load <path>                      Load an existing workspace from <path> (.wally/ folder).");
+            Console.WriteLine("  info                             Show workspace info, model config, and actor list.");
+            Console.WriteLine("  help                             Show this message.");
             Console.WriteLine();
             Console.WriteLine("Workspace required:");
-            Console.WriteLine("  save <path>                    Save config and all actor.json files.");
-            Console.WriteLine("  list                           List actors and their prompts.");
-            Console.WriteLine("  reload-actors                  Re-read actor folders from disk, rebuild actors.");
+            Console.WriteLine("  save <path>                      Save config and all actor.json files.");
+            Console.WriteLine("  list                             List actors and their prompts.");
+            Console.WriteLine("  reload-actors                    Re-read actor folders from disk, rebuild actors.");
             Console.WriteLine("  run <actor> \"<prompt>\" [-m <model>]  Run a specific actor by name.");
-            Console.WriteLine("                                 Use -m default to use the configured DefaultModel.");
+            Console.WriteLine("                                   Use -m default to use the configured DefaultModel.");
             Console.WriteLine("  run-iterative \"<prompt>\" [--model <model>] [-m N]");
-            Console.WriteLine("                                 Run all actors iteratively; -m N to cap.");
+            Console.WriteLine("                                   Run all actors iteratively; -m N to cap.");
             Console.WriteLine("  run-iterative \"<prompt>\" -a <actor> [--model <model>] [-m N]");
-            Console.WriteLine("                                 Run one actor iteratively.");
+            Console.WriteLine("                                   Run one actor iteratively.");
             Console.WriteLine();
-            Console.WriteLine("Workspace folder layout:");
-            Console.WriteLine("  <WorkspaceFolder>/             e.g. .wally/");
-            Console.WriteLine("    wally-config.json            SourcePath, DefaultModel, Models, MaxIterations");
-            Console.WriteLine("    Actors/");
-            Console.WriteLine("      <ActorName>/");
-            Console.WriteLine("        actor.json               name, rolePrompt,");
+            Console.WriteLine("Workspace layout:");
+            Console.WriteLine("  <WorkSource>/                  Your codebase root (e.g. C:\\repos\\MyApp)");
+            Console.WriteLine("    .wally/                      Workspace folder (config + actors)");
+            Console.WriteLine("      wally-config.json          DefaultModel, Models, MaxIterations");
+            Console.WriteLine("      Actors/");
+            Console.WriteLine("        <ActorName>/");
+            Console.WriteLine("          actor.json             name, rolePrompt,");
             Console.WriteLine("                                 criteriaPrompt, intentPrompt");
             Console.WriteLine();
-            Console.WriteLine("SourcePath:   The directory whose files are given as context to gh copilot.");
-            Console.WriteLine("              Defaults to the workspace's parent folder when not set.");
-            Console.WriteLine("              Set via 'setup -s <path>' or edit wally-config.json directly.");
+            Console.WriteLine("WorkSource:   The directory whose files are given as context to gh copilot.");
+            Console.WriteLine("              This is always the parent of the .wally/ workspace folder.");
+            Console.WriteLine("              Set via 'setup <path>' where <path> is your codebase root.");
+            Console.WriteLine("              If the directory doesn't exist, it is created automatically.");
             Console.WriteLine();
             Console.WriteLine("DefaultModel: The LLM model Copilot uses (--model flag).");
             Console.WriteLine("              Set DefaultModel in wally-config.json.");
@@ -264,8 +263,9 @@ namespace Wally.Core
         private static void PrintWorkspaceSummary(string header, WallyEnvironment env)
         {
             Console.WriteLine(header);
-            Console.WriteLine($"  Workspace: {env.WorkspaceFolder}");
-            Console.WriteLine($"  Actors:    {env.Actors.Count}");
+            Console.WriteLine($"  WorkSource: {env.WorkSource}");
+            Console.WriteLine($"  Workspace:  {env.WorkspaceFolder}");
+            Console.WriteLine($"  Actors:     {env.Actors.Count}");
         }
 
         private static void PrintRbaLine(string label, string prompt)

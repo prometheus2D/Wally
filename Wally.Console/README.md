@@ -13,25 +13,54 @@ Output: `Wally.Console\bin\Release\net8.0\win-x64\publish\wally.exe`
 ## Quick Start
 
 ```sh
-# Scaffold workspace and point SourcePath at your codebase
-wally setup -s C:\repos\MyApp
+# Point Wally at your codebase root (WorkSource).
+# .wally/ is created inside it automatically.
+wally setup C:\repos\MyApp
 
 # Target a specific actor
 wally run Developer "Add input validation"
 ```
 
+## Setting up with a custom path
+
+The path you pass to `setup` is the **WorkSource** — the root directory whose files Copilot
+will see as context. The `.wally/` workspace folder is always created inside it.
+
+```sh
+# Existing directory
+wally setup C:\repos\MyApp
+#  ? C:\repos\MyApp\.wally\  (workspace created inside)
+
+# New directory that doesn't exist yet — created automatically
+wally setup C:\repos\NewProject
+#  ? creates C:\repos\NewProject\
+#  ? creates C:\repos\NewProject\.wally\
+#  ? scaffolds default config and actors
+
+# Subdirectory — useful for monorepos or service-specific workspaces
+wally setup C:\repos\MyApp\services\api
+#  ? C:\repos\MyApp\services\api\.wally\
+
+# No path — defaults to the exe directory
+wally setup
+#  ? <exeDir>\.wally\
+```
+
+> **Important:** Always pass the WorkSource directory, not the `.wally/` folder.
+> Wally appends `.wally/` automatically. If the path doesn't exist, Wally creates it.
+
 ## Run Modes
 
 **One-shot** — run a single command and exit:
 ```sh
-wally setup
+wally setup C:\repos\MyApp
 wally run Developer "Describe the main entry point"
 ```
 
 **Interactive REPL** — environment persists across commands:
 ```sh
 wally
-wally> setup -s C:\repos\MyApp
+wally> setup C:\repos\MyApp
 wally> run Developer "Explain error handling in this codebase"
 wally> run Tester "Suggest improvements"
 wally> info
@@ -41,11 +70,12 @@ wally> exit
 ## Commands
 
 ```
-setup [-p <path>] [-s <source>]  Scaffold .wally/ next to exe by default,
-                                 or at <path> when --path is supplied.
-                                 -s sets the source directory for Copilot file context.
-create <path>                    Scaffold a new workspace at <path> and load it.
-load <path>                      Load an existing workspace from <path>.
+setup [<path>]                   Scaffold .wally/ inside <path> (your WorkSource / codebase root).
+                                 <path> is created if it doesn't exist.
+                                 Defaults to the exe directory when omitted.
+create <path>                    Scaffold a new .wally/ workspace inside <path> and load it.
+                                 <path> is created if it doesn't exist.
+load <path>                      Load an existing workspace from <path> (.wally/ folder).
 save <path>                      Persist config and all actor.json files to <path>.
 info                             Print paths, model config, loaded actors, settings.
 
@@ -62,22 +92,18 @@ run-iterative "<prompt>" -a <actor> [--model <model>] [-m N]
 help                             Print this reference.
 ```
 
-## SourcePath
+## WorkSource
 
-Controls which directory `gh copilot` uses for file context. Set during setup:
+The **WorkSource** is your codebase root directory. The `.wally/` workspace folder is
+always created inside it. When Wally invokes `gh copilot`, the WorkSource is used as
+both the working directory and the `--add-dir` target, so Copilot CLI sees your codebase.
 
 ```sh
-wally setup -s C:\repos\MyApp
+wally setup C:\repos\MyApp
+wally info
 ```
 
-Or edit `.wally/wally-config.json`:
-```json
-{
-  "SourcePath": "C:\\repos\\MyApp"
-}
-```
-
-When null, defaults to the workspace's parent folder.
+The workspace folder is always `<WorkSource>/.wally/`.
 
 ## Model Selection
 
@@ -105,7 +131,7 @@ Run `gh copilot -- --help` and check the `--model` choices to see available mode
 
 The `Default/` folder in this project ships alongside the exe and is the canonical workspace
 template. When scaffolding a new workspace its entire contents are copied (no-overwrite) into
-the target workspace folder.
+the target `.wally/` workspace folder.
 
 ```
 Default/

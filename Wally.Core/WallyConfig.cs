@@ -7,16 +7,18 @@ namespace Wally.Core
     /// <summary>
     /// Holds configuration for a Wally workspace folder.
     ///
-    /// The workspace folder IS the root — <c>wally-config.json</c> sits at its top level
-    /// alongside the <see cref="ActorsFolderName"/> subfolder:
+    /// The workspace lives inside the <b>WorkSource</b> directory — the root of
+    /// the user's codebase.  The <c>.wally/</c> folder sits at the top level of
+    /// the WorkSource alongside the <see cref="ActorsFolderName"/> subfolder:
     /// <code>
-    ///   &lt;WorkspaceFolder&gt;/
-    ///       wally-config.json
-    ///       Actors/
-    ///           Developer/
-    ///               actor.json
-    ///           Tester/
-    ///               actor.json
+    ///   &lt;WorkSource&gt;/               e.g. C:\repos\MyApp
+    ///       .wally/                     workspace folder
+    ///           wally-config.json
+    ///           Actors/
+    ///               Developer/
+    ///                   actor.json
+    ///               Tester/
+    ///                   actor.json
     /// </code>
     /// </summary>
     public class WallyConfig
@@ -29,21 +31,6 @@ namespace Wally.Core
         /// Default: <c>Actors</c>.
         /// </summary>
         public string ActorsFolderName { get; set; } = "Actors";
-
-        // — Source path ———————————————————————————————————————————————————————
-
-        /// <summary>
-        /// The directory whose files and subdirectories provide context to the
-        /// <c>gh copilot</c> command.  When set, <see cref="Actors.CopilotActor"/>
-        /// uses this as the <c>WorkingDirectory</c> of the spawned process so that
-        /// Copilot CLI can see the target codebase regardless of where Wally was
-        /// launched from.
-        /// <para>
-        /// When <see langword="null"/> or empty the current working directory of the
-        /// Wally process is used (previous default behaviour).
-        /// </para>
-        /// </summary>
-        public string? SourcePath { get; set; }
 
         // — Model selection ———————————————————————————————————————————————————
 
