@@ -117,6 +117,11 @@ namespace Wally.Console
                         WallyCommands.HandleRun(_environment, ro.Prompt, ro.ActorName, ro.Model);
                         return 0;
                     }
+                    if (opts is RunLoopOptions rlo)
+                    {
+                        WallyCommands.HandleRunLoop(_environment, rlo.Prompt, rlo.ActorName, rlo.Model, rlo.MaxIterations);
+                        return 0;
+                    }
 
                     // ── Inspection ────────────────────────────────────────────
                     if (opts is ListOptions)              { WallyCommands.HandleList(_environment); return 0; }

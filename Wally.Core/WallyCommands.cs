@@ -116,6 +116,78 @@ namespace Wally.Core
             return responses;
         }
 
+        /// <summary>
+        /// Runs an actor inside a <see cref="WallyLoop"/>. The actor generates
+        /// the start and continue prompts from the user's raw input, wrapping it
+        /// in its RBA context. The loop iterates until the actor's response
+        /// contains the stop word (<see cref="WallyLoop.DefaultStopWord"/>) or
+        /// <paramref name="maxIterations"/> is reached.
+        /// </summary>
+        public static List<string> HandleRunLoop(
+            WallyEnvironment env, string prompt, string actorName,
+            string model = null, int maxIterations = 0)
+        {
+            if (RequireWorkspace(env, "run-loop") == null) return new List<string>();
+
+            var actor = env.GetActor(actorName);
+            if (actor == null)
+            {
+                Console.WriteLine($"Actor '{actorName}' not found.");
+                env.Logger.LogError($"Actor '{actorName}' not found.", "run-loop");
+                return new List<string>();
+            }
+
+            // Apply per-run model override.
+            if (!string.IsNullOrWhiteSpace(model))
+                actor.ModelOverride = model;
+
+            int iterations = maxIterations > 0
+                ? maxIterations
+                : env.Workspace!.Config.MaxIterations;
+
+            env.Logger.LogCommand("run-loop",
+                $"Running actor '{actorName}' in loop (max {iterations}) " +
+                $"with model override '{model ?? "(none)"}'"
+            );
+
+            // The actor generates the full prompt (RBA wrapper + user input).
+            string startPrompt    = actor.GeneratePrompt(prompt);
+            string continuePrompt = actor.GeneratePrompt(
+                $"Continue the previous task. If you are finished, respond with: {WallyLoop.DefaultStopWord}");
+
+            var loop = new WallyLoop(
+                action:          currentPrompt => actor.Act(currentPrompt),
+                startPrompt:     startPrompt,
+                continuePrompt:  continuePrompt,
+                maxIterations:   iterations
+            );
+
+            Console.WriteLine($"[run-loop] Actor: {actor.Name}  MaxIterations: {iterations}  StopWord: {WallyLoop.DefaultStopWord}");
+            Console.WriteLine();
+
+            loop.Run();
+
+            // Print each iteration result.
+            for (int i = 0; i < loop.Results.Count; i++)
+            {
+                Console.WriteLine($"--- Iteration {i + 1} ---");
+                Console.WriteLine(loop.Results[i]);
+                Console.WriteLine();
+            }
+
+            // Summary.
+            if (loop.StoppedByDeclaration)
+                Console.WriteLine($"[run-loop] Loop completed by declaration after {loop.ExecutionCount} iteration(s).");
+            else
+                Console.WriteLine($"[run-loop] Loop reached max iterations ({loop.ExecutionCount}).");
+
+            env.Logger.LogInfo(
+                $"run-loop finished: {loop.ExecutionCount} iteration(s), " +
+                $"stoppedByDeclaration={loop.StoppedByDeclaration}");
+
+            return loop.Results;
+        }
+
         // — Workspace inspection ——————————————————————————————————————————————
 
         /// <summary>
@@ -214,6 +286,11 @@ namespace Wally.Core
             Console.WriteLine("  reload-actors                    Re-read actor folders from disk, rebuild actors.");
             Console.WriteLine("  run <actor> \"<prompt>\" [-m <model>]  Run a specific actor by name.");
             Console.WriteLine("                                   Use -m default to use the configured DefaultModel.");
+            Console.WriteLine("  run-loop <actor> \"<prompt>\" [-m <model>] [-n <max>]");
+            Console.WriteLine("                                   Run an actor in an iterative loop.");
+            Console.WriteLine("                                   The actor generates wrapped prompts from its RBA context.");
+            Console.WriteLine("                                   Loop ends when the actor responds with 'LOOP COMPLETED'");
+            Console.WriteLine("                                   or max iterations (-n) is reached (default from config).");
             Console.WriteLine();
             Console.WriteLine("Workspace layout:");
             Console.WriteLine("  <WorkSource>/                  Your codebase root (e.g. C:\\repos\\MyApp)");

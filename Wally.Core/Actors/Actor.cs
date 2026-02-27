@@ -63,6 +63,56 @@ namespace Wally.Core.Actors
             Workspace          = workspace;
         }
 
+        // — Prompt generation ——————————————————————————————————————————————
+
+        /// <summary>
+        /// Generates a standard prompt from this actor's RBA components
+        /// (Role, AcceptanceCriteria, Intent) with no user input.
+        /// </summary>
+        /// <returns>A formatted prompt string built from the actor's RBA identity.</returns>
+        public virtual string GeneratePrompt()
+        {
+            return GeneratePrompt(null);
+        }
+
+        /// <summary>
+        /// Generates a standard prompt from this actor's RBA components
+        /// (Role, AcceptanceCriteria, Intent), wrapping the supplied
+        /// <paramref name="userPrompt"/> inside the actor's RBA context.
+        /// <para>
+        /// The user's raw input is just one piece — the actor's role, criteria,
+        /// and intent form the wrapper that gives it meaning.
+        /// </para>
+        /// </summary>
+        /// <param name="userPrompt">
+        /// The live user input to embed. When <see langword="null"/> or empty,
+        /// only the RBA context is included.
+        /// </param>
+        /// <returns>A formatted prompt string ready for execution.</returns>
+        public virtual string GeneratePrompt(string? userPrompt)
+        {
+            var sb = new System.Text.StringBuilder();
+
+            sb.AppendLine($"# Actor: {Name}");
+
+            if (!string.IsNullOrWhiteSpace(Role.Prompt))
+                sb.AppendLine($"## Role\n{Role.Prompt}");
+
+            if (!string.IsNullOrWhiteSpace(AcceptanceCriteria.Prompt))
+                sb.AppendLine($"## Acceptance Criteria\n{AcceptanceCriteria.Prompt}");
+
+            if (!string.IsNullOrWhiteSpace(Intent.Prompt))
+                sb.AppendLine($"## Intent\n{Intent.Prompt}");
+
+            if (!string.IsNullOrWhiteSpace(userPrompt))
+            {
+                sb.AppendLine();
+                sb.AppendLine($"## Prompt\n{userPrompt}");
+            }
+
+            return sb.ToString().TrimEnd();
+        }
+
         // ?? Overridable pipeline ??????????????????????????????????????????????
 
         /// <summary>Called once before every <see cref="Act"/> to perform any setup.</summary>
