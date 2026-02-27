@@ -42,7 +42,9 @@ namespace Wally.Core
         public static void HandleCreate(WallyEnvironment env, string path)
         {
             // path is the WorkSource directory — workspace goes inside <path>/.wally
-            string workspaceFolder = Path.Combine(Path.GetFullPath(path), WallyHelper.DefaultWorkspaceFolderName);
+            string fullPath = Path.GetFullPath(path);
+            Directory.CreateDirectory(fullPath);
+            string workspaceFolder = Path.Combine(fullPath, WallyHelper.DefaultWorkspaceFolderName);
             env.CreateWorkspace(workspaceFolder, WallyHelper.ResolveConfig(workspaceFolder));
             env.Logger.LogCommand("create", $"Created workspace at {workspaceFolder}");
             PrintWorkspaceSummary("Workspace created.", env);
@@ -192,8 +194,9 @@ namespace Wally.Core
             Console.WriteLine("=====================================");
             Console.WriteLine();
             Console.WriteLine("No workspace required:");
-            Console.WriteLine("  setup [<path>]                   Scaffold or load a workspace. <path> is the WorkSource");
+            Console.WriteLine("  setup [<path>] [-w <path>]       Scaffold or load a workspace. <path> is the WorkSource");
             Console.WriteLine("                                   directory (your codebase root). .wally/ is created inside it.");
+            Console.WriteLine("                                   -w / --worksource is an explicit alternative to the positional arg.");
             Console.WriteLine("                                   If <path> doesn't exist, it is created automatically.");
             Console.WriteLine("                                   Defaults to the exe directory when omitted.");
             Console.WriteLine("  create <path>                    Scaffold a new workspace inside <path>/.wally/.");
@@ -234,6 +237,7 @@ namespace Wally.Core
             Console.WriteLine();
             Console.WriteLine("DefaultModel: The LLM model Copilot uses (--model flag).");
             Console.WriteLine("              Set DefaultModel in wally-config.json.");
+            Console.WriteLine();
             Console.WriteLine("Models:       List of available/allowed model identifiers.");
             Console.WriteLine("              Run 'gh copilot -- --help' and check --model choices.");
         }

@@ -91,6 +91,7 @@ namespace Wally.Core
             if (workSourcePath != null)
             {
                 workSourcePath = Path.GetFullPath(workSourcePath);
+                Directory.CreateDirectory(workSourcePath);
                 workspaceFolder = Path.Combine(workSourcePath, WallyHelper.DefaultWorkspaceFolderName);
             }
             else

@@ -109,7 +109,7 @@ namespace Wally.Console
                     if (opts is LoadOptions lo)        { WallyCommands.HandleLoad(_environment, lo.Path); return 0; }
                     if (opts is SaveOptions so)        { WallyCommands.HandleSave(_environment, so.Path); return 0; }
                     if (opts is CreateOptions co)      { WallyCommands.HandleCreate(_environment, co.Path); return 0; }
-                    if (opts is SetupOptions seto)     { WallyCommands.HandleSetup(_environment, seto.Path); return 0; }
+                    if (opts is SetupOptions seto)     { WallyCommands.HandleSetup(_environment, seto.ResolvedPath); return 0; }
 
                     // ── Running actors ────────────────────────────────────────
                     if (opts is RunOptions ro)
