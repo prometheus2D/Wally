@@ -112,13 +112,6 @@ namespace Wally.Console
                         if (responses.Count == 0) System.Console.WriteLine("No responses from Actors.");
                         return 0;
                     }
-                    if (opts is RunIterativeOptions rio)
-                    {
-                        var responses = WallyCommands.HandleRunIterative(
-                            _environment, rio.Prompt, rio.ActorName, rio.MaxIterations, rio.Model);
-                        if (responses.Count == 0) System.Console.WriteLine("No responses from final iteration.");
-                        return 0;
-                    }
 
                     // ── Inspection ────────────────────────────────────────────
                     if (opts is ListOptions)              { WallyCommands.HandleList(_environment); return 0; }

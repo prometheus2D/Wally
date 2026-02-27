@@ -89,63 +89,6 @@ namespace Wally.Core
                 : env.RunActors(prompt);
         }
 
-        /// <summary>
-        /// Runs actors iteratively. When <paramref name="actorName"/> is supplied, a single
-        /// actor is run; otherwise all actors run together with combined responses fed back
-        /// each iteration.
-        /// </summary>
-        public static List<string> HandleRunIterative(
-            WallyEnvironment env, string prompt, string actorName = null, int maxIterationsOverride = 0, string model = null)
-        {
-            if (RequireWorkspace(env, "run-iterative") == null) return new List<string>();
-
-            if (maxIterationsOverride > 0)
-                env.MaxIterations = maxIterationsOverride;
-
-            // Apply per-run model override to the target actor(s).
-            if (!string.IsNullOrWhiteSpace(model))
-            {
-                if (!string.IsNullOrEmpty(actorName))
-                {
-                    var actor = env.GetActor(actorName);
-                    if (actor != null) actor.ModelOverride = model;
-                }
-                else
-                {
-                    foreach (var a in env.Actors) a.ModelOverride = model;
-                }
-            }
-
-            if (!string.IsNullOrEmpty(actorName))
-            {
-                Console.WriteLine(
-                    $"Running iterative loop on '{actorName}' (max {env.MaxIterations} iterations)...");
-
-                string result = env.RunActorIterative(
-                    prompt, actorName, maxIterationsOverride,
-                    (iteration, response) =>
-                    {
-                        Console.WriteLine($"--- Iteration {iteration} [{actorName}] ---");
-                        Console.WriteLine(response);
-                    });
-
-                return string.IsNullOrWhiteSpace(result)
-                    ? new List<string>()
-                    : new List<string> { $"{actorName}: {result}" };
-            }
-
-            Console.WriteLine($"Running iterative mode (max {env.MaxIterations} iterations)...");
-
-            return env.RunActorsIterative(prompt, (iteration, responses) =>
-            {
-                Console.WriteLine($"--- Iteration {iteration} ---");
-                foreach (var response in responses)
-                    Console.WriteLine(response);
-                if (responses.Count == 0)
-                    Console.WriteLine("No responses. Stopping early.");
-            });
-        }
-
         // — Workspace inspection ——————————————————————————————————————————————
 
         /// <summary>
@@ -196,7 +139,6 @@ namespace Wally.Core
             {
                 Console.WriteLine($"Available models:  {string.Join(", ", cfg.Models)}");
             }
-            Console.WriteLine($"Max iterations:    {env.MaxIterations}");
         }
 
         /// <summary>Re-reads actor folders from disk and rebuilds actors without a full reload.</summary>
@@ -233,10 +175,6 @@ namespace Wally.Core
             Console.WriteLine("  reload-actors                    Re-read actor folders from disk, rebuild actors.");
             Console.WriteLine("  run <actor> \"<prompt>\" [-m <model>]  Run a specific actor by name.");
             Console.WriteLine("                                   Use -m default to use the configured DefaultModel.");
-            Console.WriteLine("  run-iterative \"<prompt>\" [--model <model>] [-m N]");
-            Console.WriteLine("                                   Run all actors iteratively; -m N to cap.");
-            Console.WriteLine("  run-iterative \"<prompt>\" -a <actor> [--model <model>] [-m N]");
-            Console.WriteLine("                                   Run one actor iteratively.");
             Console.WriteLine();
             Console.WriteLine("Workspace layout:");
             Console.WriteLine("  <WorkSource>/                  Your codebase root (e.g. C:\\repos\\MyApp)");

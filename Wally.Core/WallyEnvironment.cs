@@ -34,19 +34,6 @@ namespace Wally.Core
         /// </summary>
         public string? SourcePath => HasWorkspace ? Workspace!.SourcePath : null;
 
-        // — Runtime settings ——————————————————————————————————————————————————
-
-        public int MaxIterations
-        {
-            get => HasWorkspace ? Workspace!.Config.MaxIterations : _maxIterations;
-            set
-            {
-                _maxIterations = value;
-                if (HasWorkspace) Workspace!.Config.MaxIterations = value;
-            }
-        }
-        private int _maxIterations = 10;
-
         // — Pass-throughs —————————————————————————————————————————————————————
 
         [JsonIgnore] public List<Actor> Actors => Workspace?.Actors ?? _emptyActors;
@@ -172,54 +159,6 @@ namespace Wally.Core
             return response != null
                 ? new List<string> { $"{actor.Role.Name}: {response}" }
                 : new List<string>();
-        }
-
-        public List<string> RunActorsIterative(string initialPrompt,
-            Action<int, List<string>>? onIteration = null)
-        {
-            RequireWorkspace();
-            string currentPrompt       = initialPrompt;
-            List<string> lastResponses = new();
-
-            for (int i = 1; i <= MaxIterations; i++)
-            {
-                lastResponses = RunActors(currentPrompt);
-                onIteration?.Invoke(i, lastResponses);
-                if (lastResponses.Count == 0) break;
-                currentPrompt = string.Join(Environment.NewLine, lastResponses);
-            }
-            return lastResponses;
-        }
-
-        public string RunActorIterative(string prompt, string actorName,
-            int maxIterationsOverride = 0, Action<int, string>? onIteration = null)
-        {
-            RequireWorkspace();
-
-            var actor = Actors.Find(a =>
-                string.Equals(a.Name, actorName, StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(a.Role.Name, actorName, StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(a.GetType().Name, actorName, StringComparison.OrdinalIgnoreCase));
-
-            if (actor == null) return $"Actor '{actorName}' not found.";
-
-            int cap        = maxIterationsOverride > 0 ? maxIterationsOverride : MaxIterations;
-            string current = prompt;
-            string last    = string.Empty;
-
-            for (int i = 1; i <= cap; i++)
-            {
-                string response = actor.Act(current);
-                if (string.IsNullOrWhiteSpace(response))
-                {
-                    onIteration?.Invoke(i, string.Empty);
-                    break;
-                }
-                onIteration?.Invoke(i, response);
-                last    = response;
-                current = actor.ProcessPrompt(response);
-            }
-            return last;
         }
 
         // — Guard —————————————————————————————————————————————————————————————
