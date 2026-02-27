@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Text;
 using CommandLine;
 using Wally.Console.Options;
 using Wally.Core;
@@ -18,6 +19,8 @@ namespace Wally.Console
 
         public static int Main(string[] args)
         {
+            System.Console.OutputEncoding = Encoding.UTF8;
+
             if (args.Length == 0)
                 return RunInteractiveMode();
             else
@@ -104,7 +107,7 @@ namespace Wally.Console
                     // ── Running actors ────────────────────────────────────────
                     if (opts is RunOptions ro)
                     {
-                        var responses = WallyCommands.HandleRun(_environment, ro.Prompt, ro.ActorName);
+                        var responses = WallyCommands.HandleRun(_environment, ro.Prompt, ro.ActorName, ro.Model);
                         foreach (var response in responses) System.Console.WriteLine(response);
                         if (responses.Count == 0) System.Console.WriteLine("No responses from Actors.");
                         return 0;
@@ -112,7 +115,7 @@ namespace Wally.Console
                     if (opts is RunIterativeOptions rio)
                     {
                         var responses = WallyCommands.HandleRunIterative(
-                            _environment, rio.Prompt, rio.ActorName, rio.MaxIterations);
+                            _environment, rio.Prompt, rio.ActorName, rio.MaxIterations, rio.Model);
                         if (responses.Count == 0) System.Console.WriteLine("No responses from final iteration.");
                         return 0;
                     }

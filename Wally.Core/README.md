@@ -84,19 +84,32 @@ Loaded from / saved to `wally-config.json`. Defines:
 |---|---|---|
 | `ActorsFolderName` | `"Actors"` | Subfolder inside the workspace that holds actor directories. |
 | `SourcePath` | `null` | Directory whose files give context to `gh copilot`. Defaults to workspace parent. |
-| `DefaultModel` | `null` | LLM model passed via `--model` to all actors. Null = Copilot default. |
-| `Models` | `[]` | List of available/allowed model identifiers for this workspace. |
+| `DefaultModel` | `"gpt-4.1"` | LLM model passed via `--model` to all actors. Null = Copilot default. |
+| `Models` | `[…]` | List of available/allowed model identifiers for this workspace. |
 | `MaxIterations` | `10` | Maximum iterations for iterative actor runs. |
 
 ### `CopilotActor`
 
-The default actor implementation. Invokes `gh copilot explain` directly using
+The default actor implementation. Invokes `gh copilot -p` directly using
 `ProcessStartInfo.ArgumentList` (no shell, no escaping issues). The process working
 directory is set to `SourcePath` so Copilot sees the target codebase. When
 `WallyConfig.DefaultModel` is set, `--model <id>` is added to the invocation.
 
 Stdin is redirected and immediately closed to prevent `gh copilot` from waiting for
 interactive input.
+
+#### Per-run model override
+
+Set `Actor.ModelOverride` before calling `Act()` to use a different model for a single run.
+The override is automatically cleared after the call completes. Passing `"default"` as the
+override explicitly falls back to the configured `DefaultModel`.
+
+```csharp
+var actor = env.GetActor("Developer");
+actor.ModelOverride = "claude-sonnet-4";   // one-shot override
+string response = actor.Act("Explain this module");
+// actor.ModelOverride is now null — next call uses DefaultModel again
+```
 
 ### RBA (Role, AcceptanceCriteria, Intent)
 

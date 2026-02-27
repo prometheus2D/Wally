@@ -52,9 +52,11 @@ info                             Print paths, model config, loaded actors, setti
 list                             List all actors and their prompts.
 reload-actors                    Re-read actor folders from disk and rebuild actors.
 
-run <actor> "<prompt>"           Run a specific actor by name.
-run-iterative "<prompt>"         Run all actors iteratively; -m N to cap iterations.
-run-iterative "<prompt>" -a <actor> [-m N]
+run <actor> "<prompt>" [-m <model>]
+                                 Run a specific actor by name. -m overrides the model.
+run-iterative "<prompt>" [--model <model>]
+                                 Run all actors iteratively; -m N to cap iterations.
+run-iterative "<prompt>" -a <actor> [--model <model>] [-m N]
                                  Run one named actor iteratively.
 
 help                             Print this reference.
@@ -83,15 +85,21 @@ Control which LLM model Copilot uses by editing `.wally/wally-config.json`:
 
 ```json
 {
-  "DefaultModel": "gpt-4o",
-  "Models": ["gpt-4o", "claude-3.5-sonnet", "o4-mini"]
+  "DefaultModel": "gpt-4.1",
+  "Models": ["gpt-4.1", "claude-sonnet-4", "gpt-5.2"]
 }
 ```
 
-- `DefaultModel` — the model passed to `--model` for every actor. Null = Copilot picks.
+- `DefaultModel` — the model passed to `--model` for every actor. `"gpt-4.1"` by default (free tier). Null = Copilot picks.
 - `Models` — reference list of available/allowed model identifiers.
 
-Run `gh copilot model list` to see available models. Use `wally info` to verify config.
+Override per run with `-m`:
+```sh
+wally run Developer "Explain this module" -m claude-sonnet-4
+wally run Developer "Explain this module" -m default   # uses DefaultModel from config
+```
+
+Run `gh copilot -- --help` and check the `--model` choices to see available models. Use `wally info` to verify config.
 
 ## Default workspace template
 

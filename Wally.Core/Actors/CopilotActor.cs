@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Text;
 using Wally.Core.RBA;
 
 namespace Wally.Core.Actors
@@ -24,7 +25,7 @@ namespace Wally.Core.Actors
 
         /// <summary>
         /// Generates a response by forwarding the workspace-enriched prompt to
-        /// <c>gh copilot explain</c>.
+        /// <c>gh copilot -p</c> (non-interactive mode).
         /// <para>
         /// The process <c>WorkingDirectory</c> is set to
         /// <see cref="WallyWorkspace.SourcePath"/> so that Copilot CLI receives
@@ -36,6 +37,10 @@ namespace Wally.Core.Actors
         {
             try
             {
+                // Resolve source path up front — used for both --add-dir and WorkingDirectory.
+                string? sourcePath = Workspace?.SourcePath;
+                bool hasSourcePath = !string.IsNullOrWhiteSpace(sourcePath) && Directory.Exists(sourcePath);
+
                 var startInfo = new ProcessStartInfo
                 {
                     FileName               = "gh",
@@ -43,30 +48,47 @@ namespace Wally.Core.Actors
                     RedirectStandardError  = true,
                     RedirectStandardInput  = true,
                     UseShellExecute        = false,
-                    CreateNoWindow         = true
+                    CreateNoWindow         = true,
+                    StandardOutputEncoding = Encoding.UTF8,
+                    StandardErrorEncoding  = Encoding.UTF8
                 };
 
-                // Build argument list: gh copilot explain [--model <m>] "<prompt>"
+                // Build argument list: gh copilot [--model <m>] [--add-dir <src>] -s -p "<prompt>"
                 // Using ArgumentList avoids all shell-escaping issues — the OS
                 // passes each entry as a discrete argv element.
                 startInfo.ArgumentList.Add("copilot");
-                startInfo.ArgumentList.Add("explain");
 
-                // Add --model when a default model is configured.
-                string? model = Workspace?.Config?.DefaultModel;
+                // Add --model: per-run override takes priority, then config default.
+                // Passing "default" as the override explicitly uses the config's DefaultModel.
+                bool isDefaultKeyword = string.Equals(ModelOverride, "default", StringComparison.OrdinalIgnoreCase);
+                string? model = !string.IsNullOrWhiteSpace(ModelOverride) && !isDefaultKeyword
+                    ? ModelOverride
+                    : Workspace?.Config?.DefaultModel;
                 if (!string.IsNullOrWhiteSpace(model))
                 {
                     startInfo.ArgumentList.Add("--model");
                     startInfo.ArgumentList.Add(model);
                 }
 
+                // Grant Copilot read access to the source directory so it can
+                // glob and read files without interactive permission prompts.
+                if (hasSourcePath)
+                {
+                    startInfo.ArgumentList.Add("--add-dir");
+                    startInfo.ArgumentList.Add(sourcePath!);
+                }
+
+                // -s (silent) suppresses stats/spinners, giving clean text output.
+                startInfo.ArgumentList.Add("-s");
+
+                // -p for non-interactive mode (exits after completion).
+                startInfo.ArgumentList.Add("-p");
                 startInfo.ArgumentList.Add(processedPrompt);
 
                 // Set working directory to SourcePath so Copilot CLI sees the
                 // target codebase for file context.
-                string? sourcePath = Workspace?.SourcePath;
-                if (!string.IsNullOrWhiteSpace(sourcePath) && Directory.Exists(sourcePath))
-                    startInfo.WorkingDirectory = sourcePath;
+                if (hasSourcePath)
+                    startInfo.WorkingDirectory = sourcePath!;
 
                 using var process = new Process { StartInfo = startInfo };
 

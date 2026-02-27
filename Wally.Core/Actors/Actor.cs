@@ -37,6 +37,15 @@ namespace Wally.Core.Actors
         /// </summary>
         public WallyWorkspace? Workspace { get; set; }
 
+        // ?? Runtime overrides ??????????????????????????????????????????????????
+
+        /// <summary>
+        /// When set, overrides <see cref="WallyConfig.DefaultModel"/> for the
+        /// current run. Cleared after each <see cref="Act"/> call so it does not
+        /// leak into subsequent invocations.
+        /// </summary>
+        public string? ModelOverride { get; set; }
+
         // ?? Constructor ???????????????????????????????????????????????????????
 
         /// <summary>
@@ -110,12 +119,20 @@ namespace Wally.Core.Actors
         {
             Setup();
             string processed = ProcessPrompt(prompt);
-            if (ShouldMakeChanges(processed))
+            try
             {
-                ApplyCodeChanges(processed);
-                return null;
+                if (ShouldMakeChanges(processed))
+                {
+                    ApplyCodeChanges(processed);
+                    return null;
+                }
+                return Respond(processed);
             }
-            return Respond(processed);
+            finally
+            {
+                // Clear the per-run override so it doesn't leak.
+                ModelOverride = null;
+            }
         }
     }
 }

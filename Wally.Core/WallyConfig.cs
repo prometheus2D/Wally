@@ -59,9 +59,8 @@ namespace Wally.Core
         /// Serves as a reference list — edit it to track which models are available
         /// or permitted in your environment.
         /// <para>
-        /// Common values: <c>"gpt-4o"</c>, <c>"gpt-4.1"</c>, <c>"claude-3.5-sonnet"</c>,
-        /// <c>"o4-mini"</c>, <c>"gemini-2.0-flash-001"</c>.
-        /// Run <c>gh copilot model list</c> to see the full set available to your account.
+        /// Run <c>gh copilot -- --help</c> and check the <c>--model</c> choices
+        /// to see the full set available to your account.
         /// </para>
         /// </summary>
         public List<string> Models { get; set; } = new();

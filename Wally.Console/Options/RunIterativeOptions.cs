@@ -15,5 +15,9 @@ namespace Wally.Console.Options
         [Option('m', "max-iterations", Required = false, Default = 0,
             HelpText = "Override the maximum number of iterations (0 = use environment default).")]
         public int MaxIterations { get; set; }
+
+        [Option("model", Required = false, Default = null,
+            HelpText = "Override the AI model for this run (e.g. gpt-4.1, claude-sonnet-4).")]
+        public string Model { get; set; }
     }
 }

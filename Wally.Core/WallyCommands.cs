@@ -72,9 +72,24 @@ namespace Wally.Core
 
         // — Running actors ————————————————————————————————————————————————————
 
-        public static List<string> HandleRun(WallyEnvironment env, string prompt, string actorName = null)
+        public static List<string> HandleRun(WallyEnvironment env, string prompt, string actorName = null, string model = null)
         {
             if (RequireWorkspace(env, "run") == null) return new List<string>();
+
+            // Apply per-run model override to the target actor(s).
+            if (!string.IsNullOrWhiteSpace(model))
+            {
+                if (!string.IsNullOrEmpty(actorName))
+                {
+                    var actor = env.GetActor(actorName);
+                    if (actor != null) actor.ModelOverride = model;
+                }
+                else
+                {
+                    foreach (var a in env.Actors) a.ModelOverride = model;
+                }
+            }
+
             return !string.IsNullOrEmpty(actorName)
                 ? env.RunActor(prompt, actorName)
                 : env.RunActors(prompt);
@@ -86,12 +101,26 @@ namespace Wally.Core
         /// each iteration.
         /// </summary>
         public static List<string> HandleRunIterative(
-            WallyEnvironment env, string prompt, string actorName = null, int maxIterationsOverride = 0)
+            WallyEnvironment env, string prompt, string actorName = null, int maxIterationsOverride = 0, string model = null)
         {
             if (RequireWorkspace(env, "run-iterative") == null) return new List<string>();
 
             if (maxIterationsOverride > 0)
                 env.MaxIterations = maxIterationsOverride;
+
+            // Apply per-run model override to the target actor(s).
+            if (!string.IsNullOrWhiteSpace(model))
+            {
+                if (!string.IsNullOrEmpty(actorName))
+                {
+                    var actor = env.GetActor(actorName);
+                    if (actor != null) actor.ModelOverride = model;
+                }
+                else
+                {
+                    foreach (var a in env.Actors) a.ModelOverride = model;
+                }
+            }
 
             if (!string.IsNullOrEmpty(actorName))
             {
@@ -205,9 +234,12 @@ namespace Wally.Core
             Console.WriteLine("  save <path>                    Save config and all actor.json files.");
             Console.WriteLine("  list                           List actors and their prompts.");
             Console.WriteLine("  reload-actors                  Re-read actor folders from disk, rebuild actors.");
-            Console.WriteLine("  run <actor> \"<prompt>\"         Run a specific actor by name.");
-            Console.WriteLine("  run-iterative \"<prompt>\"       Run all actors iteratively; -m N to cap.");
-            Console.WriteLine("  run-iterative \"<prompt>\" -a <actor>  Run one actor iteratively.");
+            Console.WriteLine("  run <actor> \"<prompt>\" [-m <model>]  Run a specific actor by name.");
+            Console.WriteLine("                                 Use -m default to use the configured DefaultModel.");
+            Console.WriteLine("  run-iterative \"<prompt>\" [--model <model>] [-m N]");
+            Console.WriteLine("                                 Run all actors iteratively; -m N to cap.");
+            Console.WriteLine("  run-iterative \"<prompt>\" -a <actor> [--model <model>] [-m N]");
+            Console.WriteLine("                                 Run one actor iteratively.");
             Console.WriteLine();
             Console.WriteLine("Workspace folder layout:");
             Console.WriteLine("  <WorkspaceFolder>/             e.g. .wally/");
@@ -224,7 +256,7 @@ namespace Wally.Core
             Console.WriteLine("DefaultModel: The LLM model Copilot uses (--model flag).");
             Console.WriteLine("              Set DefaultModel in wally-config.json.");
             Console.WriteLine("Models:       List of available/allowed model identifiers.");
-            Console.WriteLine("              Run 'gh copilot model list' to see what's available.");
+            Console.WriteLine("              Run 'gh copilot -- --help' and check --model choices.");
         }
 
         // — Private helpers ———————————————————————————————————————————————————

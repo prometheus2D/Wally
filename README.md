@@ -48,7 +48,7 @@ wally setup -s C:\repos\MyApp
 wally run Developer "Add input validation to the login form"
 ```
 
-That's it. Wally enriches your prompt with each actor's Role, AcceptanceCriteria, and Intent, then passes the full structured prompt to `gh copilot explain` with the working directory set to your `SourcePath`.
+That's it. Wally enriches your prompt with each actor's Role, AcceptanceCriteria, and Intent, then passes the full structured prompt to `gh copilot -p` with the working directory set to your `SourcePath`.
 
 ### Interactive REPL
 
@@ -77,13 +77,13 @@ User prompt
 
     ## Prompt
     <user's prompt>
-  ? gh copilot explain [--model <model>] "<full structured prompt>"
+  ? gh copilot [--model <model>] -p "<full structured prompt>"
        (working directory = SourcePath)
   ? response returned to the console
 ```
 
 Each actor enriches the user's raw prompt with its own RBA context. Wally then invokes
-`gh copilot explain` directly (using `ProcessStartInfo.ArgumentList` — no shell, no
+`gh copilot -p` directly (using `ProcessStartInfo.ArgumentList` — no shell, no
 escaping issues). The `SourcePath` is set as the process working directory so Copilot CLI
 sees the target codebase. If a `DefaultModel` is configured, `--model` is added automatically.
 
@@ -114,13 +114,25 @@ sees the target codebase. If a `DefaultModel` is configured, `--model` is added 
 {
   "ActorsFolderName": "Actors",
   "SourcePath": "C:\\repos\\MyApp",
-  "DefaultModel": "gpt-4o",
+  "DefaultModel": "gpt-4.1",
   "Models": [
-    "gpt-4o",
-    "gpt-4.1",
-    "claude-3.5-sonnet",
-    "o4-mini",
-    "gemini-2.0-flash-001"
+    "claude-sonnet-4.6",
+    "claude-sonnet-4.5",
+    "claude-haiku-4.5",
+    "claude-opus-4.6",
+    "claude-opus-4.6-fast",
+    "claude-opus-4.5",
+    "claude-sonnet-4",
+    "gemini-3-pro-preview",
+    "gpt-5.3-codex",
+    "gpt-5.2-codex",
+    "gpt-5.2",
+    "gpt-5.1-codex-max",
+    "gpt-5.1-codex",
+    "gpt-5.1",
+    "gpt-5.1-codex-mini",
+    "gpt-5-mini",
+    "gpt-4.1"
   ],
   "MaxIterations": 10
 }
@@ -130,23 +142,35 @@ sees the target codebase. If a `DefaultModel` is configured, `--model` is added 
 |---|---|---|
 | `ActorsFolderName` | `"Actors"` | Subfolder inside the workspace that holds actor directories. |
 | `SourcePath` | `null` | Directory whose files give context to `gh copilot`. Defaults to workspace parent when null. |
-| `DefaultModel` | `null` | LLM model passed via `--model` to all actors. Null = Copilot default. |
-| `Models` | `[]` | List of available/allowed model identifiers for this workspace. |
+| `DefaultModel` | `"gpt-4.1"` | LLM model passed via `--model` to all actors. Null = Copilot default. |
+| `Models` | `[…]` | List of available/allowed model identifiers for this workspace. |
 | `MaxIterations` | `10` | Default cap for `run-iterative`. |
 
 ### Available models
 
-Run `gh copilot model list` to see models available to your account. Common values:
+Run `gh copilot -- --help` to see the `--model` choices available to your account. Current models:
 
-| Model ID | Notes |
+| Model ID | Provider |
 |---|---|
-| `gpt-4o` | OpenAI GPT-4o |
-| `gpt-4.1` | OpenAI GPT-4.1 |
-| `claude-3.5-sonnet` | Anthropic Claude 3.5 Sonnet |
-| `o4-mini` | OpenAI o4-mini |
-| `gemini-2.0-flash-001` | Google Gemini 2.0 Flash |
+| `claude-sonnet-4.6` | Anthropic |
+| `claude-sonnet-4.5` | Anthropic |
+| `claude-haiku-4.5` | Anthropic |
+| `claude-opus-4.6` | Anthropic |
+| `claude-opus-4.6-fast` | Anthropic |
+| `claude-opus-4.5` | Anthropic |
+| `claude-sonnet-4` | Anthropic |
+| `gemini-3-pro-preview` | Google |
+| `gpt-5.3-codex` | OpenAI |
+| `gpt-5.2-codex` | OpenAI |
+| `gpt-5.2` | OpenAI |
+| `gpt-5.1-codex-max` | OpenAI |
+| `gpt-5.1-codex` | OpenAI |
+| `gpt-5.1` | OpenAI |
+| `gpt-5.1-codex-mini` | OpenAI |
+| `gpt-5-mini` | OpenAI |
+| `gpt-4.1` | OpenAI |
 
-Add the ones you have access to into the `Models` list, then set `DefaultModel` to pick which one is used.
+Set `DefaultModel` in `wally-config.json` to pick which one is used for all actors.
 
 ---
 
@@ -201,9 +225,9 @@ Add a new subfolder with an `actor.json` to create a new actor. Each actor is fu
 
 | Command | Description |
 |---|---|
-| `run <actor> "<prompt>"` | Run a specific actor by name on the prompt. |
-| `run-iterative "<prompt>" [-m N]` | Loop all actors, feeding combined responses back each iteration. |
-| `run-iterative "<prompt>" -a <actor> [-m N]` | Loop a single named actor, feeding its response back each iteration. |
+| `run <actor> "<prompt>" [-m <model>]` | Run a specific actor by name on the prompt. `-m` overrides the model for this run. |
+| `run-iterative "<prompt>" [--model <model>] [-m N]` | Loop all actors, feeding combined responses back each iteration. |
+| `run-iterative "<prompt>" -a <actor> [--model <model>] [-m N]` | Loop a single named actor, feeding its response back each iteration. |
 
 ---
 
@@ -233,15 +257,25 @@ Control which LLM model Copilot uses by editing `wally-config.json`:
 
 ```json
 {
-  "DefaultModel": "gpt-4o",
-  "Models": ["gpt-4o", "claude-3.5-sonnet", "o4-mini"]
+  "DefaultModel": "gpt-4.1",
+  "Models": ["gpt-4.1", "claude-sonnet-4", "gpt-5.2"]
 }
 ```
 
-- **`DefaultModel`** — the model passed to `--model` for every actor invocation. Null = Copilot picks.
+- **`DefaultModel`** — the model passed to `--model` for every actor invocation. `"gpt-4.1"` by default (free tier). Null = Copilot picks.
 - **`Models`** — a reference list of model identifiers available to this workspace.
 
-When `DefaultModel` is set, Wally adds `--model <id>` to the `gh copilot explain` invocation.
+When `DefaultModel` is set, Wally adds `--model <id>` to the `gh copilot` invocation.
+
+Override per run with `-m`:
+
+```sh
+# Use a specific model for one run
+wally run Developer "Explain this module" -m claude-sonnet-4
+
+# Explicitly use the configured default (useful in scripts)
+wally run Developer "Explain this module" -m default
+```
 
 ---
 
@@ -289,8 +323,8 @@ Config resolution follows a three-tier fallback:
 | `gh copilot: command not found` | Run `gh extension install github/gh-copilot`. |
 | `HTTP 401 / not authenticated` | Run `gh auth login` and ensure your account has Copilot access. |
 | Empty responses | Check `wally info` — verify SourcePath points to a real directory with code. |
-| Model not available | Run `gh copilot model list` to see available models, update `DefaultModel` in config. |
-| `Copilot exited with code 1` | Run `gh copilot explain "test"` manually to verify Copilot works outside Wally. |
+| Model not available | Run `gh copilot -- --help` and check `--model` choices, then update `DefaultModel` in config. |
+| `Copilot exited with code 1` | Run `gh copilot -p "test"` manually to verify Copilot works outside Wally. |
 
 ---
 

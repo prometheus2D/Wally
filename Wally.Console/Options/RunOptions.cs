@@ -10,5 +10,9 @@ namespace Wally.Console.Options
 
         [Value(1, Required = true, HelpText = "The prompt to process.")]
         public string Prompt { get; set; }
+
+        [Option('m', "model", Required = false, Default = null,
+            HelpText = "Override the AI model for this run (e.g. gpt-4.1, claude-sonnet-4).")]
+        public string Model { get; set; }
     }
 }
