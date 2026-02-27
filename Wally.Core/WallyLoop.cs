@@ -11,8 +11,11 @@ namespace Wally.Core
     ///   <item><b>Action</b> — a <see cref="Func{String, String}"/> that receives a
     ///         prompt and returns a result string (e.g. an actor's response).</item>
     ///   <item><b>StartPrompt</b> — the prompt used for the first iteration.</item>
-    ///   <item><b>ContinuePrompt</b> — the prompt used for every subsequent iteration.
-    ///         When <see langword="null"/>, the previous result is fed as the next prompt.</item>
+    ///   <item><b>ContinuePrompt</b> — a function that receives the previous iteration's
+    ///         result and returns the prompt for the next iteration. This is how
+    ///         context is carried forward between stateless calls. When
+    ///         <see langword="null"/>, the previous result is fed directly as the
+    ///         next prompt.</item>
     /// </list>
     /// After each iteration the result is checked for two keywords:
     /// <list type="bullet">
@@ -52,11 +55,12 @@ namespace Wally.Core
         public string StartPrompt { get; set; }
 
         /// <summary>
-        /// Prompt used for every iteration after the first.
-        /// When <see langword="null"/> or empty, the previous iteration's result
-        /// is fed directly as the next prompt.
+        /// Function that builds the prompt for iterations after the first.
+        /// Receives the previous iteration's result so that context can be
+        /// carried forward between stateless calls. When <see langword="null"/>, 
+        /// the previous result is fed directly as the next prompt.
         /// </summary>
-        public string? ContinuePrompt { get; set; }
+        public Func<string, string>? ContinuePrompt { get; set; }
 
         /// <summary>
         /// The maximum number of iterations the loop is allowed to perform.
@@ -103,8 +107,8 @@ namespace Wally.Core
         /// The prompt for the first iteration. Must not be <see langword="null"/>.
         /// </param>
         /// <param name="continuePrompt">
-        /// The prompt for subsequent iterations. When <see langword="null"/>,
-        /// the previous result is used as the next prompt.
+        /// Function that receives the previous result and returns the next prompt.
+        /// When <see langword="null"/>, the previous result is used directly.
         /// </param>
         /// <param name="maxIterations">
         /// Hard ceiling on iterations. Defaults to <c>10</c>.
@@ -116,7 +120,7 @@ namespace Wally.Core
         public WallyLoop(
             Func<string, string> action,
             string startPrompt,
-            string? continuePrompt = null,
+            Func<string, string>? continuePrompt = null,
             int maxIterations = 10)
         {
             _action        = action ?? throw new ArgumentNullException(nameof(action));
@@ -131,8 +135,9 @@ namespace Wally.Core
         /// Executes the loop.
         /// <para>
         /// The first iteration uses <see cref="StartPrompt"/>. Subsequent
-        /// iterations use <see cref="ContinuePrompt"/> (when set), otherwise
-        /// the previous result becomes the next prompt.
+        /// iterations call <see cref="ContinuePrompt"/> with the previous result
+        /// to build the next prompt (carrying context forward). If
+        /// <see cref="ContinuePrompt"/> is null, the previous result is used directly.
         /// </para>
         /// <para>
         /// After each iteration the result is checked for
@@ -170,9 +175,11 @@ namespace Wally.Core
                     break;
                 }
 
-                // Prepare the prompt for the next iteration.
-                currentPrompt = !string.IsNullOrEmpty(ContinuePrompt)
-                    ? ContinuePrompt
+                // Build the next prompt — either via the ContinuePrompt function
+                // (which receives the previous result for context) or by using
+                // the result directly.
+                currentPrompt = ContinuePrompt != null
+                    ? ContinuePrompt.Invoke(result)
                     : result;
             }
         }

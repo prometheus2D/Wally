@@ -10,20 +10,15 @@ namespace Wally.Core.Actors
     /// A read-only Copilot actor. Forwards the workspace-enriched prompt to
     /// <c>gh copilot</c> and returns the response as text — never applies code
     /// changes directly.
-    /// The prompt is fully structured by <see cref="Actor.ProcessPrompt"/> before
-    /// this method is called.
+    /// <para>
+    /// Each call to <see cref="Respond"/> is fully stateless — a new
+    /// <c>gh copilot -p</c> process is spawned and exits after completion.
+    /// There is no conversation memory between calls; context must be
+    /// carried forward explicitly in the prompt.
+    /// </para>
     /// </summary>
     public class CopilotActor : Actor
     {
-        /// <summary>
-        /// When set, the next <see cref="Respond"/> call will pass
-        /// <c>--resume &lt;SessionId&gt;</c> to <c>gh copilot</c> so the
-        /// conversation continues in the same Copilot session.
-        /// Set automatically after the first call to <see cref="Respond"/>
-        /// if a session ID is captured.
-        /// </summary>
-        public string? CopilotSessionId { get; set; }
-
         public CopilotActor(string name, string folderPath,
                             Role role, AcceptanceCriteria acceptanceCriteria, Intent intent,
                             WallyWorkspace? workspace = null)
@@ -33,24 +28,14 @@ namespace Wally.Core.Actors
         public override bool ShouldMakeChanges(string processedPrompt) => false;
 
         /// <summary>
-        /// Clears the <see cref="CopilotSessionId"/> so the next call starts
-        /// a fresh Copilot session with no prior conversation context.
-        /// </summary>
-        public void ResetSession()
-        {
-            CopilotSessionId = null;
-        }
-
-        /// <summary>
         /// Generates a response by forwarding the workspace-enriched prompt to
         /// <c>gh copilot -p</c> (non-interactive mode).
         /// <para>
-        /// The process <c>WorkingDirectory</c> is set to
-        /// <see cref="WallyWorkspace.WorkSource"/> so that Copilot CLI receives
-        /// the correct file and directory context. The <c>--model</c> flag is
+        /// Each invocation is stateless — a fresh process is spawned, the prompt
+        /// is sent, the response is captured, and the process exits. The
+        /// <c>WorkingDirectory</c> is set to <see cref="WallyWorkspace.WorkSource"/>
+        /// so Copilot CLI sees the target codebase. The <c>--model</c> flag is
         /// added when <see cref="WallyConfig.DefaultModel"/> is configured.
-        /// When <see cref="CopilotSessionId"/> is set, <c>--resume</c> is added
-        /// to continue the previous Copilot conversation.
         /// </para>
         /// </summary>
         public override string Respond(string processedPrompt)
@@ -73,15 +58,10 @@ namespace Wally.Core.Actors
                     StandardErrorEncoding  = Encoding.UTF8
                 };
 
-                // Build argument list: gh copilot [--resume <id>] [--model <m>] [--add-dir <src>] -s -p "<prompt>"
+                // Build argument list: gh copilot [--model <m>] [--add-dir <src>] -s -p "<prompt>"
+                // Using ArgumentList avoids all shell-escaping issues — the OS
+                // passes each entry as a discrete argv element.
                 startInfo.ArgumentList.Add("copilot");
-
-                // Resume a previous session if we have a session ID.
-                if (!string.IsNullOrWhiteSpace(CopilotSessionId))
-                {
-                    startInfo.ArgumentList.Add("--resume");
-                    startInfo.ArgumentList.Add(CopilotSessionId);
-                }
 
                 // Add --model: per-run override takes priority, then config default.
                 // Passing "default" as the override explicitly uses the config's DefaultModel.
