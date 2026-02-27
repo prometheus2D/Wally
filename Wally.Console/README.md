@@ -23,6 +23,9 @@ wally setup --path C:\repos\MyApp\.wally
 wally
 ```
 
+> **Tip:** Run `wally` from your project root so Copilot CLI can see your code.
+> Copilot automatically uses the current working directory for file context.
+
 ## Commands
 
 ```
@@ -31,16 +34,10 @@ setup [-p <path>]             Scaffold .wally/ next to exe by default,
 create <path>                 Scaffold a new workspace at <path> and load it.
 load <path>                   Load an existing workspace from <path>.
 save <path>                   Persist config and all actor.json files to <path>.
-info                          Print paths, loaded actors, reference counts, and settings.
+info                          Print paths, loaded actors, and settings.
 
-list                          List all actors (with prompts), folder refs, and file refs.
+list                          List all actors and their prompts.
 reload-actors                 Re-read actor folders from disk and rebuild actors.
-
-add-folder <path>             Register a folder for Copilot context.
-add-file <path>               Register a file for Copilot context.
-remove-folder <path>          Deregister a folder.
-remove-file <path>            Deregister a file.
-clear-refs                    Clear all registered folders and files.
 
 run "<prompt>" [actor]        Run all actors, or one by name.
 run-iterative "<prompt>"      Run all actors iteratively; -m N to cap iterations.
@@ -54,7 +51,7 @@ help                          Print this reference.
 
 Any actor can be run iteratively via `run-iterative -a <actor>`. On each iteration the
 previous response is re-processed through the actor's full RBA context (Role,
-AcceptanceCriteria, Intent, file/folder references) before the next `Act` call.
+AcceptanceCriteria, Intent) before the next `Act` call.
 The loop stops early when the actor returns an empty response.
 
 ```sh
@@ -64,10 +61,9 @@ wally run-iterative "Refactor the service layer to use async/await throughout"
 # Loop a single actor up to 4 iterations
 wally run-iterative "Add XML doc comments to all public methods" -a Developer -m 4
 
-# Interactive — environment and workspace context persist across commands
+# Interactive — environment persists across commands
 wally
 wally> setup --path C:\repos\MyApp\.wally
-wally> add-folder C:\repos\MyApp\src
 wally> run-iterative "Improve error handling" -a Developer -m 5
 wally> exit
 ```

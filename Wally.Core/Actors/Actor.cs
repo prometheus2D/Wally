@@ -5,8 +5,7 @@ namespace Wally.Core.Actors
     /// <summary>
     /// Abstract base class for Wally Actors.
     /// Each Actor is given a <see cref="WallyWorkspace"/> reference at construction time
-    /// so that <see cref="ProcessPrompt"/> can enrich prompts with workspace context
-    /// (registered file and folder references, project path, etc.).
+    /// so that <see cref="ProcessPrompt"/> can enrich prompts with workspace context.
     /// </summary>
     public abstract class Actor
     {
@@ -33,9 +32,6 @@ namespace Wally.Core.Actors
 
         /// <summary>
         /// The workspace this Actor operates in. Provides access to
-        /// <see cref="WallyWorkspace.FileReferences"/>,
-
-        /// <see cref="WallyWorkspace.FolderReferences"/>, and
         /// <see cref="WallyWorkspace.ProjectFolder"/> for prompt enrichment.
         /// May be <see langword="null"/> when an Actor is constructed outside a workspace.
         /// </summary>
@@ -64,11 +60,11 @@ namespace Wally.Core.Actors
         public virtual void Setup() { }
 
         /// <summary>
-        /// Enriches <paramref name="prompt"/> with workspace context (file and folder
-        /// references, project path) before it is passed to <see cref="Respond"/> or
+        /// Enriches <paramref name="prompt"/> with the actor's RBA context
+        /// before it is passed to <see cref="Respond"/> or
         /// <see cref="ApplyCodeChanges"/>.
         /// Override to customise prompt shaping; call <c>base.ProcessPrompt</c> to retain
-        /// the default workspace enrichment.
+        /// the default enrichment.
         /// </summary>
         public virtual string ProcessPrompt(string prompt)
         {
@@ -88,27 +84,6 @@ namespace Wally.Core.Actors
             // ?? User prompt ???????????????????????????????????????????????????
             sb.AppendLine("## Prompt");
             sb.AppendLine(prompt);
-
-            // ?? Workspace context ?????????????????????????????????????????????
-            if (Workspace != null)
-            {
-                if (!string.IsNullOrEmpty(Workspace.ProjectFolder))
-                    sb.AppendLine($"\n[Project Folder: {Workspace.ProjectFolder}]");
-
-                if (Workspace.FolderReferences.Count > 0)
-                {
-                    sb.AppendLine("[Folder References]");
-                    foreach (var folder in Workspace.FolderReferences)
-                        sb.AppendLine($"  {folder}");
-                }
-
-                if (Workspace.FileReferences.Count > 0)
-                {
-                    sb.AppendLine("[File References]");
-                    foreach (var file in Workspace.FileReferences)
-                        sb.AppendLine($"  {file}");
-                }
-            }
 
             return sb.ToString().TrimEnd();
         }

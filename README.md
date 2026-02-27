@@ -2,7 +2,9 @@
 
 **Role-Based Actor (RBA) framework that wraps GitHub Copilot CLI into a structured, prompt-driven AI environment.**
 
-Wally scaffolds a workspace next to any codebase, loads actors defined by individual folders under `.wally/Actors/`, enriches every prompt with your registered files and folders, and forwards the result to `gh copilot`. Works as a standalone CLI, an interactive REPL, or embedded in your own .NET app via `Wally.Core`.
+Wally scaffolds a workspace next to any codebase, loads actors defined by individual folders under `.wally/Actors/`, enriches every prompt with RBA context (Role, AcceptanceCriteria, Intent), and forwards the result to `gh copilot`. Works as a standalone CLI, an interactive REPL, or embedded in your own .NET app via `Wally.Core`.
+
+> **Context:** Copilot CLI automatically uses the current working directory and its subdirectories for file context. Run `wally` from your project root so Copilot can see your code.
 
 ---
 
@@ -21,7 +23,7 @@ Wally scaffolds a workspace next to any codebase, loads actors defined by indivi
 - **Workspace folder** — the `.wally/` directory holding config and all actor folders.
 - **Actor folders** — each subfolder under `Actors/` defines one independent actor. The folder name is the actor name. Add a folder to create a new actor; delete a folder to remove one.
 - **actor.json** — each actor folder contains an `actor.json` with `name`, `rolePrompt`, `criteriaPrompt`, and `intentPrompt`. Edit the JSON to change prompts.
-- **References** — explicit opt-in: register files and folders with `add-file` / `add-folder`. Only those paths are appended to every prompt.
+- **File context** — handled automatically by Copilot CLI based on your working directory. No manual file registration needed.
 
 ---
 
@@ -40,28 +42,21 @@ Wally scaffolds a workspace next to any codebase, loads actors defined by indivi
 ### Option A — drop into any project
 
 ```sh
-# 1. Copy wally.exe into your project root (or any parent folder)
+# 1. Copy wally.exe into your project root
 # 2. Self-assemble the workspace next to the exe (copies default actors)
 wally setup
 
-# 3. Register the code you want Copilot to reason about
-wally add-folder .\src
-wally add-file   .\src\Program.cs
-
-# 4. Run a prompt against all actors
+# 3. Run a prompt against all actors
 wally run "Implement input validation for the login form"
 
-# 5. Run against one specific actor by name
+# 4. Run against one specific actor by name
 wally run "Implement input validation" Developer
 ```
 
 ### Option B — point at an existing workspace path
 
 ```sh
-# setup accepts --path / -p to target any folder directly
 wally setup --path C:\repos\MyApp\.wally
-
-wally add-folder C:\repos\MyApp\src
 wally run "Refactor the repository layer to use the Unit of Work pattern"
 ```
 
@@ -72,7 +67,6 @@ actors together; supply `-a <name>` to drive a single actor.
 
 ```sh
 wally setup
-wally add-folder .\src
 
 # Loop all actors (combined responses feed back each iteration)
 wally run-iterative "Improve error handling across all services"
@@ -87,7 +81,6 @@ Run `wally` with no arguments to enter interactive mode. The environment persist
 
 ```
 wally> setup --path C:\repos\MyApp\.wally
-wally> add-folder .\src
 wally> run "Add retry logic to the HTTP client"
 wally> run-iterative "Improve test coverage" -m 3
 wally> run-iterative "Refactor to clean architecture" -a Developer -m 5
@@ -118,24 +111,14 @@ dotnet publish Wally.Console -c Release -r win-x64 --self-contained
 | `create <path>` | Scaffold a new workspace at `<path>` and load it. |
 | `load <path>` | Load an existing workspace from `<path>`. |
 | `save <path>` | Persist the current config and all actor.json files to `<path>`. |
-| `info` | Print paths, loaded actors, reference counts, and settings. |
+| `info` | Print paths, loaded actors, and settings. |
 
 ### Actors
 
 | Command | Description |
 |---|---|
-| `list` | List all actors (with prompts), folder references, and file references. |
+| `list` | List all actors and their prompts. |
 | `reload-actors` | Re-read actor folders from disk and rebuild actors without a full reload. |
-
-### Context (what Copilot can see)
-
-| Command | Description |
-|---|---|
-| `add-folder <path>` | Register a folder — appended to every prompt. |
-| `add-file <path>` | Register a file — appended to every prompt. |
-| `remove-folder <path>` | Deregister a folder. |
-| `remove-file <path>` | Deregister a file. |
-| `clear-refs` | Clear all registered folders and files. |
 
 ### Running
 
@@ -151,7 +134,7 @@ dotnet publish Wally.Console -c Release -r win-x64 --self-contained
 
 The loop runs directly inside `WallyEnvironment`. On each iteration the previous response is
 passed back through `Actor.ProcessPrompt` so the actor's full RBA context (Role,
-AcceptanceCriteria, Intent, file/folder references) is re-applied before the next `Act` call.
+AcceptanceCriteria, Intent) is re-applied before the next `Act` call.
 The loop stops early when the actor returns an empty response.
 
 ---
@@ -228,15 +211,11 @@ User prompt
 
     ## Prompt
     <user's prompt>
-
-    [Project Folder: C:\repos\MyApp]
-    [Folder References]
-      C:\repos\MyApp\src
-    [File References]
-      C:\repos\MyApp\src\Program.cs
-  ?
-    gh copilot suggest "<full structured prompt>"
+  -->
+    gh copilot -p "<full structured prompt>"
 ```
+
+Copilot CLI automatically uses the current working directory for file context.
 
 ---
 

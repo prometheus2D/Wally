@@ -34,7 +34,7 @@ Config resolution follows a three-tier fallback:
 
 ### `WallyEnvironment`
 
-Thin runtime host over a `WallyWorkspace`. Exposes workspace lifecycle, reference management, and actor execution.
+Thin runtime host over a `WallyWorkspace`. Exposes workspace lifecycle and actor execution.
 
 ```csharp
 var env = new WallyEnvironment();
@@ -44,8 +44,6 @@ env.SetupLocal();
 
 // Or target a specific folder
 env.SetupLocal(@"C:\repos\MyApp\.wally");
-
-env.AddFolderReference(@".\src");
 
 // Run all actors once
 var responses = env.RunActors("Explain this module");
@@ -63,8 +61,10 @@ string result = env.RunActorIterative("Refactor to clean architecture", "Develop
 
 The iterative loop logic lives directly inside `WallyEnvironment`. On each iteration the previous
 response is passed back through `Actor.ProcessPrompt` so the actor's full RBA context (Role,
-AcceptanceCriteria, Intent, file/folder references) is re-applied before the next `Act` call.
+AcceptanceCriteria, Intent) is re-applied before the next `Act` call.
 The loop stops early when the actor returns an empty response.
+
+> **Note:** File context is handled automatically by Copilot CLI based on the working directory.
 
 ### `WallyConfig`
 

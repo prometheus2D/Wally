@@ -55,17 +55,10 @@ namespace Wally.Console
                 (opts) =>
                 {
                     // ── Workspace lifecycle ───────────────────────────────────
-                    if (opts is LoadOptions lo)       { WallyCommands.HandleLoad(_environment, lo.Path); return 0; }
+                    if (opts is LoadOptions lo)        { WallyCommands.HandleLoad(_environment, lo.Path); return 0; }
                     if (opts is SaveOptions so)        { WallyCommands.HandleSave(_environment, so.Path); return 0; }
                     if (opts is CreateOptions co)      { WallyCommands.HandleCreate(_environment, co.Path); return 0; }
                     if (opts is SetupOptions seto)     { WallyCommands.HandleSetup(_environment, seto.Path); return 0; }
-
-                    // ── Reference management ──────────────────────────────────
-                    if (opts is AddFolderOptions afo)  { WallyCommands.HandleAddFolder(_environment, afo.FolderPath); return 0; }
-                    if (opts is AddFileOptions afio)   { WallyCommands.HandleAddFile(_environment, afio.FilePath); return 0; }
-                    if (opts is RemoveFolderOptions rfo) { WallyCommands.HandleRemoveFolder(_environment, rfo.FolderPath); return 0; }
-                    if (opts is RemoveFileOptions rfio)  { WallyCommands.HandleRemoveFile(_environment, rfio.FilePath); return 0; }
-                    if (opts is ClearRefsOptions)      { WallyCommands.HandleClearReferences(_environment); return 0; }
 
                     // ── Running actors ────────────────────────────────────────
                     if (opts is RunOptions ro)
