@@ -123,6 +123,11 @@ namespace Wally.Core
         /// contains <see cref="WallyLoop.CompletedKeyword"/>, 
         /// <see cref="WallyLoop.ErrorKeyword"/>, or
         /// <paramref name="maxIterations"/> is reached.
+        /// <para>
+        /// When the actor is a <see cref="CopilotActor"/>, a shared Copilot
+        /// session ID is assigned so all iterations continue the same
+        /// conversation — the LLM retains full context across iterations.
+        /// </para>
         /// </summary>
         public static List<string> HandleRunLoop(
             WallyEnvironment env, string prompt, string actorName,
@@ -151,6 +156,15 @@ namespace Wally.Core
                 $"with model override '{model ?? "(none)"}'"
             );
 
+            // If the actor is a CopilotActor, assign a shared session ID so all
+            // iterations continue the same Copilot conversation with full context.
+            string? sessionId = null;
+            if (actor is CopilotActor copilotActor)
+            {
+                sessionId = Guid.NewGuid().ToString();
+                copilotActor.CopilotSessionId = sessionId;
+            }
+
             // The actor generates the full prompt (RBA wrapper + user input).
             string startPrompt    = actor.GeneratePrompt(prompt);
             string continuePrompt = actor.GeneratePrompt(
@@ -165,9 +179,15 @@ namespace Wally.Core
             );
 
             Console.WriteLine($"[run-loop] Actor: {actor.Name}  MaxIterations: {iterations}");
+            if (sessionId != null)
+                Console.WriteLine($"[run-loop] Copilot session: {sessionId}");
             Console.WriteLine();
 
             loop.Run();
+
+            // Clean up the session so it doesn't leak into subsequent runs.
+            if (actor is CopilotActor ca)
+                ca.ResetSession();
 
             // Print each iteration result.
             for (int i = 0; i < loop.Results.Count; i++)
