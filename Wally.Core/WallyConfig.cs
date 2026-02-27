@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
 
@@ -20,7 +21,7 @@ namespace Wally.Core
     /// </summary>
     public class WallyConfig
     {
-        // ?? Folder names ??????????????????????????????????????????????????????
+        // — Folder names ——————————————————————————————————————————————————————
 
         /// <summary>
         /// Subfolder inside the workspace folder that holds one directory per actor.
@@ -29,7 +30,7 @@ namespace Wally.Core
         /// </summary>
         public string ActorsFolderName { get; set; } = "Actors";
 
-        // ?? Source path ?????????????????????????????????????????????????????????
+        // — Source path ———————————————————————————————————————————————————————
 
         /// <summary>
         /// The directory whose files and subdirectories provide context to the
@@ -44,24 +45,33 @@ namespace Wally.Core
         /// </summary>
         public string? SourcePath { get; set; }
 
-        // ?? Model selection ????????????????????????????????????????????????????
+        // — Model selection ———————————————————————————————————————————————————
 
         /// <summary>
-        /// Copilot model configuration. Controls which LLM model is passed to
-        /// <c>gh copilot --model</c> when running actors.
+        /// The model identifier passed to <c>gh copilot --model</c> when running actors.
+        /// When <see langword="null"/> or empty, the Copilot CLI default model is used.
+        /// Must be one of the values in <see cref="Models"/> (when that list is non-empty).
+        /// </summary>
+        public string? DefaultModel { get; set; }
+
+        /// <summary>
+        /// The set of model identifiers that this workspace is allowed to use.
+        /// Serves as a reference list — edit it to track which models are available
+        /// or permitted in your environment.
         /// <para>
-        /// Supports a <see cref="CopilotModelConfig.Default"/> model for all actors
-        /// and optional <see cref="CopilotModelConfig.ActorOverrides"/> per actor name.
+        /// Common values: <c>"gpt-4o"</c>, <c>"gpt-4.1"</c>, <c>"claude-3.5-sonnet"</c>,
+        /// <c>"o4-mini"</c>, <c>"gemini-2.0-flash-001"</c>.
+        /// Run <c>gh copilot model list</c> to see the full set available to your account.
         /// </para>
         /// </summary>
-        public CopilotModelConfig? Model { get; set; }
+        public List<string> Models { get; set; } = new();
 
-        // ?? Runtime settings ??????????????????????????????????????????????????
+        // — Runtime settings ——————————————————————————————————————————————————
 
         /// <summary>Maximum number of iterations in iterative actor runs.</summary>
         public int MaxIterations { get; set; } = 10;
 
-        // ?? Factory ???????????????????????????????????????????????????????????
+        // — Factory ———————————————————————————————————————————————————————————
 
         /// <summary>Deserializes a <see cref="WallyConfig"/> from a JSON file.</summary>
         public static WallyConfig LoadFromFile(string filePath)

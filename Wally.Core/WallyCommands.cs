@@ -166,13 +166,13 @@ namespace Wally.Core
             Console.WriteLine($"Actors folder:     {Path.Combine(ws.WorkspaceFolder, cfg.ActorsFolderName)}");
             Console.WriteLine($"Actors loaded:     {ws.Actors.Count}");
             foreach (var a in ws.Actors)
-            {
-                string model = cfg.Model?.ResolveForActor(a.Name);
-                string modelLabel = string.IsNullOrWhiteSpace(model) ? "(default)" : model;
-                Console.WriteLine($"  {a.Name}  [model: {modelLabel}]");
-            }
+                Console.WriteLine($"  {a.Name}");
             Console.WriteLine();
-            Console.WriteLine($"Default model:     {(string.IsNullOrWhiteSpace(cfg.Model?.Default) ? "(copilot default)" : cfg.Model.Default)}");
+            Console.WriteLine($"Default model:     {(string.IsNullOrWhiteSpace(cfg.DefaultModel) ? "(copilot default)" : cfg.DefaultModel)}");
+            if (cfg.Models.Count > 0)
+            {
+                Console.WriteLine($"Available models:  {string.Join(", ", cfg.Models)}");
+            }
             Console.WriteLine($"Max iterations:    {env.MaxIterations}");
         }
 
@@ -211,20 +211,20 @@ namespace Wally.Core
             Console.WriteLine();
             Console.WriteLine("Workspace folder layout:");
             Console.WriteLine("  <WorkspaceFolder>/             e.g. .wally/");
-            Console.WriteLine("    wally-config.json            SourcePath, Model, MaxIterations");
+            Console.WriteLine("    wally-config.json            SourcePath, DefaultModel, Models, MaxIterations");
             Console.WriteLine("    Actors/");
             Console.WriteLine("      <ActorName>/");
             Console.WriteLine("        actor.json               name, rolePrompt,");
             Console.WriteLine("                                 criteriaPrompt, intentPrompt");
             Console.WriteLine();
-            Console.WriteLine("SourcePath: The directory whose files are given as context to gh copilot.");
-            Console.WriteLine("            Defaults to the workspace's parent folder when not set.");
-            Console.WriteLine("            Set via 'setup -s <path>' or edit wally-config.json directly.");
+            Console.WriteLine("SourcePath:   The directory whose files are given as context to gh copilot.");
+            Console.WriteLine("              Defaults to the workspace's parent folder when not set.");
+            Console.WriteLine("              Set via 'setup -s <path>' or edit wally-config.json directly.");
             Console.WriteLine();
-            Console.WriteLine("Model:      Controls which LLM model Copilot uses (--model flag).");
-            Console.WriteLine("            Set Model.Default in wally-config.json for all actors,");
-            Console.WriteLine("            or Model.ActorOverrides.{ActorName} for a specific actor.");
-            Console.WriteLine("            Run 'gh copilot model list' to see available models.");
+            Console.WriteLine("DefaultModel: The LLM model Copilot uses (--model flag).");
+            Console.WriteLine("              Set DefaultModel in wally-config.json.");
+            Console.WriteLine("Models:       List of available/allowed model identifiers.");
+            Console.WriteLine("              Run 'gh copilot model list' to see what's available.");
         }
 
         // — Private helpers ———————————————————————————————————————————————————

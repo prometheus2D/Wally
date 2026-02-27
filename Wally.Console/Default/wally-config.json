@@ -1,9 +1,7 @@
 {
   "ActorsFolderName": "Actors",
   "SourcePath": null,
-  "Model": {
-    "Default": null,
-    "ActorOverrides": null
-  },
+  "DefaultModel": null,
+  "Models": [],
   "MaxIterations": 10
 }

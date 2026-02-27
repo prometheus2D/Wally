@@ -86,17 +86,15 @@ Control which LLM model Copilot uses by editing `.wally/wally-config.json`:
 
 ```json
 {
-  "Model": {
-    "Default": "gpt-4o",
-    "ActorOverrides": {
-      "Tester": "claude-3.5-sonnet"
-    }
-  }
+  "DefaultModel": "gpt-4o",
+  "Models": ["gpt-4o", "claude-3.5-sonnet", "o4-mini"]
 }
 ```
 
-Run `gh copilot model list` to see available models. Use `wally info` to verify
-which model each actor is configured to use.
+- `DefaultModel` — the model passed to `--model` for every actor. Null = Copilot picks.
+- `Models` — reference list of available/allowed model identifiers.
+
+Run `gh copilot model list` to see available models. Use `wally info` to verify config.
 
 ## Default workspace template
 

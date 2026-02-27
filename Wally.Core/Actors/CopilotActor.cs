@@ -29,7 +29,7 @@ namespace Wally.Core.Actors
         /// The process <c>WorkingDirectory</c> is set to
         /// <see cref="WallyWorkspace.SourcePath"/> so that Copilot CLI receives
         /// the correct file and directory context.  The <c>--model</c> flag is
-        /// added when a model is configured in <see cref="WallyConfig.Model"/>.
+        /// added when <see cref="WallyConfig.DefaultModel"/> is configured.
         /// </para>
         /// </summary>
         public override string Respond(string processedPrompt)
@@ -52,8 +52,8 @@ namespace Wally.Core.Actors
                 startInfo.ArgumentList.Add("copilot");
                 startInfo.ArgumentList.Add("explain");
 
-                // Resolve model from config (per-actor override ? default ? omit).
-                string? model = Workspace?.Config?.Model?.ResolveForActor(Name);
+                // Add --model when a default model is configured.
+                string? model = Workspace?.Config?.DefaultModel;
                 if (!string.IsNullOrWhiteSpace(model))
                 {
                     startInfo.ArgumentList.Add("--model");

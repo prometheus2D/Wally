@@ -88,7 +88,7 @@ User prompt
 Each actor enriches the user's raw prompt with its own RBA context. Wally then invokes
 `gh copilot explain` directly (using `ProcessStartInfo.ArgumentList` — no shell, no
 escaping issues). The `SourcePath` is set as the process working directory so Copilot CLI
-sees the target codebase. If a model is configured, `--model` is added automatically.
+sees the target codebase. If a `DefaultModel` is configured, `--model` is added automatically.
 
 ---
 
@@ -117,12 +117,14 @@ sees the target codebase. If a model is configured, `--model` is added automatic
 {
   "ActorsFolderName": "Actors",
   "SourcePath": "C:\\repos\\MyApp",
-  "Model": {
-    "Default": "gpt-4o",
-    "ActorOverrides": {
-      "Tester": "claude-3.5-sonnet"
-    }
-  },
+  "DefaultModel": "gpt-4o",
+  "Models": [
+    "gpt-4o",
+    "gpt-4.1",
+    "claude-3.5-sonnet",
+    "o4-mini",
+    "gemini-2.0-flash-001"
+  ],
   "MaxIterations": 10
 }
 ```
@@ -131,8 +133,8 @@ sees the target codebase. If a model is configured, `--model` is added automatic
 |---|---|---|
 | `ActorsFolderName` | `"Actors"` | Subfolder inside the workspace that holds actor directories. |
 | `SourcePath` | `null` | Directory whose files give context to `gh copilot`. Defaults to workspace parent when null. |
-| `Model.Default` | `null` | LLM model for all actors (`--model` flag). Null = Copilot default. |
-| `Model.ActorOverrides` | `null` | Per-actor model overrides. Key = actor name, value = model id. |
+| `DefaultModel` | `null` | LLM model passed via `--model` to all actors. Null = Copilot default. |
+| `Models` | `[]` | List of available/allowed model identifiers for this workspace. |
 | `MaxIterations` | `10` | Default cap for `run-iterative`. |
 
 ### Available models
@@ -146,6 +148,8 @@ Run `gh copilot model list` to see models available to your account. Common valu
 | `claude-3.5-sonnet` | Anthropic Claude 3.5 Sonnet |
 | `o4-mini` | OpenAI o4-mini |
 | `gemini-2.0-flash-001` | Google Gemini 2.0 Flash |
+
+Add the ones you have access to into the `Models` list, then set `DefaultModel` to pick which one is used.
 
 ---
 
@@ -232,19 +236,15 @@ Control which LLM model Copilot uses by editing `wally-config.json`:
 
 ```json
 {
-  "Model": {
-    "Default": "gpt-4o",
-    "ActorOverrides": {
-      "Tester": "claude-3.5-sonnet"
-    }
-  }
+  "DefaultModel": "gpt-4o",
+  "Models": ["gpt-4o", "claude-3.5-sonnet", "o4-mini"]
 }
 ```
 
-- **`Model.Default`** — used for every actor unless overridden. Null = Copilot's own default.
-- **`Model.ActorOverrides`** — per-actor overrides. Key is the actor name (case-insensitive).
+- **`DefaultModel`** — the model passed to `--model` for every actor invocation. Null = Copilot picks.
+- **`Models`** — a reference list of model identifiers available to this workspace.
 
-When a model is configured, Wally adds `--model <id>` to the `gh copilot explain` invocation.
+When `DefaultModel` is set, Wally adds `--model <id>` to the `gh copilot explain` invocation.
 
 ---
 
@@ -278,7 +278,7 @@ Config resolution follows a three-tier fallback:
 
 | Project | Purpose |
 |---|---|
-| `Wally.Core` | Domain model — `WallyWorkspace`, `WallyEnvironment`, `Actor`, `WallyConfig`, `CopilotModelConfig`, RBA types. |
+| `Wally.Core` | Domain model — `WallyWorkspace`, `WallyEnvironment`, `Actor`, `WallyConfig`, RBA types. |
 | `Wally.Console` | CLI entry point — verb-based command dispatch, interactive REPL, ships `Default/` template. |
 | `Wally.Forms` | Windows Forms UI (in progress). |
 
@@ -292,7 +292,7 @@ Config resolution follows a three-tier fallback:
 | `gh copilot: command not found` | Run `gh extension install github/gh-copilot`. |
 | `HTTP 401 / not authenticated` | Run `gh auth login` and ensure your account has Copilot access. |
 | Empty responses | Check `wally info` — verify SourcePath points to a real directory with code. |
-| Model not available | Run `gh copilot model list` to see available models, update `wally-config.json`. |
+| Model not available | Run `gh copilot model list` to see available models, update `DefaultModel` in config. |
 | `Copilot exited with code 1` | Run `gh copilot explain "test"` manually to verify Copilot works outside Wally. |
 
 ---

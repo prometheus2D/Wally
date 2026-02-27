@@ -28,23 +28,6 @@ Call `ReloadActors()` to re-read actor folders from disk mid-session without a f
 - Resolved from `WallyConfig.SourcePath` when set.
 - Falls back to `ProjectFolder` (the workspace's parent directory) when null/empty.
 
-### `CopilotModelConfig`
-
-Controls which LLM model is passed to `gh copilot --model`.
-
-```csharp
-var cfg = new CopilotModelConfig
-{
-    Default = "gpt-4o",
-    ActorOverrides = new Dictionary<string, string>
-    {
-        ["Tester"] = "claude-3.5-sonnet"
-    }
-};
-string model = cfg.ResolveForActor("Tester");   // ? "claude-3.5-sonnet"
-string model2 = cfg.ResolveForActor("Developer"); // ? "gpt-4o"
-```
-
 ### Default workspace template
 
 The application ships a `Default/` folder alongside the executable that contains the
@@ -101,15 +84,16 @@ Loaded from / saved to `wally-config.json`. Defines:
 |---|---|---|
 | `ActorsFolderName` | `"Actors"` | Subfolder inside the workspace that holds actor directories. |
 | `SourcePath` | `null` | Directory whose files give context to `gh copilot`. Defaults to workspace parent. |
-| `Model` | `null` | `CopilotModelConfig` — default model and per-actor overrides for `--model` flag. |
+| `DefaultModel` | `null` | LLM model passed via `--model` to all actors. Null = Copilot default. |
+| `Models` | `[]` | List of available/allowed model identifiers for this workspace. |
 | `MaxIterations` | `10` | Maximum iterations for iterative actor runs. |
 
 ### `CopilotActor`
 
 The default actor implementation. Invokes `gh copilot explain` directly using
 `ProcessStartInfo.ArgumentList` (no shell, no escaping issues). The process working
-directory is set to `SourcePath` so Copilot sees the target codebase. When a model is
-configured in `WallyConfig.Model`, `--model <id>` is added to the invocation.
+directory is set to `SourcePath` so Copilot sees the target codebase. When
+`WallyConfig.DefaultModel` is set, `--model <id>` is added to the invocation.
 
 Stdin is redirected and immediately closed to prevent `gh copilot` from waiting for
 interactive input.
