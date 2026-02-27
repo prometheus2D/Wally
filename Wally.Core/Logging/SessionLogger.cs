@@ -8,8 +8,15 @@ namespace Wally.Core.Logging
     /// Writes structured JSON-lines log entries for a single process / environment lifetime.
     /// <para>
     /// Each logger owns a <see cref="SessionId"/> (GUID) and a <see cref="StartedAt"/>
-    /// timestamp. Log files are stored at:
-    /// <c>&lt;workspace&gt;/Logs/&lt;yyyy-MM-dd_HHmmss_shortguid&gt;/session.jsonl</c>
+    /// timestamp. Log files are stored under a session folder at:
+    /// <c>&lt;workspace&gt;/Logs/&lt;SessionName&gt;/</c>
+    /// </para>
+    /// <para>
+    /// Log files are named by rounding the current UTC time to the nearest
+    /// <see cref="RotationMinutes"/>-minute boundary (e.g. <c>2025-07-13_1430.jsonl</c>).
+    /// When the rounded timestamp differs from the current file, a new file is
+    /// opened automatically. Set <see cref="RotationMinutes"/> to <c>0</c> to
+    /// write everything to a single file.
     /// </para>
     /// The logger is thread-safe (writes are serialised via a lock).
     /// When no workspace is loaded, entries are buffered in memory and
@@ -17,10 +24,6 @@ namespace Wally.Core.Logging
     /// </summary>
     public sealed class SessionLogger : IDisposable
     {
-        // — Constants ————————————————————————————————————————————————————————
-
-        private const string LogFileName = "session.jsonl";
-
         // — Session identity —————————————————————————————————————————————————
 
         /// <summary>Unique identifier for this session.</summary>
@@ -36,6 +39,13 @@ namespace Wally.Core.Logging
         /// </summary>
         public string SessionName { get; }
 
+        /// <summary>
+        /// The time bucket size in minutes used for log file names.
+        /// Each file covers one bucket. Default: <c>2</c>.
+        /// Set to <c>0</c> to disable rotation (single file named <c>session.jsonl</c>).
+        /// </summary>
+        public int RotationMinutes { get; set; } = 2;
+
         // — Internal state ———————————————————————————————————————————————————
 
         private readonly object _lock = new();
@@ -45,6 +55,7 @@ namespace Wally.Core.Logging
         private MemoryStream? _buffer;
         private StreamWriter? _bufferWriter;
         private string? _logFolder;
+        private string? _currentFileName;
         private bool _disposed;
 
         // — Constructor ——————————————————————————————————————————————————————
@@ -68,17 +79,18 @@ namespace Wally.Core.Logging
 
         // — Public properties ————————————————————————————————————————————————
 
-        /// <summary>The folder where log files are written, or <see langword="null"/> if not yet bound.</summary>
+        /// <summary>The session log folder, or <see langword="null"/> if not yet bound.</summary>
         public string? LogFolder => _logFolder;
+
+        /// <summary>The name of the current log file being written to.</summary>
+        public string? CurrentLogFile => _currentFileName;
 
         // — Binding to a workspace ——————————————————————————————————————————
 
         /// <summary>
-        /// Binds the logger to a workspace, creating the log folder and flushing
-        /// any buffered entries to disk.
+        /// Binds the logger to a workspace, creating the session folder and
+        /// flushing any buffered entries to disk.
         /// </summary>
-        /// <param name="workspaceFolder">The workspace folder path (e.g. <c>/repo/.wally</c>).</param>
-        /// <param name="logsFolderName">The name of the logs subfolder (default <c>Logs</c>).</param>
         public void Bind(string workspaceFolder, string logsFolderName = "Logs")
         {
             lock (_lock)
@@ -88,8 +100,8 @@ namespace Wally.Core.Logging
                 _logFolder = Path.Combine(workspaceFolder, logsFolderName, SessionName);
                 Directory.CreateDirectory(_logFolder);
 
-                string logPath = Path.Combine(_logFolder, LogFileName);
-                _writer = new StreamWriter(logPath, append: true) { AutoFlush = true };
+                // Open the initial log file.
+                EnsureWriter(DateTimeOffset.UtcNow);
 
                 // Flush buffered entries to disk.
                 if (_buffer is { Length: > 0 })
@@ -97,7 +109,7 @@ namespace Wally.Core.Logging
                     _buffer.Position = 0;
                     using var reader = new StreamReader(_buffer, leaveOpen: true);
                     string buffered = reader.ReadToEnd();
-                    _writer.Write(buffered);
+                    _writer!.Write(buffered);
                 }
 
                 _bufferWriter?.Dispose();
@@ -186,16 +198,55 @@ namespace Wally.Core.Logging
             {
                 if (_disposed) return;
 
-                if (_writer != null)
+                if (_logFolder != null)
                 {
-                    _writer.WriteLine(line);
+                    EnsureWriter(entry.Timestamp);
+                    _writer!.WriteLine(line);
                 }
                 else
                 {
-                    // Still buffering — workspace not yet bound.
                     _bufferWriter?.WriteLine(line);
                 }
             }
+        }
+
+        // — File rotation ————————————————————————————————————————————————————
+
+        /// <summary>
+        /// Computes the file name for <paramref name="now"/> and, if it differs
+        /// from the current file, closes the old writer and opens the new one.
+        /// Must be called under <see cref="_lock"/>.
+        /// </summary>
+        private void EnsureWriter(DateTimeOffset now)
+        {
+            string fileName = GetFileNameForTimestamp(now);
+
+            if (fileName == _currentFileName && _writer != null)
+                return;
+
+            // Different bucket — rotate.
+            _writer?.Dispose();
+            _currentFileName = fileName;
+            string filePath = Path.Combine(_logFolder!, _currentFileName);
+            _writer = new StreamWriter(filePath, append: true) { AutoFlush = true };
+        }
+
+        /// <summary>
+        /// Returns the log file name for a given timestamp.
+        /// When rotation is enabled, the timestamp is floored to the nearest
+        /// <see cref="RotationMinutes"/>-minute boundary.
+        /// When rotation is disabled (<c>0</c>), returns <c>session.jsonl</c>.
+        /// </summary>
+        private string GetFileNameForTimestamp(DateTimeOffset timestamp)
+        {
+            if (RotationMinutes <= 0)
+                return "session.jsonl";
+
+            // Floor to the nearest N-minute boundary.
+            long totalMinutes = (long)timestamp.UtcDateTime.TimeOfDay.TotalMinutes;
+            long bucket = totalMinutes / RotationMinutes * RotationMinutes;
+            var rounded = timestamp.UtcDateTime.Date.AddMinutes(bucket);
+            return $"{rounded:yyyy-MM-dd_HHmm}.jsonl";
         }
 
         // — Dispose ——————————————————————————————————————————————————————————

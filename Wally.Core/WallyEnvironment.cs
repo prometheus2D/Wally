@@ -228,7 +228,9 @@ namespace Wally.Core
         private void BindLogger()
         {
             if (!HasWorkspace || Logger.LogFolder != null) return;
-            Logger.Bind(Workspace!.WorkspaceFolder, Workspace.Config.LogsFolderName);
+
+            Logger.RotationMinutes = Workspace!.Config.LogRotationMinutes;
+            Logger.Bind(Workspace.WorkspaceFolder, Workspace.Config.LogsFolderName);
             Logger.LogInfo($"Session started — workspace: {Workspace.WorkspaceFolder}");
         }
     }

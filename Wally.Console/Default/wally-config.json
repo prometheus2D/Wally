@@ -1,6 +1,7 @@
 {
   "ActorsFolderName": "Actors",
   "LogsFolderName": "Logs",
+  "LogRotationMinutes": 2,
   "DefaultModel": "gpt-4.1",
   "Models": [
     "claude-sonnet-4.6",

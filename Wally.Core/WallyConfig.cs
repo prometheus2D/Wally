@@ -39,6 +39,13 @@ namespace Wally.Core
         /// </summary>
         public string LogsFolderName { get; set; } = "Logs";
 
+        /// <summary>
+        /// How often (in minutes) the session logger rotates to a new log file.
+        /// Each file covers roughly this time window. Set to <c>0</c> to disable
+        /// rotation (single file per session). Default: <c>2</c>.
+        /// </summary>
+        public int LogRotationMinutes { get; set; } = 2;
+
         // — Model selection ———————————————————————————————————————————————————
 
         /// <summary>

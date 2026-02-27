@@ -169,6 +169,8 @@ namespace Wally.Core
             Console.WriteLine($"Session ID:        {env.Logger.SessionId:N}");
             Console.WriteLine($"Session started:   {env.Logger.StartedAt:u}");
             Console.WriteLine($"Session log:       {env.Logger.LogFolder ?? "(not bound — no workspace loaded)"}");
+            Console.WriteLine($"Current log file:  {env.Logger.CurrentLogFile ?? "(none)"}");
+            Console.WriteLine($"Log rotation:      {(cfg.LogRotationMinutes > 0 ? $"every {cfg.LogRotationMinutes} min" : "disabled")}");
         }
 
         /// <summary>Re-reads actor folders from disk and rebuilds actors without a full reload.</summary>
@@ -217,11 +219,13 @@ namespace Wally.Core
             Console.WriteLine("                                 criteriaPrompt, intentPrompt");
             Console.WriteLine("      Logs/                      Session logs (auto-created on first run)");
             Console.WriteLine("        <timestamp_guid>/        One folder per session");
-            Console.WriteLine("          session.jsonl           Structured log entries (JSON-lines)");
+            Console.WriteLine("          <timestamp>_<guid>.jsonl  Rotated log files (JSON-lines)");
+            Console.WriteLine("          session-manifest.json    Index of all log files with time ranges");
             Console.WriteLine();
             Console.WriteLine("Logging:      All commands, prompts, and responses are logged per session.");
-            Console.WriteLine("              Logs are stored in <workspace>/Logs/<session>/session.jsonl.");
-            Console.WriteLine("              A new session is created each time the exe starts.");
+            Console.WriteLine("              Log files rotate every LogRotationMinutes (default: 2 min).");
+            Console.WriteLine("              Set to 0 in wally-config.json to disable rotation.");
+            Console.WriteLine("              A session-manifest.json indexes all files on exit.");
             Console.WriteLine();
             Console.WriteLine("WorkSource:   The directory whose files are given as context to gh copilot.");
             Console.WriteLine("              This is always the parent of the .wally/ workspace folder.");
