@@ -44,11 +44,8 @@ dotnet publish Wally.Console -c Release -r win-x64 --self-contained
 # Scaffold the .wally workspace and point SourcePath at your codebase
 wally setup -s C:\repos\MyApp
 
-# Send a prompt — all actors respond through Copilot
-wally run "Explain the error handling strategy in this project"
-
-# Target a single actor
-wally run "Add input validation to the login form" Developer
+# Target a specific actor
+wally run Developer "Add input validation to the login form"
 ```
 
 That's it. Wally enriches your prompt with each actor's Role, AcceptanceCriteria, and Intent, then passes the full structured prompt to `gh copilot explain` with the working directory set to your `SourcePath`.
@@ -58,8 +55,8 @@ That's it. Wally enriches your prompt with each actor's Role, AcceptanceCriteria
 ```sh
 wally                           # no arguments ? REPL mode
 wally> setup -s C:\repos\MyApp
-wally> run "What does the Program.cs entry point do?"
-wally> run "Suggest improvements" Developer
+wally> run Developer "What does the Program.cs entry point do?"
+wally> run Tester "Suggest improvements"
 wally> exit
 ```
 
@@ -204,7 +201,7 @@ Add a new subfolder with an `actor.json` to create a new actor. Each actor is fu
 
 | Command | Description |
 |---|---|
-| `run "<prompt>" [actor]` | Run all actors (or one by name) on the prompt. |
+| `run <actor> "<prompt>"` | Run a specific actor by name on the prompt. |
 | `run-iterative "<prompt>" [-m N]` | Loop all actors, feeding combined responses back each iteration. |
 | `run-iterative "<prompt>" -a <actor> [-m N]` | Loop a single named actor, feeding its response back each iteration. |
 

@@ -16,11 +16,8 @@ Output: `Wally.Console\bin\Release\net8.0\win-x64\publish\wally.exe`
 # Scaffold workspace and point SourcePath at your codebase
 wally setup -s C:\repos\MyApp
 
-# Send a prompt (all actors respond)
-wally run "Explain the architecture of this project"
-
-# Target a single actor
-wally run "Add input validation" Developer
+# Target a specific actor
+wally run Developer "Add input validation"
 ```
 
 ## Run Modes
@@ -28,15 +25,15 @@ wally run "Add input validation" Developer
 **One-shot** — run a single command and exit:
 ```sh
 wally setup
-wally run "Describe the main entry point"
+wally run Developer "Describe the main entry point"
 ```
 
 **Interactive REPL** — environment persists across commands:
 ```sh
 wally
 wally> setup -s C:\repos\MyApp
-wally> run "Explain error handling in this codebase"
-wally> run "Suggest improvements" Developer
+wally> run Developer "Explain error handling in this codebase"
+wally> run Tester "Suggest improvements"
 wally> info
 wally> exit
 ```
@@ -55,7 +52,7 @@ info                             Print paths, model config, loaded actors, setti
 list                             List all actors and their prompts.
 reload-actors                    Re-read actor folders from disk and rebuild actors.
 
-run "<prompt>" [actor]           Run all actors, or one by name.
+run <actor> "<prompt>"           Run a specific actor by name.
 run-iterative "<prompt>"         Run all actors iteratively; -m N to cap iterations.
 run-iterative "<prompt>" -a <actor> [-m N]
                                  Run one named actor iteratively.

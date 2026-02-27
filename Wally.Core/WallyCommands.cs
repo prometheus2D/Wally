@@ -205,7 +205,7 @@ namespace Wally.Core
             Console.WriteLine("  save <path>                    Save config and all actor.json files.");
             Console.WriteLine("  list                           List actors and their prompts.");
             Console.WriteLine("  reload-actors                  Re-read actor folders from disk, rebuild actors.");
-            Console.WriteLine("  run \"<prompt>\" [actor]         Run all actors, or one by name.");
+            Console.WriteLine("  run <actor> \"<prompt>\"         Run a specific actor by name.");
             Console.WriteLine("  run-iterative \"<prompt>\"       Run all actors iteratively; -m N to cap.");
             Console.WriteLine("  run-iterative \"<prompt>\" -a <actor>  Run one actor iteratively.");
             Console.WriteLine();

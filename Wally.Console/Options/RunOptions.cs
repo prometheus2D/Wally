@@ -2,13 +2,13 @@ using CommandLine;
 
 namespace Wally.Console.Options
 {
-    [Verb("run", HelpText = "Run all Actors on the given prompt, or a specific Actor if specified.")]
+    [Verb("run", HelpText = "Run a specific Actor on the given prompt.")]
     public class RunOptions
     {
-        [Value(0, Required = true, HelpText = "The prompt to process.")]
-        public string Prompt { get; set; }
-
-        [Value(1, Required = false, HelpText = "The name of the specific Actor to run (optional).")]
+        [Value(0, Required = true, HelpText = "The name of the Actor to run.")]
         public string ActorName { get; set; }
+
+        [Value(1, Required = true, HelpText = "The prompt to process.")]
+        public string Prompt { get; set; }
     }
 }
