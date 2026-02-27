@@ -189,7 +189,7 @@ namespace Wally.Core
         /// Falls back to <see cref="Directory.GetCurrentDirectory"/> when the
         /// entry assembly location cannot be determined.
         /// </summary>
-        private static string GetExeDirectory() =>
+        public static string GetExeDirectory() =>
             Path.GetDirectoryName(
                 System.Reflection.Assembly.GetEntryAssembly()?.Location
                 ?? System.Reflection.Assembly.GetExecutingAssembly().Location)

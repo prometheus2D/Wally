@@ -41,7 +41,10 @@ namespace Wally.Core
         /// <summary>Scaffolds a new workspace at <paramref name="path"/> and loads it.</summary>
         public static void HandleCreate(WallyEnvironment env, string path)
         {
-            // path is the WorkSource directory — workspace goes inside <path>/.wally
+            // If relative, resolve against the exe directory.
+            if (!Path.IsPathRooted(path))
+                path = Path.Combine(WallyHelper.GetExeDirectory(), path);
+
             string fullPath = Path.GetFullPath(path);
             Directory.CreateDirectory(fullPath);
             string workspaceFolder = Path.Combine(fullPath, WallyHelper.DefaultWorkspaceFolderName);

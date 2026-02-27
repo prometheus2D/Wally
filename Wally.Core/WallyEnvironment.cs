@@ -90,6 +90,11 @@ namespace Wally.Core
             string workspaceFolder;
             if (workSourcePath != null)
             {
+                // If the path is not rooted (e.g. "workspace", "my-project"),
+                // treat it as a subdirectory of the exe directory.
+                if (!Path.IsPathRooted(workSourcePath))
+                    workSourcePath = Path.Combine(WallyHelper.GetExeDirectory(), workSourcePath);
+
                 workSourcePath = Path.GetFullPath(workSourcePath);
                 Directory.CreateDirectory(workSourcePath);
                 workspaceFolder = Path.Combine(workSourcePath, WallyHelper.DefaultWorkspaceFolderName);
