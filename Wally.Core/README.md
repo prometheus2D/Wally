@@ -60,18 +60,13 @@ env.SetupLocal(@"C:\repos\MyApp");
 // Works with new directories too — both the WorkSource and .wally/ are created
 env.SetupLocal(@"C:\repos\NewProject");
 
+// Isolate the workspace in a subfolder (e.g. one level deeper than the exe)
+// CLI equivalent: wally setup -w workspace
+env.SetupLocal("workspace");
+
 // Run all actors once
 var responses = env.RunActors("Explain this module");
-// responses: "Developer: <response>", "Tester: <response>"
-
-// Run all actors iteratively — combined responses feed back each iteration
-var final = env.RunActorsIterative("Improve error handling", (i, responses) =>
-    Console.WriteLine($"Iteration {i}: {string.Join(", ", responses)}"));
-
-// Run a single named actor iteratively
-string result = env.RunActorIterative("Refactor to clean architecture", "Developer",
-    maxIterationsOverride: 5,
-    onIteration: (i, response) => Console.WriteLine($"[{i}] {response}"));
+// responses: "[Role: Developer]\n<response>", "[Role: Tester]\n<response>"
 ```
 
 The iterative loop logic lives directly inside `WallyEnvironment`. On each iteration the previous

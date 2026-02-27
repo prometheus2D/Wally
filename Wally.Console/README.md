@@ -49,6 +49,29 @@ wally setup
 > **Important:** Always pass the WorkSource directory, not the `.wally/` folder.
 > Wally appends `.wally/` automatically. If the path doesn't exist, Wally creates it.
 
+### Isolating the workspace in a subfolder
+
+If you want to keep the workspace separate from the executable, use `-w` / `--worksource`
+to point at a subfolder. The folder is created automatically if it doesn't exist.
+
+```sh
+# Create an isolated workspace one level deeper than the exe
+wally setup -w workspace
+#  ? creates <exeDir>\workspace\
+#  ? creates <exeDir>\workspace\.wally\
+#  ? WorkSource:  <exeDir>\workspace
+#  ? Workspace:   <exeDir>\workspace\.wally
+
+# Absolute path works too
+wally setup -w C:\wally-projects\my-session
+
+# Positional arg is equivalent
+wally setup workspace
+```
+
+> **Tip:** `-w` / `--worksource` and the positional `<path>` are interchangeable.
+> When both are supplied, `--worksource` takes priority.
+
 ## Run Modes
 
 **One-shot** — run a single command and exit:
@@ -70,9 +93,11 @@ wally> exit
 ## Commands
 
 ```
-setup [<path>]                   Scaffold .wally/ inside <path> (your WorkSource / codebase root).
+setup [<path>] [-w <path>]       Scaffold .wally/ inside <path> (your WorkSource / codebase root).
+                                 -w / --worksource is an explicit alternative to the positional arg.
                                  <path> is created if it doesn't exist.
                                  Defaults to the exe directory when omitted.
+
 create <path>                    Scaffold a new .wally/ workspace inside <path> and load it.
                                  <path> is created if it doesn't exist.
 load <path>                      Load an existing workspace from <path> (.wally/ folder).

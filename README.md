@@ -79,9 +79,36 @@ wally setup
 #  ? Workspace:   <exeDir>\.wally
 ```
 
-> **Note:** The path you pass to `setup` is always the WorkSource (your codebase root).
-> You never pass the `.wally/` folder itself — Wally appends that automatically.
-> If the directory does not exist, Wally creates it along with the `.wally/` workspace inside it.
+#### Isolating the workspace in a subfolder
+
+By default, `setup` with no path uses the exe directory as the WorkSource. If you want
+to keep the workspace isolated — separate from the executable — use `-w` / `--worksource`
+to point at a subfolder. The folder is created automatically if it doesn't exist.
+
+```sh
+# Create an isolated workspace one level deeper than the exe
+wally setup -w workspace
+#  ? creates <exeDir>\workspace\
+#  ? creates <exeDir>\workspace\.wally\
+#  ? WorkSource:  <exeDir>\workspace
+#  ? Workspace:   <exeDir>\workspace\.wally
+
+# Same thing with the long form
+wally setup --worksource workspace
+
+# Or use an absolute path
+wally setup -w C:\wally-projects\my-session
+#  ? creates C:\wally-projects\my-session\
+#  ? creates C:\wally-projects\my-session\.wally\
+
+# The positional argument works identically
+wally setup workspace
+```
+
+> **Tip:** Use `-w` when you want to keep the exe directory clean and put all
+> Wally-managed files in a dedicated subfolder. The positional `<path>` and
+> `-w` / `--worksource` are interchangeable — use whichever reads better.
+> When both are supplied, `--worksource` takes priority.
 
 ### Interactive REPL
 
@@ -241,7 +268,7 @@ Add a new subfolder with an `actor.json` to create a new actor. Each actor is fu
 
 | Command | Description |
 |---|---|
-| `setup [<path>]` | Scaffold `.wally/` inside `<path>` (your WorkSource / codebase root). If `<path>` does not exist it is created automatically. Defaults to the exe directory when omitted. |
+| `setup [<path>] [-w <path>]` | Scaffold `.wally/` inside `<path>` (your WorkSource / codebase root). `-w` / `--worksource` is an explicit alternative to the positional arg. If `<path>` does not exist it is created automatically. Defaults to the exe directory when omitted. |
 | `create <path>` | Scaffold a new `.wally/` workspace inside `<path>` and load it. Creates the directory if needed. |
 | `load <path>` | Load an existing workspace from `<path>` (the `.wally/` folder itself). |
 | `save <path>` | Persist the current config and all actor.json files to `<path>`. |
