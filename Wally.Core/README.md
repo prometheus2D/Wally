@@ -49,7 +49,7 @@ env.AddFolderReference(@".\src");
 
 // Run all actors once
 var responses = env.RunActors("Explain this module");
-// responses: "Developer: <response>", "Tester: <response";
+// responses: "Developer: <response>", "Tester: <response>"
 
 // Run all actors iteratively — combined responses feed back each iteration
 var final = env.RunActorsIterative("Improve error handling", (i, responses) =>
