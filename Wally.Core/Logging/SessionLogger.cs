@@ -5,7 +5,7 @@ using System.Text.Json;
 namespace Wally.Core.Logging
 {
     /// <summary>
-    /// Writes structured JSON-lines log entries for a single process / environment lifetime.
+    /// Writes structured log entries for a single process / environment lifetime.
     /// <para>
     /// Each logger owns a <see cref="SessionId"/> (GUID) and a <see cref="StartedAt"/>
     /// timestamp. Log files are stored under a session folder at:
@@ -13,7 +13,7 @@ namespace Wally.Core.Logging
     /// </para>
     /// <para>
     /// Log files are named by rounding the current UTC time to the nearest
-    /// <see cref="RotationMinutes"/>-minute boundary (e.g. <c>2025-07-13_1430.jsonl</c>).
+    /// <see cref="RotationMinutes"/>-minute boundary (e.g. <c>2025-07-13_1430.txt</c>).
     /// When the rounded timestamp differs from the current file, a new file is
     /// opened automatically. Set <see cref="RotationMinutes"/> to <c>0</c> to
     /// write everything to a single file.
@@ -42,7 +42,7 @@ namespace Wally.Core.Logging
         /// <summary>
         /// The time bucket size in minutes used for log file names.
         /// Each file covers one bucket. Default: <c>2</c>.
-        /// Set to <c>0</c> to disable rotation (single file named <c>session.jsonl</c>).
+        /// Set to <c>0</c> to disable rotation (single file named <c>session.txt</c>).
         /// </summary>
         public int RotationMinutes { get; set; } = 2;
 
@@ -235,18 +235,18 @@ namespace Wally.Core.Logging
         /// Returns the log file name for a given timestamp.
         /// When rotation is enabled, the timestamp is floored to the nearest
         /// <see cref="RotationMinutes"/>-minute boundary.
-        /// When rotation is disabled (<c>0</c>), returns <c>session.jsonl</c>.
+        /// When rotation is disabled (<c>0</c>), returns <c>session.txt</c>.
         /// </summary>
         private string GetFileNameForTimestamp(DateTimeOffset timestamp)
         {
             if (RotationMinutes <= 0)
-                return "session.jsonl";
+                return "session.txt";
 
             // Floor to the nearest N-minute boundary.
             long totalMinutes = (long)timestamp.UtcDateTime.TimeOfDay.TotalMinutes;
             long bucket = totalMinutes / RotationMinutes * RotationMinutes;
             var rounded = timestamp.UtcDateTime.Date.AddMinutes(bucket);
-            return $"{rounded:yyyy-MM-dd_HHmm}.jsonl";
+            return $"{rounded:yyyy-MM-dd_HHmm}.txt";
         }
 
         // — Dispose ——————————————————————————————————————————————————————————

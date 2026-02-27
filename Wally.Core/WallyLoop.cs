@@ -14,24 +14,29 @@ namespace Wally.Core
     ///   <item><b>ContinuePrompt</b> — the prompt used for every subsequent iteration.
     ///         When <see langword="null"/>, the previous result is fed as the next prompt.</item>
     /// </list>
-    /// After each iteration the <see cref="EndIdentifier"/> function inspects the
-    /// result. If it returns <see langword="true"/> the loop is declared finished.
+    /// After each iteration the result is checked for two keywords:
+    /// <list type="bullet">
+    ///   <item><see cref="CompletedKeyword"/> (<c>[LOOP COMPLETED]</c>) — the loop finished successfully.</item>
+    ///   <item><see cref="ErrorKeyword"/> (<c>[LOOP ERROR]</c>) — the actor detected an error.</item>
+    /// </list>
     /// The loop also ends when <see cref="MaxIterations"/> is reached.
-    /// </para>
-    /// <para>
-    /// By default <see cref="EndIdentifier"/> checks for the stop word
-    /// <c>LOOP COMPLETED</c> (case-insensitive).
     /// </para>
     /// </summary>
     public class WallyLoop
     {
-        // — Constants ——————————————————————————————————————————————————————————
+        // — Keywords ——————————————————————————————————————————————————————————
 
         /// <summary>
-        /// The default stop word that <see cref="EndIdentifier"/> looks for
-        /// when no custom function is supplied.
+        /// Keyword that signals the loop has completed successfully.
+        /// Detected case-insensitively in the iteration result.
         /// </summary>
-        public const string DefaultStopWord = "LOOP COMPLETED";
+        public const string CompletedKeyword = "[LOOP COMPLETED]";
+
+        /// <summary>
+        /// Keyword that signals the actor detected an error.
+        /// Detected case-insensitively in the iteration result.
+        /// </summary>
+        public const string ErrorKeyword = "[LOOP ERROR]";
 
         // — State ——————————————————————————————————————————————————————————————
 
@@ -54,20 +59,9 @@ namespace Wally.Core
         public string? ContinuePrompt { get; set; }
 
         /// <summary>
-        /// Function evaluated after each iteration. Receives the latest result
-        /// and returns <see langword="true"/> when the stop word has been detected
-        /// (i.e. the loop should end), or <see langword="false"/> to keep going.
-        /// <para>
-        /// Defaults to a case-insensitive check for <see cref="DefaultStopWord"/>
-        /// (<c>LOOP COMPLETED</c>).
-        /// </para>
-        /// </summary>
-        public Func<string, bool> EndIdentifier { get; set; }
-
-        /// <summary>
         /// The maximum number of iterations the loop is allowed to perform.
-        /// The loop ends when this ceiling is reached even if
-        /// <see cref="EndIdentifier"/> has not yet returned <see langword="true"/>.
+        /// The loop ends when this ceiling is reached even if neither
+        /// keyword has been detected.
         /// </summary>
         public int MaxIterations { get; set; }
 
@@ -78,12 +72,11 @@ namespace Wally.Core
         public int ExecutionCount { get; private set; }
 
         /// <summary>
-        /// <see langword="true"/> when the most recent <see cref="Run"/> ended
-        /// because <see cref="EndIdentifier"/> detected the stop word.
-        /// <see langword="false"/> when the loop ended because
-        /// <see cref="MaxIterations"/> was reached.
+        /// Indicates how the loop ended after the most recent <see cref="Run"/>:
+        /// <see cref="LoopStopReason.Completed"/>, <see cref="LoopStopReason.Error"/>, 
+        /// or <see cref="LoopStopReason.MaxIterations"/>.
         /// </summary>
-        public bool StoppedByDeclaration { get; private set; }
+        public LoopStopReason StopReason { get; private set; }
 
         /// <summary>
         /// The result strings produced by each iteration, in order.
@@ -113,11 +106,6 @@ namespace Wally.Core
         /// The prompt for subsequent iterations. When <see langword="null"/>,
         /// the previous result is used as the next prompt.
         /// </param>
-        /// <param name="endIdentifier">
-        /// Function that inspects each result and returns <see langword="true"/>
-        /// when the stop word is detected. When <see langword="null"/>, defaults
-        /// to a case-insensitive check for <see cref="DefaultStopWord"/>.
-        /// </param>
         /// <param name="maxIterations">
         /// Hard ceiling on iterations. Defaults to <c>10</c>.
         /// </param>
@@ -129,14 +117,11 @@ namespace Wally.Core
             Func<string, string> action,
             string startPrompt,
             string? continuePrompt = null,
-            Func<string, bool>? endIdentifier = null,
             int maxIterations = 10)
         {
             _action        = action ?? throw new ArgumentNullException(nameof(action));
             StartPrompt    = startPrompt ?? throw new ArgumentNullException(nameof(startPrompt));
             ContinuePrompt = continuePrompt;
-            EndIdentifier  = endIdentifier
-                             ?? (result => result.Contains(DefaultStopWord, StringComparison.OrdinalIgnoreCase));
             MaxIterations  = maxIterations;
         }
 
@@ -150,18 +135,18 @@ namespace Wally.Core
         /// the previous result becomes the next prompt.
         /// </para>
         /// <para>
-        /// After each iteration <see cref="EndIdentifier"/> is called with the
-        /// result. If it returns <see langword="true"/>, the loop ends with
-        /// <see cref="StoppedByDeclaration"/> = <see langword="true"/>. If
-        /// <see cref="MaxIterations"/> is reached first,
-        /// <see cref="StoppedByDeclaration"/> = <see langword="false"/>.
+        /// After each iteration the result is checked for
+        /// <see cref="CompletedKeyword"/> and <see cref="ErrorKeyword"/>.
+        /// If either is found the loop ends immediately. If
+        /// <see cref="MaxIterations"/> is reached first, the loop ends with
+        /// <see cref="StopReason"/> = <see cref="LoopStopReason.MaxIterations"/>.
         /// </para>
         /// </summary>
         public void Run()
         {
             // Reset per-run state.
-            ExecutionCount       = 0;
-            StoppedByDeclaration = false;
+            ExecutionCount = 0;
+            StopReason     = LoopStopReason.MaxIterations;
             Results.Clear();
 
             string currentPrompt = StartPrompt;
@@ -172,10 +157,16 @@ namespace Wally.Core
                 ExecutionCount++;
                 Results.Add(result);
 
-                // Check if the stop word was detected in the result.
-                if (EndIdentifier.Invoke(result))
+                // Check for stop keywords in the result.
+                if (result.Contains(CompletedKeyword, StringComparison.OrdinalIgnoreCase))
                 {
-                    StoppedByDeclaration = true;
+                    StopReason = LoopStopReason.Completed;
+                    break;
+                }
+
+                if (result.Contains(ErrorKeyword, StringComparison.OrdinalIgnoreCase))
+                {
+                    StopReason = LoopStopReason.Error;
                     break;
                 }
 
@@ -185,5 +176,20 @@ namespace Wally.Core
                     : result;
             }
         }
+    }
+
+    /// <summary>
+    /// Describes why a <see cref="WallyLoop"/> stopped.
+    /// </summary>
+    public enum LoopStopReason
+    {
+        /// <summary>The loop reached <see cref="WallyLoop.MaxIterations"/>.</summary>
+        MaxIterations,
+
+        /// <summary>The actor's response contained <see cref="WallyLoop.CompletedKeyword"/>.</summary>
+        Completed,
+
+        /// <summary>The actor's response contained <see cref="WallyLoop.ErrorKeyword"/>.</summary>
+        Error
     }
 }

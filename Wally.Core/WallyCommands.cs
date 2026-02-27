@@ -120,7 +120,8 @@ namespace Wally.Core
         /// Runs an actor inside a <see cref="WallyLoop"/>. The actor generates
         /// the start and continue prompts from the user's raw input, wrapping it
         /// in its RBA context. The loop iterates until the actor's response
-        /// contains the stop word (<see cref="WallyLoop.DefaultStopWord"/>) or
+        /// contains <see cref="WallyLoop.CompletedKeyword"/>, 
+        /// <see cref="WallyLoop.ErrorKeyword"/>, or
         /// <paramref name="maxIterations"/> is reached.
         /// </summary>
         public static List<string> HandleRunLoop(
@@ -153,7 +154,8 @@ namespace Wally.Core
             // The actor generates the full prompt (RBA wrapper + user input).
             string startPrompt    = actor.GeneratePrompt(prompt);
             string continuePrompt = actor.GeneratePrompt(
-                $"Continue the previous task. If you are finished, respond with: {WallyLoop.DefaultStopWord}");
+                $"Continue the previous task. If you are finished, respond with: {WallyLoop.CompletedKeyword}\n" +
+                $"If something went wrong, respond with: {WallyLoop.ErrorKeyword}");
 
             var loop = new WallyLoop(
                 action:          currentPrompt => actor.Act(currentPrompt),
@@ -162,7 +164,7 @@ namespace Wally.Core
                 maxIterations:   iterations
             );
 
-            Console.WriteLine($"[run-loop] Actor: {actor.Name}  MaxIterations: {iterations}  StopWord: {WallyLoop.DefaultStopWord}");
+            Console.WriteLine($"[run-loop] Actor: {actor.Name}  MaxIterations: {iterations}");
             Console.WriteLine();
 
             loop.Run();
@@ -175,15 +177,23 @@ namespace Wally.Core
                 Console.WriteLine();
             }
 
-            // Summary.
-            if (loop.StoppedByDeclaration)
-                Console.WriteLine($"[run-loop] Loop completed by declaration after {loop.ExecutionCount} iteration(s).");
-            else
-                Console.WriteLine($"[run-loop] Loop reached max iterations ({loop.ExecutionCount}).");
+            // Summary based on stop reason.
+            switch (loop.StopReason)
+            {
+                case LoopStopReason.Completed:
+                    Console.WriteLine($"[run-loop] Loop completed after {loop.ExecutionCount} iteration(s).");
+                    break;
+                case LoopStopReason.Error:
+                    Console.WriteLine($"[run-loop] Loop stopped by error after {loop.ExecutionCount} iteration(s).");
+                    break;
+                case LoopStopReason.MaxIterations:
+                    Console.WriteLine($"[run-loop] Loop reached max iterations ({loop.ExecutionCount}).");
+                    break;
+            }
 
             env.Logger.LogInfo(
                 $"run-loop finished: {loop.ExecutionCount} iteration(s), " +
-                $"stoppedByDeclaration={loop.StoppedByDeclaration}");
+                $"stopReason={loop.StopReason}");
 
             return loop.Results;
         }
@@ -289,8 +299,8 @@ namespace Wally.Core
             Console.WriteLine("  run-loop <actor> \"<prompt>\" [-m <model>] [-n <max>]");
             Console.WriteLine("                                   Run an actor in an iterative loop.");
             Console.WriteLine("                                   The actor generates wrapped prompts from its RBA context.");
-            Console.WriteLine("                                   Loop ends when the actor responds with 'LOOP COMPLETED'");
-            Console.WriteLine("                                   or max iterations (-n) is reached (default from config).");
+            Console.WriteLine("                                   Loop ends when the actor responds with [LOOP COMPLETED],");
+            Console.WriteLine("                                   [LOOP ERROR], or max iterations (-n) is reached.");
             Console.WriteLine();
             Console.WriteLine("Workspace layout:");
             Console.WriteLine("  <WorkSource>/                  Your codebase root (e.g. C:\\repos\\MyApp)");
@@ -302,13 +312,11 @@ namespace Wally.Core
             Console.WriteLine("                                 criteriaPrompt, intentPrompt");
             Console.WriteLine("      Logs/                      Session logs (auto-created on first run)");
             Console.WriteLine("        <timestamp_guid>/        One folder per session");
-            Console.WriteLine("          <timestamp>_<guid>.jsonl  Rotated log files (JSON-lines)");
-            Console.WriteLine("          session-manifest.json    Index of all log files with time ranges");
+            Console.WriteLine("          <timestamp>.txt         Rotated log files");
             Console.WriteLine();
             Console.WriteLine("Logging:      All commands, prompts, and responses are logged per session.");
             Console.WriteLine("              Log files rotate every LogRotationMinutes (default: 2 min).");
             Console.WriteLine("              Set to 0 in wally-config.json to disable rotation.");
-            Console.WriteLine("              A session-manifest.json indexes all files on exit.");
             Console.WriteLine();
             Console.WriteLine("WorkSource:   The directory whose files are given as context to gh copilot.");
             Console.WriteLine("              This is always the parent of the .wally/ workspace folder.");

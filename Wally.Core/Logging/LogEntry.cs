@@ -5,7 +5,7 @@ namespace Wally.Core.Logging
 {
     /// <summary>
     /// A single structured log entry written by <see cref="SessionLogger"/>.
-    /// Serialised as one JSON object per line in the session log file.
+    /// Serialised as one line per entry in the session log file.
     /// </summary>
     public sealed class LogEntry
     {
