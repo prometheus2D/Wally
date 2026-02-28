@@ -64,6 +64,7 @@ namespace Wally.Core
         {
             Workspace = WallyWorkspace.Load(workspaceFolder);
             BindLogger();
+            InjectLoggerIntoActors();
         }
 
         /// <summary>
@@ -139,7 +140,11 @@ namespace Wally.Core
         /// <summary>
         /// Re-reads all actor folders from disk and rebuilds the actor list.
         /// </summary>
-        public void ReloadActors() => RequireWorkspace().ReloadActors();
+        public void ReloadActors()
+        {
+            RequireWorkspace().ReloadActors();
+            InjectLoggerIntoActors();
+        }
 
         // — Actor management ——————————————————————————————————————————————————
 
@@ -238,6 +243,16 @@ namespace Wally.Core
             Logger.RotationMinutes = Workspace!.Config.LogRotationMinutes;
             Logger.Bind(Workspace.WorkspaceFolder, Workspace.Config.LogsFolderName);
             Logger.LogInfo($"Session started — workspace: {Workspace.WorkspaceFolder}");
+        }
+
+        /// <summary>
+        /// Sets <see cref="SessionLogger"/> on every loaded actor so the actor
+        /// pipeline can log processed prompts and CLI interactions.
+        /// </summary>
+        private void InjectLoggerIntoActors()
+        {
+            foreach (var actor in Actors)
+                actor.Logger = Logger;
         }
     }
 }

@@ -117,11 +117,10 @@ namespace Wally.Core
         }
 
         /// <summary>
-        /// Runs an actor inside a <see cref="WallyLoop"/>. The actor generates
-        /// the start prompt from the user's raw input, wrapping it in its RBA
-        /// context. On each subsequent iteration the previous result is embedded
-        /// in the prompt so the LLM has full context (each <c>gh copilot -p</c>
-        /// call is stateless). The loop ends when the response contains
+        /// Runs an actor inside a <see cref="WallyLoop"/>. On each subsequent
+        /// iteration the previous result is embedded in the prompt so the LLM
+        /// has full context (each <c>gh copilot -p</c> call is stateless).
+        /// The loop ends when the response contains
         /// <see cref="WallyLoop.CompletedKeyword"/>,
         /// <see cref="WallyLoop.ErrorKeyword"/>, or
         /// <paramref name="maxIterations"/> is reached.
@@ -153,21 +152,44 @@ namespace Wally.Core
                 $"with model override '{model ?? "(none)"}'"
             );
 
-            // The actor generates the full start prompt (RBA wrapper + user input).
-            string startPrompt = actor.GeneratePrompt(prompt);
+            // Build raw prompts — Act() calls ProcessPrompt() which adds the
+            // RBA wrapper (Role, Criteria, Intent) exactly once.
+            string startPrompt = prompt;
 
             // The continue prompt embeds the previous result so the LLM has
             // context — each gh copilot -p call is completely stateless.
             Func<string, string> continuePrompt = previousResult =>
-                actor.GeneratePrompt(
-                    $"You are continuing a task. Here is your previous response:\n\n" +
-                    $"---\n{previousResult}\n---\n\n" +
-                    $"Continue where you left off. " +
-                    $"If you are finished, respond with: {WallyLoop.CompletedKeyword}\n" +
-                    $"If something went wrong, respond with: {WallyLoop.ErrorKeyword}");
+                $"You are continuing a task. Here is your previous response:\n\n" +
+                $"---\n{previousResult}\n---\n\n" +
+                $"Continue where you left off. " +
+                $"If you are finished, respond with: {WallyLoop.CompletedKeyword}\n" +
+                $"If something went wrong, respond with: {WallyLoop.ErrorKeyword}";
+
+            // Track iteration count so each prompt/response pair is numbered in the log.
+            int iterationNumber = 0;
+            string? resolvedModel = model ?? env.Workspace!.Config.DefaultModel;
 
             var loop = new WallyLoop(
-                action:          currentPrompt => actor.Act(currentPrompt),
+                action: currentPrompt =>
+                {
+                    iterationNumber++;
+
+                    // Log the raw prompt for this iteration.
+                    env.Logger.LogPrompt(actor.Name, currentPrompt, resolvedModel);
+
+                    // Re-apply the model override — Act() clears it after each call.
+                    if (!string.IsNullOrWhiteSpace(model))
+                        actor.ModelOverride = model;
+
+                    var sw = System.Diagnostics.Stopwatch.StartNew();
+                    string result = actor.Act(currentPrompt);
+                    sw.Stop();
+
+                    // Log the response for this iteration.
+                    env.Logger.LogResponse(actor.Name, result, sw.ElapsedMilliseconds, iterationNumber);
+
+                    return result;
+                },
                 startPrompt:     startPrompt,
                 continuePrompt:  continuePrompt,
                 maxIterations:   iterations

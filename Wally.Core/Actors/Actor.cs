@@ -1,3 +1,4 @@
+using Wally.Core.Logging;
 using Wally.Core.RBA;
 
 namespace Wally.Core.Actors
@@ -28,7 +29,7 @@ namespace Wally.Core.Actors
         /// <summary>The intent this Actor pursues.</summary>
         public Intent Intent { get; set; }
 
-        // — Workspace context —————————————————————————————————————————————————
+        // — Workspace context —————————————————————————————————————————————
 
         /// <summary>
         /// The workspace this Actor operates in. Provides access to
@@ -37,7 +38,14 @@ namespace Wally.Core.Actors
         /// </summary>
         public WallyWorkspace? Workspace { get; set; }
 
-        // — Runtime overrides —————————————————————————————————————————————————
+        /// <summary>
+        /// Optional session logger injected by <see cref="WallyEnvironment"/>.
+        /// When set, the actor pipeline logs the processed prompt and responses
+        /// at each stage of <see cref="Act"/>.
+        /// </summary>
+        public SessionLogger? Logger { get; set; }
+
+        // — Runtime overrides —————————————————————————————————————————————
 
         /// <summary>
         /// When set, overrides <see cref="WallyConfig.DefaultModel"/> for the
@@ -169,6 +177,11 @@ namespace Wally.Core.Actors
         {
             Setup();
             string processed = ProcessPrompt(prompt);
+
+            // Log the full enriched prompt that will be sent to the CLI.
+            string? model = ModelOverride ?? Workspace?.Config?.DefaultModel;
+            Logger?.LogProcessedPrompt(Name, processed, model);
+
             try
             {
                 if (ShouldMakeChanges(processed))

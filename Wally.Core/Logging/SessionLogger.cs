@@ -119,7 +119,7 @@ namespace Wally.Core.Logging
             }
         }
 
-        // — Logging methods ——————————————————————————————————————————————————
+        // — Logging methods ——————————————————————————————————————————————
 
         /// <summary>Logs a command invocation.</summary>
         public void LogCommand(string command, string? message = null)
@@ -148,6 +148,25 @@ namespace Wally.Core.Logging
             });
         }
 
+        /// <summary>
+        /// Logs the fully enriched prompt that is actually sent to the CLI tool.
+        /// This is the output of <see cref="Actors.Actor.ProcessPrompt"/> — the
+        /// RBA-wrapped version of the raw user prompt.
+        /// </summary>
+        public void LogProcessedPrompt(string actorName, string processedPrompt, string? model = null, int iteration = 0)
+        {
+            Write(new LogEntry
+            {
+                Timestamp       = DateTimeOffset.UtcNow,
+                SessionId       = SessionId.ToString("N"),
+                Category        = "ProcessedPrompt",
+                ActorName       = actorName,
+                ProcessedPrompt = processedPrompt,
+                Model           = model,
+                Iteration       = iteration
+            });
+        }
+
         /// <summary>Logs a response received from an actor.</summary>
         public void LogResponse(string actorName, string? response, long elapsedMs)
         {
@@ -159,6 +178,41 @@ namespace Wally.Core.Logging
                 ActorName = actorName,
                 Response  = response,
                 ElapsedMs = elapsedMs
+            });
+        }
+
+        /// <summary>
+        /// Logs a response received from an actor, with an optional iteration number
+        /// for loop-based runs.
+        /// </summary>
+        public void LogResponse(string actorName, string? response, long elapsedMs, int iteration)
+        {
+            Write(new LogEntry
+            {
+                Timestamp = DateTimeOffset.UtcNow,
+                SessionId = SessionId.ToString("N"),
+                Category  = "Response",
+                ActorName = actorName,
+                Response  = response,
+                ElapsedMs = elapsedMs,
+                Iteration = iteration
+            });
+        }
+
+        /// <summary>
+        /// Logs a CLI-level error (non-zero exit code or stderr output) from a
+        /// tool invocation such as <c>gh copilot</c>.
+        /// </summary>
+        public void LogCliError(string actorName, int exitCode, string? stderr)
+        {
+            Write(new LogEntry
+            {
+                Timestamp = DateTimeOffset.UtcNow,
+                SessionId = SessionId.ToString("N"),
+                Category  = "CliError",
+                ActorName = actorName,
+                Message   = $"Exit code {exitCode}" +
+                            (string.IsNullOrWhiteSpace(stderr) ? "" : $": {stderr}")
             });
         }
 

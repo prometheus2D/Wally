@@ -108,6 +108,7 @@ namespace Wally.Core.Actors
 
                 if (process.ExitCode != 0)
                 {
+                    Logger?.LogCliError(Name, process.ExitCode, error);
                     return string.IsNullOrWhiteSpace(error)
                         ? $"Copilot exited with code {process.ExitCode}."
                         : $"Error from Copilot (exit {process.ExitCode}):\n{error}";
@@ -119,6 +120,7 @@ namespace Wally.Core.Actors
             }
             catch (Exception ex)
             {
+                Logger?.LogCliError(Name, -1, ex.Message);
                 return $"Failed to call Copilot CLI: {ex.Message}";
             }
         }

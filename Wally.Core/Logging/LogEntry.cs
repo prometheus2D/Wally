@@ -17,7 +17,8 @@ namespace Wally.Core.Logging
 
         /// <summary>
         /// Category of the log entry, e.g. <c>Command</c>, <c>Prompt</c>,
-        /// <c>Response</c>, <c>Info</c>, <c>Error</c>.
+        /// <c>Response</c>, <c>Info</c>, <c>Error</c>, <c>ProcessedPrompt</c>,
+        /// <c>CliError</c>.
         /// </summary>
         public string Category { get; set; } = string.Empty;
 
@@ -29,9 +30,17 @@ namespace Wally.Core.Logging
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string? Command { get; set; }
 
-        /// <summary>The prompt text sent to an actor.</summary>
+        /// <summary>The raw user prompt text sent to an actor.</summary>
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string? Prompt { get; set; }
+
+        /// <summary>
+        /// The fully enriched prompt (after RBA processing) that was sent to the
+        /// CLI tool (e.g. <c>gh copilot -p</c>). Logged separately from
+        /// <see cref="Prompt"/> so both raw and processed prompts are captured.
+        /// </summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string? ProcessedPrompt { get; set; }
 
         /// <summary>The response text received from an actor.</summary>
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -48,5 +57,12 @@ namespace Wally.Core.Logging
         /// <summary>The model used for the actor call, if any.</summary>
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string? Model { get; set; }
+
+        /// <summary>
+        /// The 1-based iteration number within a <c>run-loop</c>.
+        /// Zero or omitted for non-loop entries.
+        /// </summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+        public int Iteration { get; set; }
     }
 }
