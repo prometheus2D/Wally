@@ -4,4 +4,4 @@
   "criteriaPrompt": "Code must compile without errors, follow best practices, and pass unit tests.",
   "intentPrompt": "Implement the requested feature with proper error handling.",
   "docsFolderName": "Docs"
-}
+}}

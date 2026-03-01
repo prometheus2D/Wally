@@ -232,7 +232,7 @@ namespace Wally.Core
         // — Workspace inspection ——————————————————————————————————————————————
 
         /// <summary>
-        /// Lists each loaded actor (name, role/criteria/intent prompts, loaded docs).
+        /// Lists each loaded actor (name, role/criteria/intent prompts, docs folder paths).
         /// </summary>
         public static void HandleList(WallyEnvironment env)
         {
@@ -251,10 +251,12 @@ namespace Wally.Core
                 PrintRbaLine("    Role",     actor.Role.Prompt);
                 PrintRbaLine("    Criteria", actor.AcceptanceCriteria.Prompt);
                 PrintRbaLine("    Intent",   actor.Intent.Prompt);
-                if (actor.WorkspaceDocs.Count > 0)
-                    Console.WriteLine($"    Workspace docs: {actor.WorkspaceDocs.Count} ({string.Join(", ", actor.WorkspaceDocs.ConvertAll(d => d.Name))})");
-                if (actor.ActorDocs.Count > 0)
-                    Console.WriteLine($"    Actor docs:     {actor.ActorDocs.Count} ({string.Join(", ", actor.ActorDocs.ConvertAll(d => d.Name))})");
+                if (!string.IsNullOrEmpty(actor.FolderPath))
+                {
+                    string actorDocsPath = Path.Combine(actor.FolderPath, actor.DocsFolderName);
+                    if (Directory.Exists(actorDocsPath))
+                        Console.WriteLine($"    Docs folder: {actorDocsPath}");
+                }
             }
         }
 
@@ -281,23 +283,7 @@ namespace Wally.Core
             Console.WriteLine($"Logs folder:       {Path.Combine(ws.WorkspaceFolder, cfg.LogsFolderName)}");
             Console.WriteLine($"Actors loaded:     {ws.Actors.Count}");
             foreach (var a in ws.Actors)
-            {
-                string docSummary = a.ActorDocs.Count > 0
-                    ? $"  ({a.ActorDocs.Count} doc(s))"
-                    : "";
-                Console.WriteLine($"  {a.Name}{docSummary}");
-            }
-
-            // Workspace-level doc summary
-            if (ws.Actors.Count > 0 && ws.Actors[0].WorkspaceDocs.Count > 0)
-            {
-                var wsDocs = ws.Actors[0].WorkspaceDocs;
-                Console.WriteLine($"Workspace docs:    {wsDocs.Count} ({string.Join(", ", wsDocs.ConvertAll(d => d.Name))})");
-            }
-            else
-            {
-                Console.WriteLine($"Workspace docs:    (none)");
-            }
+                Console.WriteLine($"  {a.Name}");
 
             Console.WriteLine();
             Console.WriteLine($"Default model:     {(string.IsNullOrWhiteSpace(cfg.DefaultModel) ? "(copilot default)" : cfg.DefaultModel)}");
@@ -358,22 +344,23 @@ namespace Wally.Core
             Console.WriteLine("Workspace layout:");
             Console.WriteLine("  <WorkSource>/                  Your codebase root (e.g. C:\\repos\\MyApp)");
             Console.WriteLine("    .wally/                      Workspace folder (config + actors + docs + logs)");
-            Console.WriteLine("      wally-config.json          DefaultModel, Models, LogsFolderName, DocsFolderName");
-            Console.WriteLine("      Docs/                      Workspace-level documentation (shared by all actors)");
-            Console.WriteLine("        style-guide.md           .md, .txt, .rst, .adoc files auto-loaded");
+            Console.WriteLine("      wally-config.json          DefaultModel, Models, MaxIterations, etc.");
+            Console.WriteLine("      Docs/                      Workspace-level docs (Copilot reads via --add-dir)");
+            Console.WriteLine("        style-guide.md           Place .md, .txt, .rst, .adoc files here");
             Console.WriteLine("      Actors/");
             Console.WriteLine("        <ActorName>/");
-            Console.WriteLine("          actor.json             name, rolePrompt, criteriaPrompt,");
-            Console.WriteLine("                                 intentPrompt, docsFolderName");
-            Console.WriteLine("          Docs/                  Actor-private documentation");
-            Console.WriteLine("            character-guide.md   Only injected into this actor's prompts");
+            Console.WriteLine("          actor.json             name, rolePrompt, criteriaPrompt, intentPrompt");
+            Console.WriteLine("          Docs/                  Actor-private docs (Copilot reads via --add-dir)");
+            Console.WriteLine("            reference.md         Reference files specific to this actor");
             Console.WriteLine("      Logs/                      Session logs (auto-created on first run)");
             Console.WriteLine("        <timestamp_guid>/        One folder per session");
             Console.WriteLine("          <timestamp>.txt         Rotated log files");
             Console.WriteLine();
-            Console.WriteLine("Documentation: Workspace-level docs (.wally/Docs/) are injected into every actor's");
-            Console.WriteLine("              prompt. Actor-level docs (.wally/Actors/<Name>/Docs/) are injected");
-            Console.WriteLine("              only into that actor's prompt. Supported formats: .md .txt .rst .adoc");
+            Console.WriteLine("Documentation: Files in .wally/Docs/ and .wally/Actors/<Name>/Docs/ are");
+            Console.WriteLine("              accessible to gh copilot via --add-dir (native file access).");
+            Console.WriteLine("              Copilot reads them from disk — nothing is injected into prompts.");
+            Console.WriteLine("              To direct Copilot to a specific file, reference it by path in");
+            Console.WriteLine("              your prompt, e.g. \"Refer to .wally/Docs/style-guide.md\".");
             Console.WriteLine();
             Console.WriteLine("Logging:      All commands, prompts, and responses are logged per session.");
             Console.WriteLine("              Log files rotate every LogRotationMinutes (default: 2 min).");
@@ -403,7 +390,7 @@ namespace Wally.Core
 
         private static void PrintRbaLine(string label, string prompt)
         {
-            string display = prompt?.Length > 80 ? prompt[..80] + "…" : prompt ?? "";
+            string display = prompt?.Length > 80 ? prompt[..80] + "\u2026" : prompt ?? "";
             Console.WriteLine($"{label}: {display}");
         }
     }

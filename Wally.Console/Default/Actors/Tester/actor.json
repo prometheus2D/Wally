@@ -4,4 +4,4 @@
   "criteriaPrompt": "The output must meet user requirements and be user-friendly.",
   "intentPrompt": "Identify and fix the reported bug.",
   "docsFolderName": "Docs"
-}
+}}

@@ -2,13 +2,19 @@
 
 Place shared documentation files here (`.md`, `.txt`, `.rst`, `.adoc`).
 
-These documents are injected into **every** actor's prompt as shared reference
-context. Use them for:
+These files are inside the WorkSource tree, so `gh copilot` can already read
+them natively via `--add-dir`. Nothing is injected into prompts.
 
-- World-building rules and constraints
+To direct Copilot to a specific file, reference it by path in your prompt:
+
+> Refer to `.wally/Docs/style-guide.md` for tone and formatting rules.
+
+Use this folder for:
+
 - Style guides and tone references
 - Domain glossaries
 - Project-wide specifications
+- World-building rules and constraints
 
 ## Per-Actor Documentation
 
@@ -30,4 +36,5 @@ Each actor can also have its own private `Docs/` folder:
                 tone-guide.md
 ```
 
-Actor-level docs are only injected into that actor's prompts.
+All files are accessible to Copilot via `--add-dir` — just reference them
+by path in your prompt when needed.

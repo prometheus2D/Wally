@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
 using Wally.Core.Actors;
-using Wally.Core.Docs;
 using Wally.Core.RBA;
 
 namespace Wally.Core
@@ -33,15 +32,6 @@ namespace Wally.Core
         /// <c>CopyToOutputDirectory</c>.
         /// </summary>
         public const string DefaultTemplateFolderName = "Default";
-
-        /// <summary>
-        /// File extensions recognised as documentation files when loading a
-        /// <c>Docs/</c> folder. Only plain-text formats are supported.
-        /// </summary>
-        private static readonly HashSet<string> DocExtensions = new(StringComparer.OrdinalIgnoreCase)
-        {
-            ".md", ".txt", ".text", ".rst", ".adoc"
-        };
 
         // — Workspace root resolution —————————————————————————————————————
 
@@ -100,49 +90,6 @@ namespace Wally.Core
             Directory.CreateDirectory(docsFolder);
         }
 
-        // — Document loading ———————————————————————————————————————————————————
-
-        /// <summary>
-        /// Loads all documentation files from the given <paramref name="docsFolder"/>.
-        /// Returns an empty list when the folder does not exist or contains no
-        /// recognised files.
-        /// </summary>
-        public static List<Document> LoadDocuments(string docsFolder)
-        {
-            var docs = new List<Document>();
-            if (!Directory.Exists(docsFolder)) return docs;
-
-            foreach (string filePath in Directory.GetFiles(docsFolder))
-            {
-                string ext = Path.GetExtension(filePath);
-                if (!DocExtensions.Contains(ext)) continue;
-
-                string content = File.ReadAllText(filePath);
-                if (!string.IsNullOrWhiteSpace(content))
-                    docs.Add(new Document(Path.GetFileName(filePath), content));
-            }
-            return docs;
-        }
-
-        /// <summary>
-        /// Loads workspace-level documents from <c>&lt;workspaceFolder&gt;/Docs/</c>.
-        /// </summary>
-        public static List<Document> LoadWorkspaceDocs(string workspaceFolder, WallyConfig config)
-        {
-            string docsDir = Path.Combine(workspaceFolder, config.DocsFolderName);
-            return LoadDocuments(docsDir);
-        }
-
-        /// <summary>
-        /// Loads actor-private documents from the actor's <c>Docs/</c> subfolder.
-        /// </summary>
-        public static List<Document> LoadActorDocs(string actorFolderPath, string docsFolderName = "Docs")
-        {
-            if (string.IsNullOrEmpty(actorFolderPath)) return new List<Document>();
-            string docsDir = Path.Combine(actorFolderPath, docsFolderName);
-            return LoadDocuments(docsDir);
-        }
-
         // — Actor loading ———————————————————————————————————————————————————
 
         /// <summary>
@@ -150,14 +97,10 @@ namespace Wally.Core
         /// returns one <see cref="CopilotActor"/> per folder.
         /// Missing <c>actor.json</c> produces an empty-prompt actor rather than an error.
         /// If no actors are found on disk, loads default actors from the template folder.
-        /// Workspace-level and actor-level documents are loaded and injected.
         /// </summary>
         public static List<Actor> LoadActors(
             string workspaceFolder, WallyConfig config, WallyWorkspace workspace = null)
         {
-            // Load workspace-level docs once — shared across all actors.
-            var workspaceDocs = LoadWorkspaceDocs(workspaceFolder, config);
-
             var actors   = new List<Actor>();
             string actorsDir = Path.Combine(workspaceFolder, config.ActorsFolderName);
             if (Directory.Exists(actorsDir))
@@ -165,7 +108,6 @@ namespace Wally.Core
                 foreach (string actorDir in Directory.GetDirectories(actorsDir))
                 {
                     var actor = LoadActorFromDirectory(actorDir, workspace);
-                    actor.WorkspaceDocs = workspaceDocs;
                     actors.Add(actor);
                 }
             }
@@ -174,9 +116,6 @@ namespace Wally.Core
             if (actors.Count == 0)
             {
                 actors.AddRange(LoadDefaultActors(config, workspace));
-                // Default actors still get workspace docs from the target workspace.
-                foreach (var actor in actors)
-                    actor.WorkspaceDocs = workspaceDocs;
             }
 
             return actors;
@@ -311,7 +250,6 @@ namespace Wally.Core
         /// an <c>actor.json</c>).  When <paramref name="isFallback"/> is true the actor's
         /// <see cref="Actor.FolderPath"/> is set to <see cref="string.Empty"/> because
         /// it does not represent a workspace-local folder.
-        /// Actor-level documents are loaded from the actor's <c>Docs/</c> subfolder.
         /// </summary>
         private static Actor LoadActorFromDirectory(
             string actorDir, WallyWorkspace? workspace, bool isFallback = false)
@@ -346,10 +284,6 @@ namespace Wally.Core
                 workspace);
 
             actor.DocsFolderName = docsFolderName;
-
-            // Load actor-level docs from the actor's Docs subfolder.
-            if (!isFallback)
-                actor.ActorDocs = LoadActorDocs(actorDir, docsFolderName);
 
             return actor;
         }

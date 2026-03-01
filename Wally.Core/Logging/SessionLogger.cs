@@ -241,26 +241,6 @@ namespace Wally.Core.Logging
             });
         }
 
-        /// <summary>
-        /// Logs the documents that were injected into an actor's prompt.
-        /// Called once per <see cref="Actors.Actor.Act"/> invocation when the actor
-        /// has any workspace-level or actor-level documents loaded.
-        /// </summary>
-        public void LogDocsLoaded(string actorName, int workspaceDocsCount, int actorDocsCount, string docsLoaded)
-        {
-            Write(new LogEntry
-            {
-                Timestamp          = DateTimeOffset.UtcNow,
-                SessionId          = SessionId.ToString("N"),
-                Category           = "DocsLoaded",
-                ActorName          = actorName,
-                WorkspaceDocsCount = workspaceDocsCount,
-                ActorDocsCount     = actorDocsCount,
-                DocsLoaded         = docsLoaded,
-                Message            = $"{workspaceDocsCount} workspace doc(s), {actorDocsCount} actor doc(s)"
-            });
-        }
-
         // — Core write ———————————————————————————————————————————————————————
 
         private void Write(LogEntry entry)

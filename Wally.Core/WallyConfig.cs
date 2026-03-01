@@ -14,12 +14,18 @@ namespace Wally.Core
     ///   &lt;WorkSource&gt;/               e.g. C:\repos\MyApp
     ///       .wally/                     workspace folder
     ///           wally-config.json
+    ///           Docs/                   workspace-level documentation
     ///           Actors/
     ///               Developer/
     ///                   actor.json
+    ///                   Docs/           actor-private documentation
     ///               Tester/
     ///                   actor.json
+    ///                   Docs/
     /// </code>
+    /// All files under WorkSource (including <c>.wally/</c>) are accessible to
+    /// <c>gh copilot</c> via <c>--add-dir</c>. Documentation files are never
+    /// injected into prompts — Copilot reads them from disk natively.
     /// </summary>
     public class WallyConfig
     {
@@ -42,8 +48,13 @@ namespace Wally.Core
         /// <summary>
         /// Subfolder inside the workspace folder that holds workspace-level
         /// documentation files (e.g. <c>.md</c>, <c>.txt</c>).
-        /// These documents are injected into <em>every</em> actor's prompt as
-        /// shared context. Default: <c>Docs</c>.
+        /// <para>
+        /// These files are accessible to <c>gh copilot</c> via <c>--add-dir</c>
+        /// (the entire WorkSource tree is granted). They are <b>not</b> injected
+        /// into prompts — Copilot reads them from disk when relevant, or the
+        /// user can reference specific files by path in the prompt.
+        /// </para>
+        /// Default: <c>Docs</c>.
         /// </summary>
         public string DocsFolderName { get; set; } = "Docs";
 

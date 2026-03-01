@@ -64,26 +64,5 @@ namespace Wally.Core.Logging
         /// </summary>
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
         public int Iteration { get; set; }
-
-        /// <summary>
-        /// The number of workspace-level documents that were injected into the prompt.
-        /// Zero or omitted when no workspace docs are loaded.
-        /// </summary>
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
-        public int WorkspaceDocsCount { get; set; }
-
-        /// <summary>
-        /// The number of actor-level documents that were injected into the prompt.
-        /// Zero or omitted when no actor docs are loaded.
-        /// </summary>
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
-        public int ActorDocsCount { get; set; }
-
-        /// <summary>
-        /// Comma-separated list of document file names that were injected into
-        /// the prompt. Omitted when no docs are loaded.
-        /// </summary>
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        public string? DocsLoaded { get; set; }
     }
 }
