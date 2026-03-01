@@ -40,6 +40,14 @@ namespace Wally.Core
         public string LogsFolderName { get; set; } = "Logs";
 
         /// <summary>
+        /// Subfolder inside the workspace folder that holds workspace-level
+        /// documentation files (e.g. <c>.md</c>, <c>.txt</c>).
+        /// These documents are injected into <em>every</em> actor's prompt as
+        /// shared context. Default: <c>Docs</c>.
+        /// </summary>
+        public string DocsFolderName { get; set; } = "Docs";
+
+        /// <summary>
         /// How often (in minutes) the session logger rotates to a new log file.
         /// Each file covers roughly this time window. Set to <c>0</c> to disable
         /// rotation (single file per session). Default: <c>2</c>.

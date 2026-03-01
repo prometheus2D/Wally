@@ -119,11 +119,17 @@ The actor generates both the start and continue prompts using `GeneratePrompt()`
 <YourCodebase>/                    e.g. C:\repos\MyApp
     .wally/                        Workspace folder
         wally-config.json          Config (model, iterations, etc.)
+        Docs/                      Workspace-level documentation (shared by all actors)
+            style-guide.md         .md, .txt, .rst, .adoc files auto-loaded
         Actors/
             Developer/
                 actor.json         Role, AcceptanceCriteria, Intent
+                Docs/              Actor-private documentation
+                    architecture.md
             Tester/
                 actor.json
+                Docs/
+                    test-plan.md
         Logs/                      Session logs (auto-created)
 ```
 
@@ -134,7 +140,8 @@ The actor generates both the start and continue prompts using `GeneratePrompt()`
   "name": "Developer",
   "rolePrompt": "Act as an expert software developer, writing clean and efficient code.",
   "criteriaPrompt": "Code must compile without errors, follow best practices, and pass unit tests.",
-  "intentPrompt": "Implement the requested feature with proper error handling."
+  "intentPrompt": "Implement the requested feature with proper error handling.",
+  "docsFolderName": "Docs"
 }
 ```
 
@@ -143,6 +150,7 @@ The actor generates both the start and continue prompts using `GeneratePrompt()`
 | `rolePrompt` | Role | The persona the AI adopts |
 | `criteriaPrompt` | AcceptanceCriteria | Success criteria the output must meet |
 | `intentPrompt` | Intent | The goal the actor pursues |
+| `docsFolderName` | Documentation | Subfolder name for actor-private docs (default: `Docs`) |
 
 Add a new actor by creating a subfolder under `.wally/Actors/` with an `actor.json`.
 
@@ -151,6 +159,7 @@ Add a new actor by creating a subfolder under `.wally/Actors/` with an `actor.js
 ```json
 {
   "ActorsFolderName": "Actors",
+  "DocsFolderName": "Docs",
   "DefaultModel": "gpt-4.1",
   "Models": ["gpt-4.1", "claude-sonnet-4", "gpt-5.2"],
   "MaxIterations": 10
@@ -162,6 +171,50 @@ Add a new actor by creating a subfolder under `.wally/Actors/` with an `actor.js
 | `DefaultModel` | `"gpt-4.1"` | Model passed to `gh copilot --model`. Null = Copilot default. |
 | `Models` | `[...]` | Reference list of available model identifiers. |
 | `MaxIterations` | `10` | Default iteration cap for `run-loop`. |
+| `DocsFolderName` | `"Docs"` | Workspace-level documentation folder name. |
+
+---
+
+## Documentation
+
+Wally supports two tiers of documentation that are automatically loaded from disk and injected into actor prompts:
+
+| Tier | Location | Injected Into | Purpose |
+|---|---|---|---|
+| **Workspace-level** | `.wally/Docs/` | All actors | Shared world-building rules, style guides, constraints |
+| **Actor-level** | `.wally/Actors/<Name>/Docs/` | That actor only | Role-specific reference material |
+
+Supported file formats: `.md`, `.txt`, `.text`, `.rst`, `.adoc`
+
+Documentation is injected into the prompt between the RBA header (Role, AcceptanceCriteria, Intent) and the user prompt. Workspace docs appear first (shared context), then actor docs (private knowledge).
+
+### Example: LOTR Workspace
+
+```
+MyProject/
+    .wally/
+        Docs/
+            world-rules.md          Shared lore, timeline, geography
+            style-guide.md          Prose style and tone rules
+        Actors/
+            Narrator/
+                actor.json          rolePrompt: "You are a Tolkien-style narrator..."
+                Docs/
+                    chapter-outline.md
+                    character-guide.md
+            Editor/
+                actor.json          rolePrompt: "You are a literary editor..."
+                Docs/
+                    tone-guide.md
+                    consistency-checklist.md
+```
+
+```sh
+wally setup MyProject
+wally run-loop Narrator "Write Chapter 1: The Shadow of the Past" -n 5
+```
+
+All documents are logged in the session log so you can trace exactly which context was available for each iteration.
 
 ---
 

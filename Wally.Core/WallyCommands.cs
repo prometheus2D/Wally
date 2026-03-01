@@ -232,7 +232,7 @@ namespace Wally.Core
         // — Workspace inspection ——————————————————————————————————————————————
 
         /// <summary>
-        /// Lists each loaded actor (name, role/criteria/intent prompts).
+        /// Lists each loaded actor (name, role/criteria/intent prompts, loaded docs).
         /// </summary>
         public static void HandleList(WallyEnvironment env)
         {
@@ -251,6 +251,10 @@ namespace Wally.Core
                 PrintRbaLine("    Role",     actor.Role.Prompt);
                 PrintRbaLine("    Criteria", actor.AcceptanceCriteria.Prompt);
                 PrintRbaLine("    Intent",   actor.Intent.Prompt);
+                if (actor.WorkspaceDocs.Count > 0)
+                    Console.WriteLine($"    Workspace docs: {actor.WorkspaceDocs.Count} ({string.Join(", ", actor.WorkspaceDocs.ConvertAll(d => d.Name))})");
+                if (actor.ActorDocs.Count > 0)
+                    Console.WriteLine($"    Actor docs:     {actor.ActorDocs.Count} ({string.Join(", ", actor.ActorDocs.ConvertAll(d => d.Name))})");
             }
         }
 
@@ -273,10 +277,28 @@ namespace Wally.Core
             Console.WriteLine($"WorkSource:        {ws.WorkSource}");
             Console.WriteLine($"Workspace folder:  {ws.WorkspaceFolder}");
             Console.WriteLine($"Actors folder:     {Path.Combine(ws.WorkspaceFolder, cfg.ActorsFolderName)}");
+            Console.WriteLine($"Docs folder:       {Path.Combine(ws.WorkspaceFolder, cfg.DocsFolderName)}");
             Console.WriteLine($"Logs folder:       {Path.Combine(ws.WorkspaceFolder, cfg.LogsFolderName)}");
             Console.WriteLine($"Actors loaded:     {ws.Actors.Count}");
             foreach (var a in ws.Actors)
-                Console.WriteLine($"  {a.Name}");
+            {
+                string docSummary = a.ActorDocs.Count > 0
+                    ? $"  ({a.ActorDocs.Count} doc(s))"
+                    : "";
+                Console.WriteLine($"  {a.Name}{docSummary}");
+            }
+
+            // Workspace-level doc summary
+            if (ws.Actors.Count > 0 && ws.Actors[0].WorkspaceDocs.Count > 0)
+            {
+                var wsDocs = ws.Actors[0].WorkspaceDocs;
+                Console.WriteLine($"Workspace docs:    {wsDocs.Count} ({string.Join(", ", wsDocs.ConvertAll(d => d.Name))})");
+            }
+            else
+            {
+                Console.WriteLine($"Workspace docs:    (none)");
+            }
+
             Console.WriteLine();
             Console.WriteLine($"Default model:     {(string.IsNullOrWhiteSpace(cfg.DefaultModel) ? "(copilot default)" : cfg.DefaultModel)}");
             if (cfg.Models.Count > 0)
@@ -335,15 +357,23 @@ namespace Wally.Core
             Console.WriteLine();
             Console.WriteLine("Workspace layout:");
             Console.WriteLine("  <WorkSource>/                  Your codebase root (e.g. C:\\repos\\MyApp)");
-            Console.WriteLine("    .wally/                      Workspace folder (config + actors + logs)");
-            Console.WriteLine("      wally-config.json          DefaultModel, Models, LogsFolderName");
+            Console.WriteLine("    .wally/                      Workspace folder (config + actors + docs + logs)");
+            Console.WriteLine("      wally-config.json          DefaultModel, Models, LogsFolderName, DocsFolderName");
+            Console.WriteLine("      Docs/                      Workspace-level documentation (shared by all actors)");
+            Console.WriteLine("        style-guide.md           .md, .txt, .rst, .adoc files auto-loaded");
             Console.WriteLine("      Actors/");
             Console.WriteLine("        <ActorName>/");
-            Console.WriteLine("          actor.json             name, rolePrompt,");
-            Console.WriteLine("                                 criteriaPrompt, intentPrompt");
+            Console.WriteLine("          actor.json             name, rolePrompt, criteriaPrompt,");
+            Console.WriteLine("                                 intentPrompt, docsFolderName");
+            Console.WriteLine("          Docs/                  Actor-private documentation");
+            Console.WriteLine("            character-guide.md   Only injected into this actor's prompts");
             Console.WriteLine("      Logs/                      Session logs (auto-created on first run)");
             Console.WriteLine("        <timestamp_guid>/        One folder per session");
             Console.WriteLine("          <timestamp>.txt         Rotated log files");
+            Console.WriteLine();
+            Console.WriteLine("Documentation: Workspace-level docs (.wally/Docs/) are injected into every actor's");
+            Console.WriteLine("              prompt. Actor-level docs (.wally/Actors/<Name>/Docs/) are injected");
+            Console.WriteLine("              only into that actor's prompt. Supported formats: .md .txt .rst .adoc");
             Console.WriteLine();
             Console.WriteLine("Logging:      All commands, prompts, and responses are logged per session.");
             Console.WriteLine("              Log files rotate every LogRotationMinutes (default: 2 min).");

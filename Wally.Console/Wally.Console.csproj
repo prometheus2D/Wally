@@ -25,6 +25,9 @@
 
   <ItemGroup>
     <Folder Include="Default\Logs\" />
+    <Folder Include="Default\Docs\" />
+    <Folder Include="Default\Actors\Developer\Docs\" />
+    <Folder Include="Default\Actors\Tester\Docs\" />
   </ItemGroup>
 
 </Project>

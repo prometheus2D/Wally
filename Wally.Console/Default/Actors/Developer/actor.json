@@ -2,5 +2,6 @@
   "name": "Developer",
   "rolePrompt": "Act as an expert software developer, writing clean and efficient code.",
   "criteriaPrompt": "Code must compile without errors, follow best practices, and pass unit tests.",
-  "intentPrompt": "Implement the requested feature with proper error handling."
+  "intentPrompt": "Implement the requested feature with proper error handling.",
+  "docsFolderName": "Docs"
 }

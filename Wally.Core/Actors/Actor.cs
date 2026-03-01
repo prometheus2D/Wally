@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using Wally.Core.Docs;
 using Wally.Core.Logging;
 using Wally.Core.RBA;
 
@@ -28,6 +30,27 @@ namespace Wally.Core.Actors
 
         /// <summary>The intent this Actor pursues.</summary>
         public Intent Intent { get; set; }
+
+        // — Documentation ————————————————————————————————————————————————————
+
+        /// <summary>
+        /// The name of the subfolder inside this actor's directory that holds
+        /// actor-private documentation files. Default: <c>Docs</c>.
+        /// Loaded at construction time by <see cref="WallyHelper"/>.
+        /// </summary>
+        public string DocsFolderName { get; set; } = "Docs";
+
+        /// <summary>
+        /// Workspace-level documents shared across all actors.
+        /// Loaded from <c>.wally/Docs/</c>.
+        /// </summary>
+        public List<Document> WorkspaceDocs { get; set; } = new();
+
+        /// <summary>
+        /// Actor-private documents loaded from this actor's <c>Docs/</c> subfolder.
+        /// These provide role-specific reference material.
+        /// </summary>
+        public List<Document> ActorDocs { get; set; } = new();
 
         // — Workspace context —————————————————————————————————————————————
 
@@ -128,8 +151,13 @@ namespace Wally.Core.Actors
 
         /// <summary>
         /// Enriches <paramref name="prompt"/> with the actor's RBA context
-        /// before it is passed to <see cref="Respond"/> or
+        /// and any loaded documentation before it is passed to <see cref="Respond"/> or
         /// <see cref="ApplyCodeChanges"/>.
+        /// <para>
+        /// Documentation is injected between the RBA header and the user prompt:
+        /// workspace-level docs first (shared context), then actor-level docs
+        /// (role-specific knowledge).
+        /// </para>
         /// Override to customise prompt shaping; call <c>base.ProcessPrompt</c> to retain
         /// the default enrichment.
         /// </summary>
@@ -145,6 +173,30 @@ namespace Wally.Core.Actors
                 sb.AppendLine($"## Acceptance Criteria\n{AcceptanceCriteria.Prompt}");
             if (!string.IsNullOrWhiteSpace(Intent.Prompt))
                 sb.AppendLine($"## Intent\n{Intent.Prompt}");
+
+            // Workspace-level documentation (shared across all actors)
+            if (WorkspaceDocs.Count > 0)
+            {
+                sb.AppendLine();
+                sb.AppendLine("## Reference Documentation (Workspace)");
+                foreach (var doc in WorkspaceDocs)
+                {
+                    sb.AppendLine($"### {doc.Name}");
+                    sb.AppendLine(doc.Content);
+                }
+            }
+
+            // Actor-level documentation (private to this actor)
+            if (ActorDocs.Count > 0)
+            {
+                sb.AppendLine();
+                sb.AppendLine($"## Reference Documentation ({Name})");
+                foreach (var doc in ActorDocs)
+                {
+                    sb.AppendLine($"### {doc.Name}");
+                    sb.AppendLine(doc.Content);
+                }
+            }
 
             sb.AppendLine();
 
@@ -177,6 +229,16 @@ namespace Wally.Core.Actors
         {
             Setup();
             string processed = ProcessPrompt(prompt);
+
+            // Log which documents were injected into this prompt.
+            if (Logger != null && (WorkspaceDocs.Count > 0 || ActorDocs.Count > 0))
+            {
+                var allDocNames = new List<string>();
+                foreach (var d in WorkspaceDocs) allDocNames.Add($"ws:{d.Name}");
+                foreach (var d in ActorDocs) allDocNames.Add($"actor:{d.Name}");
+                Logger.LogDocsLoaded(Name, WorkspaceDocs.Count, ActorDocs.Count,
+                    string.Join(", ", allDocNames));
+            }
 
             // Log the full enriched prompt that will be sent to the CLI.
             string? model = ModelOverride ?? Workspace?.Config?.DefaultModel;
