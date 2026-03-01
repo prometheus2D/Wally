@@ -95,8 +95,17 @@ namespace Wally.Core
         /// <summary>Deserializes a <see cref="WallyConfig"/> from a JSON file.</summary>
         public static WallyConfig LoadFromFile(string filePath)
         {
-            string json = File.ReadAllText(filePath);
-            return JsonSerializer.Deserialize<WallyConfig>(json) ?? new WallyConfig();
+            try
+            {
+                string json = File.ReadAllText(filePath);
+                return JsonSerializer.Deserialize<WallyConfig>(json) ?? new WallyConfig();
+            }
+            catch (JsonException ex)
+            {
+                System.Console.Error.WriteLine(
+                    $"Warning: Failed to parse '{filePath}': {ex.Message}. Using default config.");
+                return new WallyConfig();
+            }
         }
 
         /// <summary>Serializes this config to a JSON file.</summary>

@@ -265,14 +265,25 @@ namespace Wally.Core
 
             if (File.Exists(jsonPath))
             {
-                var doc  = JsonDocument.Parse(File.ReadAllText(jsonPath));
-                var root = doc.RootElement;
+                try
+                {
+                    var doc  = JsonDocument.Parse(File.ReadAllText(jsonPath));
+                    var root = doc.RootElement;
 
-                name           = TryGetString(root, "name")           ?? folderName;
-                rolePrompt     = TryGetString(root, "rolePrompt")     ?? string.Empty;
-                criteriaPrompt = TryGetString(root, "criteriaPrompt") ?? string.Empty;
-                intentPrompt   = TryGetString(root, "intentPrompt")   ?? string.Empty;
-                docsFolderName = TryGetString(root, "docsFolderName") ?? "Docs";
+                    name           = TryGetString(root, "name")           ?? folderName;
+                    rolePrompt     = TryGetString(root, "rolePrompt")     ?? string.Empty;
+                    criteriaPrompt = TryGetString(root, "criteriaPrompt") ?? string.Empty;
+                    intentPrompt   = TryGetString(root, "intentPrompt")   ?? string.Empty;
+                    docsFolderName = TryGetString(root, "docsFolderName") ?? "Docs";
+                }
+                catch (JsonException ex)
+                {
+                    // Log to stderr but don't crash — the actor will load with
+                    // empty prompts so the user can fix the JSON and reload.
+                    Console.Error.WriteLine(
+                        $"Warning: Failed to parse '{jsonPath}': {ex.Message}. " +
+                        $"Actor '{folderName}' will load with empty prompts.");
+                }
             }
 
             var actor = new CopilotActor(
