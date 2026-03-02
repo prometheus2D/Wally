@@ -86,6 +86,7 @@ namespace Wally.Forms
             toolStripContainer1.TabIndex = 0;
             toolStripContainer1.TopToolStripPanel.Controls.Add(menuStrip1);
             toolStripContainer1.TopToolStripPanel.Controls.Add(mainToolStrip);
+            toolStripContainer1.TopToolStripPanel.BackColor = WallyTheme.Surface2;
             toolStripContainer1.BottomToolStripPanelVisible = false;
             toolStripContainer1.LeftToolStripPanelVisible = false;
             toolStripContainer1.RightToolStripPanelVisible = false;
@@ -95,6 +96,7 @@ namespace Wally.Forms
             // ═══════════════════════════════════════════════════════════════
 
             menuStrip1.Dock = DockStyle.None;
+            menuStrip1.Stretch = false;
             menuStrip1.Items.AddRange(new ToolStripItem[]
             {
                 fileToolStripMenuItem, editToolStripMenuItem,
@@ -102,7 +104,6 @@ namespace Wally.Forms
             });
             menuStrip1.Location = new Point(0, 0);
             menuStrip1.Name = "menuStrip1";
-            menuStrip1.Size = new Size(1280, 24);
             menuStrip1.TabIndex = 0;
             menuStrip1.BackColor = WallyTheme.Surface2;
             menuStrip1.ForeColor = WallyTheme.TextPrimary;
@@ -292,9 +293,9 @@ namespace Wally.Forms
             // ═══════════════════════════════════════════════════════════════
 
             mainToolStrip.Dock = DockStyle.None;
+            mainToolStrip.Stretch = false;
             mainToolStrip.GripStyle = ToolStripGripStyle.Hidden;
             mainToolStrip.Name = "mainToolStrip";
-            mainToolStrip.Size = new Size(1280, 25);
             mainToolStrip.TabIndex = 1;
             mainToolStrip.Renderer = renderer;
             mainToolStrip.BackColor = WallyTheme.Surface2;

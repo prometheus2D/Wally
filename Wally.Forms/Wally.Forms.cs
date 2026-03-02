@@ -34,6 +34,13 @@ namespace Wally.Forms
 
         private readonly WallyEnvironment _environment;
 
+        /// <summary>
+        /// Reference to the ToolStripContainer's ContentPanel — the parent
+        /// into which workspace panels are added and removed dynamically.
+        /// Cached once so every Add/Remove call doesn't re-navigate the tree.
+        /// </summary>
+        private ToolStripContentPanel _content = null!;
+
         // ?? Constructor ?????????????????????????????????????????????????????
 
         public WallyForms()
@@ -77,7 +84,7 @@ namespace Wally.Forms
                 _lblWorkspaceStatus, _lblActorCount, _lblSessionId
             });
 
-            // ?? File Explorer (left) ??
+            // ?? File Explorer (left) — created but NOT added to Controls yet ??
             _fileExplorer = new FileExplorerPanel
             {
                 Dock = DockStyle.Left,
@@ -93,7 +100,7 @@ namespace Wally.Forms
                 MinSize = 180
             };
 
-            // ?? Chat Panel (right side) ??
+            // ?? Chat Panel (right) — created but NOT added to Controls yet ??
             _chatPanel = new ChatPanel
             {
                 Dock = DockStyle.Right,
@@ -109,7 +116,7 @@ namespace Wally.Forms
                 MinSize = 280
             };
 
-            // ?? Command Panel (bottom) ??
+            // ?? Command Panel (bottom) — always present ??
             _commandPanel = new CommandPanel
             {
                 Dock = DockStyle.Bottom,
@@ -125,24 +132,22 @@ namespace Wally.Forms
                 MinSize = 80
             };
 
-            // ?? Welcome Panel (fills remaining centre space) ??
+            // ?? Welcome Panel (fills remaining centre space) — always present ??
             _welcomePanel = new WelcomePanel
             {
                 Dock = DockStyle.Fill
             };
 
             // ?? Layout inside ToolStripContainer ??
-            // WinForms docking order matters: Fill last, edges first.
-            // Add order (reverse Z): Fill ? Bottom ? Right ? Left ? edges.
-            var content = toolStripContainer1.ContentPanel;
-            content.BackColor = WallyTheme.Surface0;
-            content.Controls.Add(_welcomePanel);       // Fill (centre)
-            content.Controls.Add(_bottomSplitter);     // Bottom splitter
-            content.Controls.Add(_commandPanel);       // Bottom
-            content.Controls.Add(_rightSplitter);      // Right splitter
-            content.Controls.Add(_chatPanel);          // Right
-            content.Controls.Add(_leftSplitter);       // Left splitter
-            content.Controls.Add(_fileExplorer);       // Left
+            // Only the always-visible panels are added at startup.
+            // Explorer, chat, and their splitters are injected/removed
+            // dynamically by ShowWorkspacePanels / HideWorkspacePanels.
+            _content = toolStripContainer1.ContentPanel;
+            _content.BackColor = WallyTheme.Surface0;
+
+            _content.Controls.Add(_welcomePanel);      // Fill (centre)
+            _content.Controls.Add(_bottomSplitter);    // Bottom splitter
+            _content.Controls.Add(_commandPanel);      // Bottom
 
             Controls.Add(_statusBar);
 
@@ -166,11 +171,11 @@ namespace Wally.Forms
             // ?? View menu ??
             refreshMenuItem.Click += (_, _) => _fileExplorer.Refresh();
             showExplorerMenuItem.CheckedChanged += (_, _) =>
-                TogglePanel(_fileExplorer, _leftSplitter, showExplorerMenuItem.Checked);
+                TogglePanel(_fileExplorer, _leftSplitter, DockStyle.Left, showExplorerMenuItem.Checked);
             showChatMenuItem.CheckedChanged += (_, _) =>
-                TogglePanel(_chatPanel, _rightSplitter, showChatMenuItem.Checked);
+                TogglePanel(_chatPanel, _rightSplitter, DockStyle.Right, showChatMenuItem.Checked);
             showCommandMenuItem.CheckedChanged += (_, _) =>
-                TogglePanel(_commandPanel, _bottomSplitter, showCommandMenuItem.Checked);
+                TogglePanel(_commandPanel, _bottomSplitter, DockStyle.Bottom, showCommandMenuItem.Checked);
 
             // ?? Workspace menu ??
             reloadActorsMenuItem.Click += (_, _) =>
@@ -197,15 +202,63 @@ namespace Wally.Forms
             KeyPreview = true;
             KeyDown += OnGlobalKeyDown;
 
-            // ?? Initial state — workspace panels hidden until loaded ??
-            _fileExplorer.Visible = false;
-            _leftSplitter.Visible = false;
-            _chatPanel.Visible = false;
-            _rightSplitter.Visible = false;
+            // ?? Initial state ??
             showExplorerMenuItem.Checked = false;
             showChatMenuItem.Checked = false;
             UpdateWorkspaceGating();
             TryAutoSetup();
+        }
+
+        // ?? Workspace panel add/remove ??????????????????????????????????????
+
+        /// <summary>
+        /// Injects the explorer, chat, and their splitters into the control
+        /// tree. WinForms docked controls only participate in layout when
+        /// they are in the Controls collection — <c>Visible = false</c> on a
+        /// docked child does not reclaim its space in ToolStripContentPanel.
+        /// </summary>
+        private void ShowWorkspacePanels()
+        {
+            _content.SuspendLayout();
+
+            // Right side: chat + splitter (added first so they dock before left).
+            if (!_content.Controls.Contains(_chatPanel))
+            {
+                _content.Controls.Add(_rightSplitter);
+                _content.Controls.Add(_chatPanel);
+            }
+
+            // Left side: explorer + splitter.
+            if (!_content.Controls.Contains(_fileExplorer))
+            {
+                _content.Controls.Add(_leftSplitter);
+                _content.Controls.Add(_fileExplorer);
+            }
+
+            _content.ResumeLayout(true);
+
+            showExplorerMenuItem.Checked = true;
+            showChatMenuItem.Checked = true;
+        }
+
+        /// <summary>
+        /// Removes the explorer, chat, and their splitters from the control
+        /// tree so they leave no layout footprint. The controls themselves
+        /// stay alive in memory and are re-added on the next workspace load.
+        /// </summary>
+        private void HideWorkspacePanels()
+        {
+            _content.SuspendLayout();
+
+            _content.Controls.Remove(_fileExplorer);
+            _content.Controls.Remove(_leftSplitter);
+            _content.Controls.Remove(_chatPanel);
+            _content.Controls.Remove(_rightSplitter);
+
+            _content.ResumeLayout(true);
+
+            showExplorerMenuItem.Checked = false;
+            showChatMenuItem.Checked = false;
         }
 
         // ?? Auto-setup ?????????????????????????????????????????????????????
@@ -247,19 +300,19 @@ namespace Wally.Forms
             else if (e.Control && e.KeyCode == Keys.D1 && _environment.HasWorkspace)
             {
                 e.Handled = true;
-                if (!_fileExplorer.Visible) { showExplorerMenuItem.Checked = true; }
+                if (!showExplorerMenuItem.Checked) showExplorerMenuItem.Checked = true;
                 _fileExplorer.Focus();
             }
             else if (e.Control && e.KeyCode == Keys.D2 && _environment.HasWorkspace)
             {
                 e.Handled = true;
-                if (!_chatPanel.Visible) { showChatMenuItem.Checked = true; }
+                if (!showChatMenuItem.Checked) showChatMenuItem.Checked = true;
                 _chatPanel.Focus();
             }
             else if (e.Control && e.KeyCode == Keys.D3)
             {
                 e.Handled = true;
-                if (!_commandPanel.Visible) { showCommandMenuItem.Checked = true; }
+                if (!showCommandMenuItem.Checked) showCommandMenuItem.Checked = true;
                 _commandPanel.FocusInput();
             }
         }
@@ -280,13 +333,8 @@ namespace Wally.Forms
 
         private void OnSetupWorkspace(object? sender, EventArgs e)
         {
-            using var dlg = new FolderBrowserDialog
-            {
-                Description = "Select your codebase root. A .wally/ workspace will be created inside it.",
-                UseDescriptionForTitle = true,
-                ShowNewFolderButton = true
-            };
-            if (dlg.ShowDialog(this) == DialogResult.OK)
+            using var dlg = new SetupDialog();
+            if (dlg.ShowDialog(this) == DialogResult.OK && dlg.SelectedPath != null)
                 _commandPanel.ExecuteCommand($"setup \"{dlg.SelectedPath}\"");
         }
 
@@ -314,19 +362,12 @@ namespace Wally.Forms
             string closedPath = _environment.WorkSource ?? "workspace";
             _environment.CloseWorkspace();
 
-            // Clear and hide the file explorer.
+            // Remove workspace panels from the control tree.
             _fileExplorer.ClearTree();
-            _fileExplorer.Visible = false;
-            _leftSplitter.Visible = false;
-            showExplorerMenuItem.Checked = false;
-
-            // Hide the chat panel.
             _chatPanel.ClearMessages();
             _chatPanel.RefreshActorList();
             _chatPanel.RefreshModelList();
-            _chatPanel.Visible = false;
-            _rightSplitter.Visible = false;
-            showChatMenuItem.Checked = false;
+            HideWorkspacePanels();
 
             RefreshAllPanels();
 
@@ -372,19 +413,9 @@ namespace Wally.Forms
                 _chatPanel.RefreshActorList();
                 _chatPanel.RefreshModelList();
 
-                // Show the explorer and chat panels if they were hidden.
-                if (!_fileExplorer.Visible)
-                {
-                    showExplorerMenuItem.Checked = true;
-                    _fileExplorer.Visible = true;
-                    _leftSplitter.Visible = true;
-                }
-                if (!_chatPanel.Visible)
-                {
-                    showChatMenuItem.Checked = true;
-                    _chatPanel.Visible = true;
-                    _rightSplitter.Visible = true;
-                }
+                // Inject workspace panels into the control tree if not present.
+                if (!_content.Controls.Contains(_chatPanel))
+                    ShowWorkspacePanels();
 
                 // Update welcome panel to show workspace info.
                 string? defaultModel = _environment.Workspace?.Config?.DefaultModel;
@@ -413,10 +444,9 @@ namespace Wally.Forms
 
         /// <summary>
         /// Enables or disables UI elements that require a loaded workspace.
-        /// Called on startup and after every workspace state change.
-        /// Workspace panels (explorer, chat) are hidden when no workspace;
-        /// their View menu toggles are disabled. The command panel and
-        /// welcome panel remain always visible.
+        /// Workspace panels (explorer, chat) are physically absent from the
+        /// control tree when no workspace is loaded — their View menu toggles
+        /// are disabled so users can see the options but can't activate them.
         /// </summary>
         private void UpdateWorkspaceGating()
         {
@@ -426,7 +456,7 @@ namespace Wally.Forms
             saveWorkspaceMenuItem.Enabled = loaded;
             closeWorkspaceMenuItem.Enabled = loaded;
 
-            // ?? View menu — panel toggles only when workspace loaded ??
+            // ?? View menu — panel toggles disabled when no workspace ??
             showExplorerMenuItem.Enabled = loaded;
             showChatMenuItem.Enabled = loaded;
             refreshMenuItem.Enabled = loaded;
@@ -473,10 +503,27 @@ namespace Wally.Forms
 
         // ?? Panel toggles ???????????????????????????????????????????????????
 
-        private static void TogglePanel(Control panel, Splitter splitter, bool visible)
+        /// <summary>
+        /// Adds or removes a docked panel and its splitter from the content
+        /// area. Using Controls.Add/Remove instead of Visible ensures the
+        /// layout engine fully reclaims the space.
+        /// </summary>
+        private void TogglePanel(Control panel, Splitter splitter, DockStyle dock, bool show)
         {
-            panel.Visible = visible;
-            splitter.Visible = visible;
+            _content.SuspendLayout();
+
+            if (show && !_content.Controls.Contains(panel))
+            {
+                _content.Controls.Add(splitter);
+                _content.Controls.Add(panel);
+            }
+            else if (!show && _content.Controls.Contains(panel))
+            {
+                _content.Controls.Remove(panel);
+                _content.Controls.Remove(splitter);
+            }
+
+            _content.ResumeLayout(true);
         }
 
         // ?? Cleanup ?????????????????????????????????????????????????????????
