@@ -82,9 +82,9 @@ namespace Wally.Forms.Controls
 
         // ?? Mode colors ?????????????????????????????????????????????????????
 
-        private static readonly Color ModeAskColor = WallyTheme.Accent;       // Blue
-        private static readonly Color ModeAgentColor = WallyTheme.Purple;      // Purple
-        private static readonly Color ModeAutopilotColor = WallyTheme.Yellow;  // Yellow
+        private static readonly Color ModeAskColor = WallyTheme.TextPrimary;
+        private static readonly Color ModeAgentColor = WallyTheme.TextPrimary;
+        private static readonly Color ModeAutopilotColor = WallyTheme.TextPrimary;
 
         // ?? Events ??????????????????????????????????????????????????????????
 
@@ -274,10 +274,10 @@ namespace Wally.Forms.Controls
             _txtInput.GotFocus += (_, _) => _inputBorder.BackColor = WallyTheme.BorderFocused;
             _txtInput.LostFocus += (_, _) => _inputBorder.BackColor = WallyTheme.Border;
 
-            _btnSend = CreateActionButton("Send  \u23CE", WallyTheme.Accent);
+            _btnSend = CreateActionButton("Send  \u23CE", WallyTheme.Surface3);
             _btnSend.Click += OnSendClick;
 
-            _btnCancel = CreateActionButton("Stop  \u25A0", WallyTheme.Red);
+            _btnCancel = CreateActionButton("Stop  \u25A0", WallyTheme.Surface3);
             _btnCancel.Visible = false;
             _btnCancel.Click += (_, _) => _cts?.Cancel();
 
@@ -352,10 +352,7 @@ namespace Wally.Forms.Controls
             };
             btn.FlatAppearance.BorderSize = 1;
             btn.FlatAppearance.BorderColor = WallyTheme.Border;
-            btn.FlatAppearance.MouseOverBackColor = Color.FromArgb(
-                Math.Min(255, accentColor.R / 4 + WallyTheme.Surface2.R),
-                Math.Min(255, accentColor.G / 4 + WallyTheme.Surface2.G),
-                Math.Min(255, accentColor.B / 4 + WallyTheme.Surface2.B));
+            btn.FlatAppearance.MouseOverBackColor = WallyTheme.Surface3;
             btn.Tag = accentColor;  // Store the accent color for SetMode styling
             return btn;
         }
@@ -369,15 +366,12 @@ namespace Wally.Forms.Controls
                 Width = 80,
                 FlatStyle = FlatStyle.Flat,
                 BackColor = backColor,
-                ForeColor = Color.White,
+                ForeColor = WallyTheme.TextPrimary,
                 Font = WallyTheme.FontUIBold,
                 Cursor = Cursors.Hand
             };
             btn.FlatAppearance.BorderSize = 0;
-            btn.FlatAppearance.MouseOverBackColor =
-                Color.FromArgb(Math.Min(255, backColor.R + 25),
-                               Math.Min(255, backColor.G + 25),
-                               Math.Min(255, backColor.B + 25));
+            btn.FlatAppearance.MouseOverBackColor = WallyTheme.Surface4;
             return btn;
         }
 
@@ -403,12 +397,9 @@ namespace Wally.Forms.Controls
                 ChatMode.Autopilot => _btnModeAutopilot,
                 _ => _btnModeAsk
             };
-            Color accent = (Color)(active.Tag ?? ModeAskColor);
-            active.BackColor = Color.FromArgb(accent.R / 5 + WallyTheme.Surface1.R,
-                                               accent.G / 5 + WallyTheme.Surface1.G,
-                                               accent.B / 5 + WallyTheme.Surface1.B);
-            active.ForeColor = accent;
-            active.FlatAppearance.BorderColor = accent;
+            active.BackColor = WallyTheme.Surface4;
+            active.ForeColor = WallyTheme.TextPrimary;
+            active.FlatAppearance.BorderColor = WallyTheme.TextMuted;
 
             // Update hint text.
             _lblModeHint.Text = mode switch
@@ -418,11 +409,11 @@ namespace Wally.Forms.Controls
                 ChatMode.Autopilot => "All actors",
                 _ => ""
             };
-            _lblModeHint.ForeColor = accent;
+            _lblModeHint.ForeColor = WallyTheme.TextMuted;
 
             // Update send button color to match mode.
             if (!_isRunning && _workspaceLoaded)
-                _btnSend.BackColor = accent;
+                _btnSend.BackColor = WallyTheme.Surface3;
 
             // Actor selector is disabled in Autopilot (all actors run).
             _cboActor.Enabled = mode != ChatMode.Autopilot && _workspaceLoaded && !_isRunning;
@@ -437,13 +428,7 @@ namespace Wally.Forms.Controls
             };
         }
 
-        private Color GetModeAccentColor() => _currentMode switch
-        {
-            ChatMode.Ask => ModeAskColor,
-            ChatMode.Agent => ModeAgentColor,
-            ChatMode.Autopilot => ModeAutopilotColor,
-            _ => ModeAskColor
-        };
+        private Color GetModeAccentColor() => WallyTheme.TextSecondary;
 
         // ?? Public API ??????????????????????????????????????????????????????
 
@@ -478,7 +463,7 @@ namespace Wally.Forms.Controls
             _txtInput.ForeColor = loaded ? WallyTheme.TextPrimary : WallyTheme.TextDisabled;
             _inputBorder.BackColor = loaded ? WallyTheme.Border : WallyTheme.BorderSubtle;
             _inputArea.BackColor = loaded ? WallyTheme.Surface1 : WallyTheme.Surface0;
-            _btnSend.BackColor = loaded ? GetModeAccentColor() : WallyTheme.Surface3;
+            _btnSend.BackColor = loaded ? WallyTheme.Surface3 : WallyTheme.Surface2;
 
             if (!loaded)
             {
@@ -856,14 +841,13 @@ namespace Wally.Forms.Controls
             _btnModeAgent.Enabled = !running && _workspaceLoaded;
             _btnModeAutopilot.Enabled = !running && _workspaceLoaded;
 
-            Color accent = GetModeAccentColor();
             _lblStatus.Text = running
                 ? $"  \u26A1 {context}\u2026"
                 : "  Ready";
-            _lblStatus.ForeColor = running ? accent : WallyTheme.TextMuted;
+            _lblStatus.ForeColor = running ? WallyTheme.TextSecondary : WallyTheme.TextMuted;
 
             if (!running && _workspaceLoaded)
-                _btnSend.BackColor = accent;
+                _btnSend.BackColor = WallyTheme.Surface3;
         }
     }
 
@@ -943,11 +927,13 @@ namespace Wally.Forms.Controls
                 g.FillPath(brush, path);
             }
 
+            // Accent bar — subtle gray, slightly brighter for user messages,
+            // slightly warmer for errors.
             Color accentColor = _kind switch
             {
-                MessageKind.User => WallyTheme.Accent,
+                MessageKind.User => WallyTheme.Surface4,
                 MessageKind.Error => WallyTheme.Red,
-                _ => WallyTheme.Green
+                _ => WallyTheme.Border
             };
             using (var accentBrush = new SolidBrush(accentColor))
             {

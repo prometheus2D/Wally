@@ -99,7 +99,7 @@ namespace Wally.Forms.Controls
                 Dock = DockStyle.Left,
                 Width = 56,
                 Font = WallyTheme.FontMonoBold,
-                ForeColor = WallyTheme.Accent,
+                ForeColor = WallyTheme.TextSecondary,
                 BackColor = WallyTheme.Surface2,
                 TextAlign = ContentAlignment.MiddleLeft,
                 Padding = new Padding(8, 0, 0, 0)
@@ -150,7 +150,7 @@ namespace Wally.Forms.Controls
             ResumeLayout(true);
 
             // Welcome message.
-            AppendStyledLine("Wally \u2014 AI Actor Environment Manager", WallyTheme.Accent);
+            AppendStyledLine("Wally \u2014 AI Actor Environment Manager", WallyTheme.TextPrimary);
             AppendStyledLine("Type 'commands' for help. Use File \u2192 Open or File \u2192 Setup to load a workspace.", WallyTheme.TextMuted);
             AppendStyledLine("", WallyTheme.TextPrimary);
         }
@@ -166,7 +166,7 @@ namespace Wally.Forms.Controls
         /// <summary>Programmatically execute a command as if typed.</summary>
         public void ExecuteCommand(string command)
         {
-            AppendStyledLine($"wally\u203A {command}", WallyTheme.Accent);
+            AppendStyledLine($"wally\u203A {command}", WallyTheme.TextSecondary);
             _ = RunCommandAsync(command);
         }
 
@@ -200,7 +200,7 @@ namespace Wally.Forms.Controls
                         _txtInput.Clear();
                         _history.Add(cmd);
                         _historyIndex = _history.Count;
-                        AppendStyledLine($"wally\u203A {cmd}", WallyTheme.Accent);
+                        AppendStyledLine($"wally\u203A {cmd}", WallyTheme.TextSecondary);
                         _ = RunCommandAsync(cmd);
                     }
                     break;
@@ -299,7 +299,7 @@ namespace Wally.Forms.Controls
 
             _isRunning = true;
             _txtInput.Enabled = false;
-            _lblPrompt.ForeColor = WallyTheme.Yellow;
+            _lblPrompt.ForeColor = WallyTheme.TextMuted;
 
             try
             {
@@ -400,7 +400,7 @@ namespace Wally.Forms.Controls
                 _isRunning = false;
                 _txtInput.Enabled = true;
                 _txtInput.Focus();
-                _lblPrompt.ForeColor = WallyTheme.Accent;
+                _lblPrompt.ForeColor = WallyTheme.TextSecondary;
             }
         }
 

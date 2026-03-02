@@ -276,7 +276,7 @@ namespace Wally.Forms
                 RefreshAllPanels();
                 _commandPanel.AppendLine(
                     $"Loaded workspace: {_environment.WorkspaceFolder}",
-                    WallyTheme.Green);
+                    WallyTheme.TextSecondary);
             }
             catch (Exception ex)
             {
@@ -348,7 +348,7 @@ namespace Wally.Forms
                 _environment.SaveWorkspace();
                 _commandPanel.AppendLine(
                     $"Workspace saved: {_environment.WorkspaceFolder}",
-                    WallyTheme.Green);
+                    WallyTheme.TextSecondary);
             }
             catch (Exception ex)
             {
@@ -459,7 +459,7 @@ namespace Wally.Forms
                     _environment.Actors.Count, defaultModel);
 
                 _lblWorkspaceStatus.Text = _environment.WorkSource!;
-                _lblWorkspaceStatus.ForeColor = Color.White;
+                _lblWorkspaceStatus.ForeColor = WallyTheme.TextPrimary;
                 _lblActorCount.Text = $"Actors: {_environment.Actors.Count}";
                 _statusBar.BackColor = WallyTheme.StatusBarActive;
             }

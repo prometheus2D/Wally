@@ -7,7 +7,7 @@ namespace Wally.Forms.Theme
 {
     /// <summary>
     /// Centralized design tokens for the Wally dark theme.
-    /// All panels and controls reference these constants for a unified visual language.
+    /// Simplified neutral gray palette — no colored accents.
     /// </summary>
     internal static class WallyTheme
     {
@@ -32,7 +32,7 @@ namespace Wally.Forms.Theme
 
         public static readonly Color Border = Color.FromArgb(46, 46, 51);
         public static readonly Color BorderSubtle = Color.FromArgb(38, 38, 43);
-        public static readonly Color BorderFocused = Color.FromArgb(0, 122, 204);
+        public static readonly Color BorderFocused = Color.FromArgb(82, 82, 91);
 
         // ?? Text hierarchy ??????????????????????????????????????????????????
 
@@ -41,33 +41,50 @@ namespace Wally.Forms.Theme
         public static readonly Color TextMuted = Color.FromArgb(113, 113, 122);
         public static readonly Color TextDisabled = Color.FromArgb(82, 82, 91);
 
-        // ?? Accent palette ??????????????????????????????????????????????????
+        // ?? Functional colors (kept minimal) ????????????????????????????????
 
-        public static readonly Color Accent = Color.FromArgb(59, 130, 246);        // Blue
-        public static readonly Color AccentHover = Color.FromArgb(96, 165, 250);
-        public static readonly Color AccentMuted = Color.FromArgb(30, 64, 120);
-        public static readonly Color AccentSubtle = Color.FromArgb(23, 37, 63);
+        /// <summary>Accent — used sparingly for the primary interactive element.</summary>
+        public static readonly Color Accent = Color.FromArgb(161, 161, 170);
 
-        public static readonly Color Green = Color.FromArgb(74, 222, 128);
-        public static readonly Color GreenMuted = Color.FromArgb(22, 78, 44);
+        /// <summary>Lighter accent for hover states.</summary>
+        public static readonly Color AccentHover = Color.FromArgb(190, 190, 198);
 
-        public static readonly Color Red = Color.FromArgb(248, 113, 113);
-        public static readonly Color RedMuted = Color.FromArgb(80, 30, 30);
+        /// <summary>Muted accent for checked / subtle backgrounds.</summary>
+        public static readonly Color AccentMuted = Color.FromArgb(50, 50, 56);
 
-        public static readonly Color Yellow = Color.FromArgb(250, 204, 21);
-        public static readonly Color YellowMuted = Color.FromArgb(80, 65, 15);
+        /// <summary>Very subtle accent wash.</summary>
+        public static readonly Color AccentSubtle = Color.FromArgb(35, 35, 40);
 
-        public static readonly Color Purple = Color.FromArgb(168, 85, 247);
+        /// <summary>Success / positive — a soft, readable gray-green for light emphasis.</summary>
+        public static readonly Color Green = Color.FromArgb(161, 161, 170);
+
+        /// <summary>Muted green background.</summary>
+        public static readonly Color GreenMuted = Color.FromArgb(39, 39, 44);
+
+        /// <summary>Error / destructive — softened red, still distinguishable.</summary>
+        public static readonly Color Red = Color.FromArgb(200, 150, 150);
+
+        /// <summary>Muted error background.</summary>
+        public static readonly Color RedMuted = Color.FromArgb(50, 40, 40);
+
+        /// <summary>Warning / running state — maps to TextMuted for simplicity.</summary>
+        public static readonly Color Yellow = Color.FromArgb(161, 161, 170);
+
+        /// <summary>Muted warning background.</summary>
+        public static readonly Color YellowMuted = Color.FromArgb(45, 45, 50);
+
+        /// <summary>Secondary mode accent — maps to TextSecondary.</summary>
+        public static readonly Color Purple = Color.FromArgb(161, 161, 170);
 
         // ?? Status bar ??????????????????????????????????????????????????????
 
-        public static readonly Color StatusBarActive = Color.FromArgb(0, 122, 204);
-        public static readonly Color StatusBarInactive = Color.FromArgb(68, 28, 96);
+        public static readonly Color StatusBarActive = Color.FromArgb(50, 50, 56);
+        public static readonly Color StatusBarInactive = Color.FromArgb(30, 30, 34);
 
         // ?? Splitter ????????????????????????????????????????????????????????
 
         public static readonly Color Splitter = Color.FromArgb(46, 46, 51);
-        public static readonly Color SplitterHover = Color.FromArgb(0, 122, 204);
+        public static readonly Color SplitterHover = Color.FromArgb(63, 63, 70);
 
         // ?? Fonts ???????????????????????????????????????????????????????????
 
@@ -80,15 +97,15 @@ namespace Wally.Forms.Theme
         public static readonly Font FontMonoLarge = new("Cascadia Mono", 10f);
         public static readonly Font FontMonoBold = new("Cascadia Mono", 10f, FontStyle.Bold);
 
-        // ?? Chat bubble sender colors ???????????????????????????????????????
+        // ?? Chat bubble colors ??????????????????????????????????????????????
 
-        public static readonly Color SenderUser = Accent;
-        public static readonly Color SenderActor = Green;
+        public static readonly Color SenderUser = TextPrimary;
+        public static readonly Color SenderActor = TextSecondary;
         public static readonly Color SenderSystem = Red;
 
-        public static readonly Color BubbleUser = Color.FromArgb(23, 37, 63);
+        public static readonly Color BubbleUser = Color.FromArgb(35, 35, 40);
         public static readonly Color BubbleActor = Color.FromArgb(39, 39, 44);
-        public static readonly Color BubbleError = Color.FromArgb(60, 25, 25);
+        public static readonly Color BubbleError = Color.FromArgb(50, 40, 40);
 
         // ?? Helpers ?????????????????????????????????????????????????????????
 
@@ -132,7 +149,6 @@ namespace Wally.Forms.Theme
 
         /// <summary>
         /// Applies dark theme colors to a ComboBox embedded in a ToolStripComboBox.
-        /// WinForms ToolStripComboBox doesn't inherit theme colors automatically.
         /// </summary>
         public static void StyleComboBox(ToolStripComboBox tsCombo)
         {
@@ -144,9 +160,7 @@ namespace Wally.Forms.Theme
 
         /// <summary>
         /// Creates the standard dark-themed renderer used across all menus,
-        /// toolstrips, and context menus. Ensures disabled items render with
-        /// the correct <see cref="TextDisabled"/> color instead of the default
-        /// system gray (which is nearly invisible on the dark theme).
+        /// toolstrips, and context menus.
         /// </summary>
         public static WallyToolStripRenderer CreateRenderer() => new();
     }
@@ -155,14 +169,6 @@ namespace Wally.Forms.Theme
     //  WallyToolStripRenderer — themed renderer with proper disabled text
     // ????????????????????????????????????????????????????????????????????????
 
-    /// <summary>
-    /// Custom <see cref="ToolStripProfessionalRenderer"/> that overrides
-    /// item text rendering to use the theme's text hierarchy. This solves
-    /// the WinForms problem where disabled <see cref="ToolStripMenuItem"/>
-    /// and <see cref="ToolStripButton"/> text is drawn with
-    /// <c>SystemColors.GrayText</c>, which is nearly invisible on a dark
-    /// background.
-    /// </summary>
     internal sealed class WallyToolStripRenderer : ToolStripProfessionalRenderer
     {
         public WallyToolStripRenderer() : base(new DarkColorTable())
@@ -174,7 +180,6 @@ namespace Wally.Forms.Theme
         {
             if (e.Item is ToolStripMenuItem || e.Item is ToolStripButton || e.Item is ToolStripLabel)
             {
-                // Decide color based on enabled state.
                 e.TextColor = e.Item.Enabled
                     ? (e.Item.ForeColor != default && e.Item.ForeColor != Control.DefaultForeColor
                         ? e.Item.ForeColor
@@ -186,7 +191,6 @@ namespace Wally.Forms.Theme
 
         protected override void OnRenderMenuItemBackground(ToolStripItemRenderEventArgs e)
         {
-            // For disabled items, don't paint a hover/selected background.
             if (!e.Item.Enabled)
             {
                 var g = e.Graphics;
@@ -199,7 +203,7 @@ namespace Wally.Forms.Theme
     }
 
     // ????????????????????????????????????????????????????????????????????????
-    //  Dark color table — covers ALL ProfessionalColorTable overrides
+    //  Dark color table
     // ????????????????????????????????????????????????????????????????????????
 
     internal sealed class DarkColorTable : ProfessionalColorTable
@@ -246,7 +250,7 @@ namespace Wally.Forms.Theme
 
         public override Color ToolStripBorder => WallyTheme.Border;
 
-        // ?? Button states (toolbar buttons, checked items) ??????????????????
+        // ?? Button states ???????????????????????????????????????????????????
 
         public override Color ButtonSelectedBorder => WallyTheme.BorderFocused;
         public override Color ButtonSelectedHighlight => WallyTheme.Surface3;
@@ -269,7 +273,7 @@ namespace Wally.Forms.Theme
         // ?? Check states ????????????????????????????????????????????????????
 
         public override Color CheckBackground => WallyTheme.AccentMuted;
-        public override Color CheckPressedBackground => WallyTheme.Accent;
+        public override Color CheckPressedBackground => WallyTheme.Surface4;
         public override Color CheckSelectedBackground => WallyTheme.AccentMuted;
 
         // ?? Overflow / grip ?????????????????????????????????????????????????
@@ -282,8 +286,8 @@ namespace Wally.Forms.Theme
 
         // ?? Status strip ????????????????????????????????????????????????????
 
-        public override Color StatusStripGradientBegin => WallyTheme.StatusBarActive;
-        public override Color StatusStripGradientEnd => WallyTheme.StatusBarActive;
+        public override Color StatusStripGradientBegin => WallyTheme.Surface2;
+        public override Color StatusStripGradientEnd => WallyTheme.Surface2;
 
         // ?? Raft / float ????????????????????????????????????????????????????
 
