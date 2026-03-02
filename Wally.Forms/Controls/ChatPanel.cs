@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Threading;
@@ -15,11 +16,23 @@ namespace Wally.Forms.Controls
     internal enum MessageKind { User, Actor, Error }
 
     /// <summary>
+    /// The execution mode for the chat panel.
+    /// </summary>
+    internal enum ChatMode
+    {
+        /// <summary>Single-shot: one prompt ? one actor response.</summary>
+        Ask,
+        /// <summary>Iterative loop: runs the actor repeatedly until completion or max iterations.</summary>
+        Agent,
+        /// <summary>Runs ALL actors sequentially on the same prompt.</summary>
+        Autopilot
+    }
+
+    /// <summary>
     /// AI chat panel — right-side copilot conversation window.
-    /// Sends prompts to Wally actors and renders the conversation as styled,
-    /// rounded message bubbles with timestamps, sender badges, and proper
-    /// word-wrapped body text. Supports actor/model selection, cancellation,
-    /// workspace-gated input, and asynchronous execution.
+    /// Supports three execution modes (Ask, Agent, Autopilot),
+    /// actor/model selection, cancellation, workspace-gated input,
+    /// and asynchronous execution.
     /// </summary>
     public sealed class ChatPanel : UserControl
     {
@@ -27,6 +40,14 @@ namespace Wally.Forms.Controls
 
         private readonly Panel _header;
         private readonly Label _lblTitle;
+
+        // ?? Mode selector (segmented buttons) ???????????????????????????????
+
+        private readonly Panel _modeBar;
+        private readonly Button _btnModeAsk;
+        private readonly Button _btnModeAgent;
+        private readonly Button _btnModeAutopilot;
+        private readonly Label _lblModeHint;
 
         // ?? Toolbar ?????????????????????????????????????????????????????????
 
@@ -57,6 +78,13 @@ namespace Wally.Forms.Controls
         private CancellationTokenSource? _cts;
         private bool _isRunning;
         private bool _workspaceLoaded;
+        private ChatMode _currentMode = ChatMode.Ask;
+
+        // ?? Mode colors ?????????????????????????????????????????????????????
+
+        private static readonly Color ModeAskColor = WallyTheme.Accent;       // Blue
+        private static readonly Color ModeAgentColor = WallyTheme.Purple;      // Purple
+        private static readonly Color ModeAutopilotColor = WallyTheme.Yellow;  // Yellow
 
         // ?? Events ??????????????????????????????????????????????????????????
 
@@ -89,6 +117,50 @@ namespace Wally.Forms.Controls
             };
             _header.Controls.Add(_lblTitle);
 
+            // ?? Mode selector bar ??
+            _btnModeAsk = CreateModeButton("\uD83D\uDCAC Ask", ModeAskColor);
+            _btnModeAgent = CreateModeButton("\uD83E\uDD16 Agent", ModeAgentColor);
+            _btnModeAutopilot = CreateModeButton("\u26A1 Autopilot", ModeAutopilotColor);
+
+            _btnModeAsk.Click += (_, _) => SetMode(ChatMode.Ask);
+            _btnModeAgent.Click += (_, _) => SetMode(ChatMode.Agent);
+            _btnModeAutopilot.Click += (_, _) => SetMode(ChatMode.Autopilot);
+
+            _lblModeHint = new Label
+            {
+                Dock = DockStyle.Fill,
+                Font = WallyTheme.FontUISmall,
+                ForeColor = WallyTheme.TextMuted,
+                BackColor = Color.Transparent,
+                TextAlign = ContentAlignment.MiddleLeft,
+                Padding = new Padding(8, 0, 0, 0)
+            };
+
+            var modeButtonPanel = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Left,
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowOnly,
+                FlowDirection = FlowDirection.LeftToRight,
+                WrapContents = false,
+                BackColor = Color.Transparent,
+                Padding = new Padding(6, 4, 0, 4),
+                Margin = Padding.Empty
+            };
+            modeButtonPanel.Controls.Add(_btnModeAsk);
+            modeButtonPanel.Controls.Add(_btnModeAgent);
+            modeButtonPanel.Controls.Add(_btnModeAutopilot);
+
+            _modeBar = new Panel
+            {
+                Dock = DockStyle.Top,
+                Height = 34,
+                BackColor = WallyTheme.Surface1,
+                Padding = Padding.Empty
+            };
+            _modeBar.Controls.Add(_lblModeHint);
+            _modeBar.Controls.Add(modeButtonPanel);
+
             // ?? Toolbar ??
             _cboActor = new ToolStripComboBox("cboActor")
             {
@@ -102,7 +174,7 @@ namespace Wally.Forms.Controls
                 DropDownStyle = ComboBoxStyle.DropDown,
                 ToolTipText = "Model override (blank = default)"
             };
-            _cboModel.ComboBox.Width = 130;
+            _cboModel.ComboBox.Width = 150;
 
             _btnClear = new ToolStripButton("\u2715 Clear")
             {
@@ -161,21 +233,14 @@ namespace Wally.Forms.Controls
             };
 
             // ?? Scrollable message container ??
-            // Z-order: _messagesFlow is added first (Dock.Top, auto-grows),
-            //          _lblEmptyState is added second (Dock.Fill, behind flow).
-            // When the flow has children its height pushes the empty label out.
-            // When the flow is empty the label fills the space.
             _messagesContainer = new Panel
             {
                 Dock = DockStyle.Fill,
                 AutoScroll = true,
                 BackColor = WallyTheme.Surface0
             };
-            // Add empty-state first (Fill ? background), then flow on top (Top ? foreground).
             _messagesContainer.Controls.Add(_messagesFlow);
             _messagesContainer.Controls.Add(_lblEmptyState);
-            // Because of WinForms reverse-Z, the last added control with Dock.Fill renders behind.
-            // Swap: make the empty-state label the background layer.
             _messagesContainer.Controls.SetChildIndex(_lblEmptyState, 1);
             _messagesContainer.Controls.SetChildIndex(_messagesFlow, 0);
             _messagesContainer.Resize += OnMessagesResize;
@@ -255,15 +320,44 @@ namespace Wally.Forms.Controls
             Controls.Add(_lblStatus);            // Bottom
             Controls.Add(_inputArea);            // Bottom
             Controls.Add(_toolbar);              // Top
-            Controls.Add(_header);               // Top (above toolbar)
+            Controls.Add(_modeBar);              // Top (below header, above toolbar)
+            Controls.Add(_header);               // Top (topmost)
 
             BackColor = WallyTheme.Surface0;
             ForeColor = WallyTheme.TextPrimary;
 
             ResumeLayout(true);
 
-            // Start with no workspace — disabled state.
+            // ?? Initial state ??
+            SetMode(ChatMode.Ask);
             SetWorkspaceLoaded(false);
+        }
+
+        // ?? Mode button factory ?????????????????????????????????????????????
+
+        private static Button CreateModeButton(string text, Color accentColor)
+        {
+            var btn = new Button
+            {
+                Text = text,
+                Width = 90,
+                Height = 26,
+                FlatStyle = FlatStyle.Flat,
+                BackColor = WallyTheme.Surface2,
+                ForeColor = WallyTheme.TextSecondary,
+                Font = WallyTheme.FontUISmallBold,
+                Cursor = Cursors.Hand,
+                Margin = new Padding(2, 0, 2, 0),
+                TextAlign = ContentAlignment.MiddleCenter
+            };
+            btn.FlatAppearance.BorderSize = 1;
+            btn.FlatAppearance.BorderColor = WallyTheme.Border;
+            btn.FlatAppearance.MouseOverBackColor = Color.FromArgb(
+                Math.Min(255, accentColor.R / 4 + WallyTheme.Surface2.R),
+                Math.Min(255, accentColor.G / 4 + WallyTheme.Surface2.G),
+                Math.Min(255, accentColor.B / 4 + WallyTheme.Surface2.B));
+            btn.Tag = accentColor;  // Store the accent color for SetMode styling
+            return btn;
         }
 
         private static Button CreateActionButton(string text, Color backColor)
@@ -287,6 +381,70 @@ namespace Wally.Forms.Controls
             return btn;
         }
 
+        // ?? Mode management ?????????????????????????????????????????????????
+
+        private void SetMode(ChatMode mode)
+        {
+            _currentMode = mode;
+
+            // Reset all mode buttons to inactive.
+            foreach (var btn in new[] { _btnModeAsk, _btnModeAgent, _btnModeAutopilot })
+            {
+                btn.BackColor = WallyTheme.Surface2;
+                btn.ForeColor = WallyTheme.TextSecondary;
+                btn.FlatAppearance.BorderColor = WallyTheme.Border;
+            }
+
+            // Activate the selected button.
+            Button active = mode switch
+            {
+                ChatMode.Ask => _btnModeAsk,
+                ChatMode.Agent => _btnModeAgent,
+                ChatMode.Autopilot => _btnModeAutopilot,
+                _ => _btnModeAsk
+            };
+            Color accent = (Color)(active.Tag ?? ModeAskColor);
+            active.BackColor = Color.FromArgb(accent.R / 5 + WallyTheme.Surface1.R,
+                                               accent.G / 5 + WallyTheme.Surface1.G,
+                                               accent.B / 5 + WallyTheme.Surface1.B);
+            active.ForeColor = accent;
+            active.FlatAppearance.BorderColor = accent;
+
+            // Update hint text.
+            _lblModeHint.Text = mode switch
+            {
+                ChatMode.Ask => "Single response",
+                ChatMode.Agent => "Iterative loop",
+                ChatMode.Autopilot => "All actors",
+                _ => ""
+            };
+            _lblModeHint.ForeColor = accent;
+
+            // Update send button color to match mode.
+            if (!_isRunning && _workspaceLoaded)
+                _btnSend.BackColor = accent;
+
+            // Actor selector is disabled in Autopilot (all actors run).
+            _cboActor.Enabled = mode != ChatMode.Autopilot && _workspaceLoaded && !_isRunning;
+
+            // Update header.
+            _lblTitle.Text = mode switch
+            {
+                ChatMode.Ask => "AI CHAT \u2014 Ask",
+                ChatMode.Agent => "AI CHAT \u2014 Agent",
+                ChatMode.Autopilot => "AI CHAT \u2014 Autopilot",
+                _ => "AI CHAT"
+            };
+        }
+
+        private Color GetModeAccentColor() => _currentMode switch
+        {
+            ChatMode.Ask => ModeAskColor,
+            ChatMode.Agent => ModeAgentColor,
+            ChatMode.Autopilot => ModeAutopilotColor,
+            _ => ModeAskColor
+        };
+
         // ?? Public API ??????????????????????????????????????????????????????
 
         public void BindEnvironment(WallyEnvironment environment)
@@ -298,8 +456,6 @@ namespace Wally.Forms.Controls
 
         /// <summary>
         /// Called by the main form to enable or disable workspace-dependent controls.
-        /// When no workspace is loaded, the input area, toolbar combos, and send
-        /// button are disabled. The empty-state message changes to guide the user.
         /// </summary>
         public void SetWorkspaceLoaded(bool loaded)
         {
@@ -307,18 +463,22 @@ namespace Wally.Forms.Controls
 
             _workspaceLoaded = loaded;
 
-            _cboActor.Enabled = loaded && !_isRunning;
+            _cboActor.Enabled = loaded && !_isRunning && _currentMode != ChatMode.Autopilot;
             _cboModel.Enabled = loaded && !_isRunning;
             _btnClear.Enabled = loaded;
             _btnSend.Enabled = loaded && !_isRunning;
             _txtInput.ReadOnly = !loaded || _isRunning;
+
+            _btnModeAsk.Enabled = loaded;
+            _btnModeAgent.Enabled = loaded;
+            _btnModeAutopilot.Enabled = loaded;
 
             // Visually dim the input area when workspace is not loaded.
             _txtInput.BackColor = loaded ? WallyTheme.Surface2 : WallyTheme.Surface0;
             _txtInput.ForeColor = loaded ? WallyTheme.TextPrimary : WallyTheme.TextDisabled;
             _inputBorder.BackColor = loaded ? WallyTheme.Border : WallyTheme.BorderSubtle;
             _inputArea.BackColor = loaded ? WallyTheme.Surface1 : WallyTheme.Surface0;
-            _btnSend.BackColor = loaded ? WallyTheme.Accent : WallyTheme.Surface3;
+            _btnSend.BackColor = loaded ? GetModeAccentColor() : WallyTheme.Surface3;
 
             if (!loaded)
             {
@@ -332,8 +492,10 @@ namespace Wally.Forms.Controls
             else
             {
                 _lblEmptyState.Text =
-                    "\U0001F4AC\n\nSelect an actor and type a message\nto start a conversation.\n\n" +
-                    "Your messages are sent to the actor\u2019s AI pipeline\nand responses appear here as chat bubbles.";
+                    "\U0001F4AC\n\nSelect a mode and type a message\nto start a conversation.\n\n" +
+                    "\uD83D\uDCAC Ask \u2014 single response from one actor\n" +
+                    "\uD83E\uDD16 Agent \u2014 iterative loop until completion\n" +
+                    "\u26A1 Autopilot \u2014 run all actors on your prompt";
                 if (!_isRunning)
                 {
                     _lblStatus.Text = "  Ready";
@@ -346,6 +508,9 @@ namespace Wally.Forms.Controls
         {
             if (InvokeRequired) { Invoke(RefreshActorList); return; }
 
+            if (!_cboActor.ComboBox.IsHandleCreated)
+                _cboActor.ComboBox.CreateControl();
+
             _cboActor.Items.Clear();
             if (_environment?.HasWorkspace != true) return;
             foreach (var actor in _environment.Actors)
@@ -357,6 +522,9 @@ namespace Wally.Forms.Controls
         public void RefreshModelList()
         {
             if (InvokeRequired) { Invoke(RefreshModelList); return; }
+
+            if (!_cboModel.ComboBox.IsHandleCreated)
+                _cboModel.ComboBox.CreateControl();
 
             _cboModel.Items.Clear();
             if (_environment?.HasWorkspace != true) return;
@@ -377,18 +545,14 @@ namespace Wally.Forms.Controls
             if (InvokeRequired) { Invoke(ClearMessages); return; }
 
             _messagesFlow.SuspendLayout();
-
-            // Dispose every bubble to release GDI+ resources.
             while (_messagesFlow.Controls.Count > 0)
             {
                 var ctrl = _messagesFlow.Controls[0];
                 _messagesFlow.Controls.RemoveAt(0);
                 ctrl.Dispose();
             }
-
             _messagesFlow.ResumeLayout(true);
 
-            // Reset the input field text and formatting completely.
             _txtInput.Clear();
             _txtInput.SelectionColor = WallyTheme.TextPrimary;
             _txtInput.SelectionFont = WallyTheme.FontUI;
@@ -416,22 +580,14 @@ namespace Wally.Forms.Controls
 
         private async Task SendMessageAsync()
         {
-            // Guard: read the text before any async work.
             string prompt = _txtInput.Text.Trim();
             if (string.IsNullOrEmpty(prompt) || _isRunning) return;
 
             if (_environment?.HasWorkspace != true || !_workspaceLoaded)
             {
                 AddMessage("System",
-                    "No workspace loaded. Use File \u2192 Open Workspace or the terminal to run  setup <path>  first.",
+                    "No workspace loaded. Use File \u2192 Open Workspace first.",
                     MessageKind.Error);
-                return;
-            }
-
-            string actorName = _cboActor.SelectedItem?.ToString() ?? "";
-            if (string.IsNullOrEmpty(actorName))
-            {
-                AddMessage("System", "No actor selected.", MessageKind.Error);
                 return;
             }
 
@@ -441,35 +597,57 @@ namespace Wally.Forms.Controls
 
             AddMessage("You", prompt, MessageKind.User);
 
-            // Clear input — reset text, formatting, and scroll position.
             _txtInput.Clear();
             _txtInput.SelectionColor = WallyTheme.TextPrimary;
             _txtInput.SelectionFont = WallyTheme.FontUI;
+
+            _cts = new CancellationTokenSource();
+
+            switch (_currentMode)
+            {
+                case ChatMode.Ask:
+                    await RunAskModeAsync(prompt, modelOverride);
+                    break;
+                case ChatMode.Agent:
+                    await RunAgentModeAsync(prompt, modelOverride);
+                    break;
+                case ChatMode.Autopilot:
+                    await RunAutopilotModeAsync(prompt, modelOverride);
+                    break;
+            }
+
+            _cts?.Dispose();
+            _cts = null;
+        }
+
+        // ?? Ask mode (single-shot) ??????????????????????????????????????????
+
+        private async Task RunAskModeAsync(string prompt, string? modelOverride)
+        {
+            string actorName = _cboActor.SelectedItem?.ToString() ?? "";
+            if (string.IsNullOrEmpty(actorName))
+            {
+                AddMessage("System", "No actor selected.", MessageKind.Error);
+                return;
+            }
 
             string cmdText = $"run {actorName} \"{prompt}\"" +
                              (modelOverride != null ? $" -m {modelOverride}" : "");
             CommandIssued?.Invoke(this, cmdText);
 
             SetRunning(true, actorName);
-            _cts = new CancellationTokenSource();
-
             try
             {
-                var token = _cts.Token;
+                var token = _cts!.Token;
                 var responses = await Task.Run(() =>
                 {
                     token.ThrowIfCancellationRequested();
-                    if (!string.IsNullOrWhiteSpace(modelOverride))
-                    {
-                        var actor = _environment.GetActor(actorName);
-                        if (actor != null) actor.ModelOverride = modelOverride;
-                    }
-                    return _environment.RunActor(prompt, actorName);
+                    ApplyModelOverride(actorName, modelOverride);
+                    return _environment!.RunActor(prompt, actorName);
                 }, token);
 
                 foreach (string response in responses)
                     AddMessage(actorName, response, MessageKind.Actor);
-
                 if (responses.Count == 0)
                     AddMessage("System", "No response from actor.", MessageKind.Error);
             }
@@ -481,12 +659,151 @@ namespace Wally.Forms.Controls
             {
                 AddMessage("System", $"Error: {ex.Message}", MessageKind.Error);
             }
-            finally
+            finally { SetRunning(false); }
+        }
+
+        // ?? Agent mode (iterative loop) ?????????????????????????????????????
+
+        private async Task RunAgentModeAsync(string prompt, string? modelOverride)
+        {
+            string actorName = _cboActor.SelectedItem?.ToString() ?? "";
+            if (string.IsNullOrEmpty(actorName))
             {
-                SetRunning(false);
-                _cts?.Dispose();
-                _cts = null;
+                AddMessage("System", "No actor selected.", MessageKind.Error);
+                return;
             }
+
+            int maxIter = _environment!.Workspace!.Config.MaxIterations;
+            string cmdText = $"run-loop {actorName} \"{prompt}\" -n {maxIter}" +
+                             (modelOverride != null ? $" -m {modelOverride}" : "");
+            CommandIssued?.Invoke(this, cmdText);
+
+            SetRunning(true, $"{actorName} (agent loop)");
+            try
+            {
+                var token = _cts!.Token;
+                await Task.Run(() =>
+                {
+                    token.ThrowIfCancellationRequested();
+                    ApplyModelOverride(actorName, modelOverride);
+
+                    var actor = _environment.GetActor(actorName);
+                    if (actor == null)
+                    {
+                        AddMessage("System", $"Actor '{actorName}' not found.", MessageKind.Error);
+                        return;
+                    }
+
+                    string currentPrompt = prompt;
+                    for (int i = 1; i <= maxIter; i++)
+                    {
+                        token.ThrowIfCancellationRequested();
+
+                        // Re-apply model override each iteration (Act clears it).
+                        if (!string.IsNullOrWhiteSpace(modelOverride))
+                            actor.ModelOverride = modelOverride;
+
+                        string result = actor.Act(currentPrompt);
+
+                        AddMessage($"{actorName} [{i}/{maxIter}]", result ?? "(no response)", MessageKind.Actor);
+
+                        if (result == null) break;
+
+                        // Check for completion/error signals.
+                        string upper = result.ToUpperInvariant();
+                        if (upper.Contains("WALLY_COMPLETED"))
+                        {
+                            AddMessage("System", $"Agent completed after {i} iteration(s).", MessageKind.Actor);
+                            break;
+                        }
+                        if (upper.Contains("WALLY_ERROR"))
+                        {
+                            AddMessage("System", $"Agent stopped with error after {i} iteration(s).", MessageKind.Error);
+                            break;
+                        }
+
+                        // Build continue prompt with previous result as context.
+                        currentPrompt =
+                            $"You are continuing a task. Here is your previous response:\n\n" +
+                            $"---\n{result}\n---\n\n" +
+                            $"Continue where you left off. " +
+                            $"If you are finished, respond with: WALLY_COMPLETED\n" +
+                            $"If something went wrong, respond with: WALLY_ERROR";
+                    }
+                }, token);
+            }
+            catch (OperationCanceledException)
+            {
+                AddMessage("System", "Agent loop cancelled.", MessageKind.Error);
+            }
+            catch (Exception ex)
+            {
+                AddMessage("System", $"Error: {ex.Message}", MessageKind.Error);
+            }
+            finally { SetRunning(false); }
+        }
+
+        // ?? Autopilot mode (all actors) ?????????????????????????????????????
+
+        private async Task RunAutopilotModeAsync(string prompt, string? modelOverride)
+        {
+            var actors = _environment!.Actors;
+            if (actors.Count == 0)
+            {
+                AddMessage("System", "No actors loaded.", MessageKind.Error);
+                return;
+            }
+
+            string actorNames = string.Join(", ", actors.ConvertAll(a => a.Name));
+            string cmdText = $"autopilot \"{prompt}\" [{actorNames}]" +
+                             (modelOverride != null ? $" -m {modelOverride}" : "");
+            CommandIssued?.Invoke(this, cmdText);
+
+            SetRunning(true, $"Autopilot ({actors.Count} actors)");
+            try
+            {
+                var token = _cts!.Token;
+                await Task.Run(() =>
+                {
+                    foreach (var actor in actors)
+                    {
+                        token.ThrowIfCancellationRequested();
+
+                        if (!string.IsNullOrWhiteSpace(modelOverride))
+                            actor.ModelOverride = modelOverride;
+
+                        AddMessage("System", $"Running {actor.Name}\u2026", MessageKind.Actor);
+
+                        string result = actor.Act(prompt);
+
+                        AddMessage(actor.Name,
+                            result != null ? $"[Role: {actor.Role.Name}]\n{result}" : "(no response)",
+                            result != null ? MessageKind.Actor : MessageKind.Error);
+                    }
+                }, token);
+
+                AddMessage("System",
+                    $"Autopilot complete \u2014 {actors.Count} actor(s) responded.",
+                    MessageKind.Actor);
+            }
+            catch (OperationCanceledException)
+            {
+                AddMessage("System", "Autopilot cancelled.", MessageKind.Error);
+            }
+            catch (Exception ex)
+            {
+                AddMessage("System", $"Error: {ex.Message}", MessageKind.Error);
+            }
+            finally { SetRunning(false); }
+        }
+
+        // ?? Helpers ?????????????????????????????????????????????????????????
+
+        private void ApplyModelOverride(string actorName, string? modelOverride)
+        {
+            if (string.IsNullOrWhiteSpace(modelOverride)) return;
+            var actor = _environment?.GetActor(actorName);
+            if (actor != null) actor.ModelOverride = modelOverride;
         }
 
         // ?? Message rendering ???????????????????????????????????????????????
@@ -519,28 +836,34 @@ namespace Wally.Forms.Controls
         {
             bool empty = _messagesFlow.Controls.Count == 0;
             _lblEmptyState.Visible = empty;
-            // When empty, bring label to front so it paints above the zero-height flow.
-            if (empty)
-                _lblEmptyState.BringToFront();
+            if (empty) _lblEmptyState.BringToFront();
         }
 
         // ?? UI state ????????????????????????????????????????????????????????
 
-        private void SetRunning(bool running, string? actorName = null)
+        private void SetRunning(bool running, string? context = null)
         {
-            if (InvokeRequired) { Invoke(() => SetRunning(running, actorName)); return; }
+            if (InvokeRequired) { Invoke(() => SetRunning(running, context)); return; }
 
             _isRunning = running;
             _btnSend.Visible = !running;
             _btnSend.Enabled = !running && _workspaceLoaded;
             _btnCancel.Visible = running;
             _txtInput.ReadOnly = running || !_workspaceLoaded;
-            _cboActor.Enabled = !running && _workspaceLoaded;
+            _cboActor.Enabled = !running && _workspaceLoaded && _currentMode != ChatMode.Autopilot;
             _cboModel.Enabled = !running && _workspaceLoaded;
+            _btnModeAsk.Enabled = !running && _workspaceLoaded;
+            _btnModeAgent.Enabled = !running && _workspaceLoaded;
+            _btnModeAutopilot.Enabled = !running && _workspaceLoaded;
+
+            Color accent = GetModeAccentColor();
             _lblStatus.Text = running
-                ? $"  \u26A1 Running {actorName}\u2026"
+                ? $"  \u26A1 {context}\u2026"
                 : "  Ready";
-            _lblStatus.ForeColor = running ? WallyTheme.Accent : WallyTheme.TextMuted;
+            _lblStatus.ForeColor = running ? accent : WallyTheme.TextMuted;
+
+            if (!running && _workspaceLoaded)
+                _btnSend.BackColor = accent;
         }
     }
 
@@ -606,7 +929,6 @@ namespace Wally.Forms.Controls
             var g = e.Graphics;
             WallyTheme.ConfigureGraphics(g);
 
-            // ?? Background bubble ??
             Color bubbleBg = _kind switch
             {
                 MessageKind.User => WallyTheme.BubbleUser,
@@ -621,7 +943,6 @@ namespace Wally.Forms.Controls
                 g.FillPath(brush, path);
             }
 
-            // ?? Accent bar on left edge ??
             Color accentColor = _kind switch
             {
                 MessageKind.User => WallyTheme.Accent,
@@ -635,7 +956,6 @@ namespace Wally.Forms.Controls
 
             int y = PadY;
 
-            // ?? Sender name ??
             Color senderColor = _kind switch
             {
                 MessageKind.User => WallyTheme.SenderUser,
@@ -646,14 +966,12 @@ namespace Wally.Forms.Controls
                 new Rectangle(PadX, y, Width - PadX * 2 - TimestampWidth, SenderHeight),
                 senderColor, TextFormatFlags.Left | TextFormatFlags.VerticalCenter);
 
-            // ?? Timestamp ??
             TextRenderer.DrawText(g, _timestamp, WallyTheme.FontUISmall,
                 new Rectangle(Width - PadX - TimestampWidth, y, TimestampWidth, SenderHeight),
                 WallyTheme.TextDisabled, TextFormatFlags.Right | TextFormatFlags.VerticalCenter);
 
             y += SenderHeight + GapAfterSender;
 
-            // ?? Body text ??
             int textWidth = Width - PadX * 2;
             TextRenderer.DrawText(g, _body, WallyTheme.FontMono,
                 new Rectangle(PadX, y, textWidth, _bodyHeight),
