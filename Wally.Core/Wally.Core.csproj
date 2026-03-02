@@ -10,4 +10,18 @@
     <PackageReference Include="CommandLineParser" Version="2.9.1" />
   </ItemGroup>
 
+  <!-- Default workspace template — copied to the output of every project that
+       references Wally.Core so that WallyHelper.GetDefaultTemplateFolder() resolves
+       correctly for both Console and WinForms hosts. -->
+  <ItemGroup>
+    <Content Include="Default\**\*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Link>Default\%(RecursiveDir)%(Filename)%(Extension)</Link>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Default\Logs\" />
+  </ItemGroup>
+
 </Project>

@@ -17,14 +17,4 @@
     <ProjectReference Include="..\Wally.Core\Wally.Core.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Content Include="Default\**\*">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-  </ItemGroup>
-
-  <ItemGroup>
-    <Folder Include="Default\Logs\" />
-  </ItemGroup>
-
 </Project>
