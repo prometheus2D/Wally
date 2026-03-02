@@ -51,6 +51,7 @@ namespace Wally.Forms
             workspaceInfoMenuItem = new ToolStripMenuItem();
             verifyWorkspaceMenuItem = new ToolStripMenuItem();
             workspaceSeparator2 = new ToolStripSeparator();
+            cleanupWorkspaceMenuItem = new ToolStripMenuItem();
             openWorkspaceFolderMenuItem = new ToolStripMenuItem();
 
             // ── Main ToolStrip ──
@@ -249,6 +250,7 @@ namespace Wally.Forms
                 workspaceSeparator1,
                 workspaceInfoMenuItem, verifyWorkspaceMenuItem,
                 workspaceSeparator2,
+                cleanupWorkspaceMenuItem,
                 openWorkspaceFolderMenuItem
             });
             workspaceToolStripMenuItem.Name = "workspaceToolStripMenuItem";
@@ -287,6 +289,11 @@ namespace Wally.Forms
             openWorkspaceFolderMenuItem.Size = new Size(260, 22);
             openWorkspaceFolderMenuItem.Text = "Open in &Explorer";
             openWorkspaceFolderMenuItem.ForeColor = WallyTheme.TextPrimary;
+
+            cleanupWorkspaceMenuItem.Name = "cleanupWorkspaceMenuItem";
+            cleanupWorkspaceMenuItem.Size = new Size(260, 22);
+            cleanupWorkspaceMenuItem.Text = "&Cleanup Workspace\u2026";
+            cleanupWorkspaceMenuItem.ForeColor = WallyTheme.TextPrimary;
 
             // ═══════════════════════════════════════════════════════════════
             //  Main ToolStrip (action buttons below menu)
@@ -433,6 +440,7 @@ namespace Wally.Forms
         private ToolStripMenuItem workspaceInfoMenuItem;
         private ToolStripMenuItem verifyWorkspaceMenuItem;
         private ToolStripSeparator workspaceSeparator2;
+        private ToolStripMenuItem cleanupWorkspaceMenuItem;
         private ToolStripMenuItem openWorkspaceFolderMenuItem;
 
         // ── Main ToolStrip ──

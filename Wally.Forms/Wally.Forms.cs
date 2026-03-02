@@ -185,6 +185,7 @@ namespace Wally.Forms
             workspaceInfoMenuItem.Click += (_, _) =>
                 _commandPanel.ExecuteCommand("info");
             verifyWorkspaceMenuItem.Click += OnVerifyWorkspace;
+            cleanupWorkspaceMenuItem.Click += OnCleanupWorkspace;
             openWorkspaceFolderMenuItem.Click += OnOpenWorkspaceFolder;
 
             // ?? Main ToolStrip ??
@@ -379,6 +380,41 @@ namespace Wally.Forms
         {
             if (!_environment.HasWorkspace) return;
             _commandPanel.ExecuteCommand($"setup \"{_environment.WorkSource}\" --verify");
+        }
+
+        private void OnCleanupWorkspace(object? sender, EventArgs e)
+        {
+            string wsFolder = _environment.HasWorkspace
+                ? _environment.WorkspaceFolder!
+                : WallyHelper.GetDefaultWorkspaceFolder();
+
+            var result = MessageBox.Show(this,
+                $"This will delete the workspace folder:\n\n{wsFolder}\n\n" +
+                "All actors, config, docs, and logs inside it will be removed.\n" +
+                "You can run Setup again afterwards to create a fresh workspace.\n\n" +
+                "Continue?",
+                "Cleanup Workspace",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Warning,
+                MessageBoxDefaultButton.Button2);
+
+            if (result != DialogResult.Yes) return;
+
+            string? workSource = _environment.HasWorkspace ? _environment.WorkSource : null;
+
+            // Close UI panels first if a workspace is loaded.
+            if (_environment.HasWorkspace)
+            {
+                _fileExplorer.ClearTree();
+                _chatPanel.ClearMessages();
+                _chatPanel.RefreshActorList();
+                _chatPanel.RefreshModelList();
+                HideWorkspacePanels();
+            }
+
+            _commandPanel.ExecuteCommand(workSource != null
+                ? $"cleanup \"{workSource}\""
+                : "cleanup");
         }
 
         private void OnOpenWorkspaceFolder(object? sender, EventArgs e)

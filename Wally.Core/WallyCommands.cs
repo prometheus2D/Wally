@@ -324,6 +324,51 @@ namespace Wally.Core
                 Console.WriteLine($"  {a.Name}");
         }
 
+        // — Cleanup ———————————————————————————————————————————————————————————
+
+        /// <summary>
+        /// Deletes the local <c>.wally/</c> workspace folder so that
+        /// <c>setup</c> can scaffold a fresh workspace. If the currently
+        /// loaded workspace is the one being deleted, it is closed first.
+        /// When <paramref name="workSourcePath"/> is <see langword="null"/>,
+        /// the default location (exe directory) is used.
+        /// </summary>
+        public static void HandleCleanup(WallyEnvironment env, string? workSourcePath = null)
+        {
+            string wsFolder = ResolveWorkspaceFolder(workSourcePath);
+
+            if (!Directory.Exists(wsFolder))
+            {
+                Console.WriteLine($"Nothing to clean — workspace folder does not exist: {wsFolder}");
+                env.Logger.LogCommand("cleanup", $"No workspace at {wsFolder}");
+                return;
+            }
+
+            // If the loaded workspace is the one we're about to delete, close it.
+            if (env.HasWorkspace &&
+                string.Equals(
+                    Path.GetFullPath(env.Workspace!.WorkspaceFolder),
+                    Path.GetFullPath(wsFolder),
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                env.CloseWorkspace();
+                Console.WriteLine("Closed active workspace.");
+            }
+
+            try
+            {
+                Directory.Delete(wsFolder, recursive: true);
+                Console.WriteLine($"Deleted workspace folder: {wsFolder}");
+                Console.WriteLine("Run 'setup' to create a fresh workspace.");
+                env.Logger.LogCommand("cleanup", $"Deleted {wsFolder}");
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"Cleanup failed: {ex.Message}");
+                env.Logger.LogError($"Cleanup failed: {ex.Message}", "cleanup");
+            }
+        }
+
         // — Help ———————————————————————————————————————————————————————————————
 
         public static void HandleHelp()
@@ -355,6 +400,7 @@ namespace Wally.Core
             Console.WriteLine("                                   Run an actor in an iterative loop.");
             Console.WriteLine("  save <path>                      Save config and actor files to disk.");
             Console.WriteLine("  reload-actors                    Re-read actor folders from disk.");
+            Console.WriteLine("  cleanup [<path>]                 Delete the local .wally/ folder so setup can run fresh.");
             Console.WriteLine();
             Console.WriteLine("Default actors:");
             Console.WriteLine("  Engineer         — code reviews, architecture docs, proposals, bug reports, test plans");

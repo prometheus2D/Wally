@@ -38,7 +38,7 @@ namespace Wally.Forms.Controls
         private static readonly string[] KnownCommands =
         {
             "setup", "load", "save", "run", "run-loop", "list", "info",
-            "reload-actors", "commands", "help", "clear", "cls"
+            "reload-actors", "cleanup", "commands", "help", "clear", "cls"
         };
 
         // ?? Events ??????????????????????????????????????????????????????????
@@ -362,6 +362,13 @@ namespace Wally.Forms.Controls
                             WallyCommands.HandleReloadActors(_environment);
                             break;
 
+                        case "cleanup":
+                        {
+                            string? cleanupPath = GetFirstPositional(args, 1);
+                            WallyCommands.HandleCleanup(_environment, cleanupPath);
+                            break;
+                        }
+
                         case "commands" or "help":
                             WallyCommands.HandleHelp();
                             break;
@@ -378,7 +385,9 @@ namespace Wally.Forms.Controls
 
                 bool stateChanging = input.StartsWith("setup", StringComparison.OrdinalIgnoreCase) ||
                                      input.StartsWith("load", StringComparison.OrdinalIgnoreCase) ||
-                                     input.StartsWith("reload", StringComparison.OrdinalIgnoreCase);
+                                     input.StartsWith("reload", StringComparison.OrdinalIgnoreCase) ||
+                                     input.StartsWith("cleanup", StringComparison.OrdinalIgnoreCase);
+
                 if (stateChanging)
                     WorkspaceChanged?.Invoke(this, EventArgs.Empty);
             }
