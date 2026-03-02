@@ -57,6 +57,14 @@ namespace Wally.Core
         public string DocsFolderName { get; set; } = "Docs";
 
         /// <summary>
+        /// Subfolder inside the workspace folder that holds document templates
+        /// (e.g. <c>ProposalTemplate.md</c>, <c>RequirementsTemplate.md</c>).
+        /// Actors reference these templates when producing structured documents.
+        /// Default: <c>Templates</c>.
+        /// </summary>
+        public string TemplatesFolderName { get; set; } = "Templates";
+
+        /// <summary>
         /// How often (in minutes) the session logger rotates to a new log file.
         /// Each file covers roughly this time window. Set to <c>0</c> to disable
         /// rotation (single file per session). Default: <c>2</c>.

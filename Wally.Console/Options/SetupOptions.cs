@@ -13,6 +13,14 @@ namespace Wally.Console.Options
             HelpText = "Explicit WorkSource directory. Same as the positional <path> argument — use whichever you prefer. This takes priority when both are supplied.")]
         public string WorkSource { get; set; }
 
+        [Option("verify", Required = false, Default = false,
+            HelpText = "Verify the workspace structure without making changes. Reports missing folders, config, and actor files.")]
+        public bool Verify { get; set; }
+
+        [Option("repair", Required = false, Default = false,
+            HelpText = "Verify and repair the workspace structure. Creates missing folders, config, and copies default templates.")]
+        public bool Repair { get; set; }
+
         /// <summary>
         /// Returns the resolved WorkSource path. <c>--worksource</c> takes
         /// priority over the positional argument.

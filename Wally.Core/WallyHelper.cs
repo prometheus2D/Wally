@@ -182,6 +182,140 @@ namespace Wally.Core
             return env;
         }
 
+        // — Workspace verification ——————————————————————————————————————————
+
+        /// <summary>
+        /// Verifies the structural integrity of a workspace at <paramref name="workspaceFolder"/>.
+        /// Returns a list of issues found. An empty list means the workspace is valid.
+        /// When <paramref name="repair"/> is true, missing directories are created
+        /// and a missing config file is written from defaults.
+        /// </summary>
+        public static List<string> VerifyWorkspace(string workspaceFolder, bool repair = false)
+        {
+            var issues = new List<string>();
+            workspaceFolder = Path.GetFullPath(workspaceFolder);
+
+            // 1. Workspace folder exists
+            if (!Directory.Exists(workspaceFolder))
+            {
+                issues.Add($"Workspace folder does not exist: {workspaceFolder}");
+                if (repair)
+                {
+                    Directory.CreateDirectory(workspaceFolder);
+                    issues.Add("  ? Created workspace folder.");
+                }
+                else
+                {
+                    return issues; // Can't check further if folder doesn't exist
+                }
+            }
+
+            // 2. Config file
+            string configPath = Path.Combine(workspaceFolder, ConfigFileName);
+            WallyConfig config;
+            if (!File.Exists(configPath))
+            {
+                issues.Add($"Config file missing: {configPath}");
+                if (repair)
+                {
+                    config = new WallyConfig();
+                    config.SaveToFile(configPath);
+                    issues.Add("  ? Created default config file.");
+                }
+                else
+                {
+                    config = new WallyConfig();
+                }
+            }
+            else
+            {
+                config = WallyConfig.LoadFromFile(configPath);
+            }
+
+            // 3. Actors folder
+            string actorsDir = Path.Combine(workspaceFolder, config.ActorsFolderName);
+            if (!Directory.Exists(actorsDir))
+            {
+                issues.Add($"Actors folder missing: {actorsDir}");
+                if (repair)
+                {
+                    Directory.CreateDirectory(actorsDir);
+                    issues.Add("  ? Created Actors folder.");
+                }
+            }
+
+            // 4. Docs folder
+            string docsDir = Path.Combine(workspaceFolder, config.DocsFolderName);
+            if (!Directory.Exists(docsDir))
+            {
+                issues.Add($"Docs folder missing: {docsDir}");
+                if (repair)
+                {
+                    Directory.CreateDirectory(docsDir);
+                    issues.Add("  ? Created Docs folder.");
+                }
+            }
+
+            // 5. Templates folder
+            string templatesDir = Path.Combine(workspaceFolder, config.TemplatesFolderName);
+            if (!Directory.Exists(templatesDir))
+            {
+                issues.Add($"Templates folder missing: {templatesDir}");
+                if (repair)
+                {
+                    Directory.CreateDirectory(templatesDir);
+                    issues.Add("  ? Created Templates folder.");
+
+                    // Copy templates from the shipped Default folder if available
+                    string defaultTemplates = Path.Combine(GetDefaultTemplateFolder(), config.TemplatesFolderName);
+                    if (Directory.Exists(defaultTemplates))
+                    {
+                        CopyDirectoryNoOverwrite(defaultTemplates, templatesDir);
+                        issues.Add("  ? Copied default templates.");
+                    }
+                }
+            }
+
+            // 6. Logs folder
+            string logsDir = Path.Combine(workspaceFolder, config.LogsFolderName);
+            if (!Directory.Exists(logsDir))
+            {
+                issues.Add($"Logs folder missing: {logsDir}");
+                if (repair)
+                {
+                    Directory.CreateDirectory(logsDir);
+                    issues.Add("  ? Created Logs folder.");
+                }
+            }
+
+            // 7. Actor subfolders — check each has an actor.json and Docs/
+            if (Directory.Exists(actorsDir))
+            {
+                foreach (string actorDir in Directory.GetDirectories(actorsDir))
+                {
+                    string actorJson = Path.Combine(actorDir, ActorFileName);
+                    string actorName = Path.GetFileName(actorDir);
+                    if (!File.Exists(actorJson))
+                    {
+                        issues.Add($"Actor '{actorName}' is missing {ActorFileName}: {actorJson}");
+                    }
+
+                    string actorDocsDir = Path.Combine(actorDir, "Docs");
+                    if (!Directory.Exists(actorDocsDir))
+                    {
+                        issues.Add($"Actor '{actorName}' is missing Docs folder: {actorDocsDir}");
+                        if (repair)
+                        {
+                            Directory.CreateDirectory(actorDocsDir);
+                            issues.Add($"  ? Created Docs folder for actor '{actorName}'.");
+                        }
+                    }
+                }
+            }
+
+            return issues;
+        }
+
         // — Directory utilities —————————————————————————————————————————————
 
         /// <summary>Recursively copies <paramref name="sourceDir"/> into <paramref name="destDir"/>.</summary>

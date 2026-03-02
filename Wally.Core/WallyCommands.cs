@@ -65,6 +65,65 @@ namespace Wally.Core
             PrintWorkspaceSummary("Workspace ready.", env);
         }
 
+        /// <summary>
+        /// Ensures a workspace exists at <paramref name="workSourcePath"/> and optionally
+        /// verifies or repairs its structure. When <paramref name="verify"/> is true the
+        /// workspace is checked for missing folders and files. When <paramref name="repair"/>
+        /// is true, missing items are created automatically.
+        /// </summary>
+        public static void HandleSetup(WallyEnvironment env, string? workSourcePath, bool verify, bool repair)
+        {
+            // When only verifying/repairing, resolve the workspace folder path
+            // but don't necessarily scaffold a brand-new workspace.
+            if (verify || repair)
+            {
+                string wsFolder;
+                if (workSourcePath != null)
+                {
+                    if (!Path.IsPathRooted(workSourcePath))
+                        workSourcePath = Path.Combine(WallyHelper.GetExeDirectory(), workSourcePath);
+                    workSourcePath = Path.GetFullPath(workSourcePath);
+                    wsFolder = Path.Combine(workSourcePath, WallyHelper.DefaultWorkspaceFolderName);
+                }
+                else
+                {
+                    wsFolder = WallyHelper.GetDefaultWorkspaceFolder();
+                }
+
+                Console.WriteLine($"Verifying workspace at: {wsFolder}");
+                Console.WriteLine();
+
+                var issues = WallyHelper.VerifyWorkspace(wsFolder, repair);
+
+                if (issues.Count == 0)
+                {
+                    Console.WriteLine("? Workspace structure is valid. No issues found.");
+                }
+                else
+                {
+                    Console.WriteLine(repair ? "Issues found and repaired:" : "Issues found:");
+                    foreach (var issue in issues)
+                        Console.WriteLine($"  {issue}");
+                }
+
+                env.Logger.LogCommand("setup",
+                    $"Workspace {(repair ? "repaired" : "verified")} at {wsFolder}: {issues.Count} issue(s)");
+
+                // After verify/repair, load the workspace so subsequent commands work.
+                if (Directory.Exists(wsFolder))
+                {
+                    env.SetupLocal(workSourcePath);
+                    Console.WriteLine();
+                    PrintWorkspaceSummary("Workspace loaded.", env);
+                }
+
+                return;
+            }
+
+            // Standard setup — scaffold if needed and load.
+            HandleSetup(env, workSourcePath);
+        }
+
         /// <summary>Saves the active workspace config and all actor files to <paramref name="path"/>.</summary>
         public static void HandleSave(WallyEnvironment env, string path)
         {
@@ -280,6 +339,7 @@ namespace Wally.Core
             Console.WriteLine($"Workspace folder:  {ws.WorkspaceFolder}");
             Console.WriteLine($"Actors folder:     {Path.Combine(ws.WorkspaceFolder, cfg.ActorsFolderName)}");
             Console.WriteLine($"Docs folder:       {Path.Combine(ws.WorkspaceFolder, cfg.DocsFolderName)}");
+            Console.WriteLine($"Templates folder:  {Path.Combine(ws.WorkspaceFolder, cfg.TemplatesFolderName)}");
             Console.WriteLine($"Logs folder:       {Path.Combine(ws.WorkspaceFolder, cfg.LogsFolderName)}");
             Console.WriteLine($"Actors loaded:     {ws.Actors.Count}");
             foreach (var a in ws.Actors)
@@ -323,6 +383,8 @@ namespace Wally.Core
             Console.WriteLine("                                   -w / --worksource is an explicit alternative to the positional arg.");
             Console.WriteLine("                                   If <path> doesn't exist, it is created automatically.");
             Console.WriteLine("                                   Defaults to the exe directory when omitted.");
+            Console.WriteLine("    --verify                       Check workspace structure for missing folders/files.");
+            Console.WriteLine("    --repair                       Check and fix workspace structure (creates missing items).");
             Console.WriteLine("  create <path>                    Scaffold a new workspace inside <path>/.wally/.");
             Console.WriteLine("                                   Creates <path> if it doesn't exist.");
             Console.WriteLine("  load <path>                      Load an existing workspace from <path> (.wally/ folder).");
