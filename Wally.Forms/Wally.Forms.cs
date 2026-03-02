@@ -15,10 +15,12 @@ namespace Wally.Forms
         private readonly FileExplorerPanel _fileExplorer;
         private readonly ChatPanel _chatPanel;
         private readonly CommandPanel _commandPanel;
+        private readonly WelcomePanel _welcomePanel;
 
         // ?? Splitters ???????????????????????????????????????????????????????
 
         private readonly ThemedSplitter _leftSplitter;
+        private readonly ThemedSplitter _rightSplitter;
         private readonly ThemedSplitter _bottomSplitter;
 
         // ?? Status bar ??????????????????????????????????????????????????????
@@ -91,6 +93,22 @@ namespace Wally.Forms
                 MinSize = 180
             };
 
+            // ?? Chat Panel (right side) ??
+            _chatPanel = new ChatPanel
+            {
+                Dock = DockStyle.Right,
+                Width = 420,
+                MinimumSize = new Size(280, 0)
+            };
+
+            _rightSplitter = new ThemedSplitter
+            {
+                Dock = DockStyle.Right,
+                Width = 3,
+                BackColor = WallyTheme.Splitter,
+                MinSize = 280
+            };
+
             // ?? Command Panel (bottom) ??
             _commandPanel = new CommandPanel
             {
@@ -107,20 +125,24 @@ namespace Wally.Forms
                 MinSize = 80
             };
 
-            // ?? Chat Panel (fills remaining space) ??
-            _chatPanel = new ChatPanel
+            // ?? Welcome Panel (fills remaining centre space) ??
+            _welcomePanel = new WelcomePanel
             {
                 Dock = DockStyle.Fill
             };
 
             // ?? Layout inside ToolStripContainer ??
+            // WinForms docking order matters: Fill last, edges first.
+            // Add order (reverse Z): Fill ? Bottom ? Right ? Left ? edges.
             var content = toolStripContainer1.ContentPanel;
             content.BackColor = WallyTheme.Surface0;
-            content.Controls.Add(_chatPanel);
-            content.Controls.Add(_bottomSplitter);
-            content.Controls.Add(_commandPanel);
-            content.Controls.Add(_leftSplitter);
-            content.Controls.Add(_fileExplorer);
+            content.Controls.Add(_welcomePanel);       // Fill (centre)
+            content.Controls.Add(_bottomSplitter);     // Bottom splitter
+            content.Controls.Add(_commandPanel);       // Bottom
+            content.Controls.Add(_rightSplitter);      // Right splitter
+            content.Controls.Add(_chatPanel);          // Right
+            content.Controls.Add(_leftSplitter);       // Left splitter
+            content.Controls.Add(_fileExplorer);       // Left
 
             Controls.Add(_statusBar);
 
@@ -146,7 +168,7 @@ namespace Wally.Forms
             showExplorerMenuItem.CheckedChanged += (_, _) =>
                 TogglePanel(_fileExplorer, _leftSplitter, showExplorerMenuItem.Checked);
             showChatMenuItem.CheckedChanged += (_, _) =>
-                _chatPanel.Visible = showChatMenuItem.Checked;
+                TogglePanel(_chatPanel, _rightSplitter, showChatMenuItem.Checked);
             showCommandMenuItem.CheckedChanged += (_, _) =>
                 TogglePanel(_commandPanel, _bottomSplitter, showCommandMenuItem.Checked);
 
@@ -175,10 +197,13 @@ namespace Wally.Forms
             KeyPreview = true;
             KeyDown += OnGlobalKeyDown;
 
-            // ?? Initial state — hide explorer until a workspace is loaded ??
+            // ?? Initial state — workspace panels hidden until loaded ??
             _fileExplorer.Visible = false;
             _leftSplitter.Visible = false;
+            _chatPanel.Visible = false;
+            _rightSplitter.Visible = false;
             showExplorerMenuItem.Checked = false;
+            showChatMenuItem.Checked = false;
             UpdateWorkspaceGating();
             TryAutoSetup();
         }
@@ -225,7 +250,7 @@ namespace Wally.Forms
                 if (!_fileExplorer.Visible) { showExplorerMenuItem.Checked = true; }
                 _fileExplorer.Focus();
             }
-            else if (e.Control && e.KeyCode == Keys.D2)
+            else if (e.Control && e.KeyCode == Keys.D2 && _environment.HasWorkspace)
             {
                 e.Handled = true;
                 if (!_chatPanel.Visible) { showChatMenuItem.Checked = true; }
@@ -295,10 +320,13 @@ namespace Wally.Forms
             _leftSplitter.Visible = false;
             showExplorerMenuItem.Checked = false;
 
-            // Clear and reset the chat panel.
+            // Hide the chat panel.
             _chatPanel.ClearMessages();
             _chatPanel.RefreshActorList();
             _chatPanel.RefreshModelList();
+            _chatPanel.Visible = false;
+            _rightSplitter.Visible = false;
+            showChatMenuItem.Checked = false;
 
             RefreshAllPanels();
 
@@ -344,13 +372,24 @@ namespace Wally.Forms
                 _chatPanel.RefreshActorList();
                 _chatPanel.RefreshModelList();
 
-                // Show the explorer if it was hidden.
+                // Show the explorer and chat panels if they were hidden.
                 if (!_fileExplorer.Visible)
                 {
                     showExplorerMenuItem.Checked = true;
                     _fileExplorer.Visible = true;
                     _leftSplitter.Visible = true;
                 }
+                if (!_chatPanel.Visible)
+                {
+                    showChatMenuItem.Checked = true;
+                    _chatPanel.Visible = true;
+                    _rightSplitter.Visible = true;
+                }
+
+                // Update welcome panel to show workspace info.
+                string? defaultModel = _environment.Workspace?.Config?.DefaultModel;
+                _welcomePanel.SetWorkspaceInfo(true, _environment.WorkSource,
+                    _environment.Actors.Count, defaultModel);
 
                 _lblWorkspaceStatus.Text = _environment.WorkSource!;
                 _lblWorkspaceStatus.ForeColor = Color.White;
@@ -360,6 +399,7 @@ namespace Wally.Forms
             else
             {
                 Text = "Wally \u2014 AI Actor Environment";
+                _welcomePanel.SetWorkspaceInfo(false);
                 _lblWorkspaceStatus.Text = "No workspace loaded \u2014 use File \u2192 Open or Setup";
                 _lblWorkspaceStatus.ForeColor = WallyTheme.TextSecondary;
                 _lblActorCount.Text = "Actors: 0";
@@ -374,8 +414,9 @@ namespace Wally.Forms
         /// <summary>
         /// Enables or disables UI elements that require a loaded workspace.
         /// Called on startup and after every workspace state change.
-        /// Ensures the visual state is unambiguous: disabled items are clearly
-        /// dimmed, the file explorer is hidden, and the status bar reflects state.
+        /// Workspace panels (explorer, chat) are hidden when no workspace;
+        /// their View menu toggles are disabled. The command panel and
+        /// welcome panel remain always visible.
         /// </summary>
         private void UpdateWorkspaceGating()
         {
@@ -385,8 +426,9 @@ namespace Wally.Forms
             saveWorkspaceMenuItem.Enabled = loaded;
             closeWorkspaceMenuItem.Enabled = loaded;
 
-            // ?? View menu — explorer toggle only when workspace loaded ??
+            // ?? View menu — panel toggles only when workspace loaded ??
             showExplorerMenuItem.Enabled = loaded;
+            showChatMenuItem.Enabled = loaded;
             refreshMenuItem.Enabled = loaded;
 
             // ?? Workspace menu (entire menu disabled when no workspace) ??
