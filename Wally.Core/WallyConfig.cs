@@ -15,13 +15,11 @@ namespace Wally.Core
     ///       .wally/                     workspace folder
     ///           wally-config.json
     ///           Docs/                   workspace-level documentation
+    ///           Templates/              document templates
     ///           Actors/
-    ///               Developer/
+    ///               &lt;ActorName&gt;/
     ///                   actor.json
     ///                   Docs/           actor-private documentation
-    ///               Tester/
-    ///                   actor.json
-    ///                   Docs/
     /// </code>
     /// All files under WorkSource (including <c>.wally/</c>) are accessible to
     /// <c>gh copilot</c> via <c>--add-dir</c>. Documentation files are never

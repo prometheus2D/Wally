@@ -30,16 +30,31 @@ dotnet build
 wally setup C:\repos\MyApp
 
 # Run a single actor
-wally run Developer "Add input validation to the login form"
+wally run Engineer "Add input validation to the login form"
 
 # Run with a specific model
-wally run Developer "Refactor the data layer" -m claude-sonnet-4
+wally run BusinessAnalyst "Write requirements for the search feature" -m claude-sonnet-4
 
 # Run an actor in an iterative loop
-wally run-loop Developer "Build a REST API for user management" -n 5
+wally run-loop Engineer "Build a REST API for user management" -n 5
 ```
 
 That's it. Wally wraps your prompt with the actor's Role, AcceptanceCriteria, and Intent, then passes the structured prompt to `gh copilot`.
+
+---
+
+## Default Actors
+
+The shipped workspace template includes three actors. These are starting points —
+add, remove, or customise actors by editing the `Actors/` folder:
+
+| Actor | Perspective | Produces |
+|---|---|---|
+| **Stakeholder** | Business — defines needs, priorities, success criteria | Business context, priorities, feedback |
+| **BusinessAnalyst** | Bridge — translates needs into requirements, manages project | Requirements, Execution Plans |
+| **Engineer** | Technical — designs, builds, tests, documents | Proposals, Implementation Plans, Architecture docs, Bug Reports, Test Plans |
+
+Each actor generates documentation from its own perspective using the document templates in `Templates/`.
 
 ---
 
@@ -72,8 +87,10 @@ Run `wally` with no arguments to enter interactive mode:
 ```sh
 wally
 wally> setup C:\repos\MyApp
-wally> run Developer "Explain the main entry point"
-wally> run-loop Tester "Find and document all edge cases"
+wally> run Engineer "Explain the main entry point"
+wally> run Stakeholder "Define what the dashboard must achieve"
+wally> run BusinessAnalyst "Write requirements for the search feature"
+wally> run-loop Engineer "Implement the search API"
 wally> info
 wally> exit
 ```
@@ -88,22 +105,47 @@ Running `wally setup <path>` creates a `.wally/` folder inside your codebase:
 <WorkSource>/                      Your codebase root (e.g. C:\repos\MyApp)
   .wally/                          Workspace folder
     wally-config.json              Configuration
-    instructions.md                Quick-reference (this content, shipped with every workspace)
-    Docs/                          Workspace-level documentation (shared by all actors)
-      style-guide.md               .md, .txt, .rst, .adoc files
+    Docs/                          Shared documentation (all actors)
+        README.md
+    Templates/                     Document templates used by actors
+        RequirementsTemplate.md
+        ProposalTemplate.md
+        ImplementationPlanTemplate.md
+        ExecutionPlanTemplate.md
+        ArchitectureTemplate.md
+        BugTemplate.md
+        TestPlanTemplate.md
     Actors/
-      Developer/
+      Stakeholder/
         actor.json                 Actor definition (RBA prompts)
-        Docs/                      Actor-private documentation
-          architecture.md
-      Tester/
+        Docs/                      Actor-specific documentation
+      BusinessAnalyst/
         actor.json
         Docs/
-          test-plan.md
+      Engineer/
+        actor.json
+        Docs/
     Logs/                          Session logs (auto-created on first run)
       <timestamp_guid>/            One folder per session
         <timestamp>.txt            Rotated log files
 ```
+
+---
+
+## Document Templates
+
+Templates in `Templates/` define document structures. Actors reference them by
+name in their prompts — edit or add templates to fit your workflow:
+
+| Template | Purpose |
+|---|---|
+| `RequirementsTemplate.md` | Define what the system must do (current state, future state, acceptance criteria) |
+| `ExecutionPlanTemplate.md` | Coordinate delivery across implementation plans |
+| `ProposalTemplate.md` | Introduce new ideas with phases, impact, and risks |
+| `ImplementationPlanTemplate.md` | Break proposals into concrete, executable steps |
+| `ArchitectureTemplate.md` | Capture system design decisions and patterns |
+| `BugTemplate.md` | Track defects with symptoms, investigation, and resolution |
+| `TestPlanTemplate.md` | Define how requirements will be verified |
 
 ---
 
@@ -113,10 +155,10 @@ Each actor lives in its own subfolder under `.wally/Actors/` with an `actor.json
 
 ```json
 {
-  "name": "Developer",
-  "rolePrompt": "Act as an expert software developer, writing clean and efficient code.",
-  "criteriaPrompt": "Code must compile without errors, follow best practices, and pass unit tests.",
-  "intentPrompt": "Implement the requested feature with proper error handling.",
+  "name": "Engineer",
+  "rolePrompt": "Act as a senior software engineer responsible for all technical work...",
+  "criteriaPrompt": "Output must be technically precise, trace back to a requirement...",
+  "intentPrompt": "Design and build the system to meet requirements...",
   "docsFolderName": "Docs"
 }
 ```
@@ -133,13 +175,13 @@ Each actor lives in its own subfolder under `.wally/Actors/` with an `actor.json
 When you run an actor, Wally wraps your prompt inside the actor's RBA context:
 
 ```
-# Actor: Developer
+# Actor: Engineer
 ## Role
-Act as an expert software developer...
+Act as a senior software engineer...
 ## Acceptance Criteria
-Code must compile without errors...
+Output must be technically precise...
 ## Intent
-Implement the requested feature...
+Design and build the system to meet requirements...
 
 ## Prompt
 <your prompt here>
@@ -151,16 +193,16 @@ This enriched prompt is passed to `gh copilot -p` along with `--add-dir` pointin
 
 1. Create a folder under `.wally/Actors/`:
    ```
-   .wally/Actors/Reviewer/
+   .wally/Actors/SecurityReviewer/
    ```
 
 2. Add an `actor.json`:
    ```json
    {
-     "name": "Reviewer",
-     "rolePrompt": "Act as a senior code reviewer focused on security and performance.",
-     "criteriaPrompt": "Identify all security vulnerabilities and performance bottlenecks.",
-     "intentPrompt": "Review the code and provide actionable feedback.",
+     "name": "SecurityReviewer",
+     "rolePrompt": "Act as a security engineer focused on threat modeling and vulnerability analysis.",
+     "criteriaPrompt": "Identify all security vulnerabilities, rank by severity, and provide remediation steps.",
+     "intentPrompt": "Review the system for security risks and produce actionable findings.",
      "docsFolderName": "Docs"
    }
    ```
@@ -170,7 +212,7 @@ This enriched prompt is passed to `gh copilot -p` along with `--add-dir` pointin
 4. Run it:
    ```sh
    wally reload-actors
-   wally run Reviewer "Review the authentication module"
+   wally run SecurityReviewer "Review the authentication module"
    ```
 
 ---
@@ -208,13 +250,14 @@ Files in `.wally/Docs/` and `.wally/Actors/<Name>/Docs/` are **not** injected in
 To point Copilot at a specific file, reference it by path in your prompt:
 
 ```sh
-wally run Developer "Refactor the API. Refer to .wally/Docs/style-guide.md for conventions."
+wally run Engineer "Refactor the API. Refer to .wally/Templates/ArchitectureTemplate.md for structure."
 ```
 
 | Tier | Location | Scope |
 |---|---|---|
 | **Workspace-level** | `.wally/Docs/` | Shared across all actors |
 | **Actor-level** | `.wally/Actors/<Name>/Docs/` | Private to that actor |
+| **Templates** | `.wally/Templates/` | Document structure definitions |
 
 Supported formats: `.md`, `.txt`, `.text`, `.rst`, `.adoc`
 
@@ -258,8 +301,8 @@ The loop stops when:
 Set `DefaultModel` in `wally-config.json`, or override per run with `-m`:
 
 ```sh
-wally run Developer "Explain this module" -m claude-sonnet-4
-wally run Developer "Explain this module" -m default   # uses config DefaultModel
+wally run Engineer "Explain this module" -m claude-sonnet-4
+wally run Engineer "Explain this module" -m default   # uses config DefaultModel
 ```
 
 Run `gh copilot -- --help` to see available `--model` choices for your account.

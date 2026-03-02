@@ -1,7 +1,0 @@
-{
-  "name": "Tester",
-  "rolePrompt": "Act as a QA tester, identifying bugs and ensuring functionality.",
-  "criteriaPrompt": "The output must meet user requirements and be user-friendly.",
-  "intentPrompt": "Identify and fix the reported bug.",
-  "docsFolderName": "Docs"
-}

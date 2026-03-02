@@ -11,18 +11,18 @@ Abstract base class for all actors. Each actor carries RBA components (Role, Acc
 **Prompt generation** — `GeneratePrompt(userPrompt)` wraps user input inside the actor's RBA context:
 
 ```csharp
-string prompt = actor.GeneratePrompt("Add input validation");
+string prompt = actor.GeneratePrompt("Write requirements for the search feature");
 // Output:
-// # Actor: Developer
+// # Actor: BusinessAnalyst
 // ## Role
-// Act as an expert software developer...
+// Act as a Business Analyst and Project Manager...
 // ## Acceptance Criteria
-// Code must compile without errors...
+// Output must trace every requirement back to a stakeholder need...
 // ## Intent
-// Implement the requested feature...
+// Translate stakeholder needs into clear requirements...
 //
 // ## Prompt
-// Add input validation
+// Write requirements for the search feature
 ```
 
 **Pipeline** — `Act(prompt)` runs: Setup ? ProcessPrompt ? (ApplyCodeChanges | Respond).
@@ -34,7 +34,7 @@ Documentation files in `.wally/Docs/` and `.wally/Actors/<Name>/Docs/` are acces
 Default actor implementation. Invokes `gh copilot -p` directly using `ProcessStartInfo.ArgumentList` (no shell, no escaping). Working directory is set to WorkSource so Copilot sees the target codebase. `--add-dir` grants read access to the entire WorkSource tree.
 
 ```csharp
-var actor = env.GetActor("Developer");
+var actor = env.GetActor("Engineer");
 actor.ModelOverride = "claude-sonnet-4";   // one-shot override
 string response = actor.Act("Explain this module");
 // actor.ModelOverride is now null — next call uses DefaultModel
@@ -77,6 +77,7 @@ Owns the workspace layout on disk:
     .wally/                     WorkspaceFolder
         wally-config.json
         Docs/                   Workspace-level documentation
+        Templates/              Document templates
         Actors/
             <ActorName>/
                 actor.json      name, rolePrompt, criteriaPrompt, intentPrompt
@@ -99,7 +100,7 @@ env.SetupLocal(@"C:\repos\MyApp");
 var responses = env.RunActors("Explain this module");
 
 // Or target a specific actor
-var response = env.RunActor("Add validation", "Developer");
+var response = env.RunActor("Write requirements for login", "BusinessAnalyst");
 ```
 
 ### `WallyConfig`
