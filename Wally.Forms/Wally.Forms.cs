@@ -43,21 +43,21 @@ namespace Wally.Forms
             // ?? Status bar ??
             _lblWorkspaceStatus = new ToolStripStatusLabel("No workspace")
             {
-                ForeColor = Color.FromArgb(200, 200, 200),
+                ForeColor = WallyTheme.TextSecondary,
                 Spring = true,
                 TextAlign = ContentAlignment.MiddleLeft,
                 Padding = new Padding(4, 0, 0, 0)
             };
             _lblActorCount = new ToolStripStatusLabel("Actors: 0")
             {
-                ForeColor = Color.FromArgb(180, 180, 180),
+                ForeColor = WallyTheme.TextSecondary,
                 BorderSides = ToolStripStatusLabelBorderSides.Left,
                 BorderStyle = Border3DStyle.Etched,
                 Padding = new Padding(6, 0, 6, 0)
             };
             _lblSessionId = new ToolStripStatusLabel($"\u25CF {_environment.Logger.SessionId.ToString("N")[..8]}")
             {
-                ForeColor = Color.FromArgb(140, 140, 140),
+                ForeColor = WallyTheme.TextMuted,
                 BorderSides = ToolStripStatusLabelBorderSides.Left,
                 BorderStyle = Border3DStyle.Etched,
                 ToolTipText = $"Session ID: {_environment.Logger.SessionId:N}",
@@ -66,9 +66,9 @@ namespace Wally.Forms
 
             _statusBar = new StatusStrip
             {
-                BackColor = WallyTheme.StatusBarActive,
+                BackColor = WallyTheme.StatusBarInactive,
                 SizingGrip = true,
-                Renderer = new ToolStripProfessionalRenderer(new DarkColorTable())
+                Renderer = WallyTheme.CreateRenderer()
             };
             _statusBar.Items.AddRange(new ToolStripItem[]
             {
@@ -124,7 +124,7 @@ namespace Wally.Forms
 
             Controls.Add(_statusBar);
 
-            // ?? Wire events ??
+            // ?? Wire child events ??
             _commandPanel.BindEnvironment(_environment);
             _chatPanel.BindEnvironment(_environment);
 
@@ -134,12 +134,15 @@ namespace Wally.Forms
             _fileExplorer.FileDoubleClicked += OnFileDoubleClicked;
             _fileExplorer.FileSelected += OnFileSelected;
 
-            // ?? Menu events ??
+            // ?? File menu ??
             openWorkspaceMenuItem.Click += OnOpenWorkspace;
             setupWorkspaceMenuItem.Click += OnSetupWorkspace;
+            saveWorkspaceMenuItem.Click += OnSaveWorkspace;
+            closeWorkspaceMenuItem.Click += OnCloseWorkspace;
             exitMenuItem.Click += (_, _) => Close();
-            refreshMenuItem.Click += (_, _) => _fileExplorer.Refresh();
 
+            // ?? View menu ??
+            refreshMenuItem.Click += (_, _) => _fileExplorer.Refresh();
             showExplorerMenuItem.CheckedChanged += (_, _) =>
                 TogglePanel(_fileExplorer, _leftSplitter, showExplorerMenuItem.Checked);
             showChatMenuItem.CheckedChanged += (_, _) =>
@@ -147,11 +150,36 @@ namespace Wally.Forms
             showCommandMenuItem.CheckedChanged += (_, _) =>
                 TogglePanel(_commandPanel, _bottomSplitter, showCommandMenuItem.Checked);
 
+            // ?? Workspace menu ??
+            reloadActorsMenuItem.Click += (_, _) =>
+                _commandPanel.ExecuteCommand("reload-actors");
+            listActorsMenuItem.Click += (_, _) =>
+                _commandPanel.ExecuteCommand("list");
+            workspaceInfoMenuItem.Click += (_, _) =>
+                _commandPanel.ExecuteCommand("info");
+            verifyWorkspaceMenuItem.Click += OnVerifyWorkspace;
+            openWorkspaceFolderMenuItem.Click += OnOpenWorkspaceFolder;
+
+            // ?? Main ToolStrip ??
+            tsbOpen.Click += OnOpenWorkspace;
+            tsbSetup.Click += OnSetupWorkspace;
+            tsbSave.Click += OnSaveWorkspace;
+            tsbRefresh.Click += (_, _) => _fileExplorer.Refresh();
+            tsbReloadActors.Click += (_, _) =>
+                _commandPanel.ExecuteCommand("reload-actors");
+            tsbInfo.Click += (_, _) =>
+                _commandPanel.ExecuteCommand("info");
+            tsbClearChat.Click += (_, _) => _chatPanel.ClearMessages();
+
             // ?? Global shortcuts ??
             KeyPreview = true;
             KeyDown += OnGlobalKeyDown;
 
-            // ?? Auto-setup ??
+            // ?? Initial state — hide explorer until a workspace is loaded ??
+            _fileExplorer.Visible = false;
+            _leftSplitter.Visible = false;
+            showExplorerMenuItem.Checked = false;
+            UpdateWorkspaceGating();
             TryAutoSetup();
         }
 
@@ -186,24 +214,27 @@ namespace Wally.Forms
                 e.Handled = true;
                 _commandPanel.FocusInput();
             }
-            else if (e.KeyCode == Keys.F5)
+            else if (e.KeyCode == Keys.F5 && _environment.HasWorkspace)
             {
                 e.Handled = true;
                 _fileExplorer.Refresh();
             }
-            else if (e.Control && e.KeyCode == Keys.D1)
+            else if (e.Control && e.KeyCode == Keys.D1 && _environment.HasWorkspace)
             {
                 e.Handled = true;
+                if (!_fileExplorer.Visible) { showExplorerMenuItem.Checked = true; }
                 _fileExplorer.Focus();
             }
             else if (e.Control && e.KeyCode == Keys.D2)
             {
                 e.Handled = true;
+                if (!_chatPanel.Visible) { showChatMenuItem.Checked = true; }
                 _chatPanel.Focus();
             }
             else if (e.Control && e.KeyCode == Keys.D3)
             {
                 e.Handled = true;
+                if (!_commandPanel.Visible) { showCommandMenuItem.Checked = true; }
                 _commandPanel.FocusInput();
             }
         }
@@ -234,6 +265,68 @@ namespace Wally.Forms
                 _commandPanel.ExecuteCommand($"setup \"{dlg.SelectedPath}\"");
         }
 
+        private void OnSaveWorkspace(object? sender, EventArgs e)
+        {
+            if (!_environment.HasWorkspace) return;
+
+            try
+            {
+                _environment.SaveWorkspace();
+                _commandPanel.AppendLine(
+                    $"Workspace saved: {_environment.WorkspaceFolder}",
+                    WallyTheme.Green);
+            }
+            catch (Exception ex)
+            {
+                _commandPanel.AppendLine($"Save failed: {ex.Message}", WallyTheme.Red);
+            }
+        }
+
+        private void OnCloseWorkspace(object? sender, EventArgs e)
+        {
+            if (!_environment.HasWorkspace) return;
+
+            string closedPath = _environment.WorkSource ?? "workspace";
+            _environment.CloseWorkspace();
+
+            // Clear and hide the file explorer.
+            _fileExplorer.ClearTree();
+            _fileExplorer.Visible = false;
+            _leftSplitter.Visible = false;
+            showExplorerMenuItem.Checked = false;
+
+            // Clear and reset the chat panel.
+            _chatPanel.ClearMessages();
+            _chatPanel.RefreshActorList();
+            _chatPanel.RefreshModelList();
+
+            RefreshAllPanels();
+
+            _commandPanel.AppendLine(
+                $"Closed workspace: {closedPath}", WallyTheme.TextMuted);
+        }
+
+        private void OnVerifyWorkspace(object? sender, EventArgs e)
+        {
+            if (!_environment.HasWorkspace) return;
+            _commandPanel.ExecuteCommand($"setup \"{_environment.WorkSource}\" --verify");
+        }
+
+        private void OnOpenWorkspaceFolder(object? sender, EventArgs e)
+        {
+            if (!_environment.HasWorkspace || _environment.WorkspaceFolder == null) return;
+            try
+            {
+                System.Diagnostics.Process.Start("explorer.exe",
+                    $"\"{_environment.WorkspaceFolder}\"");
+            }
+            catch (Exception ex)
+            {
+                _commandPanel.AppendLine(
+                    $"Could not open folder: {ex.Message}", WallyTheme.Red);
+            }
+        }
+
         // ?? Panel sync ??????????????????????????????????????????????????????
 
         private void OnWorkspaceChanged(object? sender, EventArgs e)
@@ -251,6 +344,14 @@ namespace Wally.Forms
                 _chatPanel.RefreshActorList();
                 _chatPanel.RefreshModelList();
 
+                // Show the explorer if it was hidden.
+                if (!_fileExplorer.Visible)
+                {
+                    showExplorerMenuItem.Checked = true;
+                    _fileExplorer.Visible = true;
+                    _leftSplitter.Visible = true;
+                }
+
                 _lblWorkspaceStatus.Text = _environment.WorkSource!;
                 _lblWorkspaceStatus.ForeColor = Color.White;
                 _lblActorCount.Text = $"Actors: {_environment.Actors.Count}";
@@ -259,23 +360,63 @@ namespace Wally.Forms
             else
             {
                 Text = "Wally \u2014 AI Actor Environment";
-                _lblWorkspaceStatus.Text = "No workspace loaded";
-                _lblWorkspaceStatus.ForeColor = Color.FromArgb(200, 200, 200);
+                _lblWorkspaceStatus.Text = "No workspace loaded \u2014 use File \u2192 Open or Setup";
+                _lblWorkspaceStatus.ForeColor = WallyTheme.TextSecondary;
                 _lblActorCount.Text = "Actors: 0";
                 _statusBar.BackColor = WallyTheme.StatusBarInactive;
             }
+
+            UpdateWorkspaceGating();
         }
+
+        // ?? Workspace-gated UI ??????????????????????????????????????????????
+
+        /// <summary>
+        /// Enables or disables UI elements that require a loaded workspace.
+        /// Called on startup and after every workspace state change.
+        /// Ensures the visual state is unambiguous: disabled items are clearly
+        /// dimmed, the file explorer is hidden, and the status bar reflects state.
+        /// </summary>
+        private void UpdateWorkspaceGating()
+        {
+            bool loaded = _environment.HasWorkspace;
+
+            // ?? File menu ??
+            saveWorkspaceMenuItem.Enabled = loaded;
+            closeWorkspaceMenuItem.Enabled = loaded;
+
+            // ?? View menu — explorer toggle only when workspace loaded ??
+            showExplorerMenuItem.Enabled = loaded;
+            refreshMenuItem.Enabled = loaded;
+
+            // ?? Workspace menu (entire menu disabled when no workspace) ??
+            workspaceToolStripMenuItem.Enabled = loaded;
+
+            // ?? ToolStrip buttons ??
+            tsbSave.Enabled = loaded;
+            tsbRefresh.Enabled = loaded;
+            tsbReloadActors.Enabled = loaded;
+            tsbInfo.Enabled = loaded;
+            tsbClearChat.Enabled = loaded;
+
+            // ?? Chat panel workspace awareness ??
+            _chatPanel.SetWorkspaceLoaded(loaded);
+        }
+
+        // ?? File events ?????????????????????????????????????????????????????
 
         private void OnFileDoubleClicked(object? sender, FileSelectedEventArgs e)
         {
             try
             {
-                var psi = new System.Diagnostics.ProcessStartInfo(e.FilePath) { UseShellExecute = true };
+                var psi = new System.Diagnostics.ProcessStartInfo(e.FilePath)
+                    { UseShellExecute = true };
                 System.Diagnostics.Process.Start(psi);
             }
             catch (Exception ex)
             {
-                _commandPanel.AppendLine($"Could not open file: {ex.Message}", WallyTheme.Red);
+                _commandPanel.AppendLine(
+                    $"Could not open file: {ex.Message}", WallyTheme.Red);
             }
         }
 

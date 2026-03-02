@@ -138,6 +138,15 @@ namespace Wally.Core
         public void SaveWorkspace() => RequireWorkspace().Save();
 
         /// <summary>
+        /// Closes the current workspace, resetting the environment to an unloaded state.
+        /// The session logger remains active for the lifetime of the environment.
+        /// </summary>
+        public void CloseWorkspace()
+        {
+            Workspace = null;
+        }
+
+        /// <summary>
         /// Re-reads all actor folders from disk and rebuilds the actor list.
         /// </summary>
         public void ReloadActors()

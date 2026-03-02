@@ -141,6 +141,61 @@ namespace Wally.Forms.Theme
             cb.ForeColor = TextPrimary;
             cb.FlatStyle = FlatStyle.Flat;
         }
+
+        /// <summary>
+        /// Creates the standard dark-themed renderer used across all menus,
+        /// toolstrips, and context menus. Ensures disabled items render with
+        /// the correct <see cref="TextDisabled"/> color instead of the default
+        /// system gray (which is nearly invisible on the dark theme).
+        /// </summary>
+        public static WallyToolStripRenderer CreateRenderer() => new();
+    }
+
+    // ????????????????????????????????????????????????????????????????????????
+    //  WallyToolStripRenderer — themed renderer with proper disabled text
+    // ????????????????????????????????????????????????????????????????????????
+
+    /// <summary>
+    /// Custom <see cref="ToolStripProfessionalRenderer"/> that overrides
+    /// item text rendering to use the theme's text hierarchy. This solves
+    /// the WinForms problem where disabled <see cref="ToolStripMenuItem"/>
+    /// and <see cref="ToolStripButton"/> text is drawn with
+    /// <c>SystemColors.GrayText</c>, which is nearly invisible on a dark
+    /// background.
+    /// </summary>
+    internal sealed class WallyToolStripRenderer : ToolStripProfessionalRenderer
+    {
+        public WallyToolStripRenderer() : base(new DarkColorTable())
+        {
+            RoundedEdges = false;
+        }
+
+        protected override void OnRenderItemText(ToolStripItemTextRenderEventArgs e)
+        {
+            if (e.Item is ToolStripMenuItem || e.Item is ToolStripButton || e.Item is ToolStripLabel)
+            {
+                // Decide color based on enabled state.
+                e.TextColor = e.Item.Enabled
+                    ? (e.Item.ForeColor != default && e.Item.ForeColor != Control.DefaultForeColor
+                        ? e.Item.ForeColor
+                        : WallyTheme.TextPrimary)
+                    : WallyTheme.TextDisabled;
+            }
+            base.OnRenderItemText(e);
+        }
+
+        protected override void OnRenderMenuItemBackground(ToolStripItemRenderEventArgs e)
+        {
+            // For disabled items, don't paint a hover/selected background.
+            if (!e.Item.Enabled)
+            {
+                var g = e.Graphics;
+                using var brush = new SolidBrush(WallyTheme.Surface2);
+                g.FillRectangle(brush, new Rectangle(Point.Empty, e.Item.Size));
+                return;
+            }
+            base.OnRenderMenuItemBackground(e);
+        }
     }
 
     // ????????????????????????????????????????????????????????????????????????

@@ -45,7 +45,7 @@ namespace Wally.Forms.Controls
         {
             SuspendLayout();
 
-            var renderer = new ToolStripProfessionalRenderer(new DarkColorTable()) { RoundedEdges = false };
+            var renderer = WallyTheme.CreateRenderer();
 
             // ?? Image list ??
             _imageList = new ImageList { ColorDepth = ColorDepth.Depth32Bit, ImageSize = new Size(16, 16) };
@@ -132,16 +132,16 @@ namespace Wally.Forms.Controls
             });
 
             // ?? Context menu ??
-            _ctxOpen = new ToolStripMenuItem("Open");
+            _ctxOpen = new ToolStripMenuItem("Open") { ForeColor = WallyTheme.TextPrimary };
             _ctxOpen.Click += (_, _) => OpenSelectedFile();
 
-            _ctxOpenFolder = new ToolStripMenuItem("Open in Explorer");
+            _ctxOpenFolder = new ToolStripMenuItem("Open in Explorer") { ForeColor = WallyTheme.TextPrimary };
             _ctxOpenFolder.Click += (_, _) => OpenSelectedInExplorer();
 
-            _ctxCopyPath = new ToolStripMenuItem("Copy Path");
+            _ctxCopyPath = new ToolStripMenuItem("Copy Path") { ForeColor = WallyTheme.TextPrimary };
             _ctxCopyPath.Click += (_, _) => CopySelectedPath();
 
-            _ctxRefresh = new ToolStripMenuItem("Refresh");
+            _ctxRefresh = new ToolStripMenuItem("Refresh") { ForeColor = WallyTheme.TextPrimary };
             _ctxRefresh.Click += (_, _) => RefreshSelectedNode();
 
             _contextMenu = new ContextMenuStrip { Renderer = renderer };
@@ -205,9 +205,28 @@ namespace Wally.Forms.Controls
 
         public void SetRootPath(string rootPath)
         {
+            if (string.IsNullOrEmpty(rootPath))
+            {
+                ClearTree();
+                return;
+            }
             _rootPath = Path.GetFullPath(rootPath);
             _lblTitle.Text = $"EXPLORER \u2014 {Path.GetFileName(_rootPath)}";
             PopulateTree();
+        }
+
+        /// <summary>
+        /// Clears the tree and resets the explorer to its empty state.
+        /// Called when the workspace is closed.
+        /// </summary>
+        public void ClearTree()
+        {
+            _rootPath = null;
+            _tree.BeginUpdate();
+            _tree.Nodes.Clear();
+            _tree.EndUpdate();
+            _lblTitle.Text = "EXPLORER";
+            _lblSubtitle.Text = "";
         }
 
         public override void Refresh()
@@ -363,7 +382,6 @@ namespace Wally.Forms.Controls
             if (e.Node == null) return;
 
             bool selected = (e.State & TreeNodeStates.Selected) != 0;
-            bool focused = (e.State & TreeNodeStates.Focused) != 0;
 
             // ?? Background ??
             Color bg = selected ? WallyTheme.Surface3 : WallyTheme.Surface1;

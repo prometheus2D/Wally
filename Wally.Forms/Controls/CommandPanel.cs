@@ -151,7 +151,7 @@ namespace Wally.Forms.Controls
 
             // Welcome message.
             AppendStyledLine("Wally \u2014 AI Actor Environment Manager", WallyTheme.Accent);
-            AppendStyledLine("Type 'commands' for help, 'setup <path>' to get started.", WallyTheme.TextMuted);
+            AppendStyledLine("Type 'commands' for help. Use File \u2192 Open or File \u2192 Setup to load a workspace.", WallyTheme.TextMuted);
             AppendStyledLine("", WallyTheme.TextPrimary);
         }
 
