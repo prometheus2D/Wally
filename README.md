@@ -30,10 +30,12 @@ dotnet build
 ### 1. Set up a workspace
 
 Point Wally at the root of your codebase. A `.wally/` folder is created inside it
-with config, actors, templates, and docs:
+with config, actors, templates, and docs. The `wally` executable is also copied
+into the directory so you can run it from there:
 
 ```sh
 wally setup C:\repos\MyApp
+cd C:\repos\MyApp
 ```
 
 > If you omit the path, Wally uses the directory where the exe lives.
@@ -47,20 +49,20 @@ before forwarding to `gh copilot`:
 
 ```sh
 # Have the Engineer review code and produce documentation
-wally run Engineer "Review the authentication module. Identify any bugs, document the architecture, and propose improvements."
+.\wally run Engineer "Review the authentication module. Identify any bugs, document the architecture, and propose improvements."
 
 # Have the BusinessAnalyst write requirements
-wally run BusinessAnalyst "Write requirements for the user search feature"
+.\wally run BusinessAnalyst "Write requirements for the user search feature"
 
 # Have the Stakeholder define success criteria
-wally run Stakeholder "Define what the dashboard must achieve from a business perspective"
+.\wally run Stakeholder "Define what the dashboard must achieve from a business perspective"
 ```
 
 ### 3. Check what happened
 
 ```sh
-wally info       # workspace paths, loaded actors, session log location
-wally list       # actor names and their RBA prompts
+.\wally info       # workspace paths, loaded actors, session log location
+.\wally list       # actor names and their RBA prompts
 ```
 
 That's it. Every prompt is logged under `.wally/Logs/` with full context.
@@ -72,8 +74,7 @@ That's it. Every prompt is logged under `.wally/Logs/` with full context.
 Run `wally` with no arguments to enter a REPL:
 
 ```
-wally
-wally> setup C:\repos\MyApp
+.\wally
 wally> run Engineer "Explain the main entry point"
 wally> run BusinessAnalyst "Write requirements for the login feature"
 wally> run Stakeholder "Define success criteria for the dashboard"
@@ -90,7 +91,7 @@ wally> exit
 
 | Command | Description |
 |---|---|
-| `setup [<path>]` | Scaffold and load a workspace. `<path>` is your codebase root — `.wally/` is created inside it. Defaults to the exe directory. Re-running repairs missing structure. |
+| `setup [<path>]` | Scaffold and load a workspace. `<path>` is your codebase root — `.wally/` is created inside it and the `wally` exe is copied there. Defaults to the exe directory. Re-running repairs missing structure. |
 | `setup [<path>] --verify` | Check workspace structure without making changes. |
 | `load <path>` | Load an existing `.wally/` workspace folder. |
 | `info` | Print workspace paths, model config, loaded actors, and session info. |

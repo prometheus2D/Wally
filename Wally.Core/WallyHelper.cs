@@ -226,6 +226,13 @@ namespace Wally.Core
                 }
             }
 
+            // Check for wally exe in the WorkSource (parent of .wally/).
+            string workSource = Path.GetDirectoryName(workspaceFolder)!;
+            string exeName = System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(
+                System.Runtime.InteropServices.OSPlatform.Windows) ? "wally.exe" : "wally";
+            if (!File.Exists(Path.Combine(workSource, exeName)))
+                issues.Add($"wally executable not found in {workSource} (run 'setup' to copy it)");
+
             return issues;
         }
 
@@ -233,6 +240,67 @@ namespace Wally.Core
         {
             if (!Directory.Exists(Path.Combine(root, subFolder)))
                 issues.Add($"{subFolder} folder missing");
+        }
+
+        // — Exe deployment ——————————————————————————————————————————————————
+
+        /// <summary>
+        /// Copies the Wally executable and its runtime dependencies from the
+        /// current exe directory into <paramref name="workSourcePath"/> so the
+        /// user can run <c>.\wally</c> directly from their codebase root.
+        /// <para>
+        /// Skips the <c>Default/</c> template folder (already expanded into
+        /// <c>.wally/</c> during scaffolding) and the <c>.wally/</c> folder itself.
+        /// Files that already exist in the destination are not overwritten.
+        /// </para>
+        /// </summary>
+        /// <returns>
+        /// The number of files copied, or <c>0</c> when the exe directory
+        /// and <paramref name="workSourcePath"/> are the same location.
+        /// </returns>
+        public static int CopyExeToWorkSource(string workSourcePath)
+        {
+            string exeDir = GetExeDirectory();
+            workSourcePath = Path.GetFullPath(workSourcePath);
+
+            // Nothing to do if we're already running from the WorkSource.
+            if (string.Equals(exeDir, workSourcePath, StringComparison.OrdinalIgnoreCase))
+                return 0;
+
+            // Skip these directories — they're workspace-specific, not runtime files.
+            var skipDirs = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            {
+                DefaultTemplateFolderName,  // "Default" — already expanded into .wally/
+                DefaultWorkspaceFolderName  // ".wally"  — workspace data, not runtime
+            };
+
+            return CopyRuntimeFiles(exeDir, workSourcePath, skipDirs);
+        }
+
+        private static int CopyRuntimeFiles(string sourceDir, string destDir, HashSet<string> skipDirs)
+        {
+            Directory.CreateDirectory(destDir);
+            int count = 0;
+
+            foreach (string file in Directory.GetFiles(sourceDir))
+            {
+                string destFile = Path.Combine(destDir, Path.GetFileName(file));
+                if (!File.Exists(destFile))
+                {
+                    File.Copy(file, destFile);
+                    count++;
+                }
+            }
+
+            foreach (string subDir in Directory.GetDirectories(sourceDir))
+            {
+                string dirName = Path.GetFileName(subDir);
+                if (skipDirs.Contains(dirName))
+                    continue;
+                count += CopyRuntimeFiles(subDir, Path.Combine(destDir, dirName), skipDirs);
+            }
+
+            return count;
         }
 
         // — Directory utilities —————————————————————————————————————————————

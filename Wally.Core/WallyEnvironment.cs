@@ -94,6 +94,7 @@ namespace Wally.Core
             else
             {
                 workspaceFolder = WallyHelper.GetDefaultWorkspaceFolder();
+                workSourcePath = Path.GetDirectoryName(workspaceFolder)!;
             }
 
             WallyConfig config = WallyHelper.ResolveConfig(workspaceFolder);
@@ -101,6 +102,12 @@ namespace Wally.Core
             string configPath = Path.Combine(workspaceFolder, WallyHelper.ConfigFileName);
             if (!File.Exists(configPath))
                 WallyHelper.CreateDefaultWorkspace(workspaceFolder, config);
+
+            // Copy the wally exe + runtime into the WorkSource so the user
+            // can run .\wally directly from their codebase root.
+            int copied = WallyHelper.CopyExeToWorkSource(workSourcePath);
+            if (copied > 0)
+                Console.WriteLine($"  Copied {copied} runtime file(s) to {workSourcePath}");
 
             LoadWorkspace(workspaceFolder);
         }

@@ -333,14 +333,16 @@ namespace Wally.Core
             Console.WriteLine();
             Console.WriteLine("Quick start:");
             Console.WriteLine("  wally setup C:\\repos\\MyApp");
-            Console.WriteLine("  wally run Engineer \"Review the auth module and document the architecture\"");
-            Console.WriteLine("  wally run BusinessAnalyst \"Write requirements for the search feature\"");
-            Console.WriteLine("  wally run Stakeholder \"Define what the payment system must achieve\"");
+            Console.WriteLine("  cd C:\\repos\\MyApp");
+            Console.WriteLine("  .\\wally run Engineer \"Review the auth module and document the architecture\"");
+            Console.WriteLine("  .\\wally run BusinessAnalyst \"Write requirements for the search feature\"");
+            Console.WriteLine("  .\\wally run Stakeholder \"Define what the payment system must achieve\"");
             Console.WriteLine();
             Console.WriteLine("Commands:");
             Console.WriteLine();
             Console.WriteLine("  setup [<path>] [-w <path>]       Set up a workspace at <path> (your codebase root).");
             Console.WriteLine("                                   Creates .wally/ inside it with config, actors, and templates.");
+            Console.WriteLine("                                   Copies the wally exe so you can run .\\wally from that directory.");
             Console.WriteLine("                                   Defaults to the exe directory. Re-running repairs missing structure.");
             Console.WriteLine("    --verify                       Check workspace structure without making changes.");
             Console.WriteLine("  load <path>                      Load an existing .wally/ workspace folder.");
@@ -360,12 +362,12 @@ namespace Wally.Core
             Console.WriteLine("  Stakeholder      — business needs, priorities, success criteria");
             Console.WriteLine();
             Console.WriteLine("Examples:");
-            Console.WriteLine("  wally run Engineer \"Review the data access layer for bugs and security issues\"");
-            Console.WriteLine("  wally run Engineer \"Document the architecture of the networking module\"");
-            Console.WriteLine("  wally run BusinessAnalyst \"Write requirements for user authentication\"");
-            Console.WriteLine("  wally run Stakeholder \"Define success criteria for the reporting dashboard\"");
-            Console.WriteLine("  wally run-loop Engineer \"Refactor error handling across the project\" -n 5");
-            Console.WriteLine("  wally run Engineer \"Explain this module\" -m claude-sonnet-4");
+            Console.WriteLine("  .\\wally run Engineer \"Review the data access layer for bugs and security issues\"");
+            Console.WriteLine("  .\\wally run Engineer \"Document the architecture of the networking module\"");
+            Console.WriteLine("  .\\wally run BusinessAnalyst \"Write requirements for user authentication\"");
+            Console.WriteLine("  .\\wally run Stakeholder \"Define success criteria for the reporting dashboard\"");
+            Console.WriteLine("  .\\wally run-loop Engineer \"Refactor error handling across the project\" -n 5");
+            Console.WriteLine("  .\\wally run Engineer \"Explain this module\" -m claude-sonnet-4");
         }
 
         // — Private helpers ———————————————————————————————————————————————————

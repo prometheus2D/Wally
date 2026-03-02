@@ -13,19 +13,20 @@ dotnet publish Wally.Console -c Release -r win-x64 --self-contained
 ## Quick Start
 
 ```sh
-# Point Wally at your codebase root — .wally/ is created inside it
+# Point Wally at your codebase root — .wally/ is created and the exe is copied there
 wally setup C:\repos\MyApp
+cd C:\repos\MyApp
 
-# Run actors
-wally run Engineer "Review the authentication module and document the architecture"
-wally run BusinessAnalyst "Write requirements for the search feature"
-wally run Stakeholder "Define success criteria for the dashboard"
+# Run actors from your project root
+.\wally run Engineer "Review the authentication module and document the architecture"
+.\wally run BusinessAnalyst "Write requirements for the search feature"
+.\wally run Stakeholder "Define success criteria for the dashboard"
 
 # Run an actor in a loop
-wally run-loop Engineer "Refactor error handling across the project" -n 5
+.\wally run-loop Engineer "Refactor error handling across the project" -n 5
 
 # Override the model for a single run
-wally run Engineer "Explain the data layer" -m claude-sonnet-4
+.\wally run Engineer "Explain the data layer" -m claude-sonnet-4
 ```
 
 ## Run Modes
@@ -33,15 +34,13 @@ wally run Engineer "Explain the data layer" -m claude-sonnet-4
 **One-shot** — single command, then exit:
 
 ```sh
-wally setup C:\repos\MyApp
-wally run Engineer "Describe the main entry point"
+.\wally run Engineer "Describe the main entry point"
 ```
 
 **Interactive REPL** — run `wally` with no arguments:
 
 ```
-wally
-wally> setup C:\repos\MyApp
+.\wally
 wally> run Engineer "Explain error handling"
 wally> run BusinessAnalyst "Write requirements for the login feature"
 wally> run Stakeholder "Define success criteria for the dashboard"
@@ -81,4 +80,4 @@ Default/
 
 Add new default actors by creating subfolders under `Default/Actors/` with an `actor.json`.
 
-For full command reference, configuration, and architecture details, see the [root README](../README.md).
+For full command reference, configuration, and architecture details, see the [root README](../README.md).For full command reference, configuration, and architecture details, see the [root README](../README.md).
