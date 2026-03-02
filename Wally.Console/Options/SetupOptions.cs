@@ -14,12 +14,8 @@ namespace Wally.Console.Options
         public string WorkSource { get; set; }
 
         [Option("verify", Required = false, Default = false,
-            HelpText = "Verify the workspace structure without making changes. Reports missing folders, config, and actor files.")]
+            HelpText = "Check workspace structure without making changes. Reports missing folders, config, and actor files.")]
         public bool Verify { get; set; }
-
-        [Option("repair", Required = false, Default = false,
-            HelpText = "Verify and repair the workspace structure. Creates missing folders, config, and copies default templates.")]
-        public bool Repair { get; set; }
 
         /// <summary>
         /// Returns the resolved WorkSource path. <c>--worksource</c> takes

@@ -38,62 +38,23 @@ namespace Wally.Core
             PrintWorkspaceSummary("Workspace loaded.", env);
         }
 
-        /// <summary>Scaffolds a new workspace at <paramref name="path"/> and loads it.</summary>
-        public static void HandleCreate(WallyEnvironment env, string path)
-        {
-            // If relative, resolve against the exe directory.
-            if (!Path.IsPathRooted(path))
-                path = Path.Combine(WallyHelper.GetExeDirectory(), path);
-
-            string fullPath = Path.GetFullPath(path);
-            Directory.CreateDirectory(fullPath);
-            string workspaceFolder = Path.Combine(fullPath, WallyHelper.DefaultWorkspaceFolderName);
-            env.CreateWorkspace(workspaceFolder, WallyHelper.ResolveConfig(workspaceFolder));
-            env.Logger.LogCommand("create", $"Created workspace at {workspaceFolder}");
-            PrintWorkspaceSummary("Workspace created.", env);
-        }
-
         /// <summary>
         /// Ensures a workspace exists at <paramref name="workSourcePath"/> (or the default
         /// location when <paramref name="workSourcePath"/> is null) and loads it.
         /// The <c>.wally/</c> workspace folder is created inside the WorkSource directory.
+        /// When <paramref name="verifyOnly"/> is true, reports structural issues without
+        /// making changes.
         /// </summary>
-        public static void HandleSetup(WallyEnvironment env, string workSourcePath = null)
+        public static void HandleSetup(WallyEnvironment env, string? workSourcePath = null, bool verifyOnly = false)
         {
-            env.SetupLocal(workSourcePath);
-            env.Logger.LogCommand("setup", $"Workspace ready at {env.WorkspaceFolder}");
-            PrintWorkspaceSummary("Workspace ready.", env);
-        }
-
-        /// <summary>
-        /// Ensures a workspace exists at <paramref name="workSourcePath"/> and optionally
-        /// verifies or repairs its structure. When <paramref name="verify"/> is true the
-        /// workspace is checked for missing folders and files. When <paramref name="repair"/>
-        /// is true, missing items are created automatically.
-        /// </summary>
-        public static void HandleSetup(WallyEnvironment env, string? workSourcePath, bool verify, bool repair)
-        {
-            // When only verifying/repairing, resolve the workspace folder path
-            // but don't necessarily scaffold a brand-new workspace.
-            if (verify || repair)
+            if (verifyOnly)
             {
-                string wsFolder;
-                if (workSourcePath != null)
-                {
-                    if (!Path.IsPathRooted(workSourcePath))
-                        workSourcePath = Path.Combine(WallyHelper.GetExeDirectory(), workSourcePath);
-                    workSourcePath = Path.GetFullPath(workSourcePath);
-                    wsFolder = Path.Combine(workSourcePath, WallyHelper.DefaultWorkspaceFolderName);
-                }
-                else
-                {
-                    wsFolder = WallyHelper.GetDefaultWorkspaceFolder();
-                }
+                string wsFolder = ResolveWorkspaceFolder(workSourcePath);
 
                 Console.WriteLine($"Verifying workspace at: {wsFolder}");
                 Console.WriteLine();
 
-                var issues = WallyHelper.VerifyWorkspace(wsFolder, repair);
+                var issues = WallyHelper.CheckWorkspace(wsFolder);
 
                 if (issues.Count == 0)
                 {
@@ -101,27 +62,20 @@ namespace Wally.Core
                 }
                 else
                 {
-                    Console.WriteLine(repair ? "Issues found and repaired:" : "Issues found:");
+                    Console.WriteLine($"Issues found ({issues.Count}):");
                     foreach (var issue in issues)
                         Console.WriteLine($"  {issue}");
-                }
-
-                env.Logger.LogCommand("setup",
-                    $"Workspace {(repair ? "repaired" : "verified")} at {wsFolder}: {issues.Count} issue(s)");
-
-                // After verify/repair, load the workspace so subsequent commands work.
-                if (Directory.Exists(wsFolder))
-                {
-                    env.SetupLocal(workSourcePath);
                     Console.WriteLine();
-                    PrintWorkspaceSummary("Workspace loaded.", env);
+                    Console.WriteLine("Run 'setup' without --verify to create/repair the workspace.");
                 }
 
+                env.Logger.LogCommand("setup", $"Verified workspace at {wsFolder}: {issues.Count} issue(s)");
                 return;
             }
 
-            // Standard setup — scaffold if needed and load.
-            HandleSetup(env, workSourcePath);
+            env.SetupLocal(workSourcePath);
+            env.Logger.LogCommand("setup", $"Workspace ready at {env.WorkspaceFolder}");
+            PrintWorkspaceSummary("Workspace ready.", env);
         }
 
         /// <summary>Saves the active workspace config and all actor files to <paramref name="path"/>.</summary>
@@ -383,10 +337,8 @@ namespace Wally.Core
             Console.WriteLine("                                   -w / --worksource is an explicit alternative to the positional arg.");
             Console.WriteLine("                                   If <path> doesn't exist, it is created automatically.");
             Console.WriteLine("                                   Defaults to the exe directory when omitted.");
-            Console.WriteLine("    --verify                       Check workspace structure for missing folders/files.");
-            Console.WriteLine("    --repair                       Check and fix workspace structure (creates missing items).");
-            Console.WriteLine("  create <path>                    Scaffold a new workspace inside <path>/.wally/.");
-            Console.WriteLine("                                   Creates <path> if it doesn't exist.");
+            Console.WriteLine("                                   Running setup on an existing workspace repairs missing structure.");
+            Console.WriteLine("    --verify                       Check workspace structure without making changes.");
             Console.WriteLine("  load <path>                      Load an existing workspace from <path> (.wally/ folder).");
             Console.WriteLine("  info                             Show workspace info, session info, and actor list.");
             Console.WriteLine("  help                             Show this message.");
@@ -416,32 +368,24 @@ namespace Wally.Core
             Console.WriteLine("      Logs/                      Session logs (auto-created on first run)");
             Console.WriteLine("        <timestamp_guid>/        One folder per session");
             Console.WriteLine("          <timestamp>.txt        Rotated log files");
-            Console.WriteLine();
-            Console.WriteLine("Documentation: Files in .wally/Docs/ and .wally/Actors/<Name>/Docs/ are");
-            Console.WriteLine("              accessible to gh copilot via --add-dir (native file access).");
-            Console.WriteLine("              Doc file names are listed in the prompt so the LLM knows they");
-            Console.WriteLine("              exist and can consult them when relevant to the task.");
-            Console.WriteLine();
-            Console.WriteLine("Templates:    Document structure definitions in .wally/Templates/.");
-            Console.WriteLine("              Each actor references the templates relevant to its role.");
-            Console.WriteLine();
-            Console.WriteLine("Logging:      All commands, prompts, and responses are logged per session.");
-            Console.WriteLine("              Log files rotate every LogRotationMinutes (default: 2 min).");
-            Console.WriteLine("              Set to 0 in wally-config.json to disable rotation.");
-            Console.WriteLine();
-            Console.WriteLine("WorkSource:   The directory whose files are given as context to gh copilot.");
-            Console.WriteLine("              This is always the parent of the .wally/ workspace folder.");
-            Console.WriteLine("              Set via 'setup <path>' where <path> is your codebase root.");
-            Console.WriteLine("              If the directory doesn't exist, it is created automatically.");
-            Console.WriteLine();
-            Console.WriteLine("DefaultModel: The LLM model Copilot uses (--model flag).");
-            Console.WriteLine("              Set DefaultModel in wally-config.json.");
-            Console.WriteLine();
-            Console.WriteLine("Models:       List of available/allowed model identifiers.");
-            Console.WriteLine("              Run 'gh copilot -- --help' and check --model choices.");
         }
 
         // — Private helpers ———————————————————————————————————————————————————
+
+        /// <summary>
+        /// Resolves a WorkSource path to the <c>.wally/</c> workspace folder path,
+        /// applying the same logic as <see cref="WallyEnvironment.SetupLocal"/>.
+        /// </summary>
+        private static string ResolveWorkspaceFolder(string? workSourcePath)
+        {
+            if (workSourcePath != null)
+            {
+                if (!Path.IsPathRooted(workSourcePath))
+                    workSourcePath = Path.Combine(WallyHelper.GetExeDirectory(), workSourcePath);
+                return Path.Combine(Path.GetFullPath(workSourcePath), WallyHelper.DefaultWorkspaceFolderName);
+            }
+            return WallyHelper.GetDefaultWorkspaceFolder();
+        }
 
         private static void PrintWorkspaceSummary(string header, WallyEnvironment env)
         {

@@ -68,15 +68,6 @@ namespace Wally.Core
         }
 
         /// <summary>
-        /// Scaffolds a new workspace at <paramref name="workspaceFolder"/> then loads it.
-        /// </summary>
-        public void CreateWorkspace(string workspaceFolder, WallyConfig config = null)
-        {
-            WallyHelper.CreateDefaultWorkspace(workspaceFolder, config);
-            LoadWorkspace(workspaceFolder);
-        }
-
-        /// <summary>
         /// Ensures a workspace exists at the given <paramref name="workSourcePath"/>.
         /// <para>
         /// When <paramref name="workSourcePath"/> is supplied, the workspace folder is
@@ -114,13 +105,11 @@ namespace Wally.Core
             LoadWorkspace(workspaceFolder);
         }
 
-        public void SaveWorkspace() => RequireWorkspace().Save();
-
-        // — Legacy compat ————————————————————————————————————————————————————
-
-        /// <summary>Alias for <see cref="LoadWorkspace"/>.</summary>
-        public void LoadFromWorkspace(string workspaceFolder) => LoadWorkspace(workspaceFolder);
-
+        /// <summary>
+        /// Saves the current workspace. If <paramref name="workspaceFolder"/> matches the
+        /// loaded workspace, saves in place. Otherwise scaffolds a new workspace at that
+        /// path and loads it.
+        /// </summary>
         public void SaveToWorkspace(string workspaceFolder)
         {
             if (HasWorkspace && string.Equals(
@@ -132,10 +121,14 @@ namespace Wally.Core
             }
             else
             {
-                WallyHelper.CreateDefaultWorkspace(workspaceFolder);
-                LoadWorkspace(workspaceFolder);
+                // Scaffold at the new location and load it.
+                string workSourcePath = Path.GetDirectoryName(Path.GetFullPath(workspaceFolder))!;
+                SetupLocal(workSourcePath);
+                Workspace!.Save();
             }
         }
+
+        public void SaveWorkspace() => RequireWorkspace().Save();
 
         /// <summary>
         /// Re-reads all actor folders from disk and rebuilds the actor list.
@@ -221,12 +214,9 @@ namespace Wally.Core
                 ;
         }
 
-        // — Static factory helpers ————————————————————————————————————————————
+        // — Static factory ————————————————————————————————————————————————————
 
         public static WallyEnvironment LoadDefault() => WallyHelper.LoadDefault();
-
-        public static void CreateDefaultWorkspace(string workspaceFolder, WallyConfig config = null) =>
-            WallyHelper.CreateDefaultWorkspace(workspaceFolder, config);
 
         // — Private helpers ———————————————————————————————————————————————————
 
