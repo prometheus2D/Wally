@@ -1,3 +1,8 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Text;
 using Wally.Core.Logging;
 using Wally.Core.RBA;
 
@@ -34,12 +39,6 @@ namespace Wally.Core.Actors
         /// <summary>
         /// The name of the subfolder inside this actor's directory that holds
         /// actor-private documentation files. Default: <c>Docs</c>.
-        /// <para>
-        /// These files are accessible to <c>gh copilot</c> via <c>--add-dir</c>
-        /// (the entire WorkSource tree is granted). They are <b>not</b> injected
-        /// into prompts — Copilot reads them from disk when relevant, or the
-        /// user can reference them by path in the prompt.
-        /// </para>
         /// </summary>
         public string DocsFolderName { get; set; } = "Docs";
 
@@ -101,19 +100,10 @@ namespace Wally.Core.Actors
         /// Generates a standard prompt from this actor's RBA components
         /// (Role, AcceptanceCriteria, Intent), wrapping the supplied
         /// <paramref name="userPrompt"/> inside the actor's RBA context.
-        /// <para>
-        /// The user's raw input is just one piece — the actor's role, criteria,
-        /// and intent form the wrapper that gives it meaning.
-        /// </para>
         /// </summary>
-        /// <param name="userPrompt">
-        /// The live user input to embed. When <see langword="null"/> or empty,
-        /// only the RBA context is included.
-        /// </param>
-        /// <returns>A formatted prompt string ready for execution.</returns>
         public virtual string GeneratePrompt(string? userPrompt)
         {
-            var sb = new System.Text.StringBuilder();
+            var sb = new StringBuilder();
 
             sb.AppendLine($"# Actor: {Name}");
 
@@ -145,16 +135,17 @@ namespace Wally.Core.Actors
         /// before it is passed to <see cref="Respond"/> or
         /// <see cref="ApplyCodeChanges"/>.
         /// <para>
-        /// Documentation files in the workspace and actor <c>Docs/</c> folders
-        /// are accessible to <c>gh copilot</c> natively via <c>--add-dir</c>
-        /// and are not injected into the prompt.
+        /// When the actor has a <c>Docs/</c> folder on disk, the files it contains
+        /// are listed in a <c>## Documentation Context</c> section so the LLM knows
+        /// they exist and can reference them. Workspace-level docs are included too.
+        /// The files themselves are accessible to <c>gh copilot</c> via <c>--add-dir</c>.
         /// </para>
         /// Override to customise prompt shaping; call <c>base.ProcessPrompt</c> to retain
         /// the default enrichment.
         /// </summary>
         public virtual string ProcessPrompt(string prompt)
         {
-            var sb = new System.Text.StringBuilder();
+            var sb = new StringBuilder();
 
             // Actor system context
             sb.AppendLine($"# Actor: {Role.Name}");
@@ -164,6 +155,21 @@ namespace Wally.Core.Actors
                 sb.AppendLine($"## Acceptance Criteria\n{AcceptanceCriteria.Prompt}");
             if (!string.IsNullOrWhiteSpace(Intent.Prompt))
                 sb.AppendLine($"## Intent\n{Intent.Prompt}");
+
+            // Documentation context — list available doc files so the LLM
+            // knows they exist and can consult them for additional context.
+            var docFiles = GetDocumentationFiles();
+            if (docFiles.Count > 0)
+            {
+                sb.AppendLine();
+                sb.AppendLine("## Documentation Context");
+                sb.AppendLine("The following documentation files are available for reference. " +
+                              "Consult them when they are relevant to the task:");
+                foreach (var (relativePath, source) in docFiles)
+                {
+                    sb.AppendLine($"- `{relativePath}` ({source})");
+                }
+            }
 
             sb.AppendLine();
 
@@ -215,6 +221,61 @@ namespace Wally.Core.Actors
                 // Clear the per-run override so it doesn't leak.
                 ModelOverride = null;
             }
+        }
+
+        // — Documentation helpers ——————————————————————————————————————————
+
+        /// <summary>
+        /// Enumerates documentation files from the actor's <c>Docs/</c> folder
+        /// and the workspace-level <c>Docs/</c> folder. Returns a list of
+        /// (relativePath, source) tuples where <c>source</c> is "actor docs" or "workspace docs".
+        /// Only includes common documentation file types (.md, .txt, .rst, .adoc).
+        /// </summary>
+        protected virtual List<(string RelativePath, string Source)> GetDocumentationFiles()
+        {
+            var results = new List<(string, string)>();
+            var docExtensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ".md", ".txt", ".rst", ".adoc"
+            };
+
+            // Actor-level docs
+            if (!string.IsNullOrEmpty(FolderPath) && Directory.Exists(FolderPath))
+            {
+                string actorDocsDir = Path.Combine(FolderPath, DocsFolderName);
+                if (Directory.Exists(actorDocsDir))
+                {
+                    foreach (string file in Directory.GetFiles(actorDocsDir, "*", SearchOption.AllDirectories))
+                    {
+                        if (docExtensions.Contains(Path.GetExtension(file)))
+                        {
+                            string relativePath = Workspace != null
+                                ? Path.GetRelativePath(Workspace.WorkSource, file)
+                                : Path.GetFileName(file);
+                            results.Add((relativePath, "actor docs"));
+                        }
+                    }
+                }
+            }
+
+            // Workspace-level docs
+            if (Workspace != null && !string.IsNullOrEmpty(Workspace.WorkspaceFolder))
+            {
+                string wsDocsDir = Path.Combine(Workspace.WorkspaceFolder, Workspace.Config.DocsFolderName);
+                if (Directory.Exists(wsDocsDir))
+                {
+                    foreach (string file in Directory.GetFiles(wsDocsDir, "*", SearchOption.AllDirectories))
+                    {
+                        if (docExtensions.Contains(Path.GetExtension(file)))
+                        {
+                            string relativePath = Path.GetRelativePath(Workspace.WorkSource, file);
+                            results.Add((relativePath, "workspace docs"));
+                        }
+                    }
+                }
+            }
+
+            return results;
         }
     }
 }

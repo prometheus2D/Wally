@@ -278,8 +278,6 @@ namespace Wally.Core
                 }
                 catch (JsonException ex)
                 {
-                    // Log to stderr but don't crash — the actor will load with
-                    // empty prompts so the user can fix the JSON and reload.
                     Console.Error.WriteLine(
                         $"Warning: Failed to parse '{jsonPath}': {ex.Message}. " +
                         $"Actor '{folderName}' will load with empty prompts.");

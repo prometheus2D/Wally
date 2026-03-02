@@ -358,9 +358,8 @@ namespace Wally.Core
             Console.WriteLine();
             Console.WriteLine("Documentation: Files in .wally/Docs/ and .wally/Actors/<Name>/Docs/ are");
             Console.WriteLine("              accessible to gh copilot via --add-dir (native file access).");
-            Console.WriteLine("              Copilot reads them from disk — nothing is injected into prompts.");
-            Console.WriteLine("              To direct Copilot to a specific file, reference it by path in");
-            Console.WriteLine("              your prompt, e.g. \"Refer to .wally/Docs/style-guide.md\".");
+            Console.WriteLine("              Doc file names are listed in the prompt so the LLM knows they");
+            Console.WriteLine("              exist and can consult them when relevant to the task.");
             Console.WriteLine();
             Console.WriteLine("Logging:      All commands, prompts, and responses are logged per session.");
             Console.WriteLine("              Log files rotate every LogRotationMinutes (default: 2 min).");

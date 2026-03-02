@@ -77,6 +77,8 @@ namespace Wally.Core.Actors
 
                 // Grant Copilot read access to the source directory so it can
                 // glob and read files without interactive permission prompts.
+                // This grants recursive access to all subdirectories, including
+                // .wally/Actors/<Name>/Docs/ and .wally/Docs/.
                 if (hasSourcePath)
                 {
                     startInfo.ArgumentList.Add("--add-dir");
