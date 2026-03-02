@@ -13,17 +13,19 @@ dotnet publish Wally.Console -c Release -r win-x64 --self-contained
 ## Quick Start
 
 ```sh
-# Point Wally at your codebase root
+# Point Wally at your codebase root — .wally/ is created inside it
 wally setup C:\repos\MyApp
 
-# Run a single actor
-wally run Engineer "Add input validation"
-
-# Run with a specific model
-wally run Engineer "Refactor the data layer" -m claude-sonnet-4
+# Run actors
+wally run Engineer "Review the authentication module and document the architecture"
+wally run BusinessAnalyst "Write requirements for the search feature"
+wally run Stakeholder "Define success criteria for the dashboard"
 
 # Run an actor in a loop
-wally run-loop Engineer "Refactor error handling" -n 5
+wally run-loop Engineer "Refactor error handling across the project" -n 5
+
+# Override the model for a single run
+wally run Engineer "Explain the data layer" -m claude-sonnet-4
 ```
 
 ## Run Modes
@@ -31,12 +33,13 @@ wally run-loop Engineer "Refactor error handling" -n 5
 **One-shot** — single command, then exit:
 
 ```sh
+wally setup C:\repos\MyApp
 wally run Engineer "Describe the main entry point"
 ```
 
 **Interactive REPL** — run `wally` with no arguments:
 
-```sh
+```
 wally
 wally> setup C:\repos\MyApp
 wally> run Engineer "Explain error handling"
@@ -48,7 +51,8 @@ wally> exit
 
 ## Default Workspace Template
 
-The `Default/` folder ships alongside the exe and is copied into new workspaces on `setup` or `create`:
+The `Default/` folder ships alongside the exe and is copied into new workspaces
+on `setup`:
 
 ```
 Default/
@@ -57,9 +61,9 @@ Default/
         README.md
     Templates/
         RequirementsTemplate.md
+        ExecutionPlanTemplate.md
         ProposalTemplate.md
         ImplementationPlanTemplate.md
-        ExecutionPlanTemplate.md
         ArchitectureTemplate.md
         BugTemplate.md
         TestPlanTemplate.md

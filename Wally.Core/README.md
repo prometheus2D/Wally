@@ -94,13 +94,13 @@ Runtime host over a `WallyWorkspace`. Manages workspace lifecycle, actor executi
 
 ```csharp
 var env = new WallyEnvironment();
-env.SetupLocal(@"C:\repos\MyApp");
+env.SetupLocal(@"C:\repos\MyApp");   // scaffolds .wally/ if needed, then loads
 
 // Single run
-var responses = env.RunActors("Explain this module");
+var responses = env.RunActor("Review the auth module", "Engineer");
 
-// Or target a specific actor
-var response = env.RunActor("Write requirements for login", "BusinessAnalyst");
+// Run all actors
+var allResponses = env.RunActors("Explain this module");
 ```
 
 ### `WallyConfig`
@@ -112,6 +112,7 @@ Loaded from `wally-config.json`:
 | `ActorsFolderName` | `"Actors"` | Actor directory name inside workspace. |
 | `LogsFolderName` | `"Logs"` | Session log directory name. |
 | `DocsFolderName` | `"Docs"` | Workspace-level documentation directory name. |
+| `TemplatesFolderName` | `"Templates"` | Document templates directory name. |
 | `LogRotationMinutes` | `2` | Minutes per log file. `0` = single file. |
 | `DefaultModel` | `"gpt-4.1"` | Model passed to `gh copilot --model`. |
 | `Models` | `[...]` | Available model identifiers. |

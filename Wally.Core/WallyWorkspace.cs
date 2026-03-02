@@ -129,7 +129,7 @@ namespace Wally.Core
         {
             if (!IsLoaded)
                 throw new InvalidOperationException(
-                    "No workspace is loaded. Use 'load <path>' or 'create <path>' first.");
+                    "No workspace is loaded. Use 'setup <path>' or 'load <path>' first.");
         }
     }
 }

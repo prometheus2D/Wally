@@ -209,9 +209,8 @@ namespace Wally.Core
         {
             if (!HasWorkspace)
                 throw new InvalidOperationException(
-                    "No workspace is loaded. Use 'load <path>' or 'create <path>' first.");
-            return Workspace!
-                ;
+                    "No workspace is loaded. Use 'setup <path>' or 'load <path>' first.");
+            return Workspace!;
         }
 
         // — Static factory ————————————————————————————————————————————————————

@@ -21,7 +21,7 @@ namespace Wally.Core
             {
                 Console.WriteLine(
                     $"Command '{commandName}' requires a workspace. " +
-                    $"Use 'load <path>' or 'setup <path>' first.");
+                    $"Use 'setup <path>' or 'load <path>' first.");
                 env.Logger.LogError($"No workspace loaded for command '{commandName}'.", commandName);
                 return null;
             }
@@ -331,43 +331,41 @@ namespace Wally.Core
             Console.WriteLine("Wally — AI Actor Environment Manager");
             Console.WriteLine("=====================================");
             Console.WriteLine();
-            Console.WriteLine("No workspace required:");
-            Console.WriteLine("  setup [<path>] [-w <path>]       Scaffold or load a workspace. <path> is the WorkSource");
-            Console.WriteLine("                                   directory (your codebase root). .wally/ is created inside it.");
-            Console.WriteLine("                                   -w / --worksource is an explicit alternative to the positional arg.");
-            Console.WriteLine("                                   If <path> doesn't exist, it is created automatically.");
-            Console.WriteLine("                                   Defaults to the exe directory when omitted.");
-            Console.WriteLine("                                   Running setup on an existing workspace repairs missing structure.");
+            Console.WriteLine("Quick start:");
+            Console.WriteLine("  wally setup C:\\repos\\MyApp");
+            Console.WriteLine("  wally run Engineer \"Review the auth module and document the architecture\"");
+            Console.WriteLine("  wally run BusinessAnalyst \"Write requirements for the search feature\"");
+            Console.WriteLine("  wally run Stakeholder \"Define what the payment system must achieve\"");
+            Console.WriteLine();
+            Console.WriteLine("Commands:");
+            Console.WriteLine();
+            Console.WriteLine("  setup [<path>] [-w <path>]       Set up a workspace at <path> (your codebase root).");
+            Console.WriteLine("                                   Creates .wally/ inside it with config, actors, and templates.");
+            Console.WriteLine("                                   Defaults to the exe directory. Re-running repairs missing structure.");
             Console.WriteLine("    --verify                       Check workspace structure without making changes.");
-            Console.WriteLine("  load <path>                      Load an existing workspace from <path> (.wally/ folder).");
-            Console.WriteLine("  info                             Show workspace info, session info, and actor list.");
-            Console.WriteLine("  help                             Show this message.");
+            Console.WriteLine("  load <path>                      Load an existing .wally/ workspace folder.");
+            Console.WriteLine("  info                             Show workspace paths, actors, model config, and session info.");
+            Console.WriteLine("  list                             List all actors and their RBA prompts.");
+            Console.WriteLine("  commands                         Show this help message.");
             Console.WriteLine();
-            Console.WriteLine("Workspace required:");
-            Console.WriteLine("  save <path>                      Save config and all actor.json files.");
-            Console.WriteLine("  list                             List actors and their prompts.");
-            Console.WriteLine("  reload-actors                    Re-read actor folders from disk, rebuild actors.");
-            Console.WriteLine("  run <actor> \"<prompt>\" [-m <model>]  Run a specific actor by name.");
-            Console.WriteLine("                                   Use -m default to use the configured DefaultModel.");
-            Console.WriteLine("  run-loop <actor> \"<prompt>\" [-m <model>] [-n <max>]");
+            Console.WriteLine("  run <actor> \"<prompt>\" [-m model] Run an actor on a prompt.");
+            Console.WriteLine("  run-loop <actor> \"<prompt>\" [-m model] [-n max]");
             Console.WriteLine("                                   Run an actor in an iterative loop.");
-            Console.WriteLine("                                   The actor generates wrapped prompts from its RBA context.");
-            Console.WriteLine("                                   Loop ends when the actor responds with [LOOP COMPLETED],");
-            Console.WriteLine("                                   [LOOP ERROR], or max iterations (-n) is reached.");
+            Console.WriteLine("  save <path>                      Save config and actor files to disk.");
+            Console.WriteLine("  reload-actors                    Re-read actor folders from disk.");
             Console.WriteLine();
-            Console.WriteLine("Workspace layout:");
-            Console.WriteLine("  <WorkSource>/                  Your codebase root (e.g. C:\\repos\\MyApp)");
-            Console.WriteLine("    .wally/                      Workspace folder");
-            Console.WriteLine("      wally-config.json          Configuration");
-            Console.WriteLine("      Docs/                      Shared documentation (all actors)");
-            Console.WriteLine("      Templates/                 Document templates used by actors");
-            Console.WriteLine("      Actors/");
-            Console.WriteLine("        <ActorName>/");
-            Console.WriteLine("          actor.json             name, rolePrompt, criteriaPrompt, intentPrompt");
-            Console.WriteLine("          Docs/                  Actor-specific documentation");
-            Console.WriteLine("      Logs/                      Session logs (auto-created on first run)");
-            Console.WriteLine("        <timestamp_guid>/        One folder per session");
-            Console.WriteLine("          <timestamp>.txt        Rotated log files");
+            Console.WriteLine("Default actors:");
+            Console.WriteLine("  Engineer         — code reviews, architecture docs, proposals, bug reports, test plans");
+            Console.WriteLine("  BusinessAnalyst  — requirements, execution plans, project status");
+            Console.WriteLine("  Stakeholder      — business needs, priorities, success criteria");
+            Console.WriteLine();
+            Console.WriteLine("Examples:");
+            Console.WriteLine("  wally run Engineer \"Review the data access layer for bugs and security issues\"");
+            Console.WriteLine("  wally run Engineer \"Document the architecture of the networking module\"");
+            Console.WriteLine("  wally run BusinessAnalyst \"Write requirements for user authentication\"");
+            Console.WriteLine("  wally run Stakeholder \"Define success criteria for the reporting dashboard\"");
+            Console.WriteLine("  wally run-loop Engineer \"Refactor error handling across the project\" -n 5");
+            Console.WriteLine("  wally run Engineer \"Explain this module\" -m claude-sonnet-4");
         }
 
         // — Private helpers ———————————————————————————————————————————————————
