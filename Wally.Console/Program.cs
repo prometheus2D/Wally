@@ -46,51 +46,11 @@ namespace Wally.Console
                 if (string.IsNullOrWhiteSpace(input)) continue;
                 if (input.Trim().Equals("exit", StringComparison.OrdinalIgnoreCase)) break;
 
-                string[] interactiveArgs = SplitArgs(input);
+                string[] interactiveArgs = WallyCommands.SplitArgs(input);
                 if (interactiveArgs.Length > 0)
-                    HandleArguments(interactiveArgs);
+                    WallyCommands.DispatchCommand(_environment, interactiveArgs);
             }
             return 0;
-        }
-
-        /// <summary>
-        /// Splits a raw input line into arguments, respecting double-quoted strings.
-        /// <c>run "Add input validation" Developer</c> →
-        /// <c>["run", "Add input validation", "Developer"]</c>.
-        /// </summary>
-        private static string[] SplitArgs(string input)
-        {
-            var args = new List<string>();
-            bool inQuotes = false;
-            var current = new System.Text.StringBuilder();
-
-            for (int i = 0; i < input.Length; i++)
-            {
-                char c = input[i];
-
-                if (c == '"')
-                {
-                    inQuotes = !inQuotes;
-                    continue;               // consume the quote character itself
-                }
-
-                if (c == ' ' && !inQuotes)
-                {
-                    if (current.Length > 0)
-                    {
-                        args.Add(current.ToString());
-                        current.Clear();
-                    }
-                    continue;
-                }
-
-                current.Append(c);
-            }
-
-            if (current.Length > 0)
-                args.Add(current.ToString());
-
-            return args.ToArray();
         }
 
         private static int HandleArguments(string[] args)
@@ -124,6 +84,10 @@ namespace Wally.Console
                             ro.Wrapper);
                         return 0;
                     }
+
+                    // ── Runbooks ───────────────────────────────────────────────
+                    if (opts is RunbookOptions rbo)       { WallyCommands.HandleRunbook(_environment, rbo.Name, rbo.Prompt); return 0; }
+                    if (opts is ListRunbooksOptions)       { WallyCommands.HandleListRunbooks(_environment); return 0; }
 
                     // ── Inspection ────────────────────────────────────────────
                     if (opts is ListOptions)              { WallyCommands.HandleList(_environment); return 0; }

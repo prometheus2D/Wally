@@ -85,6 +85,13 @@ namespace Wally.Core
         public string WrappersFolderName { get; set; } = "Wrappers";
 
         /// <summary>
+        /// Subfolder inside the workspace folder that holds runbook files (<c>.wrb</c>).
+        /// Each file defines a reusable sequence of Wally commands.
+        /// Default: <c>Runbooks</c>.
+        /// </summary>
+        public string RunbooksFolderName { get; set; } = "Runbooks";
+
+        /// <summary>
         /// How often (in minutes) the session logger rotates to a new log file.
         /// Each file covers roughly this time window. Set to <c>0</c> to disable
         /// rotation (single file per session). Default: <c>2</c>.
@@ -126,6 +133,14 @@ namespace Wally.Core
         /// are silently skipped.
         /// </summary>
         public List<string> DefaultLoops { get; set; } = new();
+
+        /// <summary>
+        /// Curated list of runbook names available in this workspace.
+        /// Used to populate UI dropdowns and validate <c>runbook</c> arguments.
+        /// Each name must match a <c>.wrb</c> file in <c>Runbooks/</c>
+        /// (case-insensitive, without extension).
+        /// </summary>
+        public List<string> DefaultRunbooks { get; set; } = new();
 
         // — Runtime settings ——————————————————————————————————————————————————
 

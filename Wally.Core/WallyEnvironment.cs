@@ -54,6 +54,9 @@ namespace Wally.Core
         [JsonIgnore] public List<WallyLoopDefinition> Loops => Workspace?.Loops ?? _emptyLoops;
         private static readonly List<WallyLoopDefinition> _emptyLoops = new();
 
+        [JsonIgnore] public List<WallyRunbook> Runbooks => Workspace?.Runbooks ?? _emptyRunbooks;
+        private static readonly List<WallyRunbook> _emptyRunbooks = new();
+
         // — Constructor ——————————————————————————————————————————————————————
 
         public WallyEnvironment()
@@ -181,6 +184,14 @@ namespace Wally.Core
         public WallyLoopDefinition? GetLoop(string name) =>
             Loops.FirstOrDefault(l =>
                 string.Equals(l.Name, name, StringComparison.OrdinalIgnoreCase));
+
+        /// <summary>
+        /// Returns the runbook whose name matches <paramref name="name"/> (case-insensitive),
+        /// or <see langword="null"/>.
+        /// </summary>
+        public WallyRunbook? GetRunbook(string name) =>
+            Runbooks.FirstOrDefault(r =>
+                string.Equals(r.Name, name, StringComparison.OrdinalIgnoreCase));
 
         // — LLM wrapper resolution ———————————————————————————————————————————
 

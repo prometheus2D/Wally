@@ -86,6 +86,13 @@ namespace Wally.Core
         [JsonIgnore]
         public List<LlmWrapper> LlmWrappers { get; private set; } = new();
 
+        /// <summary>
+        /// Runbooks loaded from the <c>Runbooks/</c> folder.
+        /// Each defines a reusable sequence of Wally commands.
+        /// </summary>
+        [JsonIgnore]
+        public List<WallyRunbook> Runbooks { get; private set; } = new();
+
         // — Static factory ————————————————————————————————————————————————————
 
         /// <summary>Loads the workspace at <paramref name="workspaceFolder"/>.</summary>
@@ -114,6 +121,7 @@ namespace Wally.Core
             LlmWrappers = WallyHelper.LoadLlmWrappers(WorkspaceFolder, Config);
             Actors = WallyHelper.LoadActors(WorkspaceFolder, Config, this);
             Loops = WallyHelper.LoadLoops(WorkspaceFolder, Config);
+            Runbooks = WallyHelper.LoadRunbooks(WorkspaceFolder, Config);
         }
 
         // — Saving ———————————————————————————————————————————————————————————
@@ -167,6 +175,15 @@ namespace Wally.Core
         {
             RequireLoaded();
             LlmWrappers = WallyHelper.LoadLlmWrappers(WorkspaceFolder, Config);
+        }
+
+        /// <summary>
+        /// Re-reads all runbook files from disk and rebuilds <see cref="Runbooks"/>.
+        /// </summary>
+        public void ReloadRunbooks()
+        {
+            RequireLoaded();
+            Runbooks = WallyHelper.LoadRunbooks(WorkspaceFolder, Config);
         }
 
         // — Guard ———————————————————————————————————————————————————————————­

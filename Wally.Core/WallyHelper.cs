@@ -83,6 +83,9 @@ namespace Wally.Core
 
             // Ensure the Providers folder exists.
             Directory.CreateDirectory(Path.Combine(workspaceFolder, config.WrappersFolderName));
+
+            // Ensure the Runbooks folder exists.
+            Directory.CreateDirectory(Path.Combine(workspaceFolder, config.RunbooksFolderName));
         }
 
         // — Actor loading ———————————————————————————————————————————————————
@@ -204,6 +207,7 @@ namespace Wally.Core
             CheckDir(issues, workspaceFolder, config.LoopsFolderName);
             CheckDir(issues, workspaceFolder, config.WrappersFolderName);
             CheckDir(issues, workspaceFolder, config.LogsFolderName);
+            CheckDir(issues, workspaceFolder, config.RunbooksFolderName);
 
             string actorsDir = Path.Combine(workspaceFolder, config.ActorsFolderName);
             if (Directory.Exists(actorsDir))
@@ -362,6 +366,29 @@ namespace Wally.Core
             }
 
             return loops;
+        }
+
+        // — Runbook loading ————————————————————————————————————————
+
+        /// <summary>
+        /// Loads all <c>.wrb</c> runbook files from
+        /// <c>&lt;workspaceFolder&gt;/Runbooks/</c>.
+        /// Falls back to the Default template folder when none are found.
+        /// </summary>
+        public static List<WallyRunbook> LoadRunbooks(
+            string workspaceFolder, WallyConfig config)
+        {
+            string runbooksDir = Path.Combine(workspaceFolder, config.RunbooksFolderName);
+            var runbooks = WallyRunbook.LoadFromFolder(runbooksDir);
+
+            // Fallback: load from shipped Default template if workspace has none.
+            if (runbooks.Count == 0)
+            {
+                string defaultDir = Path.Combine(GetDefaultTemplateFolder(), config.RunbooksFolderName);
+                runbooks = WallyRunbook.LoadFromFolder(defaultDir);
+            }
+
+            return runbooks;
         }
 
         // — Private helpers —————————————————————————————————————————————————
