@@ -1,6 +1,6 @@
 {
   "Name": "Refactor",
-  "Description": "Iterative refactoring — the Engineer identifies and applies refactoring steps one at a time until the code is clean.",
+  "Description": "Iterative refactoring ï¿½ the Engineer identifies and applies refactoring steps one at a time until the code is clean.",
   "ActorName": "Engineer",
   "StartPrompt": "{userPrompt}\n\nAnalyze the code and identify the most impactful refactoring to apply first. Describe what you would change and why. Be specific about files, classes, and methods.",
   "ContinuePromptTemplate": "You are continuing an iterative refactoring task. Here is what you did in the previous step:\n\n---\n{previousResult}\n---\n\nOriginal request: {userPrompt}\n\nIdentify the next refactoring step. If there are no more meaningful improvements to make, respond with: {completedKeyword}\nIf you hit a blocker or dependency issue, respond with: {errorKeyword}",

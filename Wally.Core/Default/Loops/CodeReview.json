@@ -1,6 +1,6 @@
 {
   "Name": "CodeReview",
-  "Description": "Iterative code review — the Engineer reviews the codebase in multiple passes, catching progressively deeper issues.",
+  "Description": "Iterative code review - the Engineer reviews the codebase in multiple passes, catching progressively deeper issues.",
   "ActorName": "Engineer",
   "StartPrompt": "{userPrompt}\n\nPerform a thorough code review. Focus on bugs, security issues, performance problems, and code quality. Report your findings in a structured list. If you find issues, list them clearly. If you need another pass to check deeper concerns, say so.",
   "ContinuePromptTemplate": "You are continuing an iterative code review. Here is your previous review pass:\n\n---\n{previousResult}\n---\n\nOriginal request: {userPrompt}\n\nPerform another review pass. Look for issues you may have missed, or go deeper on the ones you found. If you are satisfied the review is complete, respond with: {completedKeyword}\nIf you encountered a blocking problem, respond with: {errorKeyword}",

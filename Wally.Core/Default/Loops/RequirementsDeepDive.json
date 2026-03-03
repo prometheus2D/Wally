@@ -1,6 +1,6 @@
 {
   "Name": "RequirementsDeepDive",
-  "Description": "Iterative requirements elaboration — the BusinessAnalyst refines requirements through multiple passes of analysis.",
+  "Description": "Iterative requirements elaboration ï¿½ the BusinessAnalyst refines requirements through multiple passes of analysis.",
   "ActorName": "BusinessAnalyst",
   "StartPrompt": "{userPrompt}\n\nAnalyze the request and produce an initial set of requirements. Identify functional requirements, non-functional requirements, and any assumptions. Flag areas that need further clarification.",
   "ContinuePromptTemplate": "You are refining requirements iteratively. Here is your previous analysis:\n\n---\n{previousResult}\n---\n\nOriginal request: {userPrompt}\n\nRefine the requirements further. Resolve ambiguities, add acceptance criteria, identify edge cases, and tighten definitions. If the requirements are complete and well-defined, respond with: {completedKeyword}\nIf you found a contradiction or blocking issue, respond with: {errorKeyword}",
