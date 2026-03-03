@@ -36,12 +36,12 @@ namespace Wally.Core
         /// <summary>
         /// The WorkSource directory — the root of the user's codebase.
         /// This is the parent of the <c>.wally/</c> workspace folder and the
-        /// directory whose files provide context to the LLM provider.
+        /// directory whose files provide context to the LLM wrapper.
         /// </summary>
         public string? WorkSource => HasWorkspace ? Workspace!.WorkSource : null;
 
         /// <summary>
-        /// The source directory whose files provide context to the LLM provider.
+        /// The source directory whose files provide context to the LLM wrapper.
         /// Delegates to <see cref="WallyWorkspace.SourcePath"/> (which is <see cref="WorkSource"/>).
         /// </summary>
         public string? SourcePath => HasWorkspace ? Workspace!.SourcePath : null;
@@ -186,17 +186,28 @@ namespace Wally.Core
 
         /// <summary>
         /// Returns the active <see cref="LlmWrapper"/> for this workspace,
-        /// resolved from <see cref="WallyConfig.DefaultProvider"/>.
+        /// resolved from <see cref="WallyConfig.DefaultWrapper"/>.
         /// Throws if no wrapper matches the config.
         /// </summary>
-        public LlmWrapper ResolveWrapper()
+        public LlmWrapper ResolveWrapper() => ResolveWrapper(null);
+
+        /// <summary>
+        /// Returns the <see cref="LlmWrapper"/> matching <paramref name="wrapperOverride"/>,
+        /// or the workspace default when <paramref name="wrapperOverride"/> is null/empty.
+        /// Throws if no wrapper matches.
+        /// </summary>
+        public LlmWrapper ResolveWrapper(string? wrapperOverride)
         {
             var ws = RequireWorkspace();
-            var wrapper = WallyHelper.ResolveWrapper(ws.Config.DefaultProvider, ws.LlmWrappers);
+            string wrapperName = !string.IsNullOrWhiteSpace(wrapperOverride)
+                ? wrapperOverride!
+                : ws.Config.DefaultWrapper;
+
+            var wrapper = WallyHelper.ResolveWrapper(wrapperName, ws.LlmWrappers);
             if (wrapper == null)
                 throw new InvalidOperationException(
-                    $"No LLM wrapper found for provider '{ws.Config.DefaultProvider}'. " +
-                    $"Check the Providers/ folder in your workspace.");
+                    $"No LLM wrapper found for '{wrapperName}'. " +
+                    $"Check the Wrappers/ folder in your workspace.");
             return wrapper;
         }
 
@@ -205,10 +216,11 @@ namespace Wally.Core
         /// <summary>
         /// Executes a single actor: Setup ? ProcessPrompt ? LlmWrapper.Execute.
         /// <paramref name="modelOverride"/> takes priority over <see cref="WallyConfig.DefaultModel"/>.
+        /// <paramref name="wrapperOverride"/> takes priority over <see cref="WallyConfig.DefaultWrapper"/>.
         /// </summary>
-        public string ExecuteActor(Actor actor, string prompt, string? modelOverride = null)
+        public string ExecuteActor(Actor actor, string prompt, string? modelOverride = null, string? wrapperOverride = null)
         {
-            var wrapper = ResolveWrapper();
+            var wrapper = ResolveWrapper(wrapperOverride);
             var ws = Workspace!;
 
             actor.Setup();
@@ -225,7 +237,7 @@ namespace Wally.Core
             return wrapper.Execute(processed, ws.SourcePath, model, Logger);
         }
 
-        public List<string> RunActors(string prompt, string? modelOverride = null)
+        public List<string> RunActors(string prompt, string? modelOverride = null, string? wrapperOverride = null)
         {
             RequireWorkspace();
             var responses = new List<string>();
@@ -234,7 +246,7 @@ namespace Wally.Core
                 Logger.LogPrompt(actor.Name, prompt, modelOverride ?? Workspace!.Config.DefaultModel);
                 var sw = Stopwatch.StartNew();
 
-                string response = ExecuteActor(actor, prompt, modelOverride);
+                string response = ExecuteActor(actor, prompt, modelOverride, wrapperOverride);
 
                 sw.Stop();
                 Logger.LogResponse(actor.Name, response, sw.ElapsedMilliseconds);
@@ -245,7 +257,7 @@ namespace Wally.Core
             return responses;
         }
 
-        public List<string> RunActor(string prompt, string actorName, string? modelOverride = null)
+        public List<string> RunActor(string prompt, string actorName, string? modelOverride = null, string? wrapperOverride = null)
         {
             RequireWorkspace();
             var actor = Actors.Find(a =>
@@ -262,7 +274,7 @@ namespace Wally.Core
             Logger.LogPrompt(actor.Name, prompt, modelOverride ?? Workspace!.Config.DefaultModel);
             var sw = Stopwatch.StartNew();
 
-            string response = ExecuteActor(actor, prompt, modelOverride);
+            string response = ExecuteActor(actor, prompt, modelOverride, wrapperOverride);
 
             sw.Stop();
             Logger.LogResponse(actor.Name, response, sw.ElapsedMilliseconds);

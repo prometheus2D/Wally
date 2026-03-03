@@ -21,11 +21,11 @@ namespace Wally.Core
     ///                   actor.json
     ///                   Docs/           actor-private documentation
     ///           Loops/                  loop definitions (JSON)
-    ///           Providers/              LLM wrapper definitions (JSON)
+    ///           Wrappers/              LLM wrapper definitions (JSON)
     ///           Logs/                   session logs
     /// </code>
     /// All files under WorkSource (including <c>.wally/</c>) are accessible to
-    /// the LLM provider. Documentation files are listed in the enriched prompt
+    /// the LLM wrapper. Documentation files are listed in the enriched prompt
     /// so the LLM knows they exist.
     /// </summary>
     public class WallyConfig
@@ -50,7 +50,7 @@ namespace Wally.Core
         /// Subfolder inside the workspace folder that holds workspace-level
         /// documentation files (e.g. <c>.md</c>, <c>.txt</c>).
         /// <para>
-        /// These files are accessible to the LLM provider (e.g. via
+        /// These files are accessible to the LLM wrapper (e.g. via
         /// <c>--add-dir</c> for Copilot). Doc file names are listed in the
         /// enriched prompt so the LLM knows they exist and can consult them
         /// when relevant to the task.
@@ -80,9 +80,9 @@ namespace Wally.Core
         /// definition JSON files. Each <c>.json</c> file defines a complete
         /// CLI recipe for calling an LLM backend (executable, argument template,
         /// placeholders, and behavioural flags).
-        /// Default: <c>Providers</c>.
+        /// Default: <c>Wrappers</c>.
         /// </summary>
-        public string ProvidersFolderName { get; set; } = "Providers";
+        public string WrappersFolderName { get; set; } = "Wrappers";
 
         /// <summary>
         /// How often (in minutes) the session logger rotates to a new log file.
@@ -91,7 +91,7 @@ namespace Wally.Core
         /// </summary>
         public int LogRotationMinutes { get; set; } = 2;
 
-        // — Model selection ———————————————————————————————————————————————————
+        // — Defaults ——————————————————————————————————————————————————————
 
         /// <summary>
         /// The model identifier passed to the LLM wrapper when running actors.
@@ -101,11 +101,31 @@ namespace Wally.Core
         public string? DefaultModel { get; set; }
 
         /// <summary>
-        /// The set of model identifiers that this workspace is allowed to use.
-        /// Serves as a reference list — edit it to track which models are available
-        /// or permitted in your environment.
+        /// Curated list of model identifiers available in this workspace.
+        /// Used to populate UI dropdowns and validate <c>-m</c> arguments.
+        /// If a name doesn't match anything the LLM backend recognises, it is
+        /// silently skipped. Edit this list to control which models appear
+        /// in the model selector.
         /// </summary>
-        public List<string> Models { get; set; } = new();
+        public List<string> DefaultModels { get; set; } = new();
+
+        /// <summary>
+        /// Curated list of LLM wrapper names available in this workspace.
+        /// Used to populate UI dropdowns and validate <c>-w</c> arguments.
+        /// Each name must match a <c>.json</c> file in <c>Wrappers/</c>
+        /// (case-insensitive). Names that don't resolve to a loaded wrapper
+        /// are silently skipped.
+        /// </summary>
+        public List<string> DefaultWrappers { get; set; } = new();
+
+        /// <summary>
+        /// Curated list of loop names available in this workspace.
+        /// Used to populate UI dropdowns and validate <c>-l</c> arguments.
+        /// Each name must match a <c>.json</c> file in <c>Loops/</c>
+        /// (case-insensitive). Names that don't resolve to a loaded loop
+        /// are silently skipped.
+        /// </summary>
+        public List<string> DefaultLoops { get; set; } = new();
 
         // — Runtime settings ——————————————————————————————————————————————————
 
@@ -115,14 +135,14 @@ namespace Wally.Core
         /// <summary>
         /// The name of the LLM wrapper to use when running actors.
         /// Must match the <c>Name</c> property of a <c>.json</c> file in the
-        /// <c>Providers/</c> folder (case-insensitive). The shipped defaults are:
+        /// <c>Wrappers/</c> folder (case-insensitive). The shipped defaults are:
         /// <list type="bullet">
         ///   <item><c>"Copilot"</c> — read-only, runs <c>gh copilot -p</c> (default).</item>
         ///   <item><c>"AutoCopilot"</c> — agentic, runs <c>gh copilot -i --yolo</c> (can edit files).</item>
         /// </list>
-        /// Add new providers by dropping a <c>.json</c> file in <c>Providers/</c> — no code changes needed.
+        /// Add new wrappers by dropping a <c>.json</c> file in <c>Wrappers/</c> — no code changes needed.
         /// </summary>
-        public string DefaultProvider { get; set; } = "Copilot";
+        public string DefaultWrapper { get; set; } = "Copilot";
 
         // — Factory ———————————————————————————————————————————————————————————
 

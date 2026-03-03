@@ -113,12 +113,15 @@ namespace Wally.Console
                     // ── Running actors ────────────────────────────────────────
                     if (opts is RunOptions ro)
                     {
-                        WallyCommands.HandleRun(_environment, ro.Prompt, ro.ActorName, ro.Model);
-                        return 0;
-                    }
-                    if (opts is RunLoopOptions rlo)
-                    {
-                        WallyCommands.HandleRunLoop(_environment, rlo.Prompt, rlo.ActorName, rlo.Model, rlo.MaxIterations, rlo.LoopName);
+                        WallyCommands.HandleRun(
+                            _environment,
+                            ro.Prompt,
+                            ro.ActorName,
+                            ro.Model,
+                            ro.Looped,
+                            ro.LoopName,
+                            ro.MaxIterations,
+                            ro.Wrapper);
                         return 0;
                     }
 

@@ -22,7 +22,7 @@ relevant to the task.
             actor.json
             Docs/              ? specific to that actor
     Loops/                     ? loop definitions (JSON) for iterative runs
-    Providers/                 ? LLM wrapper definitions (JSON)
+    Wrappers/                  ? LLM wrapper definitions (JSON)
     Logs/                      ? session logs (auto-created)
 ```
 
@@ -37,12 +37,12 @@ Loop definitions in `Loops/` define reusable iterative execution patterns.
 Each `.json` file specifies the actor, prompts, stop keywords, and iteration
 limits. Run `wally list-loops` to see available loop definitions.
 
-## Providers
+## Wrappers
 
-LLM wrapper definitions in `Providers/` define how Wally calls external LLM
+LLM wrapper definitions in `Wrappers/` define how Wally calls external LLM
 tools. Each `.json` file specifies the executable, argument template, and
 behavioural flags. To add a new LLM backend, drop a `.json` file here —
 no code changes needed.
 
 Run `wally list` to see which actors are loaded.
-Run `wally info` to see the active provider and model configuration.
+Run `wally info` to see the active wrapper and model configuration.

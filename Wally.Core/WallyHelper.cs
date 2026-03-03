@@ -82,7 +82,7 @@ namespace Wally.Core
             Directory.CreateDirectory(Path.Combine(workspaceFolder, config.LoopsFolderName));
 
             // Ensure the Providers folder exists.
-            Directory.CreateDirectory(Path.Combine(workspaceFolder, config.ProvidersFolderName));
+            Directory.CreateDirectory(Path.Combine(workspaceFolder, config.WrappersFolderName));
         }
 
         // — Actor loading ———————————————————————————————————————————————————
@@ -202,7 +202,7 @@ namespace Wally.Core
             CheckDir(issues, workspaceFolder, config.DocsFolderName);
             CheckDir(issues, workspaceFolder, config.TemplatesFolderName);
             CheckDir(issues, workspaceFolder, config.LoopsFolderName);
-            CheckDir(issues, workspaceFolder, config.ProvidersFolderName);
+            CheckDir(issues, workspaceFolder, config.WrappersFolderName);
             CheckDir(issues, workspaceFolder, config.LogsFolderName);
 
             string actorsDir = Path.Combine(workspaceFolder, config.ActorsFolderName);
@@ -311,19 +311,19 @@ namespace Wally.Core
 
         /// <summary>
         /// Loads all LLM wrapper JSON files from
-        /// <c>&lt;workspaceFolder&gt;/Providers/</c>.
+        /// <c>&lt;workspaceFolder&gt;/Wrappers/</c>.
         /// Falls back to the Default template folder when none are found.
         /// </summary>
         public static List<LlmWrapper> LoadLlmWrappers(
             string workspaceFolder, WallyConfig config)
         {
-            string providersDir = Path.Combine(workspaceFolder, config.ProvidersFolderName);
-            var wrappers = LlmWrapper.LoadFromFolder(providersDir);
+            string wrappersDir = Path.Combine(workspaceFolder, config.WrappersFolderName);
+            var wrappers = LlmWrapper.LoadFromFolder(wrappersDir);
 
             // Fallback: load from shipped Default template if workspace has none.
             if (wrappers.Count == 0)
             {
-                string defaultDir = Path.Combine(GetDefaultTemplateFolder(), config.ProvidersFolderName);
+                string defaultDir = Path.Combine(GetDefaultTemplateFolder(), config.WrappersFolderName);
                 wrappers = LlmWrapper.LoadFromFolder(defaultDir);
             }
 
@@ -332,23 +332,23 @@ namespace Wally.Core
 
         /// <summary>
         /// Finds the <see cref="LlmWrapper"/> whose <see cref="LlmWrapper.Name"/>
-        /// matches <paramref name="providerName"/> (case-insensitive).
+        /// matches <paramref name="wrapperName"/> (case-insensitive).
         /// Returns <see langword="null"/> when not found.
         /// </summary>
         public static LlmWrapper? ResolveWrapper(
-            string providerName, List<LlmWrapper> wrappers)
+            string wrapperName, List<LlmWrapper> wrappers)
         {
             return wrappers.FirstOrDefault(w =>
-                string.Equals(w.Name, providerName, StringComparison.OrdinalIgnoreCase));
+                string.Equals(w.Name, wrapperName, StringComparison.OrdinalIgnoreCase));
         }
 
-        // — Loop definition loading ————————————————————————————————————————
+        // — Loop loading ————————————————————————————————————————————————————
 
         /// <summary>
-        /// Loads all loop definitions from <c>&lt;workspaceFolder&gt;/Loops/</c>.
+        /// Loads all loops from <c>&lt;workspaceFolder&gt;/Loops/</c>.
         /// Falls back to the Default template folder when no loops are found on disk.
         /// </summary>
-        public static List<WallyLoopDefinition> LoadLoopDefinitions(
+        public static List<WallyLoopDefinition> LoadLoops(
             string workspaceFolder, WallyConfig config)
         {
             string loopsDir = Path.Combine(workspaceFolder, config.LoopsFolderName);

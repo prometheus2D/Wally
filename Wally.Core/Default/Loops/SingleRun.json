@@ -1,0 +1,10 @@
+{
+  "Name": "SingleRun",
+  "Description": "Single-shot execution — one prompt, one response. The default loop when --loop is not specified.",
+  "ActorName": "",
+  "StartPrompt": "{userPrompt}",
+  "ContinuePromptTemplate": null,
+  "CompletedKeyword": "[LOOP COMPLETED]",
+  "ErrorKeyword": "[LOOP ERROR]",
+  "MaxIterations": 1
+}

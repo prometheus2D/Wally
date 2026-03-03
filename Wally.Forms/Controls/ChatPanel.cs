@@ -515,7 +515,7 @@ namespace Wally.Forms.Controls
             if (_environment?.HasWorkspace != true) return;
             var cfg = _environment.Workspace!.Config;
             _cboModel.Items.Add("");
-            foreach (var model in cfg.Models)
+            foreach (var model in cfg.DefaultModels)
                 _cboModel.Items.Add(model);
             if (!string.IsNullOrEmpty(cfg.DefaultModel))
                 _cboModel.Text = cfg.DefaultModel;
@@ -658,7 +658,7 @@ namespace Wally.Forms.Controls
             }
 
             int maxIter = _environment!.Workspace!.Config.MaxIterations;
-            string cmdText = $"run-loop {actorName} \"{prompt}\" -n {maxIter}" +
+            string cmdText = $"run {actorName} \"{prompt}\" --loop -n {maxIter}" +
                              (modelOverride != null ? $" -m {modelOverride}" : "");
             CommandIssued?.Invoke(this, cmdText);
 
@@ -688,13 +688,12 @@ namespace Wally.Forms.Controls
 
                         if (result == null) break;
 
-                        string upper = result.ToUpperInvariant();
-                        if (upper.Contains("WALLY_COMPLETED"))
+                        if (result.Contains(WallyLoop.CompletedKeyword, StringComparison.OrdinalIgnoreCase))
                         {
                             AddMessage("System", $"Agent completed after {i} iteration(s).", MessageKind.Actor);
                             break;
                         }
-                        if (upper.Contains("WALLY_ERROR"))
+                        if (result.Contains(WallyLoop.ErrorKeyword, StringComparison.OrdinalIgnoreCase))
                         {
                             AddMessage("System", $"Agent stopped with error after {i} iteration(s).", MessageKind.Error);
                             break;
@@ -704,8 +703,8 @@ namespace Wally.Forms.Controls
                             $"You are continuing a task. Here is your previous response:\n\n" +
                             $"---\n{result}\n---\n\n" +
                             $"Continue where you left off. " +
-                            $"If you are finished, respond with: WALLY_COMPLETED\n" +
-                            $"If something went wrong, respond with: WALLY_ERROR";
+                            $"If you are finished, respond with: {WallyLoop.CompletedKeyword}\n" +
+                            $"If something went wrong, respond with: {WallyLoop.ErrorKeyword}";
                     }
                 }, token);
             }

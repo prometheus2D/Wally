@@ -37,7 +37,7 @@ namespace Wally.Forms.Controls
 
         private static readonly string[] KnownCommands =
         {
-            "setup", "load", "save", "run", "run-loop", "list", "list-loops", "info",
+            "setup", "load", "save", "run", "list", "list-loops", "info",
             "reload-actors", "cleanup", "commands", "help", "clear", "cls"
         };
 
@@ -268,7 +268,7 @@ namespace Wally.Forms.Controls
             string verb = parts[0].ToLowerInvariant();
             string partial = parts.Length > 1 ? parts[1] : "";
 
-            if ((verb is "run" or "run-loop") && !partial.Contains(' ') && _environment?.HasWorkspace == true)
+            if (verb is "run" && !partial.Contains(' ') && _environment?.HasWorkspace == true)
             {
                 var actorMatches = _environment.Actors
                     .Select(a => a.Name)
@@ -334,20 +334,14 @@ namespace Wally.Forms.Controls
 
                         case "run":
                         {
-                            if (args.Length < 3) { Console.WriteLine("Usage: run <actor> \"<prompt>\" [-m model]"); break; }
+                            if (args.Length < 3) { Console.WriteLine("Usage: run <actor> \"<prompt>\" [-m model] [-w wrapper] [--loop] [-l name] [-n max]"); break; }
                             string? runModel = GetOption(args, "-m") ?? GetOption(args, "--model");
-                            WallyCommands.HandleRun(_environment, args[2], args[1], runModel);
-                            break;
-                        }
-
-                        case "run-loop":
-                        {
-                            if (args.Length < 3) { Console.WriteLine("Usage: run-loop <actor> \"<prompt>\" [-m model] [-n max] [-l loop]"); break; }
-                            string? loopModel = GetOption(args, "-m") ?? GetOption(args, "--model");
+                            string? runWrapper = GetOption(args, "-w") ?? GetOption(args, "--wrapper");
+                            string? loopName = GetOption(args, "-l") ?? GetOption(args, "--loop-name");
                             string? maxStr = GetOption(args, "-n") ?? GetOption(args, "--max-iterations");
-                            string? loopName = GetOption(args, "-l") ?? GetOption(args, "--loop");
+                            bool looped = HasFlag(args, "--loop");
                             int maxIter = int.TryParse(maxStr, out int n) ? n : 0;
-                            WallyCommands.HandleRunLoop(_environment, args[2], args[1], loopModel, maxIter, loopName);
+                            WallyCommands.HandleRun(_environment, args[2], args[1], runModel, looped, loopName, maxIter, runWrapper);
                             break;
                         }
 

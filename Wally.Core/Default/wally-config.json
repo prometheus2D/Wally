@@ -4,9 +4,10 @@
   "DocsFolderName": "Docs",
   "TemplatesFolderName": "Templates",
   "LoopsFolderName": "Loops",
+  "WrappersFolderName": "Wrappers",
   "LogRotationMinutes": 2,
   "DefaultModel": "gpt-4.1",
-  "Models": [
+  "DefaultModels": [
     "claude-sonnet-4.6",
     "claude-sonnet-4.5",
     "claude-haiku-4.5",
@@ -25,5 +26,16 @@
     "gpt-5-mini",
     "gpt-4.1"
   ],
-  "MaxIterations": 10
+  "DefaultWrappers": [
+    "Copilot",
+    "AutoCopilot"
+  ],
+  "DefaultLoops": [
+    "SingleRun",
+    "CodeReview",
+    "Refactor",
+    "RequirementsDeepDive"
+  ],
+  "MaxIterations": 10,
+  "DefaultWrapper": "Copilot"
 }

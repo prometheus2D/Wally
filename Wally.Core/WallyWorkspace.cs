@@ -13,7 +13,7 @@ namespace Wally.Core
     /// The workspace model is built around two directories:
     /// <list type="bullet">
     ///   <item><b>WorkSource</b> — the root of the user's codebase (e.g. <c>C:\repos\MyApp</c>).
-    ///         This is the directory whose files provide context to the LLM provider.</item>
+    ///         This is the directory whose files provide context to the LLM wrapper.</item>
     ///   <item><b>WorkspaceFolder</b> — the <c>.wally/</c> folder inside the WorkSource that
     ///         holds config, actor definitions, loop definitions, and LLM wrapper definitions.</item>
     /// </list>
@@ -29,7 +29,7 @@ namespace Wally.Core
     ///           Docs/                    workspace-level documentation
     ///           Templates/               document templates
     ///           Loops/                   loop definition JSON files
-    ///           Providers/               LLM wrapper definition JSON files
+    ///           Wrappers/                LLM wrapper definition JSON files
     ///           Logs/                    session logs
     /// </code>
     ///
@@ -50,7 +50,7 @@ namespace Wally.Core
         public string WorkSource { get; private set; }
 
         /// <summary>
-        /// The directory whose contents provide file context to the LLM provider.
+        /// The directory whose contents provide file context to the LLM wrapper.
         /// Always resolves to <see cref="WorkSource"/>.
         /// </summary>
         public string SourcePath => WorkSource;
@@ -73,14 +73,14 @@ namespace Wally.Core
         public List<Actor> Actors { get; private set; } = new();
 
         /// <summary>
-        /// Loop definitions loaded from the <c>Loops/</c> folder.
+        /// Loops loaded from the <c>Loops/</c> folder.
         /// Each defines a reusable iterative execution pattern.
         /// </summary>
         [JsonIgnore]
         public List<WallyLoopDefinition> Loops { get; private set; } = new();
 
         /// <summary>
-        /// LLM wrappers loaded from the <c>Providers/</c> folder.
+        /// LLM wrappers loaded from the <c>Wrappers/</c> folder.
         /// Each defines a complete CLI recipe for calling an LLM backend.
         /// </summary>
         [JsonIgnore]
@@ -113,7 +113,7 @@ namespace Wally.Core
             WorkSource = Path.GetDirectoryName(WorkspaceFolder)!;
             LlmWrappers = WallyHelper.LoadLlmWrappers(WorkspaceFolder, Config);
             Actors = WallyHelper.LoadActors(WorkspaceFolder, Config, this);
-            Loops = WallyHelper.LoadLoopDefinitions(WorkspaceFolder, Config);
+            Loops = WallyHelper.LoadLoops(WorkspaceFolder, Config);
         }
 
         // — Saving ———————————————————————————————————————————————————————————
@@ -151,19 +151,19 @@ namespace Wally.Core
         }
 
         /// <summary>
-        /// Re-reads all loop definition files from disk and rebuilds <see cref="Loops"/>.
+        /// Re-reads all loop files from disk and rebuilds <see cref="Loops"/>.
         /// </summary>
         public void ReloadLoops()
         {
             RequireLoaded();
-            Loops = WallyHelper.LoadLoopDefinitions(WorkspaceFolder, Config);
+            Loops = WallyHelper.LoadLoops(WorkspaceFolder, Config);
         }
 
         /// <summary>
         /// Re-reads all LLM wrapper files from disk and rebuilds
         /// <see cref="LlmWrappers"/>.
         /// </summary>
-        public void ReloadProviders()
+        public void ReloadWrappers()
         {
             RequireLoaded();
             LlmWrappers = WallyHelper.LoadLlmWrappers(WorkspaceFolder, Config);

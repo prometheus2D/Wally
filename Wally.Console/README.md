@@ -23,13 +23,16 @@ cd C:\repos\MyApp
 .\wally run Stakeholder "Define success criteria for the dashboard"
 
 # Run an actor in a loop
-.\wally run-loop Engineer "Refactor error handling across the project" -n 5
+.\wally run Engineer "Refactor error handling across the project" --loop -n 5
 
 # Run a named loop definition
-.\wally run-loop Engineer "Review the auth module" -l CodeReview
+.\wally run Engineer "Review the auth module" -l CodeReview
 
 # Override the model for a single run
 .\wally run Engineer "Explain the data layer" -m claude-sonnet-4
+
+# Override the wrapper for agentic file changes
+.\wally run Engineer "Fix the login bug" -w AutoCopilot
 
 # List actors, loops, and workspace info
 .\wally list
@@ -50,7 +53,7 @@ cd C:\repos\MyApp
 ```
 .\wally
 wally> run Engineer "Explain error handling"
-wally> run-loop Engineer "Review the auth module" -l CodeReview
+wally> run Engineer "Review the auth module" --loop -l CodeReview
 wally> list-loops
 wally> info
 wally> exit
@@ -63,11 +66,15 @@ wally> exit
 | `setup [<path>]` | Scaffold or load a workspace at `<path>` (your codebase root). |
 | `setup --verify` | Check workspace structure without making changes. |
 | `load <path>` | Load an existing `.wally/` workspace folder. |
-| `info` | Show workspace paths, actors, providers, model config, and session info. |
+| `info` | Show workspace paths, actors, wrappers, model config, and session info. |
 | `list` | List all actors and their RBA prompts. |
-| `list-loops` | List all loop definitions and their settings. |
-| `run <actor> "<prompt>" [-m model]` | Run an actor on a prompt. |
-| `run-loop <actor> "<prompt>" [-m model] [-n max] [-l loop]` | Run an actor in an iterative loop. |
+| `list-loops` | List all loops and their settings. |
+| `run <actor> "<prompt>" [options]` | Run an actor on a prompt. |
+|   `-m, --model <model>` | Override the AI model. |
+|   `-w, --wrapper <name>` | Override the LLM wrapper (e.g. AutoCopilot). |
+|   `--loop` | Run in iterative loop mode. |
+|   `-l, --loop-name <name>` | Use a named loop from Loops/. |
+|   `-n, --max-iterations <n>` | Maximum iterations (implies --loop when > 1). |
 | `save <path>` | Save config and actor files to disk. |
 | `reload-actors` | Re-read actor folders from disk. |
 | `cleanup [<path>]` | Delete the local `.wally/` folder so setup can run fresh. |
@@ -102,14 +109,15 @@ Default/
             actor.json
             Docs/README.md
     Loops/
+        SingleRun.json
         CodeReview.json
         Refactor.json
         RequirementsDeepDive.json
-    Providers/
+    Wrappers/
         Copilot.json
         AutoCopilot.json
 ```
 
 - **Actors** — add new actors by creating subfolders under `Actors/` with an `actor.json`.
 - **Loops** — add new loop definitions by dropping `.json` files in `Loops/`.
-- **Providers** — add new LLM backends by dropping `.json` files in `Providers/`. Each file defines the executable, argument template, and placeholders — zero code changes needed.
+- **Wrappers** — add new LLM backends by dropping `.json` files in `Wrappers/`. Each file defines the executable, argument template, and placeholders — zero code changes needed.

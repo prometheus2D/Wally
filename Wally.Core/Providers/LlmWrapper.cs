@@ -12,7 +12,7 @@ namespace Wally.Core.Providers
     /// <summary>
     /// A data-driven LLM CLI wrapper loaded entirely from a JSON definition.
     /// <para>
-    /// Each <c>.json</c> file in the workspace's <c>Providers/</c> folder
+    /// Each <c>.json</c> file in the workspace's <c>Wrappers/</c> folder
     /// defines one wrapper: the executable to run, the argument template,
     /// display metadata, and behavioural flags. No C# subclass is needed —
     /// the JSON <em>is</em> the wrapper.
