@@ -304,9 +304,14 @@ namespace Wally.Core
             foreach (var l in ws.Loops)
                 Console.WriteLine($"  {l.Name}{(string.IsNullOrWhiteSpace(l.Description) ? "" : $" — {l.Description}")}");
 
+            Console.WriteLine($"Providers loaded:  {ws.LlmWrappers.Count}");
+            foreach (var w in ws.LlmWrappers)
+                Console.WriteLine($"  {w.Name}{(string.IsNullOrWhiteSpace(w.Description) ? "" : $" — {w.Description}")}");
+
             Console.WriteLine();
+
             Console.WriteLine($"Default provider:  {(string.IsNullOrWhiteSpace(cfg.DefaultProvider) ? "Copilot" : cfg.DefaultProvider)}");
-            Console.WriteLine($"Default model:     {(string.IsNullOrWhiteSpace(cfg.DefaultModel) ? "(copilot default)" : cfg.DefaultModel)}");
+            Console.WriteLine($"Default model:     {(string.IsNullOrWhiteSpace(cfg.DefaultModel) ? "(provider default)" : cfg.DefaultModel)}");
             if (cfg.Models.Count > 0)
             {
                 Console.WriteLine($"Available models:  {string.Join(", ", cfg.Models)}");

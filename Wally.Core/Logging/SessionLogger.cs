@@ -149,7 +149,7 @@ namespace Wally.Core.Logging
         }
 
         /// <summary>
-        /// Logs the fully enriched prompt that is actually sent to the CLI tool.
+        /// Logs the fully enriched prompt that is actually sent to the LLM wrapper.
         /// This is the output of <see cref="Actors.Actor.ProcessPrompt"/> — the
         /// RBA-wrapped version of the raw user prompt.
         /// </summary>
@@ -200,8 +200,8 @@ namespace Wally.Core.Logging
         }
 
         /// <summary>
-        /// Logs a CLI-level error (non-zero exit code or stderr output) from a
-        /// tool invocation such as <c>gh copilot</c>.
+        /// Logs a CLI-level error (non-zero exit code or stderr output) from an
+        /// LLM wrapper invocation.
         /// </summary>
         public void LogCliError(string actorName, int exitCode, string? stderr)
         {

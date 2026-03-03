@@ -36,8 +36,8 @@ namespace Wally.Core.Logging
 
         /// <summary>
         /// The fully enriched prompt (after RBA processing) that was sent to the
-        /// CLI tool (e.g. <c>gh copilot -p</c>). Logged separately from
-        /// <see cref="Prompt"/> so both raw and processed prompts are captured.
+        /// LLM wrapper. Logged separately from <see cref="Prompt"/> so both raw
+        /// and processed prompts are captured.
         /// </summary>
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string? ProcessedPrompt { get; set; }

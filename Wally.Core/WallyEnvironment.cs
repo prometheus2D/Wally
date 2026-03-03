@@ -36,12 +36,12 @@ namespace Wally.Core
         /// <summary>
         /// The WorkSource directory — the root of the user's codebase.
         /// This is the parent of the <c>.wally/</c> workspace folder and the
-        /// directory whose files provide context to <c>gh copilot</c>.
+        /// directory whose files provide context to the LLM provider.
         /// </summary>
         public string? WorkSource => HasWorkspace ? Workspace!.WorkSource : null;
 
         /// <summary>
-        /// The source directory whose files provide context to <c>gh copilot</c>.
+        /// The source directory whose files provide context to the LLM provider.
         /// Delegates to <see cref="WallyWorkspace.SourcePath"/> (which is <see cref="WorkSource"/>).
         /// </summary>
         public string? SourcePath => HasWorkspace ? Workspace!.SourcePath : null;
@@ -305,7 +305,7 @@ namespace Wally.Core
 
         /// <summary>
         /// Sets <see cref="SessionLogger"/> on every loaded actor so the actor
-        /// pipeline can log processed prompts and CLI interactions.
+        /// pipeline can log processed prompts.
         /// </summary>
         private void InjectLoggerIntoActors()
         {

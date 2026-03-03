@@ -9,7 +9,7 @@ namespace Wally.Core
     ///
     /// The workspace lives inside the <b>WorkSource</b> directory — the root of
     /// the user's codebase.  The <c>.wally/</c> folder sits at the top level of
-    /// the WorkSource alongside the <see cref="ActorsFolderName"/> subfolder:
+    /// the WorkSource:
     /// <code>
     ///   &lt;WorkSource&gt;/               e.g. C:\repos\MyApp
     ///       .wally/                     workspace folder
@@ -20,10 +20,13 @@ namespace Wally.Core
     ///               &lt;ActorName&gt;/
     ///                   actor.json
     ///                   Docs/           actor-private documentation
+    ///           Loops/                  loop definitions (JSON)
+    ///           Providers/              LLM wrapper definitions (JSON)
+    ///           Logs/                   session logs
     /// </code>
     /// All files under WorkSource (including <c>.wally/</c>) are accessible to
-    /// <c>gh copilot</c> via <c>--add-dir</c>. Documentation files are never
-    /// injected into prompts — Copilot reads them from disk natively.
+    /// the LLM provider. Documentation files are listed in the enriched prompt
+    /// so the LLM knows they exist.
     /// </summary>
     public class WallyConfig
     {
@@ -47,10 +50,10 @@ namespace Wally.Core
         /// Subfolder inside the workspace folder that holds workspace-level
         /// documentation files (e.g. <c>.md</c>, <c>.txt</c>).
         /// <para>
-        /// These files are accessible to <c>gh copilot</c> via <c>--add-dir</c>
-        /// (the entire WorkSource tree is granted). They are <b>not</b> injected
-        /// into prompts — Copilot reads them from disk when relevant, or the
-        /// user can reference specific files by path in the prompt.
+        /// These files are accessible to the LLM provider (e.g. via
+        /// <c>--add-dir</c> for Copilot). Doc file names are listed in the
+        /// enriched prompt so the LLM knows they exist and can consult them
+        /// when relevant to the task.
         /// </para>
         /// Default: <c>Docs</c>.
         /// </summary>
@@ -73,9 +76,10 @@ namespace Wally.Core
         public string LoopsFolderName { get; set; } = "Loops";
 
         /// <summary>
-        /// Subfolder inside the workspace folder that holds LLM provider
-        /// definition JSON files. Each <c>.json</c> file maps a logical
-        /// provider name to a concrete provider type.
+        /// Subfolder inside the workspace folder that holds LLM wrapper
+        /// definition JSON files. Each <c>.json</c> file defines a complete
+        /// CLI recipe for calling an LLM backend (executable, argument template,
+        /// placeholders, and behavioural flags).
         /// Default: <c>Providers</c>.
         /// </summary>
         public string ProvidersFolderName { get; set; } = "Providers";
@@ -90,9 +94,9 @@ namespace Wally.Core
         // — Model selection ———————————————————————————————————————————————————
 
         /// <summary>
-        /// The model identifier passed to <c>gh copilot --model</c> when running actors.
-        /// When <see langword="null"/> or empty, the Copilot CLI default model is used.
-        /// Must be one of the values in <see cref="Models"/> (when that list is non-empty).
+        /// The model identifier passed to the LLM wrapper when running actors.
+        /// Substituted into the wrapper's <c>{model}</c> placeholder.
+        /// When <see langword="null"/> or empty, the wrapper's default behaviour applies.
         /// </summary>
         public string? DefaultModel { get; set; }
 
@@ -100,10 +104,6 @@ namespace Wally.Core
         /// The set of model identifiers that this workspace is allowed to use.
         /// Serves as a reference list — edit it to track which models are available
         /// or permitted in your environment.
-        /// <para>
-        /// Run <c>gh copilot -- --help</c> and check the <c>--model</c> choices
-        /// to see the full set available to your account.
-        /// </para>
         /// </summary>
         public List<string> Models { get; set; } = new();
 
@@ -113,12 +113,14 @@ namespace Wally.Core
         public int MaxIterations { get; set; } = 10;
 
         /// <summary>
-        /// The name of the LLM provider to use when running actors.
-        /// Must match a known provider name (case-insensitive):
+        /// The name of the LLM wrapper to use when running actors.
+        /// Must match the <c>Name</c> property of a <c>.json</c> file in the
+        /// <c>Providers/</c> folder (case-insensitive). The shipped defaults are:
         /// <list type="bullet">
         ///   <item><c>"Copilot"</c> — read-only, runs <c>gh copilot -p</c> (default).</item>
         ///   <item><c>"AutoCopilot"</c> — agentic, runs <c>gh copilot -i --yolo</c> (can edit files).</item>
         /// </list>
+        /// Add new providers by dropping a <c>.json</c> file in <c>Providers/</c> — no code changes needed.
         /// </summary>
         public string DefaultProvider { get; set; } = "Copilot";
 

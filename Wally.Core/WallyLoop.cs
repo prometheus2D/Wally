@@ -118,7 +118,8 @@ namespace Wally.Core
         /// <param name="definition">The loop definition loaded from JSON.</param>
         /// <param name="userPrompt">The user's runtime prompt, substituted into <c>{userPrompt}</c> placeholders.</param>
         /// <param name="actorAction">
-        /// The action to execute each iteration — typically <c>actor.Act(prompt)</c>.
+        /// The action to execute each iteration — typically
+        /// <c>env.ExecuteActor(actor, prompt)</c>.
         /// </param>
         /// <param name="fallbackMaxIterations">
         /// Used when the definition's <see cref="WallyLoopDefinition.MaxIterations"/> is 0.

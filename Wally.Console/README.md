@@ -1,6 +1,6 @@
 # Wally.Console
 
-CLI entry point for Wally. See the [root README](../README.md) for full reference.
+CLI entry point for Wally. See the [Wally.Core README](../Wally.Core/README.md) for full library reference.
 
 ## Build
 
@@ -25,8 +25,16 @@ cd C:\repos\MyApp
 # Run an actor in a loop
 .\wally run-loop Engineer "Refactor error handling across the project" -n 5
 
+# Run a named loop definition
+.\wally run-loop Engineer "Review the auth module" -l CodeReview
+
 # Override the model for a single run
 .\wally run Engineer "Explain the data layer" -m claude-sonnet-4
+
+# List actors, loops, and workspace info
+.\wally list
+.\wally list-loops
+.\wally info
 ```
 
 ## Run Modes
@@ -42,11 +50,28 @@ cd C:\repos\MyApp
 ```
 .\wally
 wally> run Engineer "Explain error handling"
-wally> run BusinessAnalyst "Write requirements for the login feature"
-wally> run Stakeholder "Define success criteria for the dashboard"
+wally> run-loop Engineer "Review the auth module" -l CodeReview
+wally> list-loops
 wally> info
 wally> exit
 ```
+
+## Commands
+
+| Command | Description |
+|---|---|
+| `setup [<path>]` | Scaffold or load a workspace at `<path>` (your codebase root). |
+| `setup --verify` | Check workspace structure without making changes. |
+| `load <path>` | Load an existing `.wally/` workspace folder. |
+| `info` | Show workspace paths, actors, providers, model config, and session info. |
+| `list` | List all actors and their RBA prompts. |
+| `list-loops` | List all loop definitions and their settings. |
+| `run <actor> "<prompt>" [-m model]` | Run an actor on a prompt. |
+| `run-loop <actor> "<prompt>" [-m model] [-n max] [-l loop]` | Run an actor in an iterative loop. |
+| `save <path>` | Save config and actor files to disk. |
+| `reload-actors` | Re-read actor folders from disk. |
+| `cleanup [<path>]` | Delete the local `.wally/` folder so setup can run fresh. |
+| `help` | Show the help message. |
 
 ## Default Workspace Template
 
@@ -76,8 +101,15 @@ Default/
         Engineer/
             actor.json
             Docs/README.md
+    Loops/
+        CodeReview.json
+        Refactor.json
+        RequirementsDeepDive.json
+    Providers/
+        Copilot.json
+        AutoCopilot.json
 ```
 
-Add new default actors by creating subfolders under `Default/Actors/` with an `actor.json`.
-
-For full command reference, configuration, and architecture details, see the [root README](../README.md).For full command reference, configuration, and architecture details, see the [root README](../README.md).
+- **Actors** — add new actors by creating subfolders under `Actors/` with an `actor.json`.
+- **Loops** — add new loop definitions by dropping `.json` files in `Loops/`.
+- **Providers** — add new LLM backends by dropping `.json` files in `Providers/`. Each file defines the executable, argument template, and placeholders — zero code changes needed.

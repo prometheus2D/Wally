@@ -13,9 +13,9 @@ namespace Wally.Core
     /// The workspace model is built around two directories:
     /// <list type="bullet">
     ///   <item><b>WorkSource</b> — the root of the user's codebase (e.g. <c>C:\repos\MyApp</c>).
-    ///         This is the directory whose files provide context to <c>gh copilot</c>.</item>
+    ///         This is the directory whose files provide context to the LLM provider.</item>
     ///   <item><b>WorkspaceFolder</b> — the <c>.wally/</c> folder inside the WorkSource that
-    ///         holds config and actor definitions.</item>
+    ///         holds config, actor definitions, loop definitions, and LLM wrapper definitions.</item>
     /// </list>
     ///
     /// <code>
@@ -25,6 +25,12 @@ namespace Wally.Core
     ///           Actors/
     ///               &lt;ActorName&gt;/       one folder per actor
     ///                   actor.json       name, rolePrompt, criteriaPrompt, intentPrompt
+    ///                   Docs/            actor-private documentation
+    ///           Docs/                    workspace-level documentation
+    ///           Templates/               document templates
+    ///           Loops/                   loop definition JSON files
+    ///           Providers/               LLM wrapper definition JSON files
+    ///           Logs/                    session logs
     /// </code>
     ///
     /// Pass the workspace folder path directly to <see cref="Load"/> or
@@ -44,7 +50,7 @@ namespace Wally.Core
         public string WorkSource { get; private set; }
 
         /// <summary>
-        /// The directory whose contents provide file context to <c>gh copilot</c>.
+        /// The directory whose contents provide file context to the LLM provider.
         /// Always resolves to <see cref="WorkSource"/>.
         /// </summary>
         public string SourcePath => WorkSource;
@@ -59,8 +65,9 @@ namespace Wally.Core
 
         /// <summary>
         /// One <see cref="Actor"/> per actor folder under <c>Actors/</c>.
-        /// Each actor carries its own private RBA and an <see cref="LlmWrapper"/>
-        /// for execution — no shared state.
+        /// Each actor carries its own private RBA prompts and documentation context.
+        /// Actors are pure data — LLM execution is handled by
+        /// <see cref="WallyEnvironment.ExecuteActor"/>.
         /// </summary>
         [JsonIgnore]
         public List<Actor> Actors { get; private set; } = new();

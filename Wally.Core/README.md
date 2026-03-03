@@ -6,7 +6,7 @@ Domain library for Wally. No CLI, no UI — embed in any .NET 8 application.
 
 ### `Actor`
 
-Abstract base class for all actors. Each actor carries RBA components (Role, AcceptanceCriteria, Intent) and generates structured prompts.
+An actor is a personality defined by RBA prompts (Role, AcceptanceCriteria, Intent). Actors own prompt enrichment — they know nothing about LLM wrappers or execution.
 
 **Prompt generation** — `GeneratePrompt(userPrompt)` wraps user input inside the actor's RBA context:
 
@@ -25,24 +25,34 @@ string prompt = actor.GeneratePrompt("Write requirements for the search feature"
 // Write requirements for the search feature
 ```
 
-**Pipeline** — `Act(prompt)` runs: Setup ? ProcessPrompt ? (ApplyCodeChanges | Respond).
+**Pipeline** — `ProcessPrompt(prompt)` enriches the raw prompt with RBA context and documentation file listings. `Setup()` runs any pre-processing. Neither method touches the LLM — execution is handled by `WallyEnvironment`.
 
-Documentation files in `.wally/Docs/` and `.wally/Actors/<Name>/Docs/` are accessible to `gh copilot` via `--add-dir` (native file access). They are not injected into prompts.
+Documentation files in `.wally/Docs/` and `.wally/Actors/<Name>/Docs/` are listed in the enriched prompt so the LLM knows they exist. The files themselves are accessible to the LLM provider via its own mechanisms (e.g. `--add-dir` for Copilot).
 
-### `CopilotActor`
+### `LlmWrapper`
 
-Default actor implementation. Invokes `gh copilot -p` directly using `ProcessStartInfo.ArgumentList` (no shell, no escaping). Working directory is set to WorkSource so Copilot sees the target codebase. `--add-dir` grants read access to the entire WorkSource tree.
+A data-driven CLI wrapper loaded entirely from a JSON definition. Each `.json` file in the workspace's `Providers/` folder defines one wrapper: the executable to run, the argument template, display metadata, and behavioural flags. No C# subclass is needed — the JSON *is* the wrapper.
 
-```csharp
-var actor = env.GetActor("Engineer");
-actor.ModelOverride = "claude-sonnet-4";   // one-shot override
-string response = actor.Act("Explain this module");
-// actor.ModelOverride is now null — next call uses DefaultModel
+```json
+{
+  "Name": "Copilot",
+  "Description": "Read-only — runs gh copilot -p",
+  "Executable": "gh",
+  "ArgumentTemplate": "copilot {model} {sourcePath} --yolo -s -p {prompt}",
+  "ModelArgFormat": "--model {model}",
+  "SourcePathArgFormat": "--add-dir {sourcePath}",
+  "UseSourcePathAsWorkingDirectory": true,
+  "CanMakeChanges": false
+}
 ```
+
+Placeholders in `ArgumentTemplate`: `{prompt}`, `{model}`, `{sourcePath}`. When a value is null/empty, its placeholder (and the corresponding format segment) is omitted from the command line.
+
+To add a new LLM backend, drop a `.json` file in `Providers/` — zero code changes.
 
 ### `WallyLoop`
 
-Iterative execution loop. Each `gh copilot -p` call is stateless — the loop carries context forward explicitly by embedding the previous response in the next prompt.
+Iterative execution loop. Each LLM call is stateless — the loop carries context forward explicitly by embedding the previous response in the next prompt.
 
 | Piece | Purpose |
 |---|---|
@@ -57,7 +67,7 @@ Stop keywords detected in the response:
 
 ```csharp
 var loop = new WallyLoop(
-    action:         prompt => actor.Act(prompt),
+    action:         prompt => env.ExecuteActor(actor, prompt),
     startPrompt:    "Refactor error handling",
     continuePrompt: prev => $"Continue from:\n{prev}\nRespond with [LOOP COMPLETED] when done.",
     maxIterations:  5
@@ -67,6 +77,25 @@ loop.Run();
 // loop.ExecutionCount  — how many iterations ran
 // loop.StopReason      — Completed, Error, or MaxIterations
 ```
+
+### `WallyLoopDefinition`
+
+A serializable definition for a `WallyLoop`, loaded from a JSON file in `Loops/`. Defines the actor, prompts, stop keywords, and iteration limit as data — no code needed.
+
+```json
+{
+  "Name": "CodeReview",
+  "Description": "Iterative code review with the Engineer actor",
+  "ActorName": "Engineer",
+  "StartPrompt": "{userPrompt}\n\nPerform a thorough code review...",
+  "ContinuePromptTemplate": "Previous pass:\n---\n{previousResult}\n---\n...",
+  "CompletedKeyword": "[LOOP COMPLETED]",
+  "ErrorKeyword": "[LOOP ERROR]",
+  "MaxIterations": 5
+}
+```
+
+Placeholders in prompts: `{userPrompt}`, `{previousResult}`, `{completedKeyword}`, `{errorKeyword}`.
 
 ### `WallyWorkspace`
 
@@ -82,25 +111,33 @@ Owns the workspace layout on disk:
             <ActorName>/
                 actor.json      name, rolePrompt, criteriaPrompt, intentPrompt
                 Docs/           Actor-private documentation
+        Loops/                  Loop definitions (JSON)
+        Providers/              LLM wrapper definitions (JSON)
         Logs/                   Session logs
 ```
 
-- **WorkSource** — the root of the user's codebase (parent of `.wally/`). Controls `gh copilot` working directory and `--add-dir` scope.
-- **WorkspaceFolder** — the `.wally/` folder holding config and actor definitions.
+- **WorkSource** — the root of the user's codebase (parent of `.wally/`). Controls the LLM provider's working directory and context scope.
+- **WorkspaceFolder** — the `.wally/` folder holding config, actors, loops, providers, and docs.
 
 ### `WallyEnvironment`
 
-Runtime host over a `WallyWorkspace`. Manages workspace lifecycle, actor execution, and session logging.
+Runtime host over a `WallyWorkspace`. Manages workspace lifecycle, actor execution, wrapper resolution, and session logging. This is the orchestration layer that connects actors (RBA) with wrappers (LLM execution).
 
 ```csharp
 var env = new WallyEnvironment();
 env.SetupLocal(@"C:\repos\MyApp");   // scaffolds .wally/ if needed, then loads
 
-// Single run
+// Single actor run
 var responses = env.RunActor("Review the auth module", "Engineer");
 
 // Run all actors
 var allResponses = env.RunActors("Explain this module");
+
+// Execute with model override
+string response = env.ExecuteActor(actor, "Explain this", modelOverride: "claude-sonnet-4");
+
+// Resolve the active LLM wrapper
+LlmWrapper wrapper = env.ResolveWrapper();
 ```
 
 ### `WallyConfig`
@@ -113,10 +150,13 @@ Loaded from `wally-config.json`:
 | `LogsFolderName` | `"Logs"` | Session log directory name. |
 | `DocsFolderName` | `"Docs"` | Workspace-level documentation directory name. |
 | `TemplatesFolderName` | `"Templates"` | Document templates directory name. |
+| `LoopsFolderName` | `"Loops"` | Loop definition directory name. |
+| `ProvidersFolderName` | `"Providers"` | LLM wrapper definition directory name. |
 | `LogRotationMinutes` | `2` | Minutes per log file. `0` = single file. |
-| `DefaultModel` | `"gpt-4.1"` | Model passed to `gh copilot --model`. |
+| `DefaultModel` | `"gpt-4.1"` | Model identifier passed to the LLM wrapper. |
 | `Models` | `[...]` | Available model identifiers. |
 | `MaxIterations` | `10` | Default iteration cap for `WallyLoop`. |
+| `DefaultProvider` | `"Copilot"` | Name of the LLM wrapper to use (matches `Providers/*.json`). |
 
 Config resolution: workspace-local ? shipped template ? hard-coded defaults.
 
@@ -137,3 +177,14 @@ Each actor carries three prompt components:
 | **Role** | `rolePrompt` | The persona the AI adopts |
 | **AcceptanceCriteria** | `criteriaPrompt` | Success criteria the output must meet |
 | **Intent** | `intentPrompt` | The goal the actor pursues |
+
+## Architecture
+
+| Concern | Owner |
+|---|---|
+| RBA personality & prompt enrichment | `Actor` |
+| CLI recipe & process spawning | `LlmWrapper` (JSON-driven) |
+| Orchestration (actor + wrapper + model) | `WallyEnvironment` |
+| Loop iteration & stop conditions | `WallyLoop` / `WallyLoopDefinition` |
+| Loading actors/loops/wrappers from disk | `WallyHelper` |
+| Workspace layout & config | `WallyWorkspace` / `WallyConfig` |
