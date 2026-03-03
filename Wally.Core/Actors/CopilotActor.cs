@@ -85,6 +85,12 @@ namespace Wally.Core.Actors
                     startInfo.ArgumentList.Add(sourcePath!);
                 }
 
+                // --yolo grants all permissions (file edits, tool execution,
+                // path access, URL access) without interactive confirmation.
+                // Always enabled because CopilotActor runs non-interactively
+                // via -p — there is no user to confirm permission prompts.
+                startInfo.ArgumentList.Add("--yolo");
+
                 // -s (silent) suppresses stats/spinners, giving clean text output.
                 startInfo.ArgumentList.Add("-s");
 

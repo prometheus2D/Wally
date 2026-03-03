@@ -58,7 +58,7 @@ namespace Wally.Core.Actors
         /// </summary>
         public SessionLogger? Logger { get; set; }
 
-        // — Runtime overrides —————————————————————————————————————————————
+        // — Runtime overrides ———————————————————————————————————————————
 
         /// <summary>
         /// When set, overrides <see cref="WallyConfig.DefaultModel"/> for the

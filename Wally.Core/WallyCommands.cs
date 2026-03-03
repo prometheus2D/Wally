@@ -198,6 +198,7 @@ namespace Wally.Core
                 iterationNumber++;
                 env.Logger.LogPrompt(actor.Name, currentPrompt, resolvedModel);
 
+                // Re-apply model override — Act() clears it after each call.
                 if (!string.IsNullOrWhiteSpace(model))
                     actor.ModelOverride = model;
 
