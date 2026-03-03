@@ -88,6 +88,10 @@ namespace Wally.Core
             config ??= new WallyConfig();
             string docsFolder = Path.Combine(workspaceFolder, config.DocsFolderName);
             Directory.CreateDirectory(docsFolder);
+
+            // Ensure the Loops folder exists.
+            string loopsFolder = Path.Combine(workspaceFolder, config.LoopsFolderName);
+            Directory.CreateDirectory(loopsFolder);
         }
 
         // — Actor loading ———————————————————————————————————————————————————
@@ -211,6 +215,7 @@ namespace Wally.Core
             CheckDir(issues, workspaceFolder, config.ActorsFolderName);
             CheckDir(issues, workspaceFolder, config.DocsFolderName);
             CheckDir(issues, workspaceFolder, config.TemplatesFolderName);
+            CheckDir(issues, workspaceFolder, config.LoopsFolderName);
             CheckDir(issues, workspaceFolder, config.LogsFolderName);
 
             string actorsDir = Path.Combine(workspaceFolder, config.ActorsFolderName);
@@ -313,6 +318,28 @@ namespace Wally.Core
                 File.Copy(file, Path.Combine(destDir, Path.GetFileName(file)), overwrite: true);
             foreach (string subDir in Directory.GetDirectories(sourceDir))
                 CopyDirectory(subDir, Path.Combine(destDir, Path.GetFileName(subDir)));
+        }
+
+        // — Loop definition loading ————————————————————————————————————————
+
+        /// <summary>
+        /// Loads all loop definitions from <c>&lt;workspaceFolder&gt;/Loops/</c>.
+        /// Falls back to the Default template folder when no loops are found on disk.
+        /// </summary>
+        public static List<WallyLoopDefinition> LoadLoopDefinitions(
+            string workspaceFolder, WallyConfig config)
+        {
+            string loopsDir = Path.Combine(workspaceFolder, config.LoopsFolderName);
+            var loops = WallyLoopDefinition.LoadFromFolder(loopsDir);
+
+            // Fallback: load from shipped Default template if workspace has none.
+            if (loops.Count == 0)
+            {
+                string defaultLoopsDir = Path.Combine(GetDefaultTemplateFolder(), config.LoopsFolderName);
+                loops = WallyLoopDefinition.LoadFromFolder(defaultLoopsDir);
+            }
+
+            return loops;
         }
 
         // — Private helpers —————————————————————————————————————————————————

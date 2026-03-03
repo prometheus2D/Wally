@@ -45,10 +45,13 @@ namespace Wally.Core
         /// </summary>
         public string? SourcePath => HasWorkspace ? Workspace!.SourcePath : null;
 
-        // — Pass-throughs —————————————————————————————————————————————————————
+        // — Pass-throughs ———————————————————————————————————————————————————
 
         [JsonIgnore] public List<Actor> Actors => Workspace?.Actors ?? _emptyActors;
         private static readonly List<Actor> _emptyActors = new();
+
+        [JsonIgnore] public List<WallyLoopDefinition> Loops => Workspace?.Loops ?? _emptyLoops;
+        private static readonly List<WallyLoopDefinition> _emptyLoops = new();
 
         // — Constructor ——————————————————————————————————————————————————————
 
@@ -169,6 +172,14 @@ namespace Wally.Core
         /// Returns the first actor of type <typeparamref name="T"/>, or <see langword="null"/>.
         /// </summary>
         public T? GetActor<T>() where T : Actor => Workspace?.GetActor<T>();
+
+        /// <summary>
+        /// Returns the loop definition whose name matches <paramref name="name"/> (case-insensitive),
+        /// or <see langword="null"/>.
+        /// </summary>
+        public WallyLoopDefinition? GetLoop(string name) =>
+            Loops.FirstOrDefault(l =>
+                string.Equals(l.Name, name, StringComparison.OrdinalIgnoreCase));
 
         // — Running actors ————————————————————————————————————————————————————
 

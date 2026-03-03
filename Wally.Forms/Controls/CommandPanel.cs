@@ -37,7 +37,7 @@ namespace Wally.Forms.Controls
 
         private static readonly string[] KnownCommands =
         {
-            "setup", "load", "save", "run", "run-loop", "list", "info",
+            "setup", "load", "save", "run", "run-loop", "list", "list-loops", "info",
             "reload-actors", "cleanup", "commands", "help", "clear", "cls"
         };
 
@@ -342,16 +342,21 @@ namespace Wally.Forms.Controls
 
                         case "run-loop":
                         {
-                            if (args.Length < 3) { Console.WriteLine("Usage: run-loop <actor> \"<prompt>\" [-m model] [-n max]"); break; }
+                            if (args.Length < 3) { Console.WriteLine("Usage: run-loop <actor> \"<prompt>\" [-m model] [-n max] [-l loop]"); break; }
                             string? loopModel = GetOption(args, "-m") ?? GetOption(args, "--model");
                             string? maxStr = GetOption(args, "-n") ?? GetOption(args, "--max-iterations");
+                            string? loopName = GetOption(args, "-l") ?? GetOption(args, "--loop");
                             int maxIter = int.TryParse(maxStr, out int n) ? n : 0;
-                            WallyCommands.HandleRunLoop(_environment, args[2], args[1], loopModel, maxIter);
+                            WallyCommands.HandleRunLoop(_environment, args[2], args[1], loopModel, maxIter, loopName);
                             break;
                         }
 
                         case "list":
                             WallyCommands.HandleList(_environment);
+                            break;
+
+                        case "list-loops":
+                            WallyCommands.HandleListLoops(_environment);
                             break;
 
                         case "info":

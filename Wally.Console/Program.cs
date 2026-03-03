@@ -118,12 +118,13 @@ namespace Wally.Console
                     }
                     if (opts is RunLoopOptions rlo)
                     {
-                        WallyCommands.HandleRunLoop(_environment, rlo.Prompt, rlo.ActorName, rlo.Model, rlo.MaxIterations);
+                        WallyCommands.HandleRunLoop(_environment, rlo.Prompt, rlo.ActorName, rlo.Model, rlo.MaxIterations, rlo.LoopName);
                         return 0;
                     }
 
                     // ── Inspection ────────────────────────────────────────────
                     if (opts is ListOptions)              { WallyCommands.HandleList(_environment); return 0; }
+                    if (opts is ListLoopsOptions)         { WallyCommands.HandleListLoops(_environment); return 0; }
                     if (opts is InfoOptions)              { WallyCommands.HandleInfo(_environment); return 0; }
                     if (opts is ReloadActorsOptions)      { WallyCommands.HandleReloadActors(_environment); return 0; }
                     if (opts is CleanupOptions co)        { WallyCommands.HandleCleanup(_environment, co.Path); return 0; }

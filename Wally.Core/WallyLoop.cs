@@ -70,6 +70,20 @@ namespace Wally.Core
         public int MaxIterations { get; set; }
 
         /// <summary>
+        /// The keyword checked after each iteration to detect successful completion.
+        /// Defaults to <see cref="CompletedKeyword"/>. Can be overridden per-instance
+        /// (e.g. from a <see cref="WallyLoopDefinition"/>).
+        /// </summary>
+        public string CompletedKeywordOverride { get; set; } = CompletedKeyword;
+
+        /// <summary>
+        /// The keyword checked after each iteration to detect an error.
+        /// Defaults to <see cref="ErrorKeyword"/>. Can be overridden per-instance
+        /// (e.g. from a <see cref="WallyLoopDefinition"/>).
+        /// </summary>
+        public string ErrorKeywordOverride { get; set; } = ErrorKeyword;
+
+        /// <summary>
         /// Gets the number of iterations that have been executed since
         /// the last call to <see cref="Run"/>.
         /// </summary>
@@ -93,6 +107,48 @@ namespace Wally.Core
         /// if <see cref="Run"/> has not been called.
         /// </summary>
         public string? LastResult => Results.Count > 0 ? Results[^1] : null;
+
+        // — Factory ———————————————————————————————————————————————————————
+
+        /// <summary>
+        /// Creates a <see cref="WallyLoop"/> from a <see cref="WallyLoopDefinition"/>
+        /// and an actor action. The definition's prompts, keywords, and iteration
+        /// limit drive the loop behaviour.
+        /// </summary>
+        /// <param name="definition">The loop definition loaded from JSON.</param>
+        /// <param name="userPrompt">The user's runtime prompt, substituted into <c>{userPrompt}</c> placeholders.</param>
+        /// <param name="actorAction">
+        /// The action to execute each iteration — typically <c>actor.Act(prompt)</c>.
+        /// </param>
+        /// <param name="fallbackMaxIterations">
+        /// Used when the definition's <see cref="WallyLoopDefinition.MaxIterations"/> is 0.
+        /// Typically the workspace <see cref="WallyConfig.MaxIterations"/>.
+        /// </param>
+        public static WallyLoop FromDefinition(
+            WallyLoopDefinition definition,
+            string userPrompt,
+            Func<string, string> actorAction,
+            int fallbackMaxIterations = 10)
+        {
+            // Resolve the start prompt — substitute {userPrompt}.
+            string startPrompt = definition.StartPrompt.Replace("{userPrompt}", userPrompt);
+
+            int maxIter = definition.MaxIterations > 0
+                ? definition.MaxIterations
+                : fallbackMaxIterations;
+
+            // Build the continue-prompt function using the definition's template.
+            Func<string, string> continuePrompt = previousResult =>
+                definition.BuildContinuePrompt(previousResult, userPrompt);
+
+            var loop = new WallyLoop(actorAction, startPrompt, continuePrompt, maxIter);
+
+            // Apply custom keywords from the definition.
+            loop.CompletedKeywordOverride = definition.ResolvedCompletedKeyword;
+            loop.ErrorKeywordOverride = definition.ResolvedErrorKeyword;
+
+            return loop;
+        }
 
         // — Constructor ————————————————————————————————————————————————————————
 
@@ -162,14 +218,14 @@ namespace Wally.Core
                 ExecutionCount++;
                 Results.Add(result);
 
-                // Check for stop keywords in the result.
-                if (result.Contains(CompletedKeyword, StringComparison.OrdinalIgnoreCase))
+                // Check for stop keywords in the result (using instance overrides).
+                if (result.Contains(CompletedKeywordOverride, StringComparison.OrdinalIgnoreCase))
                 {
                     StopReason = LoopStopReason.Completed;
                     break;
                 }
 
-                if (result.Contains(ErrorKeyword, StringComparison.OrdinalIgnoreCase))
+                if (result.Contains(ErrorKeywordOverride, StringComparison.OrdinalIgnoreCase))
                 {
                     StopReason = LoopStopReason.Error;
                     break;

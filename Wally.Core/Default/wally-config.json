@@ -3,6 +3,7 @@
   "LogsFolderName": "Logs",
   "DocsFolderName": "Docs",
   "TemplatesFolderName": "Templates",
+  "LoopsFolderName": "Loops",
   "LogRotationMinutes": 2,
   "DefaultModel": "gpt-4.1",
   "Models": [

@@ -63,6 +63,13 @@ namespace Wally.Core
         [JsonIgnore]
         public List<Actor> Actors { get; private set; } = new();
 
+        /// <summary>
+        /// Loop definitions loaded from the <c>Loops/</c> folder.
+        /// Each defines a reusable iterative execution pattern.
+        /// </summary>
+        [JsonIgnore]
+        public List<WallyLoopDefinition> Loops { get; private set; } = new();
+
         // — Static factory ————————————————————————————————————————————————————
 
         /// <summary>Loads the workspace at <paramref name="workspaceFolder"/>.</summary>
@@ -89,6 +96,7 @@ namespace Wally.Core
             WorkspaceFolder = workspaceFolder;
             WorkSource = Path.GetDirectoryName(WorkspaceFolder)!;
             Actors = WallyHelper.LoadActors(WorkspaceFolder, Config, this);
+            Loops = WallyHelper.LoadLoopDefinitions(WorkspaceFolder, Config);
         }
 
         // — Saving ———————————————————————————————————————————————————————————
@@ -121,6 +129,15 @@ namespace Wally.Core
         {
             RequireLoaded();
             Actors = WallyHelper.LoadActors(WorkspaceFolder, Config, this);
+        }
+
+        /// <summary>
+        /// Re-reads all loop definition files from disk and rebuilds <see cref="Loops"/>.
+        /// </summary>
+        public void ReloadLoops()
+        {
+            RequireLoaded();
+            Loops = WallyHelper.LoadLoopDefinitions(WorkspaceFolder, Config);
         }
 
         // — Guard ————————————————————————————————————————————————————————————

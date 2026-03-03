@@ -130,19 +130,41 @@ namespace Wally.Core
         }
 
         /// <summary>
-        /// Runs an actor inside a <see cref="WallyLoop"/>. On each subsequent
-        /// iteration the previous result is embedded in the prompt so the LLM
-        /// has full context (each <c>gh copilot -p</c> call is stateless).
-        /// The loop ends when the response contains
-        /// <see cref="WallyLoop.CompletedKeyword"/>,
-        /// <see cref="WallyLoop.ErrorKeyword"/>, or
-        /// <paramref name="maxIterations"/> is reached.
+        /// Runs an actor inside a <see cref="WallyLoop"/>. When <paramref name="loopName"/>
+        /// is provided, the loop definition is loaded from disk and used instead of the
+        /// default inline prompts. On each subsequent iteration the previous result is
+        /// embedded in the prompt so the LLM has full context (each <c>gh copilot -p</c>
+        /// call is stateless). The loop ends when the response contains the completion
+        /// keyword, the error keyword, or <paramref name="maxIterations"/> is reached.
         /// </summary>
         public static List<string> HandleRunLoop(
             WallyEnvironment env, string prompt, string actorName,
-            string model = null, int maxIterations = 0)
+            string model = null, int maxIterations = 0, string loopName = null)
         {
             if (RequireWorkspace(env, "run-loop") == null) return new List<string>();
+
+            // — Resolve loop definition (if named) ———————————————————————————
+
+            WallyLoopDefinition? loopDef = null;
+            if (!string.IsNullOrWhiteSpace(loopName))
+            {
+                loopDef = env.GetLoop(loopName);
+                if (loopDef == null)
+                {
+                    Console.WriteLine($"Loop definition '{loopName}' not found. Available loops:");
+                    foreach (var l in env.Loops)
+                        Console.WriteLine($"  {l.Name} — {l.Description}");
+                    env.Logger.LogError($"Loop definition '{loopName}' not found.", "run-loop");
+                    return new List<string>();
+                }
+
+                // The definition can specify its own actor — use it unless the
+                // caller explicitly provided one.
+                if (string.IsNullOrWhiteSpace(actorName) && !string.IsNullOrWhiteSpace(loopDef.ActorName))
+                    actorName = loopDef.ActorName;
+            }
+
+            // — Resolve actor ————————————————————————————————————————————————
 
             var actor = env.GetActor(actorName);
             if (actor == null)
@@ -158,62 +180,64 @@ namespace Wally.Core
 
             int iterations = maxIterations > 0
                 ? maxIterations
-                : env.Workspace!.Config.MaxIterations;
+                : (loopDef?.MaxIterations > 0 ? loopDef.MaxIterations : env.Workspace!.Config.MaxIterations);
 
             env.Logger.LogCommand("run-loop",
-                $"Running actor '{actorName}' in loop (max {iterations}) " +
-                $"with model override '{model ?? "(none)"}'"
+                $"Running actor '{actorName}' in loop " +
+                (loopDef != null ? $"'{loopDef.Name}' " : "") +
+                $"(max {iterations}) with model override '{model ?? "(none)"}'"
             );
 
-            // Build raw prompts — Act() calls ProcessPrompt() which adds the
-            // RBA wrapper (Role, Criteria, Intent) exactly once.
-            string startPrompt = prompt;
+            // — Build the loop ———————————————————————————————————————————————
 
-            // The continue prompt embeds the previous result so the LLM has
-            // context — each gh copilot -p call is completely stateless.
-            Func<string, string> continuePrompt = previousResult =>
-                $"You are continuing a task. Here is your previous response:\n\n" +
-                $"---\n{previousResult}\n---\n\n" +
-                $"Continue where you left off. " +
-                $"If you are finished, respond with: {WallyLoop.CompletedKeyword}\n" +
-                $"If something went wrong, respond with: {WallyLoop.ErrorKeyword}";
-
-            // Track iteration count so each prompt/response pair is numbered in the log.
             int iterationNumber = 0;
             string? resolvedModel = model ?? env.Workspace!.Config.DefaultModel;
 
-            var loop = new WallyLoop(
-                action: currentPrompt =>
-                {
-                    iterationNumber++;
+            Func<string, string> actorAction = currentPrompt =>
+            {
+                iterationNumber++;
+                env.Logger.LogPrompt(actor.Name, currentPrompt, resolvedModel);
 
-                    // Log the raw prompt for this iteration.
-                    env.Logger.LogPrompt(actor.Name, currentPrompt, resolvedModel);
+                if (!string.IsNullOrWhiteSpace(model))
+                    actor.ModelOverride = model;
 
-                    // Re-apply the model override — Act() clears it after each call.
-                    if (!string.IsNullOrWhiteSpace(model))
-                        actor.ModelOverride = model;
+                var sw = System.Diagnostics.Stopwatch.StartNew();
+                string result = actor.Act(currentPrompt);
+                sw.Stop();
 
-                    var sw = System.Diagnostics.Stopwatch.StartNew();
-                    string result = actor.Act(currentPrompt);
-                    sw.Stop();
+                env.Logger.LogResponse(actor.Name, result, sw.ElapsedMilliseconds, iterationNumber);
+                return result;
+            };
 
-                    // Log the response for this iteration.
-                    env.Logger.LogResponse(actor.Name, result, sw.ElapsedMilliseconds, iterationNumber);
+            WallyLoop loop;
+            if (loopDef != null)
+            {
+                // Use the definition-driven factory — it wires up start prompt,
+                // continue prompt template, and custom keywords.
+                loop = WallyLoop.FromDefinition(loopDef, prompt, actorAction, iterations);
+            }
+            else
+            {
+                // Original inline behaviour — hardcoded prompts.
+                string startPrompt = prompt;
+                Func<string, string> continuePrompt = previousResult =>
+                    $"You are continuing a task. Here is your previous response:\n\n" +
+                    $"---\n{previousResult}\n---\n\n" +
+                    $"Continue where you left off. " +
+                    $"If you are finished, respond with: {WallyLoop.CompletedKeyword}\n" +
+                    $"If something went wrong, respond with: {WallyLoop.ErrorKeyword}";
 
-                    return result;
-                },
-                startPrompt:     startPrompt,
-                continuePrompt:  continuePrompt,
-                maxIterations:   iterations
-            );
+                loop = new WallyLoop(actorAction, startPrompt, continuePrompt, iterations);
+            }
 
-            Console.WriteLine($"[run-loop] Actor: {actor.Name}  MaxIterations: {iterations}");
+            // — Execute ??????????????????????????????????????????????????????
+
+            string loopLabel = loopDef != null ? $"[run-loop:{loopDef.Name}]" : "[run-loop]";
+            Console.WriteLine($"{loopLabel} Actor: {actor.Name}  MaxIterations: {iterations}");
             Console.WriteLine();
 
             loop.Run();
 
-            // Print each iteration result.
             for (int i = 0; i < loop.Results.Count; i++)
             {
                 Console.WriteLine($"--- Iteration {i + 1} ---");
@@ -221,17 +245,16 @@ namespace Wally.Core
                 Console.WriteLine();
             }
 
-            // Summary based on stop reason.
             switch (loop.StopReason)
             {
                 case LoopStopReason.Completed:
-                    Console.WriteLine($"[run-loop] Loop completed after {loop.ExecutionCount} iteration(s).");
+                    Console.WriteLine($"{loopLabel} Loop completed after {loop.ExecutionCount} iteration(s).");
                     break;
                 case LoopStopReason.Error:
-                    Console.WriteLine($"[run-loop] Loop stopped by error after {loop.ExecutionCount} iteration(s).");
+                    Console.WriteLine($"{loopLabel} Loop stopped by error after {loop.ExecutionCount} iteration(s).");
                     break;
                 case LoopStopReason.MaxIterations:
-                    Console.WriteLine($"[run-loop] Loop reached max iterations ({loop.ExecutionCount}).");
+                    Console.WriteLine($"{loopLabel} Loop reached max iterations ({loop.ExecutionCount}).");
                     break;
             }
 
@@ -299,6 +322,10 @@ namespace Wally.Core
             foreach (var a in ws.Actors)
                 Console.WriteLine($"  {a.Name}");
 
+            Console.WriteLine($"Loops loaded:      {ws.Loops.Count}");
+            foreach (var l in ws.Loops)
+                Console.WriteLine($"  {l.Name}{(string.IsNullOrWhiteSpace(l.Description) ? "" : $" — {l.Description}")}");
+
             Console.WriteLine();
             Console.WriteLine($"Default model:     {(string.IsNullOrWhiteSpace(cfg.DefaultModel) ? "(copilot default)" : cfg.DefaultModel)}");
             if (cfg.Models.Count > 0)
@@ -322,6 +349,33 @@ namespace Wally.Core
             Console.WriteLine($"Actors reloaded: {env.Actors.Count}");
             foreach (var a in env.Actors)
                 Console.WriteLine($"  {a.Name}");
+        }
+
+        /// <summary>Lists all loaded loop definitions with their descriptions and settings.</summary>
+        public static void HandleListLoops(WallyEnvironment env)
+        {
+            if (RequireWorkspace(env, "list-loops") == null) return;
+            env.Logger.LogCommand("list-loops");
+
+            var loops = env.Loops;
+            Console.WriteLine($"Loop definitions ({loops.Count}):");
+            if (loops.Count == 0)
+            {
+                Console.WriteLine($"  (none — add .json files to {env.WorkspaceFolder}/Loops/)");
+                return;
+            }
+
+            foreach (var loop in loops)
+            {
+                Console.WriteLine($"  [{loop.Name}]");
+                if (!string.IsNullOrWhiteSpace(loop.Description))
+                    Console.WriteLine($"    Description:    {loop.Description}");
+                Console.WriteLine($"    Actor:          {(string.IsNullOrWhiteSpace(loop.ActorName) ? "(caller must specify)" : loop.ActorName)}");
+                Console.WriteLine($"    MaxIterations:  {(loop.MaxIterations > 0 ? loop.MaxIterations.ToString() : "(workspace default)")}");
+                Console.WriteLine($"    Completed:      {loop.ResolvedCompletedKeyword}");
+                Console.WriteLine($"    Error:          {loop.ResolvedErrorKeyword}");
+                PrintRbaLine("    StartPrompt", loop.StartPrompt);
+            }
         }
 
         // — Cleanup ———————————————————————————————————————————————————————————
@@ -396,8 +450,10 @@ namespace Wally.Core
             Console.WriteLine("  commands                         Show this help message.");
             Console.WriteLine();
             Console.WriteLine("  run <actor> \"<prompt>\" [-m model] Run an actor on a prompt.");
-            Console.WriteLine("  run-loop <actor> \"<prompt>\" [-m model] [-n max]");
+            Console.WriteLine("  run-loop <actor> \"<prompt>\" [-m model] [-n max] [-l loop]");
             Console.WriteLine("                                   Run an actor in an iterative loop.");
+            Console.WriteLine("                                   -l <name> uses a loop definition from the Loops/ folder.");
+            Console.WriteLine("  list-loops                       List all loop definitions and their settings.");
             Console.WriteLine("  save <path>                      Save config and actor files to disk.");
             Console.WriteLine("  reload-actors                    Re-read actor folders from disk.");
             Console.WriteLine("  cleanup [<path>]                 Delete the local .wally/ folder so setup can run fresh.");
@@ -413,6 +469,7 @@ namespace Wally.Core
             Console.WriteLine("  .\\wally run BusinessAnalyst \"Write requirements for user authentication\"");
             Console.WriteLine("  .\\wally run Stakeholder \"Define success criteria for the reporting dashboard\"");
             Console.WriteLine("  .\\wally run-loop Engineer \"Refactor error handling across the project\" -n 5");
+            Console.WriteLine("  .\\wally run-loop Engineer \"Review the auth module\" -l CodeReview");
             Console.WriteLine("  .\\wally run Engineer \"Explain this module\" -m claude-sonnet-4");
         }
 

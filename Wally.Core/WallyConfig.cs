@@ -65,6 +65,14 @@ namespace Wally.Core
         public string TemplatesFolderName { get; set; } = "Templates";
 
         /// <summary>
+        /// Subfolder inside the workspace folder that holds loop definition
+        /// JSON files. Each <c>.json</c> file defines a reusable
+        /// <see cref="WallyLoop"/> with its actor, prompts, and stop conditions.
+        /// Default: <c>Loops</c>.
+        /// </summary>
+        public string LoopsFolderName { get; set; } = "Loops";
+
+        /// <summary>
         /// How often (in minutes) the session logger rotates to a new log file.
         /// Each file covers roughly this time window. Set to <c>0</c> to disable
         /// rotation (single file per session). Default: <c>2</c>.

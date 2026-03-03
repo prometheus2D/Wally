@@ -18,5 +18,9 @@ namespace Wally.Console.Options
         [Option('n', "max-iterations", Required = false, Default = 0,
             HelpText = "Maximum loop iterations. 0 uses the workspace config MaxIterations.")]
         public int MaxIterations { get; set; }
+
+        [Option('l', "loop", Required = false, Default = null,
+            HelpText = "Name of a loop definition from the Loops/ folder (e.g. CodeReview, Refactor).")]
+        public string LoopName { get; set; }
     }
 }
