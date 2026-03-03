@@ -98,25 +98,10 @@ namespace Wally.Core
                 : $"Running all actors with model override '{model ?? "(none)"}'"
             );
 
-            // Apply per-run model override to the target actor(s).
-            if (!string.IsNullOrWhiteSpace(model))
-            {
-                if (!string.IsNullOrEmpty(actorName))
-                {
-                    var actor = env.GetActor(actorName);
-                    if (actor != null) actor.ModelOverride = model;
-                }
-                else
-                {
-                    foreach (var a in env.Actors) a.ModelOverride = model;
-                }
-            }
-
             var responses = !string.IsNullOrEmpty(actorName)
-                ? env.RunActor(prompt, actorName)
-                : env.RunActors(prompt);
+                ? env.RunActor(prompt, actorName, model)
+                : env.RunActors(prompt, model);
 
-            // Print a role header before each response for console context.
             foreach (var response in responses)
             {
                 Console.WriteLine(response);
@@ -133,9 +118,9 @@ namespace Wally.Core
         /// Runs an actor inside a <see cref="WallyLoop"/>. When <paramref name="loopName"/>
         /// is provided, the loop definition is loaded from disk and used instead of the
         /// default inline prompts. On each subsequent iteration the previous result is
-        /// embedded in the prompt so the LLM has full context (each <c>gh copilot -p</c>
-        /// call is stateless). The loop ends when the response contains the completion
-        /// keyword, the error keyword, or <paramref name="maxIterations"/> is reached.
+        /// embedded in the prompt so the LLM has full context (each call is stateless).
+        /// The loop ends when the response contains the completion keyword, the error
+        /// keyword, or <paramref name="maxIterations"/> is reached.
         /// </summary>
         public static List<string> HandleRunLoop(
             WallyEnvironment env, string prompt, string actorName,
@@ -174,10 +159,6 @@ namespace Wally.Core
                 return new List<string>();
             }
 
-            // Apply per-run model override.
-            if (!string.IsNullOrWhiteSpace(model))
-                actor.ModelOverride = model;
-
             int iterations = maxIterations > 0
                 ? maxIterations
                 : (loopDef?.MaxIterations > 0 ? loopDef.MaxIterations : env.Workspace!.Config.MaxIterations);
@@ -198,12 +179,8 @@ namespace Wally.Core
                 iterationNumber++;
                 env.Logger.LogPrompt(actor.Name, currentPrompt, resolvedModel);
 
-                // Re-apply model override — Act() clears it after each call.
-                if (!string.IsNullOrWhiteSpace(model))
-                    actor.ModelOverride = model;
-
                 var sw = System.Diagnostics.Stopwatch.StartNew();
-                string result = actor.Act(currentPrompt);
+                string result = env.ExecuteActor(actor, currentPrompt, model);
                 sw.Stop();
 
                 env.Logger.LogResponse(actor.Name, result, sw.ElapsedMilliseconds, iterationNumber);
@@ -328,6 +305,7 @@ namespace Wally.Core
                 Console.WriteLine($"  {l.Name}{(string.IsNullOrWhiteSpace(l.Description) ? "" : $" — {l.Description}")}");
 
             Console.WriteLine();
+            Console.WriteLine($"Default provider:  {(string.IsNullOrWhiteSpace(cfg.DefaultProvider) ? "Copilot" : cfg.DefaultProvider)}");
             Console.WriteLine($"Default model:     {(string.IsNullOrWhiteSpace(cfg.DefaultModel) ? "(copilot default)" : cfg.DefaultModel)}");
             if (cfg.Models.Count > 0)
             {

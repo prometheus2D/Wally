@@ -627,8 +627,7 @@ namespace Wally.Forms.Controls
                 var responses = await Task.Run(() =>
                 {
                     token.ThrowIfCancellationRequested();
-                    ApplyModelOverride(actorName, modelOverride);
-                    return _environment!.RunActor(prompt, actorName);
+                    return _environment!.RunActor(prompt, actorName, modelOverride);
                 }, token);
 
                 foreach (string response in responses)
@@ -670,7 +669,6 @@ namespace Wally.Forms.Controls
                 await Task.Run(() =>
                 {
                     token.ThrowIfCancellationRequested();
-                    ApplyModelOverride(actorName, modelOverride);
 
                     var actor = _environment.GetActor(actorName);
                     if (actor == null)
@@ -684,17 +682,12 @@ namespace Wally.Forms.Controls
                     {
                         token.ThrowIfCancellationRequested();
 
-                        // Re-apply model override each iteration (Act clears it).
-                        if (!string.IsNullOrWhiteSpace(modelOverride))
-                            actor.ModelOverride = modelOverride;
-
-                        string result = actor.Act(currentPrompt);
+                        string result = _environment.ExecuteActor(actor, currentPrompt, modelOverride);
 
                         AddMessage($"{actorName} [{i}/{maxIter}]", result ?? "(no response)", MessageKind.Actor);
 
                         if (result == null) break;
 
-                        // Check for completion/error signals.
                         string upper = result.ToUpperInvariant();
                         if (upper.Contains("WALLY_COMPLETED"))
                         {
@@ -707,7 +700,6 @@ namespace Wally.Forms.Controls
                             break;
                         }
 
-                        // Build continue prompt with previous result as context.
                         currentPrompt =
                             $"You are continuing a task. Here is your previous response:\n\n" +
                             $"---\n{result}\n---\n\n" +
@@ -754,12 +746,9 @@ namespace Wally.Forms.Controls
                     {
                         token.ThrowIfCancellationRequested();
 
-                        if (!string.IsNullOrWhiteSpace(modelOverride))
-                            actor.ModelOverride = modelOverride;
-
                         AddMessage("System", $"Running {actor.Name}\u2026", MessageKind.Actor);
 
-                        string result = actor.Act(prompt);
+                        string result = _environment.ExecuteActor(actor, prompt, modelOverride);
 
                         AddMessage(actor.Name,
                             result != null ? $"[Role: {actor.Role.Name}]\n{result}" : "(no response)",
@@ -784,12 +773,7 @@ namespace Wally.Forms.Controls
 
         // ?? Helpers ?????????????????????????????????????????????????????????
 
-        private void ApplyModelOverride(string actorName, string? modelOverride)
-        {
-            if (string.IsNullOrWhiteSpace(modelOverride)) return;
-            var actor = _environment?.GetActor(actorName);
-            if (actor != null) actor.ModelOverride = modelOverride;
-        }
+        // ApplyModelOverride removed — model is now passed to env.ExecuteActor/RunActor directly.
 
         // ?? Message rendering ???????????????????????????????????????????????
 

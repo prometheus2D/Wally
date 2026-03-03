@@ -73,6 +73,14 @@ namespace Wally.Core
         public string LoopsFolderName { get; set; } = "Loops";
 
         /// <summary>
+        /// Subfolder inside the workspace folder that holds LLM provider
+        /// definition JSON files. Each <c>.json</c> file maps a logical
+        /// provider name to a concrete provider type.
+        /// Default: <c>Providers</c>.
+        /// </summary>
+        public string ProvidersFolderName { get; set; } = "Providers";
+
+        /// <summary>
         /// How often (in minutes) the session logger rotates to a new log file.
         /// Each file covers roughly this time window. Set to <c>0</c> to disable
         /// rotation (single file per session). Default: <c>2</c>.
@@ -103,6 +111,16 @@ namespace Wally.Core
 
         /// <summary>Maximum number of iterations in iterative actor runs.</summary>
         public int MaxIterations { get; set; } = 10;
+
+        /// <summary>
+        /// The name of the LLM provider to use when running actors.
+        /// Must match a known provider name (case-insensitive):
+        /// <list type="bullet">
+        ///   <item><c>"Copilot"</c> — read-only, runs <c>gh copilot -p</c> (default).</item>
+        ///   <item><c>"AutoCopilot"</c> — agentic, runs <c>gh copilot -i --yolo</c> (can edit files).</item>
+        /// </list>
+        /// </summary>
+        public string DefaultProvider { get; set; } = "Copilot";
 
         // — Factory ———————————————————————————————————————————————————————————
 

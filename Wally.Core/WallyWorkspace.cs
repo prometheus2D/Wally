@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text.Json.Serialization;
 using Wally.Core.Actors;
+using Wally.Core.Providers;
 
 namespace Wally.Core
 {
@@ -57,8 +58,9 @@ namespace Wally.Core
         // — Actor list ————————————————————————————————————————————————————————
 
         /// <summary>
-        /// One <see cref="CopilotActor"/> per actor folder under <c>Actors/</c>.
-        /// Each actor carries its own private RBA — no shared state.
+        /// One <see cref="Actor"/> per actor folder under <c>Actors/</c>.
+        /// Each actor carries its own private RBA and an <see cref="LlmWrapper"/>
+        /// for execution — no shared state.
         /// </summary>
         [JsonIgnore]
         public List<Actor> Actors { get; private set; } = new();
@@ -69,6 +71,13 @@ namespace Wally.Core
         /// </summary>
         [JsonIgnore]
         public List<WallyLoopDefinition> Loops { get; private set; } = new();
+
+        /// <summary>
+        /// LLM wrappers loaded from the <c>Providers/</c> folder.
+        /// Each defines a complete CLI recipe for calling an LLM backend.
+        /// </summary>
+        [JsonIgnore]
+        public List<LlmWrapper> LlmWrappers { get; private set; } = new();
 
         // — Static factory ————————————————————————————————————————————————————
 
@@ -95,6 +104,7 @@ namespace Wally.Core
 
             WorkspaceFolder = workspaceFolder;
             WorkSource = Path.GetDirectoryName(WorkspaceFolder)!;
+            LlmWrappers = WallyHelper.LoadLlmWrappers(WorkspaceFolder, Config);
             Actors = WallyHelper.LoadActors(WorkspaceFolder, Config, this);
             Loops = WallyHelper.LoadLoopDefinitions(WorkspaceFolder, Config);
         }
@@ -123,11 +133,13 @@ namespace Wally.Core
 
         /// <summary>
         /// Re-reads all actor folders from disk and rebuilds <see cref="Actors"/>.
+        /// Also reloads LLM wrappers to pick up changes.
         /// Use after adding or editing actor folders on disk mid-session.
         /// </summary>
         public void ReloadActors()
         {
             RequireLoaded();
+            LlmWrappers = WallyHelper.LoadLlmWrappers(WorkspaceFolder, Config);
             Actors = WallyHelper.LoadActors(WorkspaceFolder, Config, this);
         }
 
@@ -140,7 +152,17 @@ namespace Wally.Core
             Loops = WallyHelper.LoadLoopDefinitions(WorkspaceFolder, Config);
         }
 
-        // — Guard ————————————————————————————————————————————————————————————
+        /// <summary>
+        /// Re-reads all LLM wrapper files from disk and rebuilds
+        /// <see cref="LlmWrappers"/>.
+        /// </summary>
+        public void ReloadProviders()
+        {
+            RequireLoaded();
+            LlmWrappers = WallyHelper.LoadLlmWrappers(WorkspaceFolder, Config);
+        }
+
+        // — Guard ———————————————————————————————————————————————————————————­
 
         public void RequireLoaded()
         {

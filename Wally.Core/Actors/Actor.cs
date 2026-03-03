@@ -9,11 +9,15 @@ using Wally.Core.RBA;
 namespace Wally.Core.Actors
 {
     /// <summary>
-    /// Abstract base class for Wally Actors.
-    /// Each Actor is given a <see cref="WallyWorkspace"/> reference at construction time
-    /// so that <see cref="ProcessPrompt"/> can enrich prompts with workspace context.
+    /// Represents a Wally Actor — a personality defined by RBA prompts
+    /// (Role, AcceptanceCriteria, Intent).
+    /// <para>
+    /// The actor owns the personality and prompt enrichment pipeline.
+    /// It knows nothing about LLM wrappers or execution — that is the
+    /// responsibility of <see cref="WallyEnvironment"/>.
+    /// </para>
     /// </summary>
-    public abstract class Actor
+    public class Actor
     {
         // — Identity ——————————————————————————————————————————————————————————
 
@@ -53,28 +57,18 @@ namespace Wally.Core.Actors
 
         /// <summary>
         /// Optional session logger injected by <see cref="WallyEnvironment"/>.
-        /// When set, the actor pipeline logs the processed prompt and responses
-        /// at each stage of <see cref="Act"/>.
+        /// When set, the actor pipeline logs the processed prompt at each stage.
         /// </summary>
         public SessionLogger? Logger { get; set; }
-
-        // — Runtime overrides ———————————————————————————————————————————
-
-        /// <summary>
-        /// When set, overrides <see cref="WallyConfig.DefaultModel"/> for the
-        /// current run. Cleared after each <see cref="Act"/> call so it does not
-        /// leak into subsequent invocations.
-        /// </summary>
-        public string? ModelOverride { get; set; }
 
         // — Constructor ———————————————————————————————————————————————————————
 
         /// <summary>
         /// Initializes an Actor with RBA components and an optional workspace.
         /// </summary>
-        protected Actor(string name, string folderPath,
-                        Role role, AcceptanceCriteria acceptanceCriteria, Intent intent,
-                        WallyWorkspace? workspace = null)
+        public Actor(string name, string folderPath,
+                     Role role, AcceptanceCriteria acceptanceCriteria, Intent intent,
+                     WallyWorkspace? workspace = null)
         {
             Name               = name;
             FolderPath         = folderPath;
@@ -90,7 +84,6 @@ namespace Wally.Core.Actors
         /// Generates a standard prompt from this actor's RBA components
         /// (Role, AcceptanceCriteria, Intent) with no user input.
         /// </summary>
-        /// <returns>A formatted prompt string built from the actor's RBA identity.</returns>
         public virtual string GeneratePrompt()
         {
             return GeneratePrompt(null);
@@ -125,23 +118,18 @@ namespace Wally.Core.Actors
             return sb.ToString().TrimEnd();
         }
 
-        // — Overridable pipeline ——————————————————————————————————————————————
+        // — Pipeline ——————————————————————————————————————————————————————————
 
-        /// <summary>Called once before every <see cref="Act"/> to perform any setup.</summary>
+        /// <summary>Called once before prompt processing to perform any setup.</summary>
         public virtual void Setup() { }
 
         /// <summary>
-        /// Enriches <paramref name="prompt"/> with the actor's RBA context
-        /// before it is passed to <see cref="Respond"/> or
-        /// <see cref="ApplyCodeChanges"/>.
+        /// Enriches <paramref name="prompt"/> with the actor's RBA context.
         /// <para>
         /// When the actor has a <c>Docs/</c> folder on disk, the files it contains
         /// are listed in a <c>## Documentation Context</c> section so the LLM knows
         /// they exist and can reference them. Workspace-level docs are included too.
-        /// The files themselves are accessible to <c>gh copilot</c> via <c>--add-dir</c>.
         /// </para>
-        /// Override to customise prompt shaping; call <c>base.ProcessPrompt</c> to retain
-        /// the default enrichment.
         /// </summary>
         public virtual string ProcessPrompt(string prompt)
         {
@@ -178,49 +166,6 @@ namespace Wally.Core.Actors
             sb.AppendLine(prompt);
 
             return sb.ToString().TrimEnd();
-        }
-
-        /// <summary>
-        /// Returns <see langword="true"/> when this Actor wants to apply code changes
-        /// rather than return a text response.
-        /// </summary>
-        public virtual bool ShouldMakeChanges(string processedPrompt) => false;
-
-        /// <summary>Applies code changes directly based on the processed prompt.</summary>
-        public virtual void ApplyCodeChanges(string processedPrompt) { }
-
-        /// <summary>Generates a text response based on the processed prompt.</summary>
-        public abstract string Respond(string processedPrompt);
-
-        // — Entry point ———————————————————————————————————————————————————————
-
-        /// <summary>
-        /// Runs the full actor pipeline: Setup ? ProcessPrompt ? (ApplyCodeChanges | Respond).
-        /// Returns the text response, or <see langword="null"/> when code changes were applied.
-        /// </summary>
-        public string Act(string prompt)
-        {
-            Setup();
-            string processed = ProcessPrompt(prompt);
-
-            // Log the full enriched prompt that will be sent to the CLI.
-            string? model = ModelOverride ?? Workspace?.Config?.DefaultModel;
-            Logger?.LogProcessedPrompt(Name, processed, model);
-
-            try
-            {
-                if (ShouldMakeChanges(processed))
-                {
-                    ApplyCodeChanges(processed);
-                    return null;
-                }
-                return Respond(processed);
-            }
-            finally
-            {
-                // Clear the per-run override so it doesn't leak.
-                ModelOverride = null;
-            }
         }
 
         // — Documentation helpers ——————————————————————————————————————————

@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text.Json;
 using Wally.Core.Actors;
+using Wally.Core.Providers;
 using Wally.Core.RBA;
 
 namespace Wally.Core
@@ -52,18 +54,6 @@ namespace Wally.Core
 
         /// <summary>
         /// Scaffolds a complete workspace at <paramref name="workspaceFolder"/>.
-        /// <para>
-        /// If the exe's <c>Default/</c> template folder exists, its entire contents
-        /// are copied recursively into <paramref name="workspaceFolder"/> without
-        /// overwriting any existing files.  This gives the new workspace the exact
-        /// same folder structure and JSON files that ship with the application.
-        /// </para>
-        /// <para>
-        /// When no template folder is available (e.g. running from a unit-test host),
-        /// a minimal <c>wally-config.json</c> is serialised from
-        /// <paramref name="config"/> (or <see cref="WallyConfig"/> defaults).
-        /// The workspace-level <c>Docs/</c> folder is always created.
-        /// </para>
         /// </summary>
         public static void CreateDefaultWorkspace(string workspaceFolder, WallyConfig config = null)
         {
@@ -84,43 +74,39 @@ namespace Wally.Core
                     config.SaveToFile(destConfig);
             }
 
-            // Ensure the workspace-level Docs folder exists.
             config ??= new WallyConfig();
-            string docsFolder = Path.Combine(workspaceFolder, config.DocsFolderName);
-            Directory.CreateDirectory(docsFolder);
+            // Ensure the workspace-level Docs folder exists.
+            Directory.CreateDirectory(Path.Combine(workspaceFolder, config.DocsFolderName));
 
             // Ensure the Loops folder exists.
-            string loopsFolder = Path.Combine(workspaceFolder, config.LoopsFolderName);
-            Directory.CreateDirectory(loopsFolder);
+            Directory.CreateDirectory(Path.Combine(workspaceFolder, config.LoopsFolderName));
+
+            // Ensure the Providers folder exists.
+            Directory.CreateDirectory(Path.Combine(workspaceFolder, config.ProvidersFolderName));
         }
 
         // — Actor loading ———————————————————————————————————————————————————
 
         /// <summary>
         /// Reads every actor subfolder under <c>&lt;workspaceFolder&gt;/Actors/</c> and
-        /// returns one <see cref="CopilotActor"/> per folder.
+        /// returns one <see cref="Actor"/> per folder.
         /// Missing <c>actor.json</c> produces an empty-prompt actor rather than an error.
         /// If no actors are found on disk, loads default actors from the template folder.
         /// </summary>
         public static List<Actor> LoadActors(
             string workspaceFolder, WallyConfig config, WallyWorkspace workspace = null)
         {
-            var actors   = new List<Actor>();
+            var actors = new List<Actor>();
             string actorsDir = Path.Combine(workspaceFolder, config.ActorsFolderName);
             if (Directory.Exists(actorsDir))
             {
                 foreach (string actorDir in Directory.GetDirectories(actorsDir))
-                {
-                    var actor = LoadActorFromDirectory(actorDir, workspace);
-                    actors.Add(actor);
-                }
+                    actors.Add(LoadActorFromDirectory(actorDir, workspace));
             }
 
-            // If no actors loaded from disk, load defaults from the template folder
+            // If no actors loaded from disk, load defaults from the template folder.
             if (actors.Count == 0)
-            {
                 actors.AddRange(LoadDefaultActors(config, workspace));
-            }
 
             return actors;
         }
@@ -216,6 +202,7 @@ namespace Wally.Core
             CheckDir(issues, workspaceFolder, config.DocsFolderName);
             CheckDir(issues, workspaceFolder, config.TemplatesFolderName);
             CheckDir(issues, workspaceFolder, config.LoopsFolderName);
+            CheckDir(issues, workspaceFolder, config.ProvidersFolderName);
             CheckDir(issues, workspaceFolder, config.LogsFolderName);
 
             string actorsDir = Path.Combine(workspaceFolder, config.ActorsFolderName);
@@ -320,6 +307,41 @@ namespace Wally.Core
                 CopyDirectory(subDir, Path.Combine(destDir, Path.GetFileName(subDir)));
         }
 
+        // — LLM wrapper loading ——————————————————————————————————————————
+
+        /// <summary>
+        /// Loads all LLM wrapper JSON files from
+        /// <c>&lt;workspaceFolder&gt;/Providers/</c>.
+        /// Falls back to the Default template folder when none are found.
+        /// </summary>
+        public static List<LlmWrapper> LoadLlmWrappers(
+            string workspaceFolder, WallyConfig config)
+        {
+            string providersDir = Path.Combine(workspaceFolder, config.ProvidersFolderName);
+            var wrappers = LlmWrapper.LoadFromFolder(providersDir);
+
+            // Fallback: load from shipped Default template if workspace has none.
+            if (wrappers.Count == 0)
+            {
+                string defaultDir = Path.Combine(GetDefaultTemplateFolder(), config.ProvidersFolderName);
+                wrappers = LlmWrapper.LoadFromFolder(defaultDir);
+            }
+
+            return wrappers;
+        }
+
+        /// <summary>
+        /// Finds the <see cref="LlmWrapper"/> whose <see cref="LlmWrapper.Name"/>
+        /// matches <paramref name="providerName"/> (case-insensitive).
+        /// Returns <see langword="null"/> when not found.
+        /// </summary>
+        public static LlmWrapper? ResolveWrapper(
+            string providerName, List<LlmWrapper> wrappers)
+        {
+            return wrappers.FirstOrDefault(w =>
+                string.Equals(w.Name, providerName, StringComparison.OrdinalIgnoreCase));
+        }
+
         // — Loop definition loading ————————————————————————————————————————
 
         /// <summary>
@@ -372,11 +394,6 @@ namespace Wally.Core
             }
         }
 
-        /// <summary>
-        /// Loads default actors from the <c>Default/Actors/</c> template folder that
-        /// ships alongside the executable. Returns an empty list when the template
-        /// folder is not present (e.g. running from a unit-test host).
-        /// </summary>
         private static List<Actor> LoadDefaultActors(WallyConfig config, WallyWorkspace workspace)
         {
             var actors = new List<Actor>();
@@ -385,20 +402,11 @@ namespace Wally.Core
             if (!Directory.Exists(defaultActorsDir)) return actors;
 
             foreach (string actorDir in Directory.GetDirectories(defaultActorsDir))
-            {
-                var actor = LoadActorFromDirectory(actorDir, workspace, isFallback: true);
-                actors.Add(actor);
-            }
+                actors.Add(LoadActorFromDirectory(actorDir, workspace, isFallback: true));
 
             return actors;
         }
 
-        /// <summary>
-        /// Reads a single actor from <paramref name="actorDir"/> (which must contain
-        /// an <c>actor.json</c>).  When <paramref name="isFallback"/> is true the actor's
-        /// <see cref="Actor.FolderPath"/> is set to <see cref="string.Empty"/> because
-        /// it does not represent a workspace-local folder.
-        /// </summary>
         private static Actor LoadActorFromDirectory(
             string actorDir, WallyWorkspace? workspace, bool isFallback = false)
         {
@@ -432,7 +440,7 @@ namespace Wally.Core
                 }
             }
 
-            var actor = new CopilotActor(
+            var actor = new Actor(
                 name,
                 isFallback ? string.Empty : actorDir,
                 new Role(name, rolePrompt),
@@ -441,7 +449,6 @@ namespace Wally.Core
                 workspace);
 
             actor.DocsFolderName = docsFolderName;
-
             return actor;
         }
 

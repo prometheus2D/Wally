@@ -6,6 +6,7 @@ using System.Linq;
 using System.Text.Json.Serialization;
 using Wally.Core.Actors;
 using Wally.Core.Logging;
+using Wally.Core.Providers;
 
 namespace Wally.Core
 {
@@ -181,18 +182,59 @@ namespace Wally.Core
             Loops.FirstOrDefault(l =>
                 string.Equals(l.Name, name, StringComparison.OrdinalIgnoreCase));
 
+        // — LLM wrapper resolution ———————————————————————————————————————————
+
+        /// <summary>
+        /// Returns the active <see cref="LlmWrapper"/> for this workspace,
+        /// resolved from <see cref="WallyConfig.DefaultProvider"/>.
+        /// Throws if no wrapper matches the config.
+        /// </summary>
+        public LlmWrapper ResolveWrapper()
+        {
+            var ws = RequireWorkspace();
+            var wrapper = WallyHelper.ResolveWrapper(ws.Config.DefaultProvider, ws.LlmWrappers);
+            if (wrapper == null)
+                throw new InvalidOperationException(
+                    $"No LLM wrapper found for provider '{ws.Config.DefaultProvider}'. " +
+                    $"Check the Providers/ folder in your workspace.");
+            return wrapper;
+        }
+
         // — Running actors ————————————————————————————————————————————————————
 
-        public List<string> RunActors(string prompt)
+        /// <summary>
+        /// Executes a single actor: Setup ? ProcessPrompt ? LlmWrapper.Execute.
+        /// <paramref name="modelOverride"/> takes priority over <see cref="WallyConfig.DefaultModel"/>.
+        /// </summary>
+        public string ExecuteActor(Actor actor, string prompt, string? modelOverride = null)
+        {
+            var wrapper = ResolveWrapper();
+            var ws = Workspace!;
+
+            actor.Setup();
+            string processed = actor.ProcessPrompt(prompt);
+
+            // Resolve model: explicit override ? config default.
+            bool isDefaultKeyword = string.Equals(modelOverride, "default", StringComparison.OrdinalIgnoreCase);
+            string? model = !string.IsNullOrWhiteSpace(modelOverride) && !isDefaultKeyword
+                ? modelOverride
+                : ws.Config.DefaultModel;
+
+            Logger.LogProcessedPrompt(actor.Name, processed, model);
+
+            return wrapper.Execute(processed, ws.SourcePath, model, Logger);
+        }
+
+        public List<string> RunActors(string prompt, string? modelOverride = null)
         {
             RequireWorkspace();
             var responses = new List<string>();
             foreach (var actor in Actors)
             {
-                Logger.LogPrompt(actor.Name, prompt, actor.ModelOverride ?? Workspace!.Config.DefaultModel);
+                Logger.LogPrompt(actor.Name, prompt, modelOverride ?? Workspace!.Config.DefaultModel);
                 var sw = Stopwatch.StartNew();
 
-                string response = actor.Act(prompt);
+                string response = ExecuteActor(actor, prompt, modelOverride);
 
                 sw.Stop();
                 Logger.LogResponse(actor.Name, response, sw.ElapsedMilliseconds);
@@ -203,7 +245,7 @@ namespace Wally.Core
             return responses;
         }
 
-        public List<string> RunActor(string prompt, string actorName)
+        public List<string> RunActor(string prompt, string actorName, string? modelOverride = null)
         {
             RequireWorkspace();
             var actor = Actors.Find(a =>
@@ -217,10 +259,10 @@ namespace Wally.Core
                 return new List<string> { $"Actor '{actorName}' not found." };
             }
 
-            Logger.LogPrompt(actor.Name, prompt, actor.ModelOverride ?? Workspace!.Config.DefaultModel);
+            Logger.LogPrompt(actor.Name, prompt, modelOverride ?? Workspace!.Config.DefaultModel);
             var sw = Stopwatch.StartNew();
 
-            string response = actor.Act(prompt);
+            string response = ExecuteActor(actor, prompt, modelOverride);
 
             sw.Stop();
             Logger.LogResponse(actor.Name, response, sw.ElapsedMilliseconds);
