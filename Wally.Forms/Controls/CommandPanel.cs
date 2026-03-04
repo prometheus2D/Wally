@@ -38,8 +38,13 @@ namespace Wally.Forms.Controls
         private static readonly string[] KnownCommands =
         {
             "setup", "load", "save", "run", "runbook", "list", "list-loops",
-            "list-runbooks", "info", "reload-actors", "cleanup", "commands",
-            "help", "clear", "cls"
+            "list-wrappers", "list-runbooks", "info", "reload-actors", "cleanup",
+            "commands", "help", "tutorial",
+            "add-actor", "edit-actor", "delete-actor",
+            "add-loop", "edit-loop", "delete-loop",
+            "add-wrapper", "edit-wrapper", "delete-wrapper",
+            "add-runbook", "edit-runbook", "delete-runbook",
+            "clear", "cls"
         };
 
         // ?? Events ??????????????????????????????????????????????????????????
@@ -338,6 +343,42 @@ namespace Wally.Forms.Controls
                     AppendStyledLine($"  {string.Join("  ", rbMatches)}", WallyTheme.TextMuted);
                 }
             }
+            else if (verb is "edit-actor" or "delete-actor" && !partial.Contains(' ') && _environment?.HasWorkspace == true)
+            {
+                var matches = _environment.Actors
+                    .Select(a => a.Name)
+                    .Where(n => n.StartsWith(partial, StringComparison.OrdinalIgnoreCase))
+                    .ToArray();
+                if (matches.Length == 1) { _txtInput.Text = $"{verb} {matches[0]} "; _txtInput.SelectionStart = _txtInput.Text.Length; }
+                else if (matches.Length > 1) AppendStyledLine($"  {string.Join("  ", matches)}", WallyTheme.TextMuted);
+            }
+            else if (verb is "edit-loop" or "delete-loop" && !partial.Contains(' ') && _environment?.HasWorkspace == true)
+            {
+                var matches = _environment.Loops
+                    .Select(l => l.Name)
+                    .Where(n => n.StartsWith(partial, StringComparison.OrdinalIgnoreCase))
+                    .ToArray();
+                if (matches.Length == 1) { _txtInput.Text = $"{verb} {matches[0]} "; _txtInput.SelectionStart = _txtInput.Text.Length; }
+                else if (matches.Length > 1) AppendStyledLine($"  {string.Join("  ", matches)}", WallyTheme.TextMuted);
+            }
+            else if (verb is "edit-wrapper" or "delete-wrapper" && !partial.Contains(' ') && _environment?.HasWorkspace == true)
+            {
+                var matches = _environment.Workspace!.LlmWrappers
+                    .Select(w => w.Name)
+                    .Where(n => n.StartsWith(partial, StringComparison.OrdinalIgnoreCase))
+                    .ToArray();
+                if (matches.Length == 1) { _txtInput.Text = $"{verb} {matches[0]} "; _txtInput.SelectionStart = _txtInput.Text.Length; }
+                else if (matches.Length > 1) AppendStyledLine($"  {string.Join("  ", matches)}", WallyTheme.TextMuted);
+            }
+            else if (verb is "edit-runbook" or "delete-runbook" && !partial.Contains(' ') && _environment?.HasWorkspace == true)
+            {
+                var matches = _environment.Runbooks
+                    .Select(r => r.Name)
+                    .Where(n => n.StartsWith(partial, StringComparison.OrdinalIgnoreCase))
+                    .ToArray();
+                if (matches.Length == 1) { _txtInput.Text = $"{verb} {matches[0]} "; _txtInput.SelectionStart = _txtInput.Text.Length; }
+                else if (matches.Length > 1) AppendStyledLine($"  {string.Join("  ", matches)}", WallyTheme.TextMuted);
+            }
         }
 
         // — Command execution ———————————————————————————————————————————
@@ -379,7 +420,10 @@ namespace Wally.Forms.Controls
                                      input.StartsWith("load", StringComparison.OrdinalIgnoreCase) ||
                                      input.StartsWith("reload", StringComparison.OrdinalIgnoreCase) ||
                                      input.StartsWith("cleanup", StringComparison.OrdinalIgnoreCase) ||
-                                     input.StartsWith("runbook", StringComparison.OrdinalIgnoreCase);
+                                     input.StartsWith("runbook", StringComparison.OrdinalIgnoreCase) ||
+                                     input.StartsWith("add-", StringComparison.OrdinalIgnoreCase) ||
+                                     input.StartsWith("edit-", StringComparison.OrdinalIgnoreCase) ||
+                                     input.StartsWith("delete-", StringComparison.OrdinalIgnoreCase);
 
                 if (stateChanging)
                     WorkspaceChanged?.Invoke(this, EventArgs.Empty);
