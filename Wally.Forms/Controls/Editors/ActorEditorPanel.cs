@@ -16,11 +16,8 @@ namespace Wally.Forms.Controls.Editors
     public sealed class ActorEditorPanel : UserControl
     {
         private readonly TextBox _txtName;
-        private readonly TextBox _txtRoleName;
         private readonly RichTextBox _txtRolePrompt;
-        private readonly TextBox _txtCriteriaName;
         private readonly RichTextBox _txtCriteriaPrompt;
-        private readonly TextBox _txtIntentName;
         private readonly RichTextBox _txtIntentPrompt;
         private readonly Label _lblStatus;
         private readonly Button _btnSave;
@@ -104,11 +101,6 @@ namespace Wally.Forms.Controls.Editors
 
             // Role
             mainPanel.Controls.Add(CreateSectionLabel("\u2694 Role", WallyTheme.FontUIBold, WallyTheme.TextSecondary));
-            mainPanel.Controls.Add(CreateFieldLabel("Name"));
-            _txtRoleName = CreateTextBox();
-            _txtRoleName.TextChanged += OnFieldChanged;
-            mainPanel.Controls.Add(_txtRoleName);
-
             mainPanel.Controls.Add(CreateFieldLabel("Prompt"));
             _txtRolePrompt = CreateRichTextBox(80);
             _txtRolePrompt.TextChanged += OnFieldChanged;
@@ -117,11 +109,6 @@ namespace Wally.Forms.Controls.Editors
 
             // Acceptance Criteria
             mainPanel.Controls.Add(CreateSectionLabel("\u2705 Acceptance Criteria", WallyTheme.FontUIBold, WallyTheme.TextSecondary));
-            mainPanel.Controls.Add(CreateFieldLabel("Name"));
-            _txtCriteriaName = CreateTextBox();
-            _txtCriteriaName.TextChanged += OnFieldChanged;
-            mainPanel.Controls.Add(_txtCriteriaName);
-
             mainPanel.Controls.Add(CreateFieldLabel("Prompt"));
             _txtCriteriaPrompt = CreateRichTextBox(80);
             _txtCriteriaPrompt.TextChanged += OnFieldChanged;
@@ -130,11 +117,6 @@ namespace Wally.Forms.Controls.Editors
 
             // Intent
             mainPanel.Controls.Add(CreateSectionLabel("\uD83C\uDFAF Intent", WallyTheme.FontUIBold, WallyTheme.TextSecondary));
-            mainPanel.Controls.Add(CreateFieldLabel("Name"));
-            _txtIntentName = CreateTextBox();
-            _txtIntentName.TextChanged += OnFieldChanged;
-            mainPanel.Controls.Add(_txtIntentName);
-
             mainPanel.Controls.Add(CreateFieldLabel("Prompt"));
             _txtIntentPrompt = CreateRichTextBox(80);
             _txtIntentPrompt.TextChanged += OnFieldChanged;
@@ -164,11 +146,8 @@ namespace Wally.Forms.Controls.Editors
             if (_actor == null) return;
 
             _txtName.Text = _actor.Name;
-            _txtRoleName.Text = _actor.Role.Name;
             _txtRolePrompt.Text = _actor.Role.Prompt;
-            _txtCriteriaName.Text = _actor.AcceptanceCriteria.Name;
             _txtCriteriaPrompt.Text = _actor.AcceptanceCriteria.Prompt;
-            _txtIntentName.Text = _actor.Intent.Name;
             _txtIntentPrompt.Text = _actor.Intent.Prompt;
         }
 
@@ -176,11 +155,8 @@ namespace Wally.Forms.Controls.Editors
         {
             if (_actor == null) return;
 
-            _actor.Role.Name = _txtRoleName.Text.Trim();
             _actor.Role.Prompt = _txtRolePrompt.Text.Trim();
-            _actor.AcceptanceCriteria.Name = _txtCriteriaName.Text.Trim();
             _actor.AcceptanceCriteria.Prompt = _txtCriteriaPrompt.Text.Trim();
-            _actor.Intent.Name = _txtIntentName.Text.Trim();
             _actor.Intent.Prompt = _txtIntentPrompt.Text.Trim();
         }
 
