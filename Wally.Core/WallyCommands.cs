@@ -100,14 +100,15 @@ namespace Wally.Core
 
                 case "run":
                 {
-                    if (args.Length < 3) { Console.WriteLine("Usage: run <actor> \"<prompt>\" [-m model] [-w wrapper] [--loop] [-l name] [-n max]"); return false; }
+                    if (args.Length < 2) { Console.WriteLine("Usage: run \"<prompt>\" [-a actor] [-m model] [-w wrapper] [--loop] [-l name] [-n max]"); return false; }
+                    string? actorName = GetOption(args, "-a") ?? GetOption(args, "--actor");
                     string? model = GetOption(args, "-m") ?? GetOption(args, "--model");
                     string? wrapper = GetOption(args, "-w") ?? GetOption(args, "--wrapper");
                     string? loopName = GetOption(args, "-l") ?? GetOption(args, "--loop-name");
                     string? maxStr = GetOption(args, "-n") ?? GetOption(args, "--max-iterations");
                     bool looped = HasFlag(args, "--loop");
                     int maxIter = int.TryParse(maxStr, out int n) ? n : 0;
-                    HandleRun(env, args[2], args[1], model, looped, loopName, maxIter, wrapper);
+                    HandleRun(env, args[1], actorName, model, looped, loopName, maxIter, wrapper);
                     return true;
                 }
 
@@ -333,6 +334,8 @@ namespace Wally.Core
         /// <summary>
         /// Unified run command. Every execution goes through a loop — a single-shot
         /// run is simply a loop with <c>MaxIterations=1</c> (the <c>SingleRun</c> definition).
+        /// When no actor is specified, the prompt is sent directly to the AI without
+        /// any actor context (RBA enrichment is skipped).
         /// </summary>
         public static List<string> HandleRun(
             WallyEnvironment env,
@@ -382,24 +385,23 @@ namespace Wally.Core
             if (string.IsNullOrWhiteSpace(actorName) && loopDef != null && !string.IsNullOrWhiteSpace(loopDef.ActorName))
                 actorName = loopDef.ActorName;
 
-            // — Resolve actor ————————————————————————————————————————————
+            // — Resolve actor (null means direct/no-actor mode) ——————————
 
-            if (string.IsNullOrWhiteSpace(actorName))
+            Actor? actor = null;
+            bool directMode = string.IsNullOrWhiteSpace(actorName);
+
+            if (!directMode)
             {
-                Console.WriteLine("No actor specified. Use: run <actor> \"<prompt>\"");
-                env.Logger.LogError("No actor specified.", "run");
-                return new List<string>();
+                actor = env.GetActor(actorName!);
+                if (actor == null)
+                {
+                    Console.WriteLine($"Actor '{actorName}' not found.");
+                    env.Logger.LogError($"Actor '{actorName}' not found.", "run");
+                    return new List<string>();
+                }
             }
 
-            var actor = env.GetActor(actorName!);
-            if (actor == null)
-            {
-                Console.WriteLine($"Actor '{actorName}' not found.");
-                env.Logger.LogError($"Actor '{actorName}' not found.", "run");
-                return new List<string>();
-            }
-
-            // — Resolve iterations ——————————————————————————————————————
+            // — Resolve iterations ———————————————————————————————————————
 
             int iterations;
             if (maxIterations > 0)
@@ -413,32 +415,50 @@ namespace Wally.Core
 
             // — Log —————————————————————————————————————————————————————
 
+            string actorLabel = directMode ? "(no actor)" : actorName!;
             string loopLabel = loopDef != null && loopDef.Name != "SingleRun"
                 ? $"[run:{loopDef.Name}]"
                 : "[run]";
 
             env.Logger.LogCommand("run",
-                $"Actor='{actorName}' loop='{loopDef?.Name ?? "(inline)"}' " +
+                $"Actor='{actorLabel}' loop='{loopDef?.Name ?? "(inline)"}' " +
                 $"iterations={iterations} model='{model ?? "(default)"}' " +
                 $"wrapper='{wrapper ?? "(default)"}'"
             );
 
-            // — Build the actor action ——————————————————————————————————
+            if (directMode)
+            {
+                Console.WriteLine($"{loopLabel} Running without actor context (direct mode).");
+                Console.WriteLine();
+            }
+
+            // — Build the action ————————————————————————————————————————
 
             int iterationNumber = 0;
             string? resolvedModel = model ?? env.Workspace!.Config.DefaultModel;
 
-            Func<string, string> actorAction = currentPrompt =>
+            Func<string, string> runAction = currentPrompt =>
             {
                 iterationNumber++;
-                env.Logger.LogPrompt(actor.Name, currentPrompt, resolvedModel);
 
-                var sw = System.Diagnostics.Stopwatch.StartNew();
-                string result = env.ExecuteActor(actor, currentPrompt, model, wrapper);
-                sw.Stop();
-
-                env.Logger.LogResponse(actor.Name, result, sw.ElapsedMilliseconds, iterationNumber);
-                return result;
+                if (directMode)
+                {
+                    env.Logger.LogPrompt("(no actor)", currentPrompt, resolvedModel);
+                    var sw = System.Diagnostics.Stopwatch.StartNew();
+                    string result = env.ExecutePrompt(currentPrompt, model, wrapper);
+                    sw.Stop();
+                    env.Logger.LogResponse("(no actor)", result, sw.ElapsedMilliseconds, iterationNumber);
+                    return result;
+                }
+                else
+                {
+                    env.Logger.LogPrompt(actor!.Name, currentPrompt, resolvedModel);
+                    var sw = System.Diagnostics.Stopwatch.StartNew();
+                    string result = env.ExecuteActor(actor!, currentPrompt, model, wrapper);
+                    sw.Stop();
+                    env.Logger.LogResponse(actor!.Name, result, sw.ElapsedMilliseconds, iterationNumber);
+                    return result;
+                }
             };
 
             // — Build the loop ——————————————————————————————————————————
@@ -446,7 +466,7 @@ namespace Wally.Core
             WallyLoop loop;
             if (loopDef != null)
             {
-                loop = WallyLoop.FromDefinition(loopDef, prompt, actorAction, iterations);
+                loop = WallyLoop.FromDefinition(loopDef, prompt, runAction, iterations);
             }
             else
             {
@@ -457,14 +477,14 @@ namespace Wally.Core
                     $"If you are finished, respond with: {WallyLoop.CompletedKeyword}\n" +
                     $"If something went wrong, respond with: {WallyLoop.ErrorKeyword}";
 
-                loop = new WallyLoop(actorAction, prompt, continuePrompt, iterations);
+                loop = new WallyLoop(runAction, prompt, continuePrompt, iterations);
             }
 
             // — Execute ———————————————————————————————————————————————
 
             if (iterations > 1)
             {
-                Console.WriteLine($"{loopLabel} Actor: {actor.Name}  MaxIterations: {iterations}");
+                Console.WriteLine($"{loopLabel} {(directMode ? "Direct mode" : $"Actor: {actor!.Name}")}  MaxIterations: {iterations}");
                 Console.WriteLine();
             }
 
@@ -501,7 +521,7 @@ namespace Wally.Core
             }
 
             if (loop.Results.Count == 0)
-                Console.WriteLine("No responses from Actor.");
+                Console.WriteLine("No responses from AI.");
 
             env.Logger.LogInfo(
                 $"run finished: {loop.ExecutionCount} iteration(s), stopReason={loop.StopReason}");
@@ -710,7 +730,7 @@ namespace Wally.Core
             env.Logger.LogCommand("list-loops");
 
             var loops = env.Loops;
-            Console.WriteLine($"Loops ({loops.Count}):");
+            Console.WriteLine($"Loops ({loops.Count}:");
             if (loops.Count == 0)
             {
                 Console.WriteLine($"  (none \u2014 add .json files to {env.WorkspaceFolder}/Loops/)");
@@ -781,9 +801,9 @@ namespace Wally.Core
             Console.WriteLine("Quick start:");
             Console.WriteLine("  wally setup C:\\repos\\MyApp");
             Console.WriteLine("  cd C:\\repos\\MyApp");
-            Console.WriteLine("  .\\wally run Engineer \"Review the auth module and document the architecture\"");
-            Console.WriteLine("  .\\wally run BusinessAnalyst \"Write requirements for the search feature\"");
-            Console.WriteLine("  .\\wally run Stakeholder \"Define what the payment system must achieve\"");
+            Console.WriteLine("  .\\wally run \"Review the auth module\" -a Engineer");
+            Console.WriteLine("  .\\wally run \"Write requirements for the search feature\" -a BusinessAnalyst");
+            Console.WriteLine("  .\\wally run \"What is this project about?\"              # no actor, direct AI prompt");
             Console.WriteLine();
             Console.WriteLine("Commands:");
             Console.WriteLine();
@@ -797,12 +817,17 @@ namespace Wally.Core
             Console.WriteLine("  tutorial                         Step-by-step guide to setting up and using Wally.");
             Console.WriteLine("  commands                         Show this help message.");
             Console.WriteLine();
-            Console.WriteLine("  run <actor> \"<prompt>\" [options]  Run an actor on a prompt.");
+            Console.WriteLine("  run \"<prompt>\" [options]          Run a prompt through the AI.");
+            Console.WriteLine("    -a, --actor <name>             Run through an actor (adds RBA context). Omit for direct mode.");
             Console.WriteLine("    -m, --model <model>            Override the AI model (e.g. claude-sonnet-4).");
             Console.WriteLine("    -w, --wrapper <name>           Override the LLM wrapper (e.g. AutoCopilot).");
             Console.WriteLine("    --loop                         Run in iterative loop mode.");
             Console.WriteLine("    -l, --loop-name <name>         Use a named loop definition from Loops/.");
             Console.WriteLine("    -n, --max-iterations <n>       Maximum iterations (implies --loop when > 1).");
+            Console.WriteLine();
+            Console.WriteLine("  When no actor is specified, the prompt is sent directly to the AI without");
+            Console.WriteLine("  any Role/AcceptanceCriteria/Intent context. This is useful for general");
+            Console.WriteLine("  questions or tasks that don't need a specific persona.");
             Console.WriteLine();
             Console.WriteLine("  runbook <name> [\"<prompt>\"]      Execute a runbook (.wrb command sequence).");
             Console.WriteLine();
@@ -838,18 +863,20 @@ namespace Wally.Core
             Console.WriteLine("  Engineer         \u2014 code reviews, architecture docs, proposals, bug reports, test plans");
             Console.WriteLine("  BusinessAnalyst  \u2014 requirements, execution plans, project status");
             Console.WriteLine("  Stakeholder      \u2014 business needs, priorities, success criteria");
+            Console.WriteLine("  (no actor)       \u2014 omit -a to send your prompt directly without any actor context");
             Console.WriteLine();
             Console.WriteLine("Wrappers:");
             Console.WriteLine("  Copilot          \u2014 read-only, returns a text response (default)");
             Console.WriteLine("  AutoCopilot      \u2014 agentic, can make code/file changes on disk");
             Console.WriteLine();
             Console.WriteLine("Examples:");
-            Console.WriteLine("  .\\wally run Engineer \"Review the data access layer for bugs\"");
-            Console.WriteLine("  .\\wally run Engineer \"Refactor error handling\" --loop -n 5");
-            Console.WriteLine("  .\\wally run Engineer \"Review the auth module\" -l CodeReview");
-            Console.WriteLine("  .\\wally run Engineer \"Fix the login bug\" -w AutoCopilot");
-            Console.WriteLine("  .\\wally run Engineer \"Explain this module\" -m claude-sonnet-4");
-            Console.WriteLine("  .\\wally run BusinessAnalyst \"Write requirements for user authentication\"");
+            Console.WriteLine("  .\\wally run \"What does this codebase do?\"                     # direct, no actor");
+            Console.WriteLine("  .\\wally run \"Review the data access layer for bugs\" -a Engineer");
+            Console.WriteLine("  .\\wally run \"Refactor error handling\" -a Engineer --loop -n 5");
+            Console.WriteLine("  .\\wally run \"Review the auth module\" -a Engineer -l CodeReview");
+            Console.WriteLine("  .\\wally run \"Fix the login bug\" -a Engineer -w AutoCopilot");
+            Console.WriteLine("  .\\wally run \"Explain this module\" -m claude-sonnet-4");
+            Console.WriteLine("  .\\wally run \"Write requirements for user authentication\" -a BusinessAnalyst");
             Console.WriteLine("  .\\wally runbook full-analysis \"Improve the logging module\"");
             Console.WriteLine("  .\\wally add-actor QA -r \"You are a QA engineer\" -c \"Find all bugs\" -i \"Ensure quality\"");
             Console.WriteLine("  .\\wally add-loop BugHunt -d \"Bug hunting loop\" -a Engineer -n 5");
@@ -881,17 +908,22 @@ namespace Wally.Core
             Console.WriteLine();
 
             Console.WriteLine("STEP 2: RUN YOUR FIRST PROMPT");
-            Console.WriteLine("\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500");
-            Console.WriteLine("Wally ships with three default actors: Engineer, BusinessAnalyst, Stakeholder.");
-            Console.WriteLine("Each actor wraps your prompt in its own Role/Acceptance Criteria/Intent context.");
+            Console.WriteLine("\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500");
+            Console.WriteLine("You can run a prompt directly without any actor, or use an actor to add");
+            Console.WriteLine("Role/AcceptanceCriteria/Intent context to your prompt.");
             Console.WriteLine();
-            Console.WriteLine("  wally run Engineer \"Review the auth module for security issues\"");
-            Console.WriteLine("  wally run BusinessAnalyst \"Write requirements for the search feature\"");
-            Console.WriteLine("  wally run Stakeholder \"Define success criteria for the payment system\"");
+            Console.WriteLine("Direct mode (no actor — prompt sent as-is):");
+            Console.WriteLine("  wally run \"What does this codebase do?\"");
+            Console.WriteLine("  wally run \"Summarize the main architecture\"");
+            Console.WriteLine();
+            Console.WriteLine("With an actor (adds RBA persona context):");
+            Console.WriteLine("  wally run \"Review the auth module for security issues\" -a Engineer");
+            Console.WriteLine("  wally run \"Write requirements for the search feature\" -a BusinessAnalyst");
+            Console.WriteLine("  wally run \"Define success criteria for the payment system\" -a Stakeholder");
             Console.WriteLine();
             Console.WriteLine("Override the model or wrapper:");
-            Console.WriteLine("  wally run Engineer \"Review auth\" -m claude-sonnet-4");
-            Console.WriteLine("  wally run Engineer \"Fix the login bug\" -w AutoCopilot");
+            Console.WriteLine("  wally run \"Review auth\" -a Engineer -m claude-sonnet-4");
+            Console.WriteLine("  wally run \"Fix the login bug\" -a Engineer -w AutoCopilot");
             Console.WriteLine();
 
             Console.WriteLine("STEP 3: USE LOOPS FOR ITERATIVE TASKS");
@@ -900,15 +932,10 @@ namespace Wally.Core
             Console.WriteLine("and decides whether to continue. The actor stops when it says [LOOP COMPLETED].");
             Console.WriteLine();
             Console.WriteLine("Use the built-in CodeReview loop:");
-            Console.WriteLine("  wally run Engineer \"Review the data access layer\" -l CodeReview");
+            Console.WriteLine("  wally run \"Review the data access layer\" -a Engineer -l CodeReview");
             Console.WriteLine();
             Console.WriteLine("Or use inline loop mode with a custom iteration count:");
-            Console.WriteLine("  wally run Engineer \"Refactor error handling\" --loop -n 5");
-            Console.WriteLine();
-            Console.WriteLine("List available loops:");
-            Console.WriteLine("  wally list-loops");
-            Console.WriteLine();
-            Console.WriteLine("Default loops: SingleRun, CodeReview, Refactor, RequirementsDeepDive");
+            Console.WriteLine("  wally run \"Refactor error handling\" -a Engineer --loop -n 5");
             Console.WriteLine();
 
             Console.WriteLine("STEP 4: USE RUNBOOKS FOR COMMAND SEQUENCES");
@@ -1006,7 +1033,7 @@ namespace Wally.Core
             Console.WriteLine();
 
             Console.WriteLine("REFERENCE: ALL MANAGEMENT COMMANDS");
-            Console.WriteLine("\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500");
+            Console.WriteLine("\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500");
             Console.WriteLine("  Actors:    add-actor, edit-actor, delete-actor, list, reload-actors");
             Console.WriteLine("  Loops:     add-loop, edit-loop, delete-loop, list-loops");
             Console.WriteLine("  Wrappers:  add-wrapper, edit-wrapper, delete-wrapper, list-wrappers");

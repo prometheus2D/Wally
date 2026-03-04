@@ -2,14 +2,15 @@ using CommandLine;
 
 namespace Wally.Console.Options.Run
 {
-    [Verb("run", HelpText = "Run an Actor on the given prompt. Use --loop to iterate until completion.")]
+    [Verb("run", HelpText = "Run a prompt, optionally through an Actor. Omit --actor to send the prompt directly to the AI without any actor context.")]
     public class RunOptions
     {
-        [Value(0, Required = true, HelpText = "The name of the Actor to run.")]
-        public string ActorName { get; set; }
-
-        [Value(1, Required = true, HelpText = "The prompt to process.")]
+        [Value(0, Required = true, HelpText = "The prompt to process.")]
         public string Prompt { get; set; }
+
+        [Option('a', "actor", Required = false, Default = null,
+            HelpText = "The name of the Actor to run. Omit to send the prompt directly without actor context.")]
+        public string ActorName { get; set; }
 
         [Option('m', "model", Required = false, Default = null,
             HelpText = "Override the AI model for this run (e.g. gpt-4.1, claude-sonnet-4).")]

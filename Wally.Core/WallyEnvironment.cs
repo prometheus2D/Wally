@@ -228,6 +228,27 @@ namespace Wally.Core
         // — Running actors ————————————————————————————————————————————————————
 
         /// <summary>
+        /// Executes a prompt directly through the LLM wrapper without any actor
+        /// enrichment. Use this when no actor is specified — the user's prompt is
+        /// sent as-is.
+        /// </summary>
+        public string ExecutePrompt(string prompt, string? modelOverride = null, string? wrapperOverride = null)
+        {
+            var wrapper = ResolveWrapper(wrapperOverride);
+            var ws = Workspace!;
+
+            // Resolve model: explicit override ? config default.
+            bool isDefaultKeyword = string.Equals(modelOverride, "default", StringComparison.OrdinalIgnoreCase);
+            string? model = !string.IsNullOrWhiteSpace(modelOverride) && !isDefaultKeyword
+                ? modelOverride
+                : ws.Config.DefaultModel;
+
+            Logger.LogProcessedPrompt("(no actor)", prompt, model);
+
+            return wrapper.Execute(prompt, ws.SourcePath, model, Logger);
+        }
+
+        /// <summary>
         /// Executes a single actor: Setup ? ProcessPrompt ? LlmWrapper.Execute.
         /// <paramref name="modelOverride"/> takes priority over <see cref="WallyConfig.DefaultModel"/>.
         /// <paramref name="wrapperOverride"/> takes priority over <see cref="WallyConfig.DefaultWrapper"/>.

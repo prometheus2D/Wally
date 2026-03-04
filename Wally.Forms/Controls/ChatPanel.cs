@@ -210,8 +210,8 @@ namespace Wally.Forms.Controls
             // ?? Empty state placeholder ??
             _lblEmptyState = new Label
             {
-                Text = "\U0001F4AC\n\nSelect an actor and type a message\nto start a conversation.\n\n" +
-                       "Your messages are sent to the actor\u2019s AI pipeline\nand responses appear here as chat bubbles.",
+                Text = "\U0001F4AC\n\nType a message to start a conversation.\n\n" +
+                       "Select an actor to add persona context,\nor leave it on \u201C(No Actor)\u201D for direct AI prompts.",
                 Dock = DockStyle.Fill,
                 ForeColor = WallyTheme.TextDisabled,
                 BackColor = WallyTheme.Surface0,
@@ -478,7 +478,7 @@ namespace Wally.Forms.Controls
             {
                 _lblEmptyState.Text =
                     "\U0001F4AC\n\nSelect a mode and type a message\nto start a conversation.\n\n" +
-                    "\uD83D\uDCAC Ask \u2014 single response from one actor\n" +
+                    "\uD83D\uDCAC Ask \u2014 single response (with or without an actor)\n" +
                     "\uD83E\uDD16 Agent \u2014 iterative loop until completion\n" +
                     "\u26A1 Autopilot \u2014 run all actors on your prompt";
                 if (!_isRunning)
@@ -498,6 +498,7 @@ namespace Wally.Forms.Controls
 
             _cboActor.Items.Clear();
             if (_environment?.HasWorkspace != true) return;
+            _cboActor.Items.Add("(No Actor)");
             foreach (var actor in _environment.Actors)
                 _cboActor.Items.Add(actor.Name);
             if (_cboActor.Items.Count > 0)
@@ -609,31 +610,48 @@ namespace Wally.Forms.Controls
 
         private async Task RunAskModeAsync(string prompt, string? modelOverride)
         {
-            string actorName = _cboActor.SelectedItem?.ToString() ?? "";
-            if (string.IsNullOrEmpty(actorName))
-            {
-                AddMessage("System", "No actor selected.", MessageKind.Error);
-                return;
-            }
+            string rawSelection = _cboActor.SelectedItem?.ToString() ?? "";
+            string actorName = rawSelection == "(No Actor)" ? "" : rawSelection;
+            bool directMode = string.IsNullOrEmpty(actorName);
 
-            string cmdText = $"run {actorName} \"{prompt}\"" +
-                             (modelOverride != null ? $" -m {modelOverride}" : "");
+            string label = directMode ? "AI" : actorName;
+            string cmdText = directMode
+                ? $"run \"{prompt}\"" + (modelOverride != null ? $" -m {modelOverride}" : "")
+                : $"run \"{prompt}\" -a {actorName}" + (modelOverride != null ? $" -m {modelOverride}" : "");
             CommandIssued?.Invoke(this, cmdText);
 
-            SetRunning(true, actorName);
+            SetRunning(true, directMode ? "Direct prompt" : actorName);
             try
             {
                 var token = _cts!.Token;
-                var responses = await Task.Run(() =>
-                {
-                    token.ThrowIfCancellationRequested();
-                    return _environment!.RunActor(prompt, actorName, modelOverride);
-                }, token);
 
-                foreach (string response in responses)
-                    AddMessage(actorName, response, MessageKind.Actor);
-                if (responses.Count == 0)
-                    AddMessage("System", "No response from actor.", MessageKind.Error);
+                if (directMode)
+                {
+                    // No actor — send prompt directly without RBA enrichment.
+                    var response = await Task.Run(() =>
+                    {
+                        token.ThrowIfCancellationRequested();
+                        return _environment!.ExecutePrompt(prompt, modelOverride);
+                    }, token);
+
+                    if (!string.IsNullOrEmpty(response))
+                        AddMessage(label, response, MessageKind.Actor);
+                    else
+                        AddMessage("System", "No response from AI.", MessageKind.Error);
+                }
+                else
+                {
+                    var responses = await Task.Run(() =>
+                    {
+                        token.ThrowIfCancellationRequested();
+                        return _environment!.RunActor(prompt, actorName, modelOverride);
+                    }, token);
+
+                    foreach (string response in responses)
+                        AddMessage(label, response, MessageKind.Actor);
+                    if (responses.Count == 0)
+                        AddMessage("System", "No response from actor.", MessageKind.Error);
+                }
             }
             catch (OperationCanceledException)
             {
@@ -650,19 +668,18 @@ namespace Wally.Forms.Controls
 
         private async Task RunAgentModeAsync(string prompt, string? modelOverride)
         {
-            string actorName = _cboActor.SelectedItem?.ToString() ?? "";
-            if (string.IsNullOrEmpty(actorName))
-            {
-                AddMessage("System", "No actor selected.", MessageKind.Error);
-                return;
-            }
+            string rawSelection = _cboActor.SelectedItem?.ToString() ?? "";
+            string actorName = rawSelection == "(No Actor)" ? "" : rawSelection;
+            bool directMode = string.IsNullOrEmpty(actorName);
 
             int maxIter = _environment!.Workspace!.Config.MaxIterations;
-            string cmdText = $"run {actorName} \"{prompt}\" --loop -n {maxIter}" +
-                             (modelOverride != null ? $" -m {modelOverride}" : "");
+            string label = directMode ? "AI" : actorName;
+            string cmdText = directMode
+                ? $"run \"{prompt}\" --loop -n {maxIter}" + (modelOverride != null ? $" -m {modelOverride}" : "")
+                : $"run \"{prompt}\" -a {actorName} --loop -n {maxIter}" + (modelOverride != null ? $" -m {modelOverride}" : "");
             CommandIssued?.Invoke(this, cmdText);
 
-            SetRunning(true, $"{actorName} (agent loop)");
+            SetRunning(true, $"{label} (agent loop)");
             try
             {
                 var token = _cts!.Token;
@@ -670,11 +687,15 @@ namespace Wally.Forms.Controls
                 {
                     token.ThrowIfCancellationRequested();
 
-                    var actor = _environment.GetActor(actorName);
-                    if (actor == null)
+                    Wally.Core.Actors.Actor? actor = null;
+                    if (!directMode)
                     {
-                        AddMessage("System", $"Actor '{actorName}' not found.", MessageKind.Error);
-                        return;
+                        actor = _environment.GetActor(actorName);
+                        if (actor == null)
+                        {
+                            AddMessage("System", $"Actor '{actorName}' not found.", MessageKind.Error);
+                            return;
+                        }
                     }
 
                     string currentPrompt = prompt;
@@ -682,9 +703,11 @@ namespace Wally.Forms.Controls
                     {
                         token.ThrowIfCancellationRequested();
 
-                        string result = _environment.ExecuteActor(actor, currentPrompt, modelOverride);
+                        string result = directMode
+                            ? _environment.ExecutePrompt(currentPrompt, modelOverride)
+                            : _environment.ExecuteActor(actor!, currentPrompt, modelOverride);
 
-                        AddMessage($"{actorName} [{i}/{maxIter}]", result ?? "(no response)", MessageKind.Actor);
+                        AddMessage($"{label} [{i}/{maxIter}]", result ?? "(no response)", MessageKind.Actor);
 
                         if (result == null) break;
 
