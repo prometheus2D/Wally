@@ -119,6 +119,30 @@ namespace Wally.Core.Logging
             }
         }
 
+        /// <summary>
+        /// Releases the current log file handle without disposing the logger.
+        /// After unbinding, new log entries are buffered in memory until
+        /// <see cref="Bind"/> is called again.
+        /// This must be called before deleting the workspace folder to avoid
+        /// file-lock errors.
+        /// </summary>
+        public void Unbind()
+        {
+            lock (_lock)
+            {
+                if (_disposed) return;
+
+                _writer?.Dispose();
+                _writer = null;
+                _currentFileName = null;
+                _logFolder = null;
+
+                // Re-create the in-memory buffer so logging can continue.
+                _buffer = new MemoryStream();
+                _bufferWriter = new StreamWriter(_buffer, leaveOpen: true) { AutoFlush = true };
+            }
+        }
+
         // — Logging methods ——————————————————————————————————————————————
 
         /// <summary>Logs a command invocation.</summary>
@@ -282,7 +306,12 @@ namespace Wally.Core.Logging
             _writer?.Dispose();
             _currentFileName = fileName;
             string filePath = Path.Combine(_logFolder!, _currentFileName);
-            _writer = new StreamWriter(filePath, append: true) { AutoFlush = true };
+
+            // Open with FileShare.ReadWrite|Delete so other code (e.g. cleanup)
+            // can delete the file even while we hold a handle.
+            var stream = new FileStream(filePath, FileMode.Append, FileAccess.Write,
+                FileShare.ReadWrite | FileShare.Delete);
+            _writer = new StreamWriter(stream) { AutoFlush = true };
         }
 
         /// <summary>

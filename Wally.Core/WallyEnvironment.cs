@@ -146,10 +146,13 @@ namespace Wally.Core
 
         /// <summary>
         /// Closes the current workspace, resetting the environment to an unloaded state.
-        /// The session logger remains active for the lifetime of the environment.
+        /// The session logger is unbound (file handles released) so the workspace
+        /// folder can be safely deleted. The logger remains active — new entries are
+        /// buffered in memory until a workspace is loaded again.
         /// </summary>
         public void CloseWorkspace()
         {
+            Logger.Unbind();
             Workspace = null;
         }
 

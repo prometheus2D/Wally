@@ -5,6 +5,7 @@
   "TemplatesFolderName": "Templates",
   "LoopsFolderName": "Loops",
   "WrappersFolderName": "Wrappers",
+  "RunbooksFolderName": "Runbooks",
   "LogRotationMinutes": 2,
   "DefaultModel": "gpt-4.1",
   "DefaultModels": [
@@ -35,6 +36,11 @@
     "CodeReview",
     "Refactor",
     "RequirementsDeepDive"
+  ],
+  "DefaultRunbooks": [
+    "setup-and-review",
+    "simple-loop",
+    "full-analysis"
   ],
   "MaxIterations": 10,
   "DefaultWrapper": "Copilot"

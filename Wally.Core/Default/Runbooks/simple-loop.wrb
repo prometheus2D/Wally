@@ -1,0 +1,4 @@
+# Simple Loop
+# Runs the Engineer actor in a loop on the given prompt.
+
+run Engineer "{userPrompt}" --loop -n 5

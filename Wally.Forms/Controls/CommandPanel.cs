@@ -37,8 +37,9 @@ namespace Wally.Forms.Controls
 
         private static readonly string[] KnownCommands =
         {
-            "setup", "load", "save", "run", "list", "list-loops", "info",
-            "reload-actors", "cleanup", "commands", "help", "clear", "cls"
+            "setup", "load", "save", "run", "runbook", "list", "list-loops",
+            "list-runbooks", "info", "reload-actors", "cleanup", "commands",
+            "help", "clear", "cls"
         };
 
         // ?? Events ??????????????????????????????????????????????????????????
@@ -81,8 +82,43 @@ namespace Wally.Forms.Controls
                 ForeColor = WallyTheme.TextPrimary,
                 WordWrap = true,
                 ScrollBars = RichTextBoxScrollBars.Vertical,
-                DetectUrls = false
+                DetectUrls = false,
+                ShortcutsEnabled = true   // ensures Ctrl+C works on read-only RTB
             };
+
+            // Right-click context menu (standard WinForms terminal pattern).
+            var ctxMenu = new ContextMenuStrip();
+            ctxMenu.Renderer = WallyTheme.CreateRenderer();
+            ctxMenu.BackColor = WallyTheme.Surface2;
+            ctxMenu.ForeColor = WallyTheme.TextPrimary;
+
+            var ctxCopy = new ToolStripMenuItem("Copy", null, (_, _) =>
+            {
+                if (_output.SelectionLength > 0)
+                    Clipboard.SetText(_output.SelectedText);
+            })
+            { ShortcutKeyDisplayString = "Ctrl+C" };
+
+            var ctxSelectAll = new ToolStripMenuItem("Select All", null, (_, _) =>
+            {
+                _output.SelectAll();
+            })
+            { ShortcutKeyDisplayString = "Ctrl+A" };
+
+            var ctxClear = new ToolStripMenuItem("Clear", null, (_, _) =>
+            {
+                _output.Clear();
+            });
+
+            ctxMenu.Items.Add(ctxCopy);
+            ctxMenu.Items.Add(ctxSelectAll);
+            ctxMenu.Items.Add(new ToolStripSeparator());
+            ctxMenu.Items.Add(ctxClear);
+            ctxMenu.Opening += (_, _) =>
+            {
+                ctxCopy.Enabled = _output.SelectionLength > 0;
+            };
+            _output.ContextMenuStrip = ctxMenu;
 
             // ?? Thin separator line ??
             _separator = new Panel
@@ -285,9 +321,26 @@ namespace Wally.Forms.Controls
                     AppendStyledLine($"  {string.Join("  ", actorMatches)}", WallyTheme.TextMuted);
                 }
             }
+            else if (verb is "runbook" && !partial.Contains(' ') && _environment?.HasWorkspace == true)
+            {
+                var rbMatches = _environment.Runbooks
+                    .Select(r => r.Name)
+                    .Where(n => n.StartsWith(partial, StringComparison.OrdinalIgnoreCase))
+                    .ToArray();
+
+                if (rbMatches.Length == 1)
+                {
+                    _txtInput.Text = $"{verb} {rbMatches[0]} ";
+                    _txtInput.SelectionStart = _txtInput.Text.Length;
+                }
+                else if (rbMatches.Length > 1)
+                {
+                    AppendStyledLine($"  {string.Join("  ", rbMatches)}", WallyTheme.TextMuted);
+                }
+            }
         }
 
-        // ?? Command execution ???????????????????????????????????????????????
+        // — Command execution ———————————————————————————————————————————
 
         private async Task RunCommandAsync(string input)
         {
@@ -307,85 +360,26 @@ namespace Wally.Forms.Controls
 
                 await Task.Run(() =>
                 {
-                    string[] args = SplitArgs(input);
+                    string[] args = WallyCommands.SplitArgs(input);
                     if (args.Length == 0) return;
 
                     string verb = args[0].ToLowerInvariant();
 
-                    switch (verb)
+                    // Handle clear/cls locally — not a Core command.
+                    if (verb is "clear" or "cls")
                     {
-                        case "setup":
-                        {
-                            bool verify = HasFlag(args, "--verify");
-                            string? setupPath = GetFirstPositional(args, 1);
-                            WallyCommands.HandleSetup(_environment, setupPath, verify);
-                            break;
-                        }
-
-                        case "load":
-                            if (args.Length < 2) { Console.WriteLine("Usage: load <path>"); break; }
-                            WallyCommands.HandleLoad(_environment, args[1]);
-                            break;
-
-                        case "save":
-                            if (args.Length < 2) { Console.WriteLine("Usage: save <path>"); break; }
-                            WallyCommands.HandleSave(_environment, args[1]);
-                            break;
-
-                        case "run":
-                        {
-                            if (args.Length < 3) { Console.WriteLine("Usage: run <actor> \"<prompt>\" [-m model] [-w wrapper] [--loop] [-l name] [-n max]"); break; }
-                            string? runModel = GetOption(args, "-m") ?? GetOption(args, "--model");
-                            string? runWrapper = GetOption(args, "-w") ?? GetOption(args, "--wrapper");
-                            string? loopName = GetOption(args, "-l") ?? GetOption(args, "--loop-name");
-                            string? maxStr = GetOption(args, "-n") ?? GetOption(args, "--max-iterations");
-                            bool looped = HasFlag(args, "--loop");
-                            int maxIter = int.TryParse(maxStr, out int n) ? n : 0;
-                            WallyCommands.HandleRun(_environment, args[2], args[1], runModel, looped, loopName, maxIter, runWrapper);
-                            break;
-                        }
-
-                        case "list":
-                            WallyCommands.HandleList(_environment);
-                            break;
-
-                        case "list-loops":
-                            WallyCommands.HandleListLoops(_environment);
-                            break;
-
-                        case "info":
-                            WallyCommands.HandleInfo(_environment);
-                            break;
-
-                        case "reload-actors":
-                            WallyCommands.HandleReloadActors(_environment);
-                            break;
-
-                        case "cleanup":
-                        {
-                            string? cleanupPath = GetFirstPositional(args, 1);
-                            WallyCommands.HandleCleanup(_environment, cleanupPath);
-                            break;
-                        }
-
-                        case "commands" or "help":
-                            WallyCommands.HandleHelp();
-                            break;
-
-                        case "clear" or "cls":
-                            Invoke(_output.Clear);
-                            break;
-
-                        default:
-                            Console.WriteLine($"Unknown command: {verb}. Type 'commands' for help.");
-                            break;
+                        Invoke(_output.Clear);
+                        return;
                     }
+
+                    WallyCommands.DispatchCommand(_environment, args);
                 });
 
                 bool stateChanging = input.StartsWith("setup", StringComparison.OrdinalIgnoreCase) ||
                                      input.StartsWith("load", StringComparison.OrdinalIgnoreCase) ||
                                      input.StartsWith("reload", StringComparison.OrdinalIgnoreCase) ||
-                                     input.StartsWith("cleanup", StringComparison.OrdinalIgnoreCase);
+                                     input.StartsWith("cleanup", StringComparison.OrdinalIgnoreCase) ||
+                                     input.StartsWith("runbook", StringComparison.OrdinalIgnoreCase);
 
                 if (stateChanging)
                     WorkspaceChanged?.Invoke(this, EventArgs.Empty);
@@ -403,27 +397,9 @@ namespace Wally.Forms.Controls
             }
         }
 
-        // ?? Argument parsing ????????????????????????????????????????????????
+        // — Argument parsing (kept for local use, but SplitArgs now shared via WallyCommands) —
 
-        private static string[] SplitArgs(string input)
-        {
-            var args = new List<string>();
-            bool inQuotes = false;
-            var current = new System.Text.StringBuilder();
-
-            foreach (char c in input)
-            {
-                if (c == '"') { inQuotes = !inQuotes; continue; }
-                if (c == ' ' && !inQuotes)
-                {
-                    if (current.Length > 0) { args.Add(current.ToString()); current.Clear(); }
-                    continue;
-                }
-                current.Append(c);
-            }
-            if (current.Length > 0) args.Add(current.ToString());
-            return args.ToArray();
-        }
+        private static string[] SplitArgs(string input) => WallyCommands.SplitArgs(input);
 
         private static string? GetOption(string[] args, string flag)
         {
