@@ -9,7 +9,7 @@ Runbooks are `.wrb` files that contain sequences of Wally commands — one per lin
 # The first comment line becomes the runbook's description.
 
 setup "{workSourcePath}"
-run Engineer "{userPrompt}" -l CodeReview
+run "{userPrompt}" -a Engineer -l CodeReview
 runbook another-runbook
 info
 ```

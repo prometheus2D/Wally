@@ -387,6 +387,7 @@ namespace Wally.Forms
             _fileExplorer.ClearTree();
             _chatPanel.ClearMessages();
             _chatPanel.RefreshActorList();
+            _chatPanel.RefreshLoopList();
             _chatPanel.RefreshModelList();
             HideWorkspacePanels();
 
@@ -430,6 +431,7 @@ namespace Wally.Forms
                 _fileExplorer.ClearTree();
                 _chatPanel.ClearMessages();
                 _chatPanel.RefreshActorList();
+                _chatPanel.RefreshLoopList();
                 _chatPanel.RefreshModelList();
                 HideWorkspacePanels();
                 _tabHost.CloseAllTabs();
@@ -470,6 +472,7 @@ namespace Wally.Forms
                 Text = $"Wally \u2014 {_environment.WorkSource}";
                 _fileExplorer.SetRootPath(_environment.WorkSource!);
                 _chatPanel.RefreshActorList();
+                _chatPanel.RefreshLoopList();
                 _chatPanel.RefreshModelList();
 
                 if (!_content.Controls.Contains(_chatPanel))

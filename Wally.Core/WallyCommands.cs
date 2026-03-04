@@ -730,7 +730,7 @@ namespace Wally.Core
             env.Logger.LogCommand("list-loops");
 
             var loops = env.Loops;
-            Console.WriteLine($"Loops ({loops.Count}:");
+            Console.WriteLine($"Loops ({loops.Count}):");
             if (loops.Count == 0)
             {
                 Console.WriteLine($"  (none \u2014 add .json files to {env.WorkspaceFolder}/Loops/)");
@@ -999,7 +999,7 @@ namespace Wally.Core
             Console.WriteLine();
             Console.WriteLine("Edit or remove wrappers:");
             Console.WriteLine("  wally edit-wrapper OllamaChat -e /usr/bin/ollama");
-            Console.WriteLine("  wally delete-wrapper OllamaChat");
+            Console.WriteLine("  wally delete-wrapper OllomaChat");
             Console.WriteLine("  wally list-wrappers");
             Console.WriteLine();
 
@@ -1013,8 +1013,8 @@ namespace Wally.Core
             Console.WriteLine();
             Console.WriteLine("Then edit .wally/Runbooks/security-review.wrb to add commands:");
             Console.WriteLine("  # Full security review pipeline");
-            Console.WriteLine("  run SecurityAuditor \"{userPrompt}\" -l SecurityScan");
-            Console.WriteLine("  run Engineer \"{userPrompt}\" -l CodeReview");
+            Console.WriteLine("  run \"{userPrompt}\" -a SecurityAuditor -l SecurityScan");
+            Console.WriteLine("  run \"{userPrompt}\" -a Engineer -l CodeReview");
             Console.WriteLine();
             Console.WriteLine("Edit or remove runbooks:");
             Console.WriteLine("  wally edit-runbook security-review -d \"Updated description\"");
@@ -1360,7 +1360,7 @@ namespace Wally.Core
             lines.Add("# Add your commands below, one per line.");
             lines.Add("# Use {userPrompt} to pass in the runtime prompt.");
             lines.Add("# Example:");
-            lines.Add("# run Engineer \"{userPrompt}\"");
+            lines.Add("# run \"{userPrompt}\" -a Engineer");
 
             File.WriteAllLines(filePath, lines);
             ws.ReloadRunbooks();

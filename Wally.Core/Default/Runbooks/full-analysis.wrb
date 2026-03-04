@@ -1,6 +1,6 @@
 # Full Analysis
 # Runs all three default actors on the given prompt.
 
-run Stakeholder "{userPrompt}"
-run BusinessAnalyst "{userPrompt}"
-run Engineer "{userPrompt}"
+run "{userPrompt}" -a Stakeholder
+run "{userPrompt}" -a BusinessAnalyst
+run "{userPrompt}" -a Engineer

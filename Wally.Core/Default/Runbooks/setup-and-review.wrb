@@ -2,4 +2,4 @@
 # Scaffolds a workspace and runs a code review on the codebase.
 
 setup "{workSourcePath}"
-run Engineer "{userPrompt}" -l CodeReview
+run "{userPrompt}" -a Engineer -l CodeReview
