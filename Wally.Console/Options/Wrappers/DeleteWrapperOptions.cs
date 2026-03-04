@@ -1,6 +1,6 @@
 using CommandLine;
 
-namespace Wally.Console.Options
+namespace Wally.Console.Options.Wrappers
 {
     [Verb("delete-wrapper", HelpText = "Delete an LLM wrapper definition from the workspace.")]
     public class DeleteWrapperOptions

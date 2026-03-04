@@ -1,6 +1,6 @@
 using CommandLine;
 
-namespace Wally.Console.Options
+namespace Wally.Console.Options.Loops
 {
     [Verb("delete-loop", HelpText = "Delete a loop definition from the workspace.")]
     public class DeleteLoopOptions

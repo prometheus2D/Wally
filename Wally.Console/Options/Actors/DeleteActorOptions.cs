@@ -1,6 +1,6 @@
 using CommandLine;
 
-namespace Wally.Console.Options
+namespace Wally.Console.Options.Actors
 {
     [Verb("delete-actor", HelpText = "Delete an actor and its folder from the workspace.")]
     public class DeleteActorOptions

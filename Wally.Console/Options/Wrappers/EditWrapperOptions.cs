@@ -1,6 +1,6 @@
 using CommandLine;
 
-namespace Wally.Console.Options
+namespace Wally.Console.Options.Wrappers
 {
     [Verb("edit-wrapper", HelpText = "Edit an existing LLM wrapper definition.")]
     public class EditWrapperOptions

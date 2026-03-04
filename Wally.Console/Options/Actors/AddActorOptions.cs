@@ -1,6 +1,6 @@
 using CommandLine;
 
-namespace Wally.Console.Options
+namespace Wally.Console.Options.Actors
 {
     [Verb("add-actor", HelpText = "Create a new actor with RBA prompts in the workspace.")]
     public class AddActorOptions

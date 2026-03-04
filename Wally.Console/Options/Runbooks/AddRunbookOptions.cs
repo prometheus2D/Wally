@@ -1,6 +1,6 @@
 using CommandLine;
 
-namespace Wally.Console.Options
+namespace Wally.Console.Options.Runbooks
 {
     [Verb("add-runbook", HelpText = "Create a new runbook (.wrb) in the workspace.")]
     public class AddRunbookOptions

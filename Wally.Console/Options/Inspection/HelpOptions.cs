@@ -1,6 +1,6 @@
 using CommandLine;
 
-namespace Wally.Console.Options
+namespace Wally.Console.Options.Inspection
 {
     [Verb("commands", HelpText = "Display the list of available commands.")]
     public class HelpOptions { }

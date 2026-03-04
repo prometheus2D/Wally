@@ -1,6 +1,6 @@
 using CommandLine;
 
-namespace Wally.Console.Options
+namespace Wally.Console.Options.Workspace
 {
     [Verb("cleanup", HelpText = "Delete the local .wally/ workspace folder so setup can scaffold a fresh one.")]
     public class CleanupOptions

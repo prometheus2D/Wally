@@ -1,6 +1,6 @@
 using CommandLine;
 
-namespace Wally.Console.Options
+namespace Wally.Console.Options.Runbooks
 {
     [Verb("edit-runbook", HelpText = "Edit an existing runbook's description.")]
     public class EditRunbookOptions

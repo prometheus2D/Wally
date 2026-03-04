@@ -1,6 +1,6 @@
 using CommandLine;
 
-namespace Wally.Console.Options
+namespace Wally.Console.Options.Run
 {
     [Verb("runbook", HelpText = "Execute a runbook — a sequence of Wally commands from a .wrb file.")]
     public class RunbookOptions

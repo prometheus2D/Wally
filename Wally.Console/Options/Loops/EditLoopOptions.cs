@@ -1,6 +1,6 @@
 using CommandLine;
 
-namespace Wally.Console.Options
+namespace Wally.Console.Options.Loops
 {
     [Verb("edit-loop", HelpText = "Edit an existing loop definition.")]
     public class EditLoopOptions

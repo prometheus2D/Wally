@@ -1,6 +1,6 @@
 using CommandLine;
 
-namespace Wally.Console.Options
+namespace Wally.Console.Options.Workspace
 {
     [Verb("load", HelpText = "Load a Wally workspace from the specified path.")]
     public class LoadOptions

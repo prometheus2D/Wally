@@ -1,6 +1,6 @@
 using CommandLine;
 
-namespace Wally.Console.Options
+namespace Wally.Console.Options.Wrappers
 {
     [Verb("add-wrapper", HelpText = "Create a new LLM wrapper definition in the workspace.")]
     public class AddWrapperOptions

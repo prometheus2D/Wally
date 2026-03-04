@@ -1,6 +1,6 @@
 using CommandLine;
 
-namespace Wally.Console.Options
+namespace Wally.Console.Options.Runbooks
 {
     [Verb("delete-runbook", HelpText = "Delete a runbook (.wrb) from the workspace.")]
     public class DeleteRunbookOptions

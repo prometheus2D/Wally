@@ -1,6 +1,6 @@
 using CommandLine;
 
-namespace Wally.Console.Options
+namespace Wally.Console.Options.Workspace
 {
     [Verb("save", HelpText = "Save the current Wally environment to the specified path.")]
     public class SaveOptions

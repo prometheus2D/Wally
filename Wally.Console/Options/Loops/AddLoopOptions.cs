@@ -1,6 +1,6 @@
 using CommandLine;
 
-namespace Wally.Console.Options
+namespace Wally.Console.Options.Loops
 {
     [Verb("add-loop", HelpText = "Create a new loop definition in the workspace.")]
     public class AddLoopOptions

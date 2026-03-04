@@ -1,7 +1,7 @@
 using CommandLine;
 
-namespace Wally.Console.Options
+namespace Wally.Console.Options.Actors
 {
     [Verb("list", HelpText = "List Actors and configuration files.")]
-    public class ListOptions { }
+    public class ListActorsOptions { }
 }

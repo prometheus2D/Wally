@@ -1,6 +1,6 @@
 using CommandLine;
 
-namespace Wally.Console.Options
+namespace Wally.Console.Options.Actors
 {
     [Verb("edit-actor", HelpText = "Edit an existing actor's RBA prompts.")]
     public class EditActorOptions

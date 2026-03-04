@@ -1,6 +1,6 @@
 using CommandLine;
 
-namespace Wally.Console.Options
+namespace Wally.Console.Options.Run
 {
     [Verb("run", HelpText = "Run an Actor on the given prompt. Use --loop to iterate until completion.")]
     public class RunOptions
