@@ -38,8 +38,7 @@
     "RequirementsDeepDive"
   ],
   "DefaultRunbooks": [
-    "setup-and-review",
-    "simple-loop",
+    "hello-world",
     "full-analysis"
   ],
   "MaxIterations": 10,

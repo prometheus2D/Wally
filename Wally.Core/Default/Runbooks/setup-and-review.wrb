@@ -1,5 +1,0 @@
-# Setup and Review
-# Scaffolds a workspace and runs a code review on the codebase.
-
-setup "{workSourcePath}"
-run "{userPrompt}" -a Engineer -l CodeReview

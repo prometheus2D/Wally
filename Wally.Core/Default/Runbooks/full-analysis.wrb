@@ -1,6 +1,7 @@
 # Full Analysis
-# Runs all three default actors on the given prompt.
+# Runs all three default actors on the given prompt, then summarizes.
 
 run "{userPrompt}" -a Stakeholder
 run "{userPrompt}" -a BusinessAnalyst
 run "{userPrompt}" -a Engineer
+run "Summarize the key points from the previous analysis of: {userPrompt}"

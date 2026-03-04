@@ -1,0 +1,5 @@
+# Hello World
+# Verifies the workspace is set up correctly, then runs a simple prompt.
+
+setup --verify
+run "Say hello and briefly describe what you can see in this workspace."

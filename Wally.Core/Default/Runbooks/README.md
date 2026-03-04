@@ -1,6 +1,11 @@
 # Wally Runbooks
 
 Runbooks are `.wrb` files that contain sequences of Wally commands — one per line.
+They are for **multi-step workflows** — chaining setup, multiple actors, loops,
+and other commands into a repeatable pipeline.
+
+> For single-command tasks, use `run` directly with flags like `-a`, `-l`, `--loop`.
+> Runbooks are for when you need *more than one step*.
 
 ## Format
 
@@ -8,9 +13,9 @@ Runbooks are `.wrb` files that contain sequences of Wally commands — one per lin
 # Comments start with #
 # The first comment line becomes the runbook's description.
 
-setup "{workSourcePath}"
+setup --verify
+run "{userPrompt}" -a Stakeholder
 run "{userPrompt}" -a Engineer -l CodeReview
-runbook another-runbook
 info
 ```
 
@@ -29,13 +34,8 @@ info
 ## Running
 
 ```
-wally runbook setup-and-review "Review the auth module"
-```
-
-Or from the terminal panel in Wally Forms:
-
-```
-runbook full-analysis "Improve error handling"
+wally runbook <name> ["<prompt>"]
+wally list-runbooks
 ```
 
 ## Nesting

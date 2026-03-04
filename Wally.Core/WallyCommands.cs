@@ -877,7 +877,8 @@ namespace Wally.Core
             Console.WriteLine("  .\\wally run \"Fix the login bug\" -a Engineer -w AutoCopilot");
             Console.WriteLine("  .\\wally run \"Explain this module\" -m claude-sonnet-4");
             Console.WriteLine("  .\\wally run \"Write requirements for user authentication\" -a BusinessAnalyst");
-            Console.WriteLine("  .\\wally runbook full-analysis \"Improve the logging module\"");
+            Console.WriteLine("  .\\wally runbook <name> \"<prompt>\"                             # run a multi-step workflow");
+            Console.WriteLine("  .\\wally list-runbooks                                         # see available runbooks");
             Console.WriteLine("  .\\wally add-actor QA -r \"You are a QA engineer\" -c \"Find all bugs\" -i \"Ensure quality\"");
             Console.WriteLine("  .\\wally add-loop BugHunt -d \"Bug hunting loop\" -a Engineer -n 5");
             Console.WriteLine("  .\\wally tutorial                   Step-by-step guide");
@@ -939,19 +940,25 @@ namespace Wally.Core
             Console.WriteLine();
 
             Console.WriteLine("STEP 4: USE RUNBOOKS FOR COMMAND SEQUENCES");
-            Console.WriteLine("\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500");
+            Console.WriteLine("\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500");
             Console.WriteLine("Runbooks are .wrb files with one Wally command per line. They chain");
-            Console.WriteLine("multiple actors and loops into a repeatable workflow.");
+            Console.WriteLine("multiple steps into a repeatable workflow — setup, multiple actors,");
+            Console.WriteLine("loops, and other commands in sequence.");
             Console.WriteLine();
-            Console.WriteLine("Run the shipped full-analysis runbook:");
-            Console.WriteLine("  wally runbook full-analysis \"Improve the logging module\"");
+            Console.WriteLine("For single-command tasks, use 'run' directly with flags like -a, -l, --loop.");
+            Console.WriteLine("Runbooks are for when you need more than one step.");
+            Console.WriteLine();
+            Console.WriteLine("Run a runbook:");
+            Console.WriteLine("  wally runbook <name> \"<prompt>\"");
             Console.WriteLine();
             Console.WriteLine("List available runbooks:");
             Console.WriteLine("  wally list-runbooks");
             Console.WriteLine();
+            Console.WriteLine("Default runbooks are shipped with setup. Run 'list-runbooks' to see them.");
+            Console.WriteLine();
 
             Console.WriteLine("STEP 5: BUILD YOUR OWN ACTORS");
-            Console.WriteLine("\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500");
+            Console.WriteLine("\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500");
             Console.WriteLine("Actors are defined by a folder + actor.json with three prompts:");
             Console.WriteLine("  Role           \u2014 who the actor is (e.g. \"You are a security auditor...\")");
             Console.WriteLine("  Criteria       \u2014 what success looks like");
