@@ -41,19 +41,29 @@ namespace Wally.Forms.Controls.Editors
             Dock = DockStyle.Fill;
             BackColor = WallyTheme.Surface0;
 
-            var mainPanel = new FlowLayoutPanel
+            var scroll = new Panel
             {
                 Dock = DockStyle.Fill,
-                FlowDirection = FlowDirection.TopDown,
-                WrapContents = false,
                 AutoScroll = true,
+                BackColor = WallyTheme.Surface0
+            };
+
+            var table = new TableLayoutPanel
+            {
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                Dock = DockStyle.Top,
+                ColumnCount = 1,
                 BackColor = WallyTheme.Surface0,
                 Padding = new Padding(20)
             };
+            table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
+
+            int row = 0;
 
             // Header
-            mainPanel.Controls.Add(CreateSectionLabel("\u2699 Wrapper Editor", WallyTheme.FontUIBold, WallyTheme.TextPrimary));
-            mainPanel.Controls.Add(CreateSpacer(8));
+            table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            table.Controls.Add(CreateSectionLabel("\u2699 Wrapper Editor", WallyTheme.FontUIBold, WallyTheme.TextPrimary), 0, row++);
 
             // Action bar
             var actionBar = new FlowLayoutPanel
@@ -62,7 +72,7 @@ namespace Wally.Forms.Controls.Editors
                 AutoSize = true,
                 WrapContents = false,
                 BackColor = Color.Transparent,
-                Margin = new Padding(0, 0, 0, 8)
+                Margin = new Padding(0, 4, 0, 8)
             };
 
             _btnSave = CreateButton("\uD83D\uDCBE Save");
@@ -83,57 +93,70 @@ namespace Wally.Forms.Controls.Editors
             actionBar.Controls.Add(_btnSave);
             actionBar.Controls.Add(_btnRevert);
             actionBar.Controls.Add(_lblStatus);
-            mainPanel.Controls.Add(actionBar);
-            mainPanel.Controls.Add(CreateSpacer(4));
+            table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            table.Controls.Add(actionBar, 0, row++);
 
             // Fields
-            mainPanel.Controls.Add(CreateFieldLabel("Name"));
+            table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            table.Controls.Add(CreateFieldLabel("Name"), 0, row++);
             _txtName = CreateTextBox();
             _txtName.TextChanged += OnFieldChanged;
-            mainPanel.Controls.Add(_txtName);
+            table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            table.Controls.Add(_txtName, 0, row++);
 
-            mainPanel.Controls.Add(CreateFieldLabel("Description"));
+            table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            table.Controls.Add(CreateFieldLabel("Description"), 0, row++);
             _txtDescription = CreateTextBox();
             _txtDescription.TextChanged += OnFieldChanged;
-            mainPanel.Controls.Add(_txtDescription);
-            mainPanel.Controls.Add(CreateSpacer(8));
+            table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            table.Controls.Add(_txtDescription, 0, row++);
 
-            mainPanel.Controls.Add(CreateSectionLabel("CLI Recipe", WallyTheme.FontUIBold, WallyTheme.TextSecondary));
-            mainPanel.Controls.Add(CreateSpacer(4));
+            table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            table.Controls.Add(CreateSectionLabel("CLI Recipe", WallyTheme.FontUIBold, WallyTheme.TextSecondary), 0, row++);
 
-            mainPanel.Controls.Add(CreateFieldLabel("Executable"));
+            table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            table.Controls.Add(CreateFieldLabel("Executable"), 0, row++);
             _txtExecutable = CreateTextBox();
             _txtExecutable.TextChanged += OnFieldChanged;
-            mainPanel.Controls.Add(_txtExecutable);
+            table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            table.Controls.Add(_txtExecutable, 0, row++);
 
-            mainPanel.Controls.Add(CreateFieldLabel("Argument Template"));
-            _txtArgTemplate = CreateRichTextBox(60);
+            table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            table.Controls.Add(CreateFieldLabel("Argument Template"), 0, row++);
+            _txtArgTemplate = CreateRichTextBox(120);
             _txtArgTemplate.TextChanged += OnFieldChanged;
-            mainPanel.Controls.Add(_txtArgTemplate);
+            table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            table.Controls.Add(_txtArgTemplate, 0, row++);
 
-            mainPanel.Controls.Add(CreateFieldLabel("Model Arg Format (e.g. --model {model})"));
+            table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            table.Controls.Add(CreateFieldLabel("Model Arg Format (e.g. --model {model})"), 0, row++);
             _txtModelArgFormat = CreateTextBox();
             _txtModelArgFormat.TextChanged += OnFieldChanged;
-            mainPanel.Controls.Add(_txtModelArgFormat);
+            table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            table.Controls.Add(_txtModelArgFormat, 0, row++);
 
-            mainPanel.Controls.Add(CreateFieldLabel("Source Path Arg Format (e.g. --add-dir {sourcePath})"));
+            table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            table.Controls.Add(CreateFieldLabel("Source Path Arg Format (e.g. --add-dir {sourcePath})"), 0, row++);
             _txtSourcePathArgFormat = CreateTextBox();
             _txtSourcePathArgFormat.TextChanged += OnFieldChanged;
-            mainPanel.Controls.Add(_txtSourcePathArgFormat);
-            mainPanel.Controls.Add(CreateSpacer(8));
+            table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            table.Controls.Add(_txtSourcePathArgFormat, 0, row++);
 
-            mainPanel.Controls.Add(CreateSectionLabel("Behaviour", WallyTheme.FontUIBold, WallyTheme.TextSecondary));
-            mainPanel.Controls.Add(CreateSpacer(4));
+            table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            table.Controls.Add(CreateSectionLabel("Behaviour", WallyTheme.FontUIBold, WallyTheme.TextSecondary), 0, row++);
 
             _chkUseSourceAsWD = CreateCheckBox("Use source path as working directory");
             _chkUseSourceAsWD.CheckedChanged += OnFieldChanged;
-            mainPanel.Controls.Add(_chkUseSourceAsWD);
+            table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            table.Controls.Add(_chkUseSourceAsWD, 0, row++);
 
             _chkCanMakeChanges = CreateCheckBox("Can make changes to files (agentic mode)");
             _chkCanMakeChanges.CheckedChanged += OnFieldChanged;
-            mainPanel.Controls.Add(_chkCanMakeChanges);
+            table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            table.Controls.Add(_chkCanMakeChanges, 0, row++);
 
-            Controls.Add(mainPanel);
+            scroll.Controls.Add(table);
+            Controls.Add(scroll);
             ResumeLayout(true);
         }
 
@@ -236,16 +259,16 @@ namespace Wally.Forms.Controls.Editors
         // ── Control factories ───────────────────────────────────────────────
 
         private static Label CreateSectionLabel(string text, Font font, Color color) =>
-            new() { Text = text, AutoSize = true, Font = font, ForeColor = color, BackColor = Color.Transparent, Margin = new Padding(0, 0, 0, 4) };
+            new() { Text = text, AutoSize = true, Font = font, ForeColor = color, BackColor = Color.Transparent, Margin = new Padding(0, 8, 0, 4), Dock = DockStyle.Top };
 
         private static Label CreateFieldLabel(string text) =>
-            new() { Text = text, AutoSize = true, Font = WallyTheme.FontUISmallBold, ForeColor = WallyTheme.TextMuted, BackColor = Color.Transparent, Margin = new Padding(0, 0, 0, 2) };
+            new() { Text = text, AutoSize = true, Font = WallyTheme.FontUISmallBold, ForeColor = WallyTheme.TextMuted, BackColor = Color.Transparent, Margin = new Padding(0, 0, 0, 2), Dock = DockStyle.Top };
 
         private static TextBox CreateTextBox() =>
-            new() { Width = 500, Font = WallyTheme.FontUI, BackColor = WallyTheme.Surface2, ForeColor = WallyTheme.TextPrimary, BorderStyle = BorderStyle.FixedSingle, Margin = new Padding(0, 0, 0, 4) };
+            new() { Dock = DockStyle.Top, Font = WallyTheme.FontUI, BackColor = WallyTheme.Surface2, ForeColor = WallyTheme.TextPrimary, BorderStyle = BorderStyle.FixedSingle, Margin = new Padding(0, 0, 0, 4) };
 
         private static RichTextBox CreateRichTextBox(int height) =>
-            new() { Width = 500, Height = height, Font = WallyTheme.FontMono, BackColor = WallyTheme.Surface2, ForeColor = WallyTheme.TextPrimary, BorderStyle = BorderStyle.FixedSingle, WordWrap = true, ScrollBars = RichTextBoxScrollBars.Vertical, Margin = new Padding(0, 0, 0, 4) };
+            new() { Dock = DockStyle.Top, Height = height, MinimumSize = new Size(0, height), Font = WallyTheme.FontMono, BackColor = WallyTheme.Surface2, ForeColor = WallyTheme.TextPrimary, BorderStyle = BorderStyle.FixedSingle, WordWrap = true, ScrollBars = RichTextBoxScrollBars.Vertical, Margin = new Padding(0, 0, 0, 4) };
 
         private static CheckBox CreateCheckBox(string text) =>
             new() { Text = text, AutoSize = true, Font = WallyTheme.FontUI, ForeColor = WallyTheme.TextPrimary, BackColor = Color.Transparent, Margin = new Padding(0, 4, 0, 4) };
@@ -258,8 +281,5 @@ namespace Wally.Forms.Controls.Editors
             btn.FlatAppearance.MouseOverBackColor = WallyTheme.Surface4;
             return btn;
         }
-
-        private static Panel CreateSpacer(int height) =>
-            new() { Height = height, Width = 500, BackColor = Color.Transparent, Margin = Padding.Empty };
     }
 }

@@ -40,19 +40,29 @@ namespace Wally.Forms.Controls.Editors
             Dock = DockStyle.Fill;
             BackColor = WallyTheme.Surface0;
 
-            var mainPanel = new FlowLayoutPanel
+            var scroll = new Panel
             {
                 Dock = DockStyle.Fill,
-                FlowDirection = FlowDirection.TopDown,
-                WrapContents = false,
                 AutoScroll = true,
+                BackColor = WallyTheme.Surface0
+            };
+
+            var table = new TableLayoutPanel
+            {
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                Dock = DockStyle.Top,
+                ColumnCount = 1,
                 BackColor = WallyTheme.Surface0,
                 Padding = new Padding(20)
             };
+            table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
+
+            int row = 0;
 
             // Header
-            mainPanel.Controls.Add(CreateSectionLabel("\u267B Loop Editor", WallyTheme.FontUIBold, WallyTheme.TextPrimary));
-            mainPanel.Controls.Add(CreateSpacer(8));
+            table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            table.Controls.Add(CreateSectionLabel("\u267B Loop Editor", WallyTheme.FontUIBold, WallyTheme.TextPrimary), 0, row++);
 
             // Action bar
             var actionBar = new FlowLayoutPanel
@@ -61,7 +71,7 @@ namespace Wally.Forms.Controls.Editors
                 AutoSize = true,
                 WrapContents = false,
                 BackColor = Color.Transparent,
-                Margin = new Padding(0, 0, 0, 8)
+                Margin = new Padding(0, 4, 0, 8)
             };
 
             _btnSave = CreateButton("\uD83D\uDCBE Save");
@@ -82,49 +92,61 @@ namespace Wally.Forms.Controls.Editors
             actionBar.Controls.Add(_btnSave);
             actionBar.Controls.Add(_btnRevert);
             actionBar.Controls.Add(_lblStatus);
-            mainPanel.Controls.Add(actionBar);
-            mainPanel.Controls.Add(CreateSpacer(4));
+            table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            table.Controls.Add(actionBar, 0, row++);
 
             // Fields
-            mainPanel.Controls.Add(CreateFieldLabel("Name"));
+            table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            table.Controls.Add(CreateFieldLabel("Name"), 0, row++);
             _txtName = CreateTextBox();
             _txtName.TextChanged += OnFieldChanged;
-            mainPanel.Controls.Add(_txtName);
+            table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            table.Controls.Add(_txtName, 0, row++);
 
-            mainPanel.Controls.Add(CreateFieldLabel("Description"));
+            table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            table.Controls.Add(CreateFieldLabel("Description"), 0, row++);
             _txtDescription = CreateTextBox();
             _txtDescription.TextChanged += OnFieldChanged;
-            mainPanel.Controls.Add(_txtDescription);
-            mainPanel.Controls.Add(CreateSpacer(8));
+            table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            table.Controls.Add(_txtDescription, 0, row++);
 
-            mainPanel.Controls.Add(CreateFieldLabel("Actor Name"));
+            table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            table.Controls.Add(CreateFieldLabel("Actor Name"), 0, row++);
             _txtActorName = CreateTextBox();
             _txtActorName.TextChanged += OnFieldChanged;
-            mainPanel.Controls.Add(_txtActorName);
-            mainPanel.Controls.Add(CreateSpacer(8));
+            table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            table.Controls.Add(_txtActorName, 0, row++);
 
-            mainPanel.Controls.Add(CreateFieldLabel("Start Prompt"));
-            _txtStartPrompt = CreateRichTextBox(80);
+            table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            table.Controls.Add(CreateSectionLabel("Start Prompt", WallyTheme.FontUISmallBold, WallyTheme.TextMuted), 0, row++);
+            _txtStartPrompt = CreateRichTextBox(140);
             _txtStartPrompt.TextChanged += OnFieldChanged;
-            mainPanel.Controls.Add(_txtStartPrompt);
+            table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            table.Controls.Add(_txtStartPrompt, 0, row++);
 
-            mainPanel.Controls.Add(CreateFieldLabel("Continue Prompt Template"));
-            _txtContinueTemplate = CreateRichTextBox(80);
+            table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            table.Controls.Add(CreateSectionLabel("Continue Prompt Template", WallyTheme.FontUISmallBold, WallyTheme.TextMuted), 0, row++);
+            _txtContinueTemplate = CreateRichTextBox(140);
             _txtContinueTemplate.TextChanged += OnFieldChanged;
-            mainPanel.Controls.Add(_txtContinueTemplate);
-            mainPanel.Controls.Add(CreateSpacer(8));
+            table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            table.Controls.Add(_txtContinueTemplate, 0, row++);
 
-            mainPanel.Controls.Add(CreateFieldLabel("Completed Keyword"));
+            table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            table.Controls.Add(CreateFieldLabel("Completed Keyword"), 0, row++);
             _txtCompletedKeyword = CreateTextBox();
             _txtCompletedKeyword.TextChanged += OnFieldChanged;
-            mainPanel.Controls.Add(_txtCompletedKeyword);
+            table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            table.Controls.Add(_txtCompletedKeyword, 0, row++);
 
-            mainPanel.Controls.Add(CreateFieldLabel("Error Keyword"));
+            table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            table.Controls.Add(CreateFieldLabel("Error Keyword"), 0, row++);
             _txtErrorKeyword = CreateTextBox();
             _txtErrorKeyword.TextChanged += OnFieldChanged;
-            mainPanel.Controls.Add(_txtErrorKeyword);
+            table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            table.Controls.Add(_txtErrorKeyword, 0, row++);
 
-            mainPanel.Controls.Add(CreateFieldLabel("Max Iterations (0 = use workspace default)"));
+            table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            table.Controls.Add(CreateFieldLabel("Max Iterations (0 = use workspace default)"), 0, row++);
             _nudMaxIter = new NumericUpDown
             {
                 Width = 120,
@@ -137,9 +159,11 @@ namespace Wally.Forms.Controls.Editors
                 Margin = new Padding(0, 0, 0, 4)
             };
             _nudMaxIter.ValueChanged += OnFieldChanged;
-            mainPanel.Controls.Add(_nudMaxIter);
+            table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            table.Controls.Add(_nudMaxIter, 0, row++);
 
-            Controls.Add(mainPanel);
+            scroll.Controls.Add(table);
+            Controls.Add(scroll);
             ResumeLayout(true);
         }
 
@@ -245,16 +269,16 @@ namespace Wally.Forms.Controls.Editors
         // ?? Control factories ???????????????????????????????????????????????
 
         private static Label CreateSectionLabel(string text, Font font, Color color) =>
-            new() { Text = text, AutoSize = true, Font = font, ForeColor = color, BackColor = Color.Transparent, Margin = new Padding(0, 0, 0, 4) };
+            new() { Text = text, AutoSize = true, Font = font, ForeColor = color, BackColor = Color.Transparent, Margin = new Padding(0, 8, 0, 4), Dock = DockStyle.Top };
 
         private static Label CreateFieldLabel(string text) =>
-            new() { Text = text, AutoSize = true, Font = WallyTheme.FontUISmallBold, ForeColor = WallyTheme.TextMuted, BackColor = Color.Transparent, Margin = new Padding(0, 0, 0, 2) };
+            new() { Text = text, AutoSize = true, Font = WallyTheme.FontUISmallBold, ForeColor = WallyTheme.TextMuted, BackColor = Color.Transparent, Margin = new Padding(0, 0, 0, 2), Dock = DockStyle.Top };
 
         private static TextBox CreateTextBox() =>
-            new() { Width = 500, Font = WallyTheme.FontUI, BackColor = WallyTheme.Surface2, ForeColor = WallyTheme.TextPrimary, BorderStyle = BorderStyle.FixedSingle, Margin = new Padding(0, 0, 0, 4) };
+            new() { Dock = DockStyle.Top, Font = WallyTheme.FontUI, BackColor = WallyTheme.Surface2, ForeColor = WallyTheme.TextPrimary, BorderStyle = BorderStyle.FixedSingle, Margin = new Padding(0, 0, 0, 4) };
 
         private static RichTextBox CreateRichTextBox(int height) =>
-            new() { Width = 500, Height = height, Font = WallyTheme.FontMono, BackColor = WallyTheme.Surface2, ForeColor = WallyTheme.TextPrimary, BorderStyle = BorderStyle.FixedSingle, WordWrap = true, ScrollBars = RichTextBoxScrollBars.Vertical, Margin = new Padding(0, 0, 0, 4) };
+            new() { Dock = DockStyle.Top, Height = height, MinimumSize = new Size(0, height), Font = WallyTheme.FontMono, BackColor = WallyTheme.Surface2, ForeColor = WallyTheme.TextPrimary, BorderStyle = BorderStyle.FixedSingle, WordWrap = true, ScrollBars = RichTextBoxScrollBars.Vertical, Margin = new Padding(0, 0, 0, 4) };
 
         private static Button CreateButton(string text)
         {
@@ -264,8 +288,5 @@ namespace Wally.Forms.Controls.Editors
             btn.FlatAppearance.MouseOverBackColor = WallyTheme.Surface4;
             return btn;
         }
-
-        private static Panel CreateSpacer(int height) =>
-            new() { Height = height, Width = 500, BackColor = Color.Transparent, Margin = Padding.Empty };
     }
 }

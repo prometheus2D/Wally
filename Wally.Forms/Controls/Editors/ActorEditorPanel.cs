@@ -42,32 +42,40 @@ namespace Wally.Forms.Controls.Editors
 
             Dock = DockStyle.Fill;
             BackColor = WallyTheme.Surface0;
-            AutoScroll = true;
-            Padding = new Padding(20);
 
-            var mainPanel = new FlowLayoutPanel
+            // Scrollable wrapper so the table can exceed the visible area.
+            var scroll = new Panel
             {
                 Dock = DockStyle.Fill,
-                FlowDirection = FlowDirection.TopDown,
-                WrapContents = false,
-                AutoSize = false,
                 AutoScroll = true,
-                BackColor = WallyTheme.Surface0,
-                Padding = new Padding(0)
+                BackColor = WallyTheme.Surface0
             };
 
-            // Header
-            mainPanel.Controls.Add(CreateSectionLabel("\U0001F3AD Actor Editor", WallyTheme.FontUIBold, WallyTheme.TextPrimary));
-            mainPanel.Controls.Add(CreateSpacer(8));
+            var table = new TableLayoutPanel
+            {
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                Dock = DockStyle.Top,
+                ColumnCount = 1,
+                BackColor = WallyTheme.Surface0,
+                Padding = new Padding(20)
+            };
+            table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
 
-            // Status bar
+            int row = 0;
+
+            // Header
+            table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            table.Controls.Add(CreateSectionLabel("\U0001F3AD Actor Editor", WallyTheme.FontUIBold, WallyTheme.TextPrimary), 0, row++);
+
+            // Action bar
             var actionBar = new FlowLayoutPanel
             {
                 FlowDirection = FlowDirection.LeftToRight,
                 AutoSize = true,
                 WrapContents = false,
                 BackColor = Color.Transparent,
-                Margin = new Padding(0, 0, 0, 8)
+                Margin = new Padding(0, 4, 0, 8)
             };
 
             _btnSave = CreateButton("\uD83D\uDCBE Save");
@@ -88,41 +96,44 @@ namespace Wally.Forms.Controls.Editors
             actionBar.Controls.Add(_btnSave);
             actionBar.Controls.Add(_btnRevert);
             actionBar.Controls.Add(_lblStatus);
-            mainPanel.Controls.Add(actionBar);
-            mainPanel.Controls.Add(CreateSpacer(4));
+            table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            table.Controls.Add(actionBar, 0, row++);
 
             // Actor name
-            mainPanel.Controls.Add(CreateFieldLabel("Actor Name"));
+            table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            table.Controls.Add(CreateFieldLabel("Actor Name"), 0, row++);
             _txtName = CreateTextBox();
             _txtName.ReadOnly = true;
             _txtName.BackColor = WallyTheme.Surface1;
-            mainPanel.Controls.Add(_txtName);
-            mainPanel.Controls.Add(CreateSpacer(12));
+            table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            table.Controls.Add(_txtName, 0, row++);
 
             // Role
-            mainPanel.Controls.Add(CreateSectionLabel("\u2694 Role", WallyTheme.FontUIBold, WallyTheme.TextSecondary));
-            mainPanel.Controls.Add(CreateFieldLabel("Prompt"));
-            _txtRolePrompt = CreateRichTextBox(80);
+            table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            table.Controls.Add(CreateSectionLabel("\u2694 Role", WallyTheme.FontUIBold, WallyTheme.TextSecondary), 0, row++);
+            _txtRolePrompt = CreateRichTextBox(160);
             _txtRolePrompt.TextChanged += OnFieldChanged;
-            mainPanel.Controls.Add(_txtRolePrompt);
-            mainPanel.Controls.Add(CreateSpacer(12));
+            table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            table.Controls.Add(_txtRolePrompt, 0, row++);
 
             // Acceptance Criteria
-            mainPanel.Controls.Add(CreateSectionLabel("\u2705 Acceptance Criteria", WallyTheme.FontUIBold, WallyTheme.TextSecondary));
-            mainPanel.Controls.Add(CreateFieldLabel("Prompt"));
-            _txtCriteriaPrompt = CreateRichTextBox(80);
+            table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            table.Controls.Add(CreateSectionLabel("\u2705 Acceptance Criteria", WallyTheme.FontUIBold, WallyTheme.TextSecondary), 0, row++);
+            _txtCriteriaPrompt = CreateRichTextBox(160);
             _txtCriteriaPrompt.TextChanged += OnFieldChanged;
-            mainPanel.Controls.Add(_txtCriteriaPrompt);
-            mainPanel.Controls.Add(CreateSpacer(12));
+            table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            table.Controls.Add(_txtCriteriaPrompt, 0, row++);
 
             // Intent
-            mainPanel.Controls.Add(CreateSectionLabel("\uD83C\uDFAF Intent", WallyTheme.FontUIBold, WallyTheme.TextSecondary));
-            mainPanel.Controls.Add(CreateFieldLabel("Prompt"));
-            _txtIntentPrompt = CreateRichTextBox(80);
+            table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            table.Controls.Add(CreateSectionLabel("\uD83C\uDFAF Intent", WallyTheme.FontUIBold, WallyTheme.TextSecondary), 0, row++);
+            _txtIntentPrompt = CreateRichTextBox(160);
             _txtIntentPrompt.TextChanged += OnFieldChanged;
-            mainPanel.Controls.Add(_txtIntentPrompt);
+            table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            table.Controls.Add(_txtIntentPrompt, 0, row++);
 
-            Controls.Add(mainPanel);
+            scroll.Controls.Add(table);
+            Controls.Add(scroll);
             ResumeLayout(true);
         }
 
@@ -219,7 +230,8 @@ namespace Wally.Forms.Controls.Editors
                 Font = font,
                 ForeColor = color,
                 BackColor = Color.Transparent,
-                Margin = new Padding(0, 0, 0, 4)
+                Margin = new Padding(0, 8, 0, 4),
+                Dock = DockStyle.Top
             };
         }
 
@@ -232,7 +244,8 @@ namespace Wally.Forms.Controls.Editors
                 Font = WallyTheme.FontUISmallBold,
                 ForeColor = WallyTheme.TextMuted,
                 BackColor = Color.Transparent,
-                Margin = new Padding(0, 0, 0, 2)
+                Margin = new Padding(0, 0, 0, 2),
+                Dock = DockStyle.Top
             };
         }
 
@@ -240,7 +253,7 @@ namespace Wally.Forms.Controls.Editors
         {
             return new TextBox
             {
-                Width = 500,
+                Dock = DockStyle.Top,
                 Font = WallyTheme.FontUI,
                 BackColor = WallyTheme.Surface2,
                 ForeColor = WallyTheme.TextPrimary,
@@ -253,8 +266,9 @@ namespace Wally.Forms.Controls.Editors
         {
             return new RichTextBox
             {
-                Width = 500,
+                Dock = DockStyle.Top,
                 Height = height,
+                MinimumSize = new Size(0, height),
                 Font = WallyTheme.FontMono,
                 BackColor = WallyTheme.Surface2,
                 ForeColor = WallyTheme.TextPrimary,
@@ -283,17 +297,6 @@ namespace Wally.Forms.Controls.Editors
             btn.FlatAppearance.BorderColor = WallyTheme.Border;
             btn.FlatAppearance.MouseOverBackColor = WallyTheme.Surface4;
             return btn;
-        }
-
-        private static Panel CreateSpacer(int height)
-        {
-            return new Panel
-            {
-                Height = height,
-                Width = 500,
-                BackColor = Color.Transparent,
-                Margin = Padding.Empty
-            };
         }
     }
 }
