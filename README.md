@@ -71,6 +71,7 @@ That's it. Every prompt is enriched with RBA context and logged under `.wally/Lo
 - [Actors](#actors)
 - [Loops](#loops)
 - [Wrappers](#wrappers)
+- [Runbooks](#runbooks)
 - [Workspace Layout](#workspace-layout)
 - [Configuration](#configuration)
 - [Architecture](#architecture)
@@ -136,6 +137,7 @@ Actors, loops, and wrappers are **JSON files**—no code changes needed to extend:
 | `load <path>` | Load an existing `.wally/` workspace. |
 | `info` | Display workspace paths, actors, wrappers, model config. |
 | `commands` | Print command reference. |
+| `tutorial` | Step-by-step guide to setting up and using Wally. |
 | `cleanup [<path>]` | Delete `.wally/` folder to allow fresh setup. |
 
 ### Workspace Commands
@@ -144,29 +146,47 @@ Actors, loops, and wrappers are **JSON files**—no code changes needed to extend:
 |---------|-------------|
 | `list` | List all actors and their RBA prompts. |
 | `list-loops` | List all loop definitions. |
+| `list-wrappers` | List all LLM wrapper definitions. |
+| `list-runbooks` | List all runbook definitions. |
 | `reload-actors` | Re-read actors from disk. |
 | `save <path>` | Persist config and actors to disk. |
 
 ### Execution Commands
 
 ```sh
-# Single run
-wally run <actor> "<prompt>" [-m <model>] [-w <wrapper>]
+# Direct mode (no actor — prompt sent as-is)
+wally run "<prompt>" [-m <model>] [-w <wrapper>"
+
+# Single run with actor
+wally run "<prompt>" -a <actor> [-m <model>] [-w <wrapper>]
 
 # Iterative loop (generic)
-wally run <actor> "<prompt>" --loop [-n <max>]
+wally run "<prompt>" -a <actor> --loop [-n <max>]
 
 # Named loop definition
-wally run <actor> "<prompt>" -l <loop-name>
+wally run "<prompt>" -a <actor> -l <loop-name>
+
+# Multi-step runbook
+wally runbook <name> ["<prompt>"]
 ```
 
 | Flag | Description |
 |------|-------------|
+| `-a, --actor <name>` | Run through an actor (adds RBA context). Omit for direct mode. |
 | `-m, --model <model>` | Override AI model (e.g., `claude-sonnet-4`, `gpt-5.2`) |
 | `-w, --wrapper <name>` | Override LLM wrapper (e.g., `AutoCopilot` for agentic mode) |
 | `--loop` | Enable iterative loop mode |
 | `-l, --loop-name <name>` | Use a named loop from `Loops/` |
 | `-n, --max-iterations <n>` | Max iterations (implies `--loop` when > 1) |
+
+### CRUD Commands
+
+| Resource | Add | Edit | Delete |
+|----------|-----|------|--------|
+| Actors | `add-actor <name> [-r] [-c] [-i]` | `edit-actor <name> [-r] [-c] [-i]` | `delete-actor <name>` |
+| Loops | `add-loop <name> [-d] [-a] [-n] [-s]` | `edit-loop <name> [-d] [-a] [-n] [-s]` | `delete-loop <name>` |
+| Wrappers | `add-wrapper <name> [-d] [-e] [-t] [--can-make-changes]` | `edit-wrapper <name> [...]` | `delete-wrapper <name>` |
+| Runbooks | `add-runbook <name> [-d]` | `edit-runbook <name> [-d]` | `delete-runbook <name>` |
 
 ---
 
@@ -177,9 +197,13 @@ wally run <actor> "<prompt>" -l <loop-name>
 Single command execution:
 
 ```sh
-wally run Engineer "Explain the data access layer"
-wally run BusinessAnalyst "Write requirements for user search"
-wally run Stakeholder "Define success criteria for the dashboard"
+# Direct mode — no actor, prompt sent as-is
+wally run "What does this codebase do?"
+
+# With an actor
+wally run "Explain the data access layer" -a Engineer
+wally run "Write requirements for user search" -a BusinessAnalyst
+wally run "Define success criteria for the dashboard" -a Stakeholder
 ```
 
 ### Interactive REPL
@@ -348,6 +372,67 @@ Drop a `.json` file in `.wally/Wrappers/`:
 
 ---
 
+## Runbooks
+
+Runbooks are `.wrb` files that chain **multiple Wally commands** into a repeatable workflow. Each line is a Wally command — identical to what you'd type in the terminal.
+
+> For single-command tasks, use `run` directly with flags like `-a`, `-l`, `--loop`.
+> Runbooks are for when you need **more than one step**.
+
+### Default Runbooks
+
+| Runbook | Description |
+|---------|-------------|
+| `hello-world` | Verifies workspace setup, then runs a simple prompt |
+| `full-analysis` | Runs all three actors then summarizes the results |
+
+### Usage
+
+```sh
+# Run a runbook
+wally runbook <name> "<prompt>"
+
+# List available runbooks
+wally list-runbooks
+```
+
+### Runbook Format (`.wrb`)
+
+```
+# First comment line becomes the description.
+# Subsequent comment lines are ignored.
+
+setup --verify
+run "{userPrompt}" -a Stakeholder
+run "{userPrompt}" -a BusinessAnalyst
+run "{userPrompt}" -a Engineer
+run "Summarize the key points from the previous analysis of: {userPrompt}"
+```
+
+**Placeholders:** `{userPrompt}`, `{workSourcePath}`, `{workspaceFolder}`
+
+- **Blank lines** are ignored
+- **Comment lines** start with `#`
+- **Everything else** is a Wally command
+- **Nesting** — runbooks can call other runbooks (capped at 10 levels)
+- **Error handling** — stops on first command failure
+
+### Creating Custom Runbooks
+
+```sh
+# Scaffold
+wally add-runbook security-review -d "Full security review pipeline"
+
+# Then edit .wally/Runbooks/security-review.wrb:
+#   # Full security review pipeline
+#   run "{userPrompt}" -a SecurityAuditor -l SecurityScan
+#   run "{userPrompt}" -a Engineer -l CodeReview
+```
+
+Or drop a `.wrb` file directly in `.wally/Runbooks/`.
+
+---
+
 ## Workspace Layout
 
 ```
@@ -381,6 +466,9 @@ Drop a `.json` file in `.wally/Wrappers/`:
     ??? Wrappers/
     ?   ??? Copilot.json
     ?   ??? AutoCopilot.json
+    ??? Runbooks/
+    ?   ??? hello-world.wrb
+    ?   ??? full-analysis.wrb
     ??? Logs/                         # Session logs (auto-created)
         ??? <session>/
             ??? <timestamp>.txt
@@ -402,13 +490,15 @@ Everything under `<YourProject>/` is accessible to the LLM via `--add-dir`.
   "TemplatesFolderName": "Templates",
   "LoopsFolderName": "Loops",
   "WrappersFolderName": "Wrappers",
+  "RunbooksFolderName": "Runbooks",
   "LogRotationMinutes": 2,
   "DefaultModel": "gpt-4.1",
   "DefaultWrapper": "Copilot",
   "MaxIterations": 10,
   "DefaultModels": ["gpt-4.1", "gpt-5.2", "claude-sonnet-4", "..."],
   "DefaultWrappers": ["Copilot", "AutoCopilot"],
-  "DefaultLoops": ["SingleRun", "CodeReview", "Refactor", "RequirementsDeepDive"]
+  "DefaultLoops": ["SingleRun", "CodeReview", "Refactor", "RequirementsDeepDive"],
+  "DefaultRunbooks": ["hello-world", "full-analysis"]
 }
 ```
 
@@ -418,6 +508,8 @@ Everything under `<YourProject>/` is accessible to the LLM via `--add-dir`.
 | `DefaultWrapper` | `Copilot` | Wrapper used when `-w` not specified |
 | `MaxIterations` | `10` | Default cap for loop iterations |
 | `LogRotationMinutes` | `2` | Minutes per log file (`0` = single file) |
+| `RunbooksFolderName` | `Runbooks` | Subfolder for `.wrb` runbook files |
+| `DefaultRunbooks` | `[...]` | Curated list of available runbook names |
 
 ### Runtime Overrides
 
@@ -516,6 +608,26 @@ cat > .wally/Wrappers/Ollama.json << 'EOF'
 }
 EOF
 wally run Engineer "Explain this" -w Ollama -m codellama
+```
+
+### Add a Runbook
+
+Create a `.wrb` file in `.wally/Runbooks/` with one Wally command per line:
+
+```
+# My custom pipeline
+# Runs a security audit followed by a code review.
+
+run "{userPrompt}" -a SecurityAuditor
+run "{userPrompt}" -a Engineer -l CodeReview
+run "Summarize findings from: {userPrompt}"
+```
+
+Or use the CLI:
+
+```sh
+wally add-runbook my-pipeline -d "Security audit then code review"
+# Then edit .wally/Runbooks/my-pipeline.wrb
 ```
 
 ---

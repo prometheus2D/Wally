@@ -23,6 +23,7 @@ relevant to the task.
             Docs/              ? specific to that actor
     Loops/                     ? loop definitions (JSON) for iterative runs
     Wrappers/                  ? LLM wrapper definitions (JSON)
+    Runbooks/                  ? runbook files (.wrb) for multi-step workflows
     Logs/                      ? session logs (auto-created)
 ```
 
@@ -43,6 +44,15 @@ LLM wrapper definitions in `Wrappers/` define how Wally calls external LLM
 tools. Each `.json` file specifies the executable, argument template, and
 behavioural flags. To add a new LLM backend, drop a `.json` file here —
 no code changes needed.
+
+## Runbooks
+
+Runbook files in `Runbooks/` define multi-step command workflows. Each `.wrb`
+file contains one Wally command per line. Use `{userPrompt}` to pass in a
+runtime prompt. Runbooks are for chaining multiple commands — for single
+commands, use `run` directly with flags.
+
+Run `wally list-runbooks` to see available runbooks.
 
 Run `wally list` to see which actors are loaded.
 Run `wally info` to see the active wrapper and model configuration.
