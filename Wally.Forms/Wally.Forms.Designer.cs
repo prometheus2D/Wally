@@ -43,6 +43,18 @@ namespace Wally.Forms
             viewSeparator1 = new ToolStripSeparator();
             refreshMenuItem = new ToolStripMenuItem();
 
+            // ── Editors menu ──
+            editorsToolStripMenuItem = new ToolStripMenuItem();
+            editActorsMenuItem = new ToolStripMenuItem();
+            editLoopsMenuItem = new ToolStripMenuItem();
+            editWrappersMenuItem = new ToolStripMenuItem();
+            editRunbooksMenuItem = new ToolStripMenuItem();
+            editorsSeparator1 = new ToolStripSeparator();
+            editConfigMenuItem = new ToolStripMenuItem();
+            viewLogsMenuItem = new ToolStripMenuItem();
+            editorsSeparator2 = new ToolStripSeparator();
+            closeAllEditorsMenuItem = new ToolStripMenuItem();
+
             // ── Workspace menu ──
             workspaceToolStripMenuItem = new ToolStripMenuItem();
             reloadActorsMenuItem = new ToolStripMenuItem();
@@ -65,6 +77,10 @@ namespace Wally.Forms
             tsSeparator2 = new ToolStripSeparator();
             tsbInfo = new ToolStripButton();
             tsbClearChat = new ToolStripButton();
+            tsSeparator3 = new ToolStripSeparator();
+            tsbEditActors = new ToolStripButton();
+            tsbConfig = new ToolStripButton();
+            tsbLogs = new ToolStripButton();
 
             toolStripContainer1.TopToolStripPanel.SuspendLayout();
             toolStripContainer1.SuspendLayout();
@@ -101,7 +117,8 @@ namespace Wally.Forms
             menuStrip1.Items.AddRange(new ToolStripItem[]
             {
                 fileToolStripMenuItem, editToolStripMenuItem,
-                viewToolStripMenuItem, workspaceToolStripMenuItem
+                viewToolStripMenuItem, editorsToolStripMenuItem,
+                workspaceToolStripMenuItem
             });
             menuStrip1.Location = new Point(0, 0);
             menuStrip1.Name = "menuStrip1";
@@ -241,6 +258,65 @@ namespace Wally.Forms
             refreshMenuItem.ForeColor = WallyTheme.TextPrimary;
 
             // ═══════════════════════════════════════════════════════════════
+            //  Editors menu
+            // ═══════════════════════════════════════════════════════════════
+
+            editorsToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[]
+            {
+                editActorsMenuItem, editLoopsMenuItem,
+                editWrappersMenuItem, editRunbooksMenuItem,
+                editorsSeparator1,
+                editConfigMenuItem, viewLogsMenuItem,
+                editorsSeparator2,
+                closeAllEditorsMenuItem
+            });
+            editorsToolStripMenuItem.Name = "editorsToolStripMenuItem";
+            editorsToolStripMenuItem.Size = new Size(58, 20);
+            editorsToolStripMenuItem.Text = "E&ditors";
+            editorsToolStripMenuItem.ForeColor = WallyTheme.TextPrimary;
+
+            editActorsMenuItem.Name = "editActorsMenuItem";
+            editActorsMenuItem.Size = new Size(260, 22);
+            editActorsMenuItem.Text = "\U0001F3AD  &Actors\u2026";
+            editActorsMenuItem.ForeColor = WallyTheme.TextPrimary;
+
+            editLoopsMenuItem.Name = "editLoopsMenuItem";
+            editLoopsMenuItem.Size = new Size(260, 22);
+            editLoopsMenuItem.Text = "\u267B  &Loops\u2026";
+            editLoopsMenuItem.ForeColor = WallyTheme.TextPrimary;
+
+            editWrappersMenuItem.Name = "editWrappersMenuItem";
+            editWrappersMenuItem.Size = new Size(260, 22);
+            editWrappersMenuItem.Text = "\u2699  &Wrappers\u2026";
+            editWrappersMenuItem.ForeColor = WallyTheme.TextPrimary;
+
+            editRunbooksMenuItem.Name = "editRunbooksMenuItem";
+            editRunbooksMenuItem.Size = new Size(260, 22);
+            editRunbooksMenuItem.Text = "\uD83D\uDCDC  &Runbooks\u2026";
+            editRunbooksMenuItem.ForeColor = WallyTheme.TextPrimary;
+
+            editorsSeparator1.Name = "editorsSeparator1";
+            editorsSeparator1.Size = new Size(257, 6);
+
+            editConfigMenuItem.Name = "editConfigMenuItem";
+            editConfigMenuItem.Size = new Size(260, 22);
+            editConfigMenuItem.Text = "\u2699  &Configuration";
+            editConfigMenuItem.ForeColor = WallyTheme.TextPrimary;
+
+            viewLogsMenuItem.Name = "viewLogsMenuItem";
+            viewLogsMenuItem.Size = new Size(260, 22);
+            viewLogsMenuItem.Text = "\uD83D\uDCCB  Session &Logs";
+            viewLogsMenuItem.ForeColor = WallyTheme.TextPrimary;
+
+            editorsSeparator2.Name = "editorsSeparator2";
+            editorsSeparator2.Size = new Size(257, 6);
+
+            closeAllEditorsMenuItem.Name = "closeAllEditorsMenuItem";
+            closeAllEditorsMenuItem.Size = new Size(260, 22);
+            closeAllEditorsMenuItem.Text = "Close All &Editors\tCtrl+W";
+            closeAllEditorsMenuItem.ForeColor = WallyTheme.TextPrimary;
+
+            // ═══════════════════════════════════════════════════════════════
             //  Workspace menu
             // ═══════════════════════════════════════════════════════════════
 
@@ -314,7 +390,9 @@ namespace Wally.Forms
                 tsSeparator1,
                 tsbRefresh, tsbReloadActors,
                 tsSeparator2,
-                tsbInfo, tsbClearChat
+                tsbInfo, tsbClearChat,
+                tsSeparator3,
+                tsbEditActors, tsbConfig, tsbLogs
             });
 
             // Open
@@ -377,6 +455,32 @@ namespace Wally.Forms
             tsbClearChat.ForeColor = WallyTheme.TextSecondary;
             tsbClearChat.Font = WallyTheme.FontUISmall;
 
+            tsSeparator3.Name = "tsSeparator3";
+
+            // Edit Actors
+            tsbEditActors.Name = "tsbEditActors";
+            tsbEditActors.DisplayStyle = ToolStripItemDisplayStyle.Text;
+            tsbEditActors.Text = "\U0001F3AD Actors";
+            tsbEditActors.ToolTipText = "Open Actor Editor";
+            tsbEditActors.ForeColor = WallyTheme.TextPrimary;
+            tsbEditActors.Font = WallyTheme.FontUISmall;
+
+            // Config
+            tsbConfig.Name = "tsbConfig";
+            tsbConfig.DisplayStyle = ToolStripItemDisplayStyle.Text;
+            tsbConfig.Text = "\u2699 Config";
+            tsbConfig.ToolTipText = "Open Workspace Configuration";
+            tsbConfig.ForeColor = WallyTheme.TextPrimary;
+            tsbConfig.Font = WallyTheme.FontUISmall;
+
+            // Logs
+            tsbLogs.Name = "tsbLogs";
+            tsbLogs.DisplayStyle = ToolStripItemDisplayStyle.Text;
+            tsbLogs.Text = "\uD83D\uDCCB Logs";
+            tsbLogs.ToolTipText = "Open Session Log Viewer";
+            tsbLogs.ForeColor = WallyTheme.TextSecondary;
+            tsbLogs.Font = WallyTheme.FontUISmall;
+
             // ═══════════════════════════════════════════════════════════════
             //  WallyForms
             // ═══════════════════════════════════════════════════════════════
@@ -432,6 +536,18 @@ namespace Wally.Forms
         private ToolStripSeparator viewSeparator1;
         private ToolStripMenuItem refreshMenuItem;
 
+        // ── Editors menu ──
+        private ToolStripMenuItem editorsToolStripMenuItem;
+        private ToolStripMenuItem editActorsMenuItem;
+        private ToolStripMenuItem editLoopsMenuItem;
+        private ToolStripMenuItem editWrappersMenuItem;
+        private ToolStripMenuItem editRunbooksMenuItem;
+        private ToolStripSeparator editorsSeparator1;
+        private ToolStripMenuItem editConfigMenuItem;
+        private ToolStripMenuItem viewLogsMenuItem;
+        private ToolStripSeparator editorsSeparator2;
+        private ToolStripMenuItem closeAllEditorsMenuItem;
+
         // ── Workspace menu ──
         private ToolStripMenuItem workspaceToolStripMenuItem;
         private ToolStripMenuItem reloadActorsMenuItem;
@@ -454,5 +570,9 @@ namespace Wally.Forms
         private ToolStripSeparator tsSeparator2;
         private ToolStripButton tsbInfo;
         private ToolStripButton tsbClearChat;
+        private ToolStripSeparator tsSeparator3;
+        private ToolStripButton tsbEditActors;
+        private ToolStripButton tsbConfig;
+        private ToolStripButton tsbLogs;
     }
 }

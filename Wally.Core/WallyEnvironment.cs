@@ -199,18 +199,18 @@ namespace Wally.Core
         // — LLM wrapper resolution ———————————————————————————————————————————
 
         /// <summary>
-        /// Returns the active <see cref="LlmWrapper"/> for this workspace,
+        /// Returns the active <see cref="LLMWrapper"/> for this workspace,
         /// resolved from <see cref="WallyConfig.DefaultWrapper"/>.
         /// Throws if no wrapper matches the config.
         /// </summary>
-        public LlmWrapper ResolveWrapper() => ResolveWrapper(null);
+        public LLMWrapper ResolveWrapper() => ResolveWrapper(null);
 
         /// <summary>
-        /// Returns the <see cref="LlmWrapper"/> matching <paramref name="wrapperOverride"/>,
+        /// Returns the <see cref="LLMWrapper"/> matching <paramref name="wrapperOverride"/>,
         /// or the workspace default when <paramref name="wrapperOverride"/> is null/empty.
         /// Throws if no wrapper matches.
         /// </summary>
-        public LlmWrapper ResolveWrapper(string? wrapperOverride)
+        public LLMWrapper ResolveWrapper(string? wrapperOverride)
         {
             var ws = RequireWorkspace();
             string wrapperName = !string.IsNullOrWhiteSpace(wrapperOverride)

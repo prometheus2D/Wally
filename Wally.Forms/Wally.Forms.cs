@@ -1,47 +1,57 @@
-using System;
+﻿using System;
 using System.Drawing;
 using System.IO;
+using System.Linq;
 using System.Windows.Forms;
 using Wally.Core;
+using Wally.Core.Actors;
+using Wally.Core.Providers;
 using Wally.Forms.Controls;
+using Wally.Forms.Controls.Editors;
 using Wally.Forms.Theme;
 
 namespace Wally.Forms
 {
     public partial class WallyForms : Form
     {
-        // ?? Panels ??????????????????????????????????????????????????????????
+        // ── Panels ──────────────────────────────────────────────────────────
 
         private readonly FileExplorerPanel _fileExplorer;
         private readonly ChatPanel _chatPanel;
         private readonly CommandPanel _commandPanel;
         private readonly WelcomePanel _welcomePanel;
+        private readonly DocumentTabHost _tabHost;
 
-        // ?? Splitters ???????????????????????????????????????????????????????
+        // ── Splitters ───────────────────────────────────────────────────────
 
         private readonly ThemedSplitter _leftSplitter;
         private readonly ThemedSplitter _rightSplitter;
         private readonly ThemedSplitter _bottomSplitter;
 
-        // ?? Status bar ??????????????????????????????????????????????????????
+        // ── Status bar ──────────────────────────────────────────────────────
 
         private readonly StatusStrip _statusBar;
         private readonly ToolStripStatusLabel _lblWorkspaceStatus;
         private readonly ToolStripStatusLabel _lblActorCount;
         private readonly ToolStripStatusLabel _lblSessionId;
 
-        // ?? Runtime ?????????????????????????????????????????????????????????
+        // ── Runtime ─────────────────────────────────────────────────────────
 
         private readonly WallyEnvironment _environment;
 
         /// <summary>
-        /// Reference to the ToolStripContainer's ContentPanel � the parent
+        /// Reference to the ToolStripContainer's ContentPanel — the parent
         /// into which workspace panels are added and removed dynamically.
-        /// Cached once so every Add/Remove call doesn't re-navigate the tree.
         /// </summary>
         private ToolStripContentPanel _content = null!;
 
-        // ?? Constructor ?????????????????????????????????????????????????????
+        // ── Tab key constants ───────────────────────────────────────────────
+
+        private const string TabKeyWelcome = "__welcome__";
+        private const string TabKeyConfig  = "__config__";
+        private const string TabKeyLogs    = "__logs__";
+
+        // ── Constructor ─────────────────────────────────────────────────────
 
         public WallyForms()
         {
@@ -49,7 +59,7 @@ namespace Wally.Forms
 
             _environment = new WallyEnvironment();
 
-            // ?? Status bar ??
+            // ── Status bar ──
             _lblWorkspaceStatus = new ToolStripStatusLabel("No workspace")
             {
                 ForeColor = WallyTheme.TextSecondary,
@@ -84,7 +94,7 @@ namespace Wally.Forms
                 _lblWorkspaceStatus, _lblActorCount, _lblSessionId
             });
 
-            // ?? File Explorer (left) � created but NOT added to Controls yet ??
+            // ── File Explorer (left) — created but NOT added to Controls yet ──
             _fileExplorer = new FileExplorerPanel
             {
                 Dock = DockStyle.Left,
@@ -100,7 +110,7 @@ namespace Wally.Forms
                 MinSize = 180
             };
 
-            // ?? Chat Panel (right) � created but NOT added to Controls yet ??
+            // ── Chat Panel (right) — created but NOT added to Controls yet ──
             _chatPanel = new ChatPanel
             {
                 Dock = DockStyle.Right,
@@ -116,7 +126,7 @@ namespace Wally.Forms
                 MinSize = 280
             };
 
-            // ?? Command Panel (bottom) � always present ??
+            // ── Command Panel (bottom) — always present ──
             _commandPanel = new CommandPanel
             {
                 Dock = DockStyle.Bottom,
@@ -132,26 +142,30 @@ namespace Wally.Forms
                 MinSize = 80
             };
 
-            // ?? Welcome Panel (fills remaining centre space) � always present ??
+            // ── Welcome Panel (lives as a tab now) ──
             _welcomePanel = new WelcomePanel
             {
                 Dock = DockStyle.Fill
             };
 
-            // ?? Layout inside ToolStripContainer ??
-            // Only the always-visible panels are added at startup.
-            // Explorer, chat, and their splitters are injected/removed
-            // dynamically by ShowWorkspacePanels / HideWorkspacePanels.
+            // ── Document Tab Host (fills remaining centre space) ──
+            _tabHost = new DocumentTabHost
+            {
+                Dock = DockStyle.Fill
+            };
+            _tabHost.OpenTab(TabKeyWelcome, "Welcome", "\U0001F9E0", _welcomePanel, closeable: false);
+
+            // ── Layout inside ToolStripContainer ──
             _content = toolStripContainer1.ContentPanel;
             _content.BackColor = WallyTheme.Surface0;
 
-            _content.Controls.Add(_welcomePanel);      // Fill (centre)
-            _content.Controls.Add(_bottomSplitter);    // Bottom splitter
-            _content.Controls.Add(_commandPanel);      // Bottom
+            _content.Controls.Add(_tabHost);            // Fill (centre)
+            _content.Controls.Add(_bottomSplitter);     // Bottom splitter
+            _content.Controls.Add(_commandPanel);       // Bottom
 
             Controls.Add(_statusBar);
 
-            // ?? Wire child events ??
+            // ── Wire child events ──
             _commandPanel.BindEnvironment(_environment);
             _chatPanel.BindEnvironment(_environment);
 
@@ -161,14 +175,14 @@ namespace Wally.Forms
             _fileExplorer.FileDoubleClicked += OnFileDoubleClicked;
             _fileExplorer.FileSelected += OnFileSelected;
 
-            // ?? File menu ??
+            // ── File menu ──
             openWorkspaceMenuItem.Click += OnOpenWorkspace;
             setupWorkspaceMenuItem.Click += OnSetupWorkspace;
             saveWorkspaceMenuItem.Click += OnSaveWorkspace;
             closeWorkspaceMenuItem.Click += OnCloseWorkspace;
             exitMenuItem.Click += (_, _) => Close();
 
-            // ?? View menu ??
+            // ── View menu ──
             refreshMenuItem.Click += (_, _) => _fileExplorer.Refresh();
             showExplorerMenuItem.CheckedChanged += (_, _) =>
                 TogglePanel(_fileExplorer, _leftSplitter, DockStyle.Left, showExplorerMenuItem.Checked);
@@ -177,7 +191,16 @@ namespace Wally.Forms
             showCommandMenuItem.CheckedChanged += (_, _) =>
                 TogglePanel(_commandPanel, _bottomSplitter, DockStyle.Bottom, showCommandMenuItem.Checked);
 
-            // ?? Workspace menu ??
+            // ── Editors menu ──
+            editActorsMenuItem.Click += (_, _) => OpenActorPicker();
+            editLoopsMenuItem.Click += (_, _) => OpenLoopPicker();
+            editWrappersMenuItem.Click += (_, _) => OpenWrapperPicker();
+            editRunbooksMenuItem.Click += (_, _) => OpenRunbookPicker();
+            editConfigMenuItem.Click += (_, _) => OpenConfigEditor();
+            viewLogsMenuItem.Click += (_, _) => OpenLogViewer();
+            closeAllEditorsMenuItem.Click += (_, _) => _tabHost.CloseAllTabs();
+
+            // ── Workspace menu ──
             reloadActorsMenuItem.Click += (_, _) =>
                 _commandPanel.ExecuteCommand("reload-actors");
             listActorsMenuItem.Click += (_, _) =>
@@ -188,7 +211,7 @@ namespace Wally.Forms
             cleanupWorkspaceMenuItem.Click += OnCleanupWorkspace;
             openWorkspaceFolderMenuItem.Click += OnOpenWorkspaceFolder;
 
-            // ?? Main ToolStrip ??
+            // ── Main ToolStrip ──
             tsbOpen.Click += OnOpenWorkspace;
             tsbSetup.Click += OnSetupWorkspace;
             tsbSave.Click += OnSaveWorkspace;
@@ -198,38 +221,33 @@ namespace Wally.Forms
             tsbInfo.Click += (_, _) =>
                 _commandPanel.ExecuteCommand("info");
             tsbClearChat.Click += (_, _) => _chatPanel.ClearMessages();
+            tsbEditActors.Click += (_, _) => OpenActorPicker();
+            tsbConfig.Click += (_, _) => OpenConfigEditor();
+            tsbLogs.Click += (_, _) => OpenLogViewer();
 
-            // ?? Global shortcuts ??
+            // ── Global shortcuts ──
             KeyPreview = true;
             KeyDown += OnGlobalKeyDown;
 
-            // ?? Initial state ??
+            // ── Initial state ──
             showExplorerMenuItem.Checked = false;
             showChatMenuItem.Checked = false;
             UpdateWorkspaceGating();
             TryAutoSetup();
         }
 
-        // ?? Workspace panel add/remove ??????????????????????????????????????
+        // ── Workspace panel add/remove ──────────────────────────────────────
 
-        /// <summary>
-        /// Injects the explorer, chat, and their splitters into the control
-        /// tree. WinForms docked controls only participate in layout when
-        /// they are in the Controls collection � <c>Visible = false</c> on a
-        /// docked child does not reclaim its space in ToolStripContentPanel.
-        /// </summary>
         private void ShowWorkspacePanels()
         {
             _content.SuspendLayout();
 
-            // Right side: chat + splitter (added first so they dock before left).
             if (!_content.Controls.Contains(_chatPanel))
             {
                 _content.Controls.Add(_rightSplitter);
                 _content.Controls.Add(_chatPanel);
             }
 
-            // Left side: explorer + splitter.
             if (!_content.Controls.Contains(_fileExplorer))
             {
                 _content.Controls.Add(_leftSplitter);
@@ -242,11 +260,6 @@ namespace Wally.Forms
             showChatMenuItem.Checked = true;
         }
 
-        /// <summary>
-        /// Removes the explorer, chat, and their splitters from the control
-        /// tree so they leave no layout footprint. The controls themselves
-        /// stay alive in memory and are re-added on the next workspace load.
-        /// </summary>
         private void HideWorkspacePanels()
         {
             _content.SuspendLayout();
@@ -262,7 +275,7 @@ namespace Wally.Forms
             showChatMenuItem.Checked = false;
         }
 
-        // ?? Auto-setup ?????????????????????????????????????????????????????
+        // ── Auto-setup ──────────────────────────────────────────────────────
 
         private void TryAutoSetup()
         {
@@ -284,7 +297,7 @@ namespace Wally.Forms
             }
         }
 
-        // ?? Global keyboard shortcuts ???????????????????????????????????????
+        // ── Global keyboard shortcuts ───────────────────────────────────────
 
         private void OnGlobalKeyDown(object? sender, KeyEventArgs e)
         {
@@ -316,9 +329,17 @@ namespace Wally.Forms
                 if (!showCommandMenuItem.Checked) showCommandMenuItem.Checked = true;
                 _commandPanel.FocusInput();
             }
+            else if (e.Control && e.KeyCode == Keys.W)
+            {
+                // Close active editor tab
+                e.Handled = true;
+                var key = _tabHost.ActiveTabKey;
+                if (key != null && key != TabKeyWelcome)
+                    _tabHost.CloseTab(key);
+            }
         }
 
-        // ?? Menu handlers ???????????????????????????????????????????????????
+        // ── Menu handlers ───────────────────────────────────────────────────
 
         private void OnOpenWorkspace(object? sender, EventArgs e)
         {
@@ -363,12 +384,14 @@ namespace Wally.Forms
             string closedPath = _environment.WorkSource ?? "workspace";
             _environment.CloseWorkspace();
 
-            // Remove workspace panels from the control tree.
             _fileExplorer.ClearTree();
             _chatPanel.ClearMessages();
             _chatPanel.RefreshActorList();
             _chatPanel.RefreshModelList();
             HideWorkspacePanels();
+
+            // Close all editor tabs when workspace is closed.
+            _tabHost.CloseAllTabs();
 
             RefreshAllPanels();
 
@@ -402,7 +425,6 @@ namespace Wally.Forms
 
             string? workSource = _environment.HasWorkspace ? _environment.WorkSource : null;
 
-            // Close UI panels first if a workspace is loaded.
             if (_environment.HasWorkspace)
             {
                 _fileExplorer.ClearTree();
@@ -410,6 +432,7 @@ namespace Wally.Forms
                 _chatPanel.RefreshActorList();
                 _chatPanel.RefreshModelList();
                 HideWorkspacePanels();
+                _tabHost.CloseAllTabs();
             }
 
             _commandPanel.ExecuteCommand(workSource != null
@@ -432,7 +455,7 @@ namespace Wally.Forms
             }
         }
 
-        // ?? Panel sync ??????????????????????????????????????????????????????
+        // ── Panel sync ──────────────────────────────────────────────────────
 
         private void OnWorkspaceChanged(object? sender, EventArgs e)
         {
@@ -449,11 +472,9 @@ namespace Wally.Forms
                 _chatPanel.RefreshActorList();
                 _chatPanel.RefreshModelList();
 
-                // Inject workspace panels into the control tree if not present.
                 if (!_content.Controls.Contains(_chatPanel))
                     ShowWorkspacePanels();
 
-                // Update welcome panel to show workspace info.
                 string? defaultModel = _environment.Workspace?.Config?.DefaultModel;
                 _welcomePanel.SetWorkspaceInfo(true, _environment.WorkSource,
                     _environment.Actors.Count, defaultModel);
@@ -476,45 +497,44 @@ namespace Wally.Forms
             UpdateWorkspaceGating();
         }
 
-        // ?? Workspace-gated UI ??????????????????????????????????????????????
+        // ── Workspace-gated UI ──────────────────────────────────────────────
 
-        /// <summary>
-        /// Enables or disables UI elements that require a loaded workspace.
-        /// Workspace panels (explorer, chat) are physically absent from the
-        /// control tree when no workspace is loaded � their View menu toggles
-        /// are disabled so users can see the options but can't activate them.
-        /// </summary>
         private void UpdateWorkspaceGating()
         {
             bool loaded = _environment.HasWorkspace;
 
-            // ?? File menu ??
             saveWorkspaceMenuItem.Enabled = loaded;
             closeWorkspaceMenuItem.Enabled = loaded;
 
-            // ?? View menu � panel toggles disabled when no workspace ??
             showExplorerMenuItem.Enabled = loaded;
             showChatMenuItem.Enabled = loaded;
             refreshMenuItem.Enabled = loaded;
 
-            // ?? Workspace menu (entire menu disabled when no workspace) ??
             workspaceToolStripMenuItem.Enabled = loaded;
 
-            // ?? ToolStrip buttons ??
+            // Editors menu
+            editorsToolStripMenuItem.Enabled = loaded;
+
             tsbSave.Enabled = loaded;
             tsbRefresh.Enabled = loaded;
             tsbReloadActors.Enabled = loaded;
             tsbInfo.Enabled = loaded;
             tsbClearChat.Enabled = loaded;
+            tsbEditActors.Enabled = loaded;
+            tsbConfig.Enabled = loaded;
+            tsbLogs.Enabled = loaded;
 
-            // ?? Chat panel workspace awareness ??
             _chatPanel.SetWorkspaceLoaded(loaded);
         }
 
-        // ?? File events ?????????????????????????????????????????????????????
+        // ── File events / intelligent open ──────────────────────────────────
 
         private void OnFileDoubleClicked(object? sender, FileSelectedEventArgs e)
         {
+            if (_environment.HasWorkspace && TryOpenFileInEditor(e.FilePath))
+                return;
+
+            // Fall back to shell open for unrecognized files.
             try
             {
                 var psi = new System.Diagnostics.ProcessStartInfo(e.FilePath)
@@ -528,6 +548,87 @@ namespace Wally.Forms
             }
         }
 
+        /// <summary>
+        /// Attempts to detect what kind of workspace entity a file belongs to
+        /// and opens the appropriate editor tab. Returns true if handled.
+        /// </summary>
+        private bool TryOpenFileInEditor(string filePath)
+        {
+            if (!_environment.HasWorkspace) return false;
+
+            string wsFolder = _environment.WorkspaceFolder!;
+            var config = _environment.Workspace!.Config;
+            string relative = Path.GetRelativePath(wsFolder, filePath);
+
+            // Actor: .wally/Actors/<Name>/actor.json
+            string actorsPrefix = config.ActorsFolderName + Path.DirectorySeparatorChar;
+            if (relative.StartsWith(actorsPrefix, StringComparison.OrdinalIgnoreCase) &&
+                Path.GetFileName(filePath).Equals(WallyHelper.ActorFileName, StringComparison.OrdinalIgnoreCase))
+            {
+                // Extract actor name from path
+                string afterActors = relative[actorsPrefix.Length..];
+                string actorName = afterActors.Split(Path.DirectorySeparatorChar)[0];
+                var actor = _environment.GetActor(actorName);
+                if (actor != null)
+                {
+                    OpenActorEditor(actor);
+                    return true;
+                }
+            }
+
+            // Loop: .wally/Loops/<Name>.json
+            string loopsPrefix = config.LoopsFolderName + Path.DirectorySeparatorChar;
+            if (relative.StartsWith(loopsPrefix, StringComparison.OrdinalIgnoreCase) &&
+                filePath.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
+            {
+                string loopName = Path.GetFileNameWithoutExtension(filePath);
+                var loop = _environment.GetLoop(loopName);
+                if (loop != null)
+                {
+                    OpenLoopEditor(loop);
+                    return true;
+                }
+            }
+
+            // Wrapper: .wally/Wrappers/<Name>.json
+            string wrappersPrefix = config.WrappersFolderName + Path.DirectorySeparatorChar;
+            if (relative.StartsWith(wrappersPrefix, StringComparison.OrdinalIgnoreCase) &&
+                filePath.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
+            {
+                string wrapperName = Path.GetFileNameWithoutExtension(filePath);
+                var wrapper = _environment.Workspace.LlmWrappers
+                    .FirstOrDefault(w => string.Equals(w.Name, wrapperName, StringComparison.OrdinalIgnoreCase));
+                if (wrapper != null)
+                {
+                    OpenWrapperEditor(wrapper);
+                    return true;
+                }
+            }
+
+            // Runbook: .wally/Runbooks/<Name>.wrb
+            string runbooksPrefix = config.RunbooksFolderName + Path.DirectorySeparatorChar;
+            if (relative.StartsWith(runbooksPrefix, StringComparison.OrdinalIgnoreCase) &&
+                filePath.EndsWith(".wrb", StringComparison.OrdinalIgnoreCase))
+            {
+                string rbName = Path.GetFileNameWithoutExtension(filePath);
+                var runbook = _environment.GetRunbook(rbName);
+                if (runbook != null)
+                {
+                    OpenRunbookEditor(runbook);
+                    return true;
+                }
+            }
+
+            // Config: .wally/wally-config.json
+            if (Path.GetFileName(filePath).Equals(WallyHelper.ConfigFileName, StringComparison.OrdinalIgnoreCase))
+            {
+                OpenConfigEditor();
+                return true;
+            }
+
+            return false;
+        }
+
         private void OnFileSelected(object? sender, FileSelectedEventArgs e)
         {
             if (_environment.HasWorkspace)
@@ -537,13 +638,271 @@ namespace Wally.Forms
             }
         }
 
-        // ?? Panel toggles ???????????????????????????????????????????????????
+        // ── Editor open helpers ─────────────────────────────────────────────
+
+        private void OpenActorEditor(Actor actor)
+        {
+            string key = $"actor:{actor.Name}";
+            if (_tabHost.SelectTab(key)) return;
+
+            var editor = new ActorEditorPanel();
+            editor.BindEnvironment(_environment);
+            editor.LoadActor(actor);
+            editor.DirtyChanged += (_, _) => _tabHost.SetTabDirty(key, editor.IsDirty);
+
+            _tabHost.OpenTab(key, actor.Name, "\U0001F3AD", editor);
+        }
+
+        private void OpenLoopEditor(WallyLoopDefinition loop)
+        {
+            string key = $"loop:{loop.Name}";
+            if (_tabHost.SelectTab(key)) return;
+
+            var editor = new LoopEditorPanel();
+            editor.BindEnvironment(_environment);
+            editor.LoadLoop(loop);
+            editor.DirtyChanged += (_, _) => _tabHost.SetTabDirty(key, editor.IsDirty);
+
+            _tabHost.OpenTab(key, loop.Name, "\u267B", editor);
+        }
+
+        private void OpenWrapperEditor(LLMWrapper wrapper)
+        {
+            string key = $"wrapper:{wrapper.Name}";
+            if (_tabHost.SelectTab(key)) return;
+
+            var editor = new WrapperEditorPanel();
+            editor.BindEnvironment(_environment);
+            editor.LoadWrapper(wrapper);
+            editor.DirtyChanged += (_, _) => _tabHost.SetTabDirty(key, editor.IsDirty);
+
+            _tabHost.OpenTab(key, wrapper.Name, "\u2699", editor);
+        }
+
+        private void OpenRunbookEditor(WallyRunbook runbook)
+        {
+            string key = $"runbook:{runbook.Name}";
+            if (_tabHost.SelectTab(key)) return;
+
+            var editor = new RunbookEditorPanel();
+            editor.LoadRunbook(runbook);
+            editor.DirtyChanged += (_, _) => _tabHost.SetTabDirty(key, editor.IsDirty);
+
+            _tabHost.OpenTab(key, runbook.Name, "\uD83D\uDCDC", editor);
+        }
+
+        private void OpenConfigEditor()
+        {
+            if (!_environment.HasWorkspace) return;
+
+            if (_tabHost.SelectTab(TabKeyConfig)) return;
+
+            var editor = new ConfigEditorPanel();
+            editor.BindEnvironment(_environment);
+            editor.LoadConfig();
+            editor.DirtyChanged += (_, _) => _tabHost.SetTabDirty(TabKeyConfig, editor.IsDirty);
+
+            _tabHost.OpenTab(TabKeyConfig, "Config", "\u2699", editor);
+        }
+
+        private void OpenLogViewer()
+        {
+            if (!_environment.HasWorkspace) return;
+
+            if (_tabHost.SelectTab(TabKeyLogs)) return;
+
+            var viewer = new LogViewerPanel();
+            viewer.BindEnvironment(_environment);
+            viewer.RefreshSessions();
+
+            _tabHost.OpenTab(TabKeyLogs, "Logs", "\uD83D\uDCCB", viewer);
+        }
+
+        // ── Entity pickers (open first or prompt selection) ─────────────────
+
+        private void OpenActorPicker()
+        {
+            if (!_environment.HasWorkspace) return;
+
+            var actors = _environment.Actors;
+            if (actors.Count == 0)
+            {
+                _commandPanel.AppendLine("No actors loaded.", WallyTheme.TextMuted);
+                return;
+            }
+
+            if (actors.Count == 1)
+            {
+                OpenActorEditor(actors[0]);
+                return;
+            }
+
+            // Show a quick picker
+            var names = actors.Select(a => a.Name).ToArray();
+            string? chosen = ShowQuickPicker("Select Actor", names);
+            if (chosen != null)
+            {
+                var actor = _environment.GetActor(chosen);
+                if (actor != null) OpenActorEditor(actor);
+            }
+        }
+
+        private void OpenLoopPicker()
+        {
+            if (!_environment.HasWorkspace) return;
+
+            var loops = _environment.Loops;
+            if (loops.Count == 0)
+            {
+                _commandPanel.AppendLine("No loops loaded.", WallyTheme.TextMuted);
+                return;
+            }
+
+            if (loops.Count == 1)
+            {
+                OpenLoopEditor(loops[0]);
+                return;
+            }
+
+            var names = loops.Select(l => l.Name).ToArray();
+            string? chosen = ShowQuickPicker("Select Loop", names);
+            if (chosen != null)
+            {
+                var loop = _environment.GetLoop(chosen);
+                if (loop != null) OpenLoopEditor(loop);
+            }
+        }
+
+        private void OpenWrapperPicker()
+        {
+            if (!_environment.HasWorkspace) return;
+
+            var wrappers = _environment.Workspace!.LlmWrappers;
+            if (wrappers.Count == 0)
+            {
+                _commandPanel.AppendLine("No wrappers loaded.", WallyTheme.TextMuted);
+                return;
+            }
+
+            if (wrappers.Count == 1)
+            {
+                OpenWrapperEditor(wrappers[0]);
+                return;
+            }
+
+            var names = wrappers.Select(w => w.Name).ToArray();
+            string? chosen = ShowQuickPicker("Select Wrapper", names);
+            if (chosen != null)
+            {
+                var wrapper = wrappers.FirstOrDefault(w =>
+                    string.Equals(w.Name, chosen, StringComparison.OrdinalIgnoreCase));
+                if (wrapper != null) OpenWrapperEditor(wrapper);
+            }
+        }
+
+        private void OpenRunbookPicker()
+        {
+            if (!_environment.HasWorkspace) return;
+
+            var runbooks = _environment.Runbooks;
+            if (runbooks.Count == 0)
+            {
+                _commandPanel.AppendLine("No runbooks loaded.", WallyTheme.TextMuted);
+                return;
+            }
+
+            if (runbooks.Count == 1)
+            {
+                OpenRunbookEditor(runbooks[0]);
+                return;
+            }
+
+            var names = runbooks.Select(r => r.Name).ToArray();
+            string? chosen = ShowQuickPicker("Select Runbook", names);
+            if (chosen != null)
+            {
+                var runbook = _environment.GetRunbook(chosen);
+                if (runbook != null) OpenRunbookEditor(runbook);
+            }
+        }
 
         /// <summary>
-        /// Adds or removes a docked panel and its splitter from the content
-        /// area. Using Controls.Add/Remove instead of Visible ensures the
-        /// layout engine fully reclaims the space.
+        /// Shows a dark-themed quick-picker dialog with a list of names.
+        /// Returns the selected name, or null if cancelled.
         /// </summary>
+        private string? ShowQuickPicker(string title, string[] items)
+        {
+            using var dlg = new Form
+            {
+                Text = title,
+                Size = new Size(340, 320),
+                StartPosition = FormStartPosition.CenterParent,
+                FormBorderStyle = FormBorderStyle.FixedDialog,
+                MaximizeBox = false,
+                MinimizeBox = false,
+                BackColor = WallyTheme.Surface1,
+                ForeColor = WallyTheme.TextPrimary,
+                Font = WallyTheme.FontUI
+            };
+
+            var list = new ListBox
+            {
+                Dock = DockStyle.Fill,
+                Font = WallyTheme.FontUI,
+                BackColor = WallyTheme.Surface1,
+                ForeColor = WallyTheme.TextPrimary,
+                BorderStyle = BorderStyle.None,
+                IntegralHeight = false
+            };
+            list.Items.AddRange(items);
+            if (list.Items.Count > 0) list.SelectedIndex = 0;
+
+            string? result = null;
+
+            list.DoubleClick += (_, _) =>
+            {
+                result = list.SelectedItem?.ToString();
+                dlg.DialogResult = DialogResult.OK;
+            };
+
+            list.KeyDown += (_, ke) =>
+            {
+                if (ke.KeyCode == Keys.Enter)
+                {
+                    result = list.SelectedItem?.ToString();
+                    dlg.DialogResult = DialogResult.OK;
+                }
+                else if (ke.KeyCode == Keys.Escape)
+                {
+                    dlg.DialogResult = DialogResult.Cancel;
+                }
+            };
+
+            var btnOk = new Button
+            {
+                Text = "Open",
+                Dock = DockStyle.Bottom,
+                Height = 32,
+                FlatStyle = FlatStyle.Flat,
+                BackColor = WallyTheme.Surface3,
+                ForeColor = WallyTheme.TextPrimary,
+                Font = WallyTheme.FontUIBold
+            };
+            btnOk.FlatAppearance.BorderSize = 0;
+            btnOk.Click += (_, _) =>
+            {
+                result = list.SelectedItem?.ToString();
+                dlg.DialogResult = DialogResult.OK;
+            };
+
+            dlg.Controls.Add(list);
+            dlg.Controls.Add(btnOk);
+
+            return dlg.ShowDialog(this) == DialogResult.OK ? result : null;
+        }
+
+        // ── Panel toggles ───────────────────────────────────────────────────
+
         private void TogglePanel(Control panel, Splitter splitter, DockStyle dock, bool show)
         {
             _content.SuspendLayout();
@@ -562,7 +921,7 @@ namespace Wally.Forms
             _content.ResumeLayout(true);
         }
 
-        // ?? Cleanup ?????????????????????????????????????????????????????????
+        // ── Cleanup ─────────────────────────────────────────────────────────
 
         protected override void OnFormClosing(FormClosingEventArgs e)
         {

@@ -318,29 +318,29 @@ namespace Wally.Core
         /// <c>&lt;workspaceFolder&gt;/Wrappers/</c>.
         /// Falls back to the Default template folder when none are found.
         /// </summary>
-        public static List<LlmWrapper> LoadLlmWrappers(
+        public static List<LLMWrapper> LoadLlmWrappers(
             string workspaceFolder, WallyConfig config)
         {
             string wrappersDir = Path.Combine(workspaceFolder, config.WrappersFolderName);
-            var wrappers = LlmWrapper.LoadFromFolder(wrappersDir);
+            var wrappers = LLMWrapper.LoadFromFolder(wrappersDir);
 
             // Fallback: load from shipped Default template if workspace has none.
             if (wrappers.Count == 0)
             {
                 string defaultDir = Path.Combine(GetDefaultTemplateFolder(), config.WrappersFolderName);
-                wrappers = LlmWrapper.LoadFromFolder(defaultDir);
+                wrappers = LLMWrapper.LoadFromFolder(defaultDir);
             }
 
             return wrappers;
         }
 
         /// <summary>
-        /// Finds the <see cref="LlmWrapper"/> whose <see cref="LlmWrapper.Name"/>
+        /// Finds the <see cref="LLMWrapper"/> whose <see cref="LLMWrapper.Name"/>
         /// matches <paramref name="wrapperName"/> (case-insensitive).
         /// Returns <see langword="null"/> when not found.
         /// </summary>
-        public static LlmWrapper? ResolveWrapper(
-            string wrapperName, List<LlmWrapper> wrappers)
+        public static LLMWrapper? ResolveWrapper(
+            string wrapperName, List<LLMWrapper> wrappers)
         {
             return wrappers.FirstOrDefault(w =>
                 string.Equals(w.Name, wrapperName, StringComparison.OrdinalIgnoreCase));

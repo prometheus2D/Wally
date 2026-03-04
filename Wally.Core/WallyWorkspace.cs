@@ -84,7 +84,7 @@ namespace Wally.Core
         /// Each defines a complete CLI recipe for calling an LLM backend.
         /// </summary>
         [JsonIgnore]
-        public List<LlmWrapper> LlmWrappers { get; private set; } = new();
+        public List<LLMWrapper> LlmWrappers { get; private set; } = new();
 
         /// <summary>
         /// Runbooks loaded from the <c>Runbooks/</c> folder.

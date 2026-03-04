@@ -43,7 +43,7 @@ namespace Wally.Core.Providers
     /// }
     /// </code>
     /// </summary>
-    public sealed class LlmWrapper
+    public sealed class LLMWrapper
     {
         // — Identity (from JSON) ——————————————————————————————————————————
 
@@ -259,10 +259,10 @@ namespace Wally.Core.Providers
         };
 
         /// <summary>Deserializes a wrapper from a JSON file.</summary>
-        public static LlmWrapper? LoadFromFile(string filePath)
+        public static LLMWrapper? LoadFromFile(string filePath)
         {
             string json = File.ReadAllText(filePath);
-            return JsonSerializer.Deserialize<LlmWrapper>(json, _jsonOptions);
+            return JsonSerializer.Deserialize<LLMWrapper>(json, _jsonOptions);
         }
 
         /// <summary>Serializes this wrapper to a JSON file.</summary>
@@ -276,9 +276,9 @@ namespace Wally.Core.Providers
         /// Loads all <c>*.json</c> files from <paramref name="folder"/>.
         /// Skips files that fail to parse (logs a warning to stderr).
         /// </summary>
-        public static List<LlmWrapper> LoadFromFolder(string folder)
+        public static List<LLMWrapper> LoadFromFolder(string folder)
         {
-            var wrappers = new List<LlmWrapper>();
+            var wrappers = new List<LLMWrapper>();
 
             if (!Directory.Exists(folder))
                 return wrappers;
