@@ -52,6 +52,8 @@ namespace Wally.Forms
             editorsSeparator1 = new ToolStripSeparator();
             editConfigMenuItem = new ToolStripMenuItem();
             viewLogsMenuItem = new ToolStripMenuItem();
+            viewPromptViewerMenuItem = new ToolStripMenuItem();
+            viewWorkspaceViewerMenuItem = new ToolStripMenuItem();
             editorsSeparator2 = new ToolStripSeparator();
             closeAllEditorsMenuItem = new ToolStripMenuItem();
 
@@ -267,6 +269,7 @@ namespace Wally.Forms
                 editWrappersMenuItem, editRunbooksMenuItem,
                 editorsSeparator1,
                 editConfigMenuItem, viewLogsMenuItem,
+                viewPromptViewerMenuItem, viewWorkspaceViewerMenuItem,
                 editorsSeparator2,
                 closeAllEditorsMenuItem
             });
@@ -307,6 +310,16 @@ namespace Wally.Forms
             viewLogsMenuItem.Size = new Size(260, 22);
             viewLogsMenuItem.Text = "\uD83D\uDCCB  Session &Logs";
             viewLogsMenuItem.ForeColor = WallyTheme.TextPrimary;
+
+            viewPromptViewerMenuItem.Name = "viewPromptViewerMenuItem";
+            viewPromptViewerMenuItem.Size = new Size(260, 22);
+            viewPromptViewerMenuItem.Text = "\uD83D\uDD0D  &Prompt Viewer";
+            viewPromptViewerMenuItem.ForeColor = WallyTheme.TextPrimary;
+
+            viewWorkspaceViewerMenuItem.Name = "viewWorkspaceViewerMenuItem";
+            viewWorkspaceViewerMenuItem.Size = new Size(260, 22);
+            viewWorkspaceViewerMenuItem.Text = "\uD83D\uDCCA  &Workspace Viewer";
+            viewWorkspaceViewerMenuItem.ForeColor = WallyTheme.TextPrimary;
 
             editorsSeparator2.Name = "editorsSeparator2";
             editorsSeparator2.Size = new Size(257, 6);
@@ -545,6 +558,8 @@ namespace Wally.Forms
         private ToolStripSeparator editorsSeparator1;
         private ToolStripMenuItem editConfigMenuItem;
         private ToolStripMenuItem viewLogsMenuItem;
+        private ToolStripMenuItem viewPromptViewerMenuItem;
+        private ToolStripMenuItem viewWorkspaceViewerMenuItem;
         private ToolStripSeparator editorsSeparator2;
         private ToolStripMenuItem closeAllEditorsMenuItem;
 
