@@ -42,6 +42,18 @@ namespace Wally.Core.Providers
     ///   "CanMakeChanges": false
     /// }
     /// </code>
+    /// <code>
+    /// {
+    ///   "Name": "AutoCopilot",
+    ///   "Description": "Agentic — runs gh copilot --autopilot -p",
+    ///   "Executable": "gh",
+    ///   "ArgumentTemplate": "copilot {model} {sourcePath} --yolo -s --autopilot -p {prompt}",
+    ///   "ModelArgFormat": "--model {model}",
+    ///   "SourcePathArgFormat": "--add-dir {sourcePath}",
+    ///   "UseSourcePathAsWorkingDirectory": true,
+    ///   "CanMakeChanges": true
+    /// }
+    /// </code>
     /// </summary>
     public sealed class LLMWrapper
     {

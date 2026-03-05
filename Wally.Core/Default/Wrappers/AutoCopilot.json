@@ -1,8 +1,8 @@
 {
   "Name": "AutoCopilot",
-  "Description": "Agentic — runs gh copilot -i --yolo (can edit files and run tools).",
+  "Description": "Agentic â€” runs gh copilot --autopilot -p (can edit files and run tools).",
   "Executable": "gh",
-  "ArgumentTemplate": "copilot {model} {sourcePath} --yolo -s -i {prompt}",
+  "ArgumentTemplate": "copilot {model} {sourcePath} --yolo -s --autopilot -p {prompt}",
   "ModelArgFormat": "--model {model}",
   "SourcePathArgFormat": "--add-dir {sourcePath}",
   "UseSourcePathAsWorkingDirectory": true,

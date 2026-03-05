@@ -1,6 +1,6 @@
 {
   "Name": "Copilot",
-  "Description": "Read-only — runs gh copilot -p (non-interactive, stateless).",
+  "Description": "Read-only ï¿½ runs gh copilot -p (non-interactive, stateless).",
   "Executable": "gh",
   "ArgumentTemplate": "copilot {model} {sourcePath} --yolo -s -p {prompt}",
   "ModelArgFormat": "--model {model}",

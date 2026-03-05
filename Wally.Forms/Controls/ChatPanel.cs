@@ -26,12 +26,7 @@ namespace Wally.Forms.Controls
         /// <summary>Read-only: AI responds with text only. Uses the default (non-agentic) wrapper.</summary>
         Ask,
         /// <summary>Agentic: AI can make file changes on disk. Uses a wrapper with CanMakeChanges=true.</summary>
-        Agent,
-        /// <summary>
-        /// Wally Automod: future mode that leverages deeper Wally loop orchestration.
-        /// Placeholder — not yet functional.
-        /// </summary>
-        Automod
+        Agent
     }
 
     /// <summary>
@@ -39,7 +34,7 @@ namespace Wally.Forms.Controls
     /// <para>
     /// The panel exposes two axes of control:
     /// <list type="bullet">
-    ///   <item><b>Action mode</b> (Ask / Agent / Automod) — determines the wrapper
+    ///   <item><b>Action mode</b> (Ask / Agent) — determines the wrapper
     ///         and whether the AI can make file changes.</item>
     ///   <item><b>Loop selection</b> — optionally runs the prompt through an iterative
     ///         loop definition from the workspace's Loops/ folder.</item>
@@ -59,7 +54,6 @@ namespace Wally.Forms.Controls
         private readonly Panel _modeBar;
         private readonly Button _btnModeAsk;
         private readonly Button _btnModeAgent;
-        private readonly Button _btnModeAutomod;
         private readonly Label _lblModeHint;
 
         // ── Toolbar (Actor, Loop, Model) ────────────────────────────────────
@@ -134,11 +128,9 @@ namespace Wally.Forms.Controls
             // ── Action mode selector bar ──
             _btnModeAsk = CreateModeButton("\uD83D\uDCAC Ask");
             _btnModeAgent = CreateModeButton("\uD83E\uDD16 Agent");
-            _btnModeAutomod = CreateModeButton("\u2699 Automod");
 
             _btnModeAsk.Click += (_, _) => SetMode(ActionMode.Ask);
             _btnModeAgent.Click += (_, _) => SetMode(ActionMode.Agent);
-            _btnModeAutomod.Click += (_, _) => SetMode(ActionMode.Automod);
 
             _lblModeHint = new Label
             {
@@ -163,7 +155,6 @@ namespace Wally.Forms.Controls
             };
             modeButtonPanel.Controls.Add(_btnModeAsk);
             modeButtonPanel.Controls.Add(_btnModeAgent);
-            modeButtonPanel.Controls.Add(_btnModeAutomod);
 
             _modeBar = new Panel
             {
@@ -216,8 +207,7 @@ namespace Wally.Forms.Controls
                 Text = "\U0001F4AC\n\nType a message to start a conversation.\n\n" +
                        "Select an actor to add persona context,\nor leave it unselected for direct AI prompts.\n\n" +
                        "\uD83D\uDCAC Ask \u2014 text response only (read-only)\n" +
-                       "\uD83E\uDD16 Agent \u2014 can make file changes\n" +
-                       "\u2699 Automod \u2014 coming soon",
+                       "\uD83E\uDD16 Agent \u2014 can make file changes",
                 Dock = DockStyle.Fill,
                 ForeColor = WallyTheme.TextDisabled,
                 BackColor = WallyTheme.Surface0,
@@ -442,7 +432,7 @@ namespace Wally.Forms.Controls
             _currentMode = mode;
 
             // Reset all mode buttons to inactive.
-            foreach (var btn in new[] { _btnModeAsk, _btnModeAgent, _btnModeAutomod })
+            foreach (var btn in new[] { _btnModeAsk, _btnModeAgent })
             {
                 btn.BackColor = WallyTheme.Surface2;
                 btn.ForeColor = WallyTheme.TextSecondary;
@@ -454,7 +444,6 @@ namespace Wally.Forms.Controls
             {
                 ActionMode.Ask => _btnModeAsk,
                 ActionMode.Agent => _btnModeAgent,
-                ActionMode.Automod => _btnModeAutomod,
                 _ => _btnModeAsk
             };
             active.BackColor = WallyTheme.Surface4;
@@ -466,7 +455,6 @@ namespace Wally.Forms.Controls
             {
                 ActionMode.Ask => "Read-only response",
                 ActionMode.Agent => "Can make file changes",
-                ActionMode.Automod => "Coming soon",
                 _ => ""
             };
             _lblModeHint.ForeColor = WallyTheme.TextMuted;
@@ -475,14 +463,12 @@ namespace Wally.Forms.Controls
             if (!_isRunning && _workspaceLoaded)
             {
                 _btnSend.BackColor = WallyTheme.Surface3;
-                // Automod is not yet functional — disable send.
-                _btnSend.Enabled = mode != ActionMode.Automod;
-                _txtInput.ReadOnly = mode == ActionMode.Automod;
+                _btnSend.Enabled = true;
+                _txtInput.ReadOnly = false;
             }
 
-            // All controls remain enabled in Ask and Agent — actor, loop,
-            // and model are orthogonal to the action mode.
-            bool inputEnabled = _workspaceLoaded && !_isRunning && mode != ActionMode.Automod;
+            // All controls remain enabled — actor, loop, and model are orthogonal to the action mode.
+            bool inputEnabled = _workspaceLoaded && !_isRunning;
             _ddActor.Enabled = inputEnabled;
             _ddLoop.Enabled = inputEnabled;
             _ddModel.Enabled = inputEnabled;
@@ -492,7 +478,6 @@ namespace Wally.Forms.Controls
             {
                 ActionMode.Ask => "AI CHAT \u2014 Ask",
                 ActionMode.Agent => "AI CHAT \u2014 Agent",
-                ActionMode.Automod => "AI CHAT \u2014 Automod (coming soon)",
                 _ => "AI CHAT"
             };
         }
@@ -539,7 +524,7 @@ namespace Wally.Forms.Controls
 
             _workspaceLoaded = loaded;
 
-            bool inputEnabled = loaded && !_isRunning && _currentMode != ActionMode.Automod;
+            bool inputEnabled = loaded && !_isRunning;
             _ddActor.Enabled = inputEnabled;
             _ddLoop.Enabled = inputEnabled;
             _ddModel.Enabled = inputEnabled;
@@ -549,7 +534,6 @@ namespace Wally.Forms.Controls
 
             _btnModeAsk.Enabled = loaded;
             _btnModeAgent.Enabled = loaded;
-            _btnModeAutomod.Enabled = loaded;
 
             // Visually dim the input area when workspace is not loaded.
             _txtInput.BackColor = loaded ? WallyTheme.Surface2 : WallyTheme.Surface0;
@@ -572,8 +556,7 @@ namespace Wally.Forms.Controls
                 _lblEmptyState.Text =
                     "\U0001F4AC\n\nType a message to start a conversation.\n\n" +
                     "\uD83D\uDCAC Ask \u2014 text response only (read-only)\n" +
-                    "\uD83E\uDD16 Agent \u2014 can make file changes on disk\n" +
-                    "\u2699 Automod \u2014 deep Wally loop orchestration (coming soon)\n\n" +
+                    "\uD83E\uDD16 Agent \u2014 can make file changes on disk\n\n" +
                     "Select an actor and loop from the toolbar,\nor leave them unselected for a direct prompt.";
                 if (!_isRunning)
                 {
@@ -704,14 +687,6 @@ namespace Wally.Forms.Controls
         {
             string prompt = _txtInput.Text.Trim();
             if (string.IsNullOrEmpty(prompt) || _isRunning) return;
-
-            if (_currentMode == ActionMode.Automod)
-            {
-                AddMessage("System",
-                    "Automod is not yet available. Use Ask or Agent mode.",
-                    MessageKind.Error);
-                return;
-            }
 
             if (_environment?.HasWorkspace != true || !_workspaceLoaded)
             {
@@ -851,17 +826,16 @@ namespace Wally.Forms.Controls
 
             _isRunning = running;
             _btnSend.Visible = !running;
-            _btnSend.Enabled = !running && _workspaceLoaded && _currentMode != ActionMode.Automod;
+            _btnSend.Enabled = !running && _workspaceLoaded;
             _btnCancel.Visible = running;
 
-            bool inputEnabled = !running && _workspaceLoaded && _currentMode != ActionMode.Automod;
+            bool inputEnabled = !running && _workspaceLoaded;
             _txtInput.ReadOnly = !inputEnabled;
             _ddActor.Enabled = inputEnabled;
             _ddLoop.Enabled = inputEnabled;
             _ddModel.Enabled = inputEnabled;
             _btnModeAsk.Enabled = !running && _workspaceLoaded;
             _btnModeAgent.Enabled = !running && _workspaceLoaded;
-            _btnModeAutomod.Enabled = !running && _workspaceLoaded;
 
             _lblStatus.Text = running
                 ? $"  \u26A1 {context}\u2026"
