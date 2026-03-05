@@ -35,6 +35,10 @@ namespace Wally.Forms
             editCopyMenuItem = new ToolStripMenuItem();
             editSelectAllMenuItem = new ToolStripMenuItem();
 
+            // ── Options menu ──
+            optionsToolStripMenuItem = new ToolStripMenuItem();
+            wordWrapMenuItem = new ToolStripMenuItem();
+
             // ── View menu ──
             viewToolStripMenuItem = new ToolStripMenuItem();
             showExplorerMenuItem = new ToolStripMenuItem();
@@ -52,6 +56,8 @@ namespace Wally.Forms
             editorsSeparator1 = new ToolStripSeparator();
             editConfigMenuItem = new ToolStripMenuItem();
             viewLogsMenuItem = new ToolStripMenuItem();
+            viewPromptViewerMenuItem = new ToolStripMenuItem();
+            viewWorkspaceViewerMenuItem = new ToolStripMenuItem();
             editorsSeparator2 = new ToolStripSeparator();
             closeAllEditorsMenuItem = new ToolStripMenuItem();
 
@@ -117,6 +123,7 @@ namespace Wally.Forms
             menuStrip1.Items.AddRange(new ToolStripItem[]
             {
                 fileToolStripMenuItem, editToolStripMenuItem,
+                optionsToolStripMenuItem,
                 viewToolStripMenuItem, editorsToolStripMenuItem,
                 workspaceToolStripMenuItem
             });
@@ -214,6 +221,28 @@ namespace Wally.Forms
             editSelectAllMenuItem.Click += (s, e) => { if (ActiveControl is RichTextBox rtb) rtb.SelectAll(); };
 
             // ═══════════════════════════════════════════════════════════════
+            //  Options menu
+            // ═══════════════════════════════════════════════════════════════
+
+            optionsToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[]
+            {
+                wordWrapMenuItem
+            });
+            optionsToolStripMenuItem.Name = "optionsToolStripMenuItem";
+            optionsToolStripMenuItem.Size = new Size(61, 20);
+            optionsToolStripMenuItem.Text = "&Options";
+            optionsToolStripMenuItem.ForeColor = WallyTheme.TextPrimary;
+
+            wordWrapMenuItem.Name = "wordWrapMenuItem";
+            wordWrapMenuItem.Size = new Size(200, 22);
+            wordWrapMenuItem.Text = "&Word Wrap";
+            wordWrapMenuItem.Checked = false;
+            wordWrapMenuItem.CheckOnClick = true;
+            wordWrapMenuItem.ForeColor = WallyTheme.TextPrimary;
+            wordWrapMenuItem.ShortcutKeys = Keys.Alt | Keys.Z;
+            wordWrapMenuItem.ToolTipText = "Toggle word wrap in editor tabs to avoid horizontal scrollbars";
+
+            // ═══════════════════════════════════════════════════════════════
             //  View menu
             // ═══════════════════════════════════════════════════════════════
 
@@ -267,6 +296,7 @@ namespace Wally.Forms
                 editWrappersMenuItem, editRunbooksMenuItem,
                 editorsSeparator1,
                 editConfigMenuItem, viewLogsMenuItem,
+                viewPromptViewerMenuItem, viewWorkspaceViewerMenuItem,
                 editorsSeparator2,
                 closeAllEditorsMenuItem
             });
@@ -307,6 +337,16 @@ namespace Wally.Forms
             viewLogsMenuItem.Size = new Size(260, 22);
             viewLogsMenuItem.Text = "\uD83D\uDCCB  Session &Logs";
             viewLogsMenuItem.ForeColor = WallyTheme.TextPrimary;
+
+            viewPromptViewerMenuItem.Name = "viewPromptViewerMenuItem";
+            viewPromptViewerMenuItem.Size = new Size(260, 22);
+            viewPromptViewerMenuItem.Text = "\uD83D\uDD0D  &Prompt Viewer";
+            viewPromptViewerMenuItem.ForeColor = WallyTheme.TextPrimary;
+
+            viewWorkspaceViewerMenuItem.Name = "viewWorkspaceViewerMenuItem";
+            viewWorkspaceViewerMenuItem.Size = new Size(260, 22);
+            viewWorkspaceViewerMenuItem.Text = "\uD83D\uDCCA  &Workspace Viewer";
+            viewWorkspaceViewerMenuItem.ForeColor = WallyTheme.TextPrimary;
 
             editorsSeparator2.Name = "editorsSeparator2";
             editorsSeparator2.Size = new Size(257, 6);
@@ -528,6 +568,10 @@ namespace Wally.Forms
         private ToolStripMenuItem editCopyMenuItem;
         private ToolStripMenuItem editSelectAllMenuItem;
 
+        // ── Options menu ──
+        private ToolStripMenuItem optionsToolStripMenuItem;
+        private ToolStripMenuItem wordWrapMenuItem;
+
         // ── View menu ──
         private ToolStripMenuItem viewToolStripMenuItem;
         private ToolStripMenuItem showExplorerMenuItem;
@@ -545,6 +589,8 @@ namespace Wally.Forms
         private ToolStripSeparator editorsSeparator1;
         private ToolStripMenuItem editConfigMenuItem;
         private ToolStripMenuItem viewLogsMenuItem;
+        private ToolStripMenuItem viewPromptViewerMenuItem;
+        private ToolStripMenuItem viewWorkspaceViewerMenuItem;
         private ToolStripSeparator editorsSeparator2;
         private ToolStripMenuItem closeAllEditorsMenuItem;
 

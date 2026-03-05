@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Drawing;
 using System.IO;
 using System.Linq;
@@ -14,7 +14,7 @@ namespace Wally.Forms
 {
     public partial class WallyForms : Form
     {
-        // ── Panels ──────────────────────────────────────────────────────────
+        // -- Panels ----------------------------------------------------------
 
         private readonly FileExplorerPanel _fileExplorer;
         private readonly ChatPanel _chatPanel;
@@ -22,36 +22,38 @@ namespace Wally.Forms
         private readonly WelcomePanel _welcomePanel;
         private readonly DocumentTabHost _tabHost;
 
-        // ── Splitters ───────────────────────────────────────────────────────
+        // -- Splitters -------------------------------------------------------
 
         private readonly ThemedSplitter _leftSplitter;
         private readonly ThemedSplitter _rightSplitter;
         private readonly ThemedSplitter _bottomSplitter;
 
-        // ── Status bar ──────────────────────────────────────────────────────
+        // -- Status bar ------------------------------------------------------
 
         private readonly StatusStrip _statusBar;
         private readonly ToolStripStatusLabel _lblWorkspaceStatus;
         private readonly ToolStripStatusLabel _lblActorCount;
         private readonly ToolStripStatusLabel _lblSessionId;
 
-        // ── Runtime ─────────────────────────────────────────────────────────
+        // -- Runtime ---------------------------------------------------------
 
         private readonly WallyEnvironment _environment;
 
         /// <summary>
-        /// Reference to the ToolStripContainer's ContentPanel — the parent
+        /// Reference to the ToolStripContainer's ContentPanel � the parent
         /// into which workspace panels are added and removed dynamically.
         /// </summary>
         private ToolStripContentPanel _content = null!;
 
-        // ── Tab key constants ───────────────────────────────────────────────
+        // -- Tab key constants -----------------------------------------------
 
         private const string TabKeyWelcome = "__welcome__";
         private const string TabKeyConfig  = "__config__";
         private const string TabKeyLogs    = "__logs__";
+        private const string TabKeyPromptViewer = "__prompt_viewer__";
+        private const string TabKeyWorkspaceViewer = "__workspace_viewer__";
 
-        // ── Constructor ─────────────────────────────────────────────────────
+        // -- Constructor -----------------------------------------------------
 
         public WallyForms()
         {
@@ -59,7 +61,7 @@ namespace Wally.Forms
 
             _environment = new WallyEnvironment();
 
-            // ── Status bar ──
+            // -- Status bar --
             _lblWorkspaceStatus = new ToolStripStatusLabel("No workspace")
             {
                 ForeColor = WallyTheme.TextSecondary,
@@ -94,7 +96,7 @@ namespace Wally.Forms
                 _lblWorkspaceStatus, _lblActorCount, _lblSessionId
             });
 
-            // ── File Explorer (left) — created but NOT added to Controls yet ──
+            // -- File Explorer (left) � created but NOT added to Controls yet --
             _fileExplorer = new FileExplorerPanel
             {
                 Dock = DockStyle.Left,
@@ -110,7 +112,7 @@ namespace Wally.Forms
                 MinSize = 180
             };
 
-            // ── Chat Panel (right) — created but NOT added to Controls yet ──
+            // -- Chat Panel (right) � created but NOT added to Controls yet --
             _chatPanel = new ChatPanel
             {
                 Dock = DockStyle.Right,
@@ -126,7 +128,7 @@ namespace Wally.Forms
                 MinSize = 280
             };
 
-            // ── Command Panel (bottom) — always present ──
+            // -- Command Panel (bottom) � always present --
             _commandPanel = new CommandPanel
             {
                 Dock = DockStyle.Bottom,
@@ -142,20 +144,20 @@ namespace Wally.Forms
                 MinSize = 80
             };
 
-            // ── Welcome Panel (lives as a tab now) ──
+            // -- Welcome Panel (lives as a tab now) --
             _welcomePanel = new WelcomePanel
             {
                 Dock = DockStyle.Fill
             };
 
-            // ── Document Tab Host (fills remaining centre space) ──
+            // -- Document Tab Host (fills remaining centre space) --
             _tabHost = new DocumentTabHost
             {
                 Dock = DockStyle.Fill
             };
-            _tabHost.OpenTab(TabKeyWelcome, "Welcome", "\U0001F9E0", _welcomePanel, closeable: false);
+            _tabHost.OpenTab(TabKeyWelcome, "Welcome", "\U0001F9E0", _welcomePanel);
 
-            // ── Layout inside ToolStripContainer ──
+            // -- Layout inside ToolStripContainer --
             _content = toolStripContainer1.ContentPanel;
             _content.BackColor = WallyTheme.Surface0;
 
@@ -165,7 +167,7 @@ namespace Wally.Forms
 
             Controls.Add(_statusBar);
 
-            // ── Wire child events ──
+            // -- Wire child events --
             _commandPanel.BindEnvironment(_environment);
             _chatPanel.BindEnvironment(_environment);
 
@@ -175,14 +177,14 @@ namespace Wally.Forms
             _fileExplorer.FileDoubleClicked += OnFileDoubleClicked;
             _fileExplorer.FileSelected += OnFileSelected;
 
-            // ── File menu ──
+            // -- File menu --
             openWorkspaceMenuItem.Click += OnOpenWorkspace;
             setupWorkspaceMenuItem.Click += OnSetupWorkspace;
             saveWorkspaceMenuItem.Click += OnSaveWorkspace;
             closeWorkspaceMenuItem.Click += OnCloseWorkspace;
             exitMenuItem.Click += (_, _) => Close();
 
-            // ── View menu ──
+            // -- View menu --
             refreshMenuItem.Click += (_, _) => _fileExplorer.Refresh();
             showExplorerMenuItem.CheckedChanged += (_, _) =>
                 TogglePanel(_fileExplorer, _leftSplitter, DockStyle.Left, showExplorerMenuItem.Checked);
@@ -191,16 +193,22 @@ namespace Wally.Forms
             showCommandMenuItem.CheckedChanged += (_, _) =>
                 TogglePanel(_commandPanel, _bottomSplitter, DockStyle.Bottom, showCommandMenuItem.Checked);
 
-            // ── Editors menu ──
+            // -- Options menu --
+            wordWrapMenuItem.CheckedChanged += (_, _) =>
+                _tabHost.WordWrap = wordWrapMenuItem.Checked;
+
+            // -- Editors menu --
             editActorsMenuItem.Click += (_, _) => OpenActorPicker();
             editLoopsMenuItem.Click += (_, _) => OpenLoopPicker();
             editWrappersMenuItem.Click += (_, _) => OpenWrapperPicker();
             editRunbooksMenuItem.Click += (_, _) => OpenRunbookPicker();
             editConfigMenuItem.Click += (_, _) => OpenConfigEditor();
             viewLogsMenuItem.Click += (_, _) => OpenLogViewer();
+            viewPromptViewerMenuItem.Click += (_, _) => OpenPromptViewer();
+            viewWorkspaceViewerMenuItem.Click += (_, _) => OpenWorkspaceViewer();
             closeAllEditorsMenuItem.Click += (_, _) => _tabHost.CloseAllTabs();
 
-            // ── Workspace menu ──
+            // -- Workspace menu --
             reloadActorsMenuItem.Click += (_, _) =>
                 _commandPanel.ExecuteCommand("reload-actors");
             listActorsMenuItem.Click += (_, _) =>
@@ -211,7 +219,7 @@ namespace Wally.Forms
             cleanupWorkspaceMenuItem.Click += OnCleanupWorkspace;
             openWorkspaceFolderMenuItem.Click += OnOpenWorkspaceFolder;
 
-            // ── Main ToolStrip ──
+            // -- Main ToolStrip --
             tsbOpen.Click += OnOpenWorkspace;
             tsbSetup.Click += OnSetupWorkspace;
             tsbSave.Click += OnSaveWorkspace;
@@ -225,18 +233,18 @@ namespace Wally.Forms
             tsbConfig.Click += (_, _) => OpenConfigEditor();
             tsbLogs.Click += (_, _) => OpenLogViewer();
 
-            // ── Global shortcuts ──
+            // -- Global shortcuts --
             KeyPreview = true;
             KeyDown += OnGlobalKeyDown;
 
-            // ── Initial state ──
+            // -- Initial state --
             showExplorerMenuItem.Checked = false;
             showChatMenuItem.Checked = false;
             UpdateWorkspaceGating();
             TryAutoSetup();
         }
 
-        // ── Workspace panel add/remove ──────────────────────────────────────
+        // -- Workspace panel add/remove --------------------------------------
 
         private void ShowWorkspacePanels()
         {
@@ -275,7 +283,7 @@ namespace Wally.Forms
             showChatMenuItem.Checked = false;
         }
 
-        // ── Auto-setup ──────────────────────────────────────────────────────
+        // -- Auto-setup ------------------------------------------------------
 
         private void TryAutoSetup()
         {
@@ -297,7 +305,7 @@ namespace Wally.Forms
             }
         }
 
-        // ── Global keyboard shortcuts ───────────────────────────────────────
+        // -- Global keyboard shortcuts ---------------------------------------
 
         private void OnGlobalKeyDown(object? sender, KeyEventArgs e)
         {
@@ -339,7 +347,7 @@ namespace Wally.Forms
             }
         }
 
-        // ── Menu handlers ───────────────────────────────────────────────────
+        // -- Menu handlers ---------------------------------------------------
 
         private void OnOpenWorkspace(object? sender, EventArgs e)
         {
@@ -457,7 +465,7 @@ namespace Wally.Forms
             }
         }
 
-        // ── Panel sync ──────────────────────────────────────────────────────
+        // -- Panel sync ------------------------------------------------------
 
         private void OnWorkspaceChanged(object? sender, EventArgs e)
         {
@@ -500,7 +508,7 @@ namespace Wally.Forms
             UpdateWorkspaceGating();
         }
 
-        // ── Workspace-gated UI ──────────────────────────────────────────────
+        // -- Workspace-gated UI ----------------------------------------------
 
         private void UpdateWorkspaceGating()
         {
@@ -530,7 +538,7 @@ namespace Wally.Forms
             _chatPanel.SetWorkspaceLoaded(loaded);
         }
 
-        // ── File events / intelligent open ──────────────────────────────────
+        // -- File events / intelligent open ----------------------------------
 
         private void OnFileDoubleClicked(object? sender, FileSelectedEventArgs e)
         {
@@ -641,7 +649,7 @@ namespace Wally.Forms
             }
         }
 
-        // ── Editor open helpers ─────────────────────────────────────────────
+        // -- Editor open helpers ---------------------------------------------
 
         private void OpenActorEditor(Actor actor)
         {
@@ -721,7 +729,32 @@ namespace Wally.Forms
             _tabHost.OpenTab(TabKeyLogs, "Logs", "\uD83D\uDCCB", viewer);
         }
 
-        // ── Entity pickers (open first or prompt selection) ─────────────────
+        private void OpenPromptViewer()
+        {
+            if (!_environment.HasWorkspace) return;
+
+            if (_tabHost.SelectTab(TabKeyPromptViewer)) return;
+
+            var viewer = new ChatPanelPromptViewer();
+            viewer.BindEnvironment(_environment);
+
+            _tabHost.OpenTab(TabKeyPromptViewer, "Prompt Viewer", "\uD83D\uDD0D", viewer);
+        }
+
+        private void OpenWorkspaceViewer()
+        {
+            if (!_environment.HasWorkspace) return;
+
+            if (_tabHost.SelectTab(TabKeyWorkspaceViewer)) return;
+
+            var viewer = new WorkspaceViewerPanel();
+            viewer.BindEnvironment(_environment);
+            viewer.BuildView();
+
+            _tabHost.OpenTab(TabKeyWorkspaceViewer, "Workspace", "\uD83D\uDCCA", viewer);
+        }
+
+        // -- Entity pickers (open first or prompt selection) -----------------
 
         private void OpenActorPicker()
         {
@@ -904,7 +937,7 @@ namespace Wally.Forms
             return dlg.ShowDialog(this) == DialogResult.OK ? result : null;
         }
 
-        // ── Panel toggles ───────────────────────────────────────────────────
+        // -- Panel toggles ---------------------------------------------------
 
         private void TogglePanel(Control panel, Splitter splitter, DockStyle dock, bool show)
         {
@@ -924,7 +957,7 @@ namespace Wally.Forms
             _content.ResumeLayout(true);
         }
 
-        // ── Cleanup ─────────────────────────────────────────────────────────
+        // -- Cleanup ---------------------------------------------------------
 
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
