@@ -7,6 +7,7 @@ using System.Windows.Forms;
 using Wally.Core;
 using Wally.Core.Actors;
 using Wally.Core.Providers;
+using Wally.Forms.Controls;
 using Wally.Forms.Theme;
 
 namespace Wally.Forms.Controls.Editors
@@ -50,10 +51,9 @@ namespace Wally.Forms.Controls.Editors
             BackColor = WallyTheme.Surface0;
 
             // Scrollable wrapper for the top form area.
-            var scroll = new Panel
+            var scroll = new ThemedScrollPanel
             {
                 Dock = DockStyle.Fill,
-                AutoScroll = true,
                 BackColor = WallyTheme.Surface0
             };
 

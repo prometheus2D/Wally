@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Windows.Forms;
 using Wally.Core;
+using Wally.Forms.Controls;
 using Wally.Forms.Theme;
 
 namespace Wally.Forms.Controls.Editors
@@ -64,10 +65,9 @@ namespace Wally.Forms.Controls.Editors
             Dock = DockStyle.Fill;
             BackColor = WallyTheme.Surface0;
 
-            var scroll = new Panel
+            var scroll = new ThemedScrollPanel
             {
                 Dock = DockStyle.Fill,
-                AutoScroll = true,
                 BackColor = WallyTheme.Surface0
             };
 

@@ -239,10 +239,9 @@ namespace Wally.Forms.Controls
             };
 
             // ── Scrollable message container ──
-            _messagesContainer = new Panel
+            _messagesContainer = new ThemedScrollPanel
             {
                 Dock = DockStyle.Fill,
-                AutoScroll = true,
                 BackColor = WallyTheme.Surface0
             };
             _messagesContainer.Controls.Add(_messagesFlow);

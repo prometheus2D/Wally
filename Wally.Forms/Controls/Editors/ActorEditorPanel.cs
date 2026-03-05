@@ -5,6 +5,7 @@ using System.Text.Json;
 using System.Windows.Forms;
 using Wally.Core;
 using Wally.Core.Actors;
+using Wally.Forms.Controls;
 using Wally.Forms.Theme;
 
 namespace Wally.Forms.Controls.Editors
@@ -44,10 +45,9 @@ namespace Wally.Forms.Controls.Editors
             BackColor = WallyTheme.Surface0;
 
             // Scrollable wrapper so the table can exceed the visible area.
-            var scroll = new Panel
+            var scroll = new ThemedScrollPanel
             {
                 Dock = DockStyle.Fill,
-                AutoScroll = true,
                 BackColor = WallyTheme.Surface0
             };
 

@@ -155,7 +155,7 @@ namespace Wally.Forms
             {
                 Dock = DockStyle.Fill
             };
-            _tabHost.OpenTab(TabKeyWelcome, "Welcome", "\U0001F9E0", _welcomePanel, closeable: false);
+            _tabHost.OpenTab(TabKeyWelcome, "Welcome", "\U0001F9E0", _welcomePanel);
 
             // -- Layout inside ToolStripContainer --
             _content = toolStripContainer1.ContentPanel;
@@ -192,6 +192,10 @@ namespace Wally.Forms
                 TogglePanel(_chatPanel, _rightSplitter, DockStyle.Right, showChatMenuItem.Checked);
             showCommandMenuItem.CheckedChanged += (_, _) =>
                 TogglePanel(_commandPanel, _bottomSplitter, DockStyle.Bottom, showCommandMenuItem.Checked);
+
+            // -- Options menu --
+            wordWrapMenuItem.CheckedChanged += (_, _) =>
+                _tabHost.WordWrap = wordWrapMenuItem.Checked;
 
             // -- Editors menu --
             editActorsMenuItem.Click += (_, _) => OpenActorPicker();

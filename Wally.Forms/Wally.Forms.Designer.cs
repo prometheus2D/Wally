@@ -35,6 +35,10 @@ namespace Wally.Forms
             editCopyMenuItem = new ToolStripMenuItem();
             editSelectAllMenuItem = new ToolStripMenuItem();
 
+            // ── Options menu ──
+            optionsToolStripMenuItem = new ToolStripMenuItem();
+            wordWrapMenuItem = new ToolStripMenuItem();
+
             // ── View menu ──
             viewToolStripMenuItem = new ToolStripMenuItem();
             showExplorerMenuItem = new ToolStripMenuItem();
@@ -119,6 +123,7 @@ namespace Wally.Forms
             menuStrip1.Items.AddRange(new ToolStripItem[]
             {
                 fileToolStripMenuItem, editToolStripMenuItem,
+                optionsToolStripMenuItem,
                 viewToolStripMenuItem, editorsToolStripMenuItem,
                 workspaceToolStripMenuItem
             });
@@ -214,6 +219,28 @@ namespace Wally.Forms
             editSelectAllMenuItem.Text = "Select &All";
             editSelectAllMenuItem.ForeColor = WallyTheme.TextPrimary;
             editSelectAllMenuItem.Click += (s, e) => { if (ActiveControl is RichTextBox rtb) rtb.SelectAll(); };
+
+            // ═══════════════════════════════════════════════════════════════
+            //  Options menu
+            // ═══════════════════════════════════════════════════════════════
+
+            optionsToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[]
+            {
+                wordWrapMenuItem
+            });
+            optionsToolStripMenuItem.Name = "optionsToolStripMenuItem";
+            optionsToolStripMenuItem.Size = new Size(61, 20);
+            optionsToolStripMenuItem.Text = "&Options";
+            optionsToolStripMenuItem.ForeColor = WallyTheme.TextPrimary;
+
+            wordWrapMenuItem.Name = "wordWrapMenuItem";
+            wordWrapMenuItem.Size = new Size(200, 22);
+            wordWrapMenuItem.Text = "&Word Wrap";
+            wordWrapMenuItem.Checked = false;
+            wordWrapMenuItem.CheckOnClick = true;
+            wordWrapMenuItem.ForeColor = WallyTheme.TextPrimary;
+            wordWrapMenuItem.ShortcutKeys = Keys.Alt | Keys.Z;
+            wordWrapMenuItem.ToolTipText = "Toggle word wrap in editor tabs to avoid horizontal scrollbars";
 
             // ═══════════════════════════════════════════════════════════════
             //  View menu
@@ -540,6 +567,10 @@ namespace Wally.Forms
         private ToolStripMenuItem editToolStripMenuItem;
         private ToolStripMenuItem editCopyMenuItem;
         private ToolStripMenuItem editSelectAllMenuItem;
+
+        // ── Options menu ──
+        private ToolStripMenuItem optionsToolStripMenuItem;
+        private ToolStripMenuItem wordWrapMenuItem;
 
         // ── View menu ──
         private ToolStripMenuItem viewToolStripMenuItem;
