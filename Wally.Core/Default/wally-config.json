@@ -7,7 +7,6 @@
   "WrappersFolderName": "Wrappers",
   "RunbooksFolderName": "Runbooks",
   "LogRotationMinutes": 2,
-  "DefaultModel": "gpt-4.1",
   "DefaultModels": [
     "claude-sonnet-4.6",
     "claude-sonnet-4.5",
@@ -41,6 +40,19 @@
     "hello-world",
     "full-analysis"
   ],
-  "MaxIterations": 10,
-  "DefaultWrapper": "Copilot"
+  "SelectedModels": [
+    "claude-sonnet-4.6",
+    "gpt-4.1"
+  ],
+  "SelectedWrappers": [
+    "Copilot"
+  ],
+  "SelectedLoops": [
+    "CodeReview",
+    "SingleRun"
+  ],
+  "SelectedRunbooks": [
+    "full-analysis"
+  ],
+  "MaxIterations": 10
 }

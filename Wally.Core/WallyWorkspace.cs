@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text.Json.Serialization;
 using Wally.Core.Actors;
 using Wally.Core.Providers;
@@ -122,6 +123,13 @@ namespace Wally.Core
             Actors = WallyHelper.LoadActors(WorkspaceFolder, Config, this);
             Loops = WallyHelper.LoadLoops(WorkspaceFolder, Config);
             Runbooks = WallyHelper.LoadRunbooks(WorkspaceFolder, Config);
+
+            // Resolve selected defaults: first Selected* entry that's
+            // actually loaded becomes the active default for each category.
+            Config.ResolveSelectedDefaults(
+                LlmWrappers.Select(w => w.Name),
+                Loops.Select(l => l.Name),
+                Runbooks.Select(r => r.Name));
         }
 
         // — Saving ———————————————————————————————————————————————————————————
@@ -156,6 +164,7 @@ namespace Wally.Core
             RequireLoaded();
             LlmWrappers = WallyHelper.LoadLlmWrappers(WorkspaceFolder, Config);
             Actors = WallyHelper.LoadActors(WorkspaceFolder, Config, this);
+            ResolveDefaults();
         }
 
         /// <summary>
@@ -165,6 +174,7 @@ namespace Wally.Core
         {
             RequireLoaded();
             Loops = WallyHelper.LoadLoops(WorkspaceFolder, Config);
+            ResolveDefaults();
         }
 
         /// <summary>
@@ -175,6 +185,7 @@ namespace Wally.Core
         {
             RequireLoaded();
             LlmWrappers = WallyHelper.LoadLlmWrappers(WorkspaceFolder, Config);
+            ResolveDefaults();
         }
 
         /// <summary>
@@ -184,6 +195,7 @@ namespace Wally.Core
         {
             RequireLoaded();
             Runbooks = WallyHelper.LoadRunbooks(WorkspaceFolder, Config);
+            ResolveDefaults();
         }
 
         // — Guard ———————————————————————————————————————————————————————————­
@@ -193,6 +205,20 @@ namespace Wally.Core
             if (!IsLoaded)
                 throw new InvalidOperationException(
                     "No workspace is loaded. Use 'setup <path>' or 'load <path>' first.");
+        }
+
+        // — Private helpers ——————————————————————————————————————————————————
+
+        /// <summary>
+        /// Re-resolves effective defaults from the ordered config lists based
+        /// on what is currently loaded. Called after any reload operation.
+        /// </summary>
+        private void ResolveDefaults()
+        {
+            Config.ResolveSelectedDefaults(
+                LlmWrappers.Select(w => w.Name),
+                Loops.Select(l => l.Name),
+                Runbooks.Select(r => r.Name));
         }
     }
 }

@@ -22,13 +22,23 @@ namespace Wally.Forms.Controls.Editors
         private readonly TextBox _txtWrappersFolder;
         private readonly TextBox _txtRunbooksFolder;
 
-        // Defaults
-        private readonly TextBox _txtDefaultModel;
-        private readonly TextBox _txtDefaultWrapper;
+        // Default options (available)
         private readonly RichTextBox _txtDefaultModels;
         private readonly RichTextBox _txtDefaultWrappers;
         private readonly RichTextBox _txtDefaultLoops;
         private readonly RichTextBox _txtDefaultRunbooks;
+
+        // Default selected (priority order)
+        private readonly RichTextBox _txtSelectedModels;
+        private readonly RichTextBox _txtSelectedWrappers;
+        private readonly RichTextBox _txtSelectedLoops;
+        private readonly RichTextBox _txtSelectedRunbooks;
+
+        // Resolved defaults (read-only display)
+        private readonly Label _lblResolvedModel;
+        private readonly Label _lblResolvedWrapper;
+        private readonly Label _lblResolvedLoop;
+        private readonly Label _lblResolvedRunbook;
 
         // Runtime
         private readonly NumericUpDown _nudMaxIterations;
@@ -103,6 +113,29 @@ namespace Wally.Forms.Controls.Editors
             table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             table.Controls.Add(actionBar, 0, row++);
 
+            // ?? Resolved defaults section (read-only) ??
+            table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            table.Controls.Add(MakeSection("\u2B50 Active Defaults (resolved from selected \u00D7 loaded)", WallyTheme.FontUIBold, WallyTheme.TextSecondary), 0, row++);
+
+            void AddResolvedField(string label, out Label lbl)
+            {
+                table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+                table.Controls.Add(MakeLabel(label), 0, row++);
+                lbl = new Label
+                {
+                    AutoSize = true, Font = WallyTheme.FontUI, ForeColor = WallyTheme.TextPrimary,
+                    BackColor = Color.Transparent, Margin = new Padding(0, 0, 0, 4), Dock = DockStyle.Top,
+                    Text = "(not resolved)"
+                };
+                table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+                table.Controls.Add(lbl, 0, row++);
+            }
+
+            AddResolvedField("Model", out _lblResolvedModel);
+            AddResolvedField("Wrapper", out _lblResolvedWrapper);
+            AddResolvedField("Loop", out _lblResolvedLoop);
+            AddResolvedField("Runbook", out _lblResolvedRunbook);
+
             // ?? Folder names section ??
             table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             table.Controls.Add(MakeSection("\uD83D\uDCC1 Folder Names", WallyTheme.FontUIBold, WallyTheme.TextSecondary), 0, row++);
@@ -133,16 +166,23 @@ namespace Wally.Forms.Controls.Editors
             AddTextField("Wrappers Folder", out _txtWrappersFolder);
             AddTextField("Runbooks Folder", out _txtRunbooksFolder);
 
-            // ?? Defaults section ??
+            // ?? Default options section ??
             table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            table.Controls.Add(MakeSection("\u2699 Defaults", WallyTheme.FontUIBold, WallyTheme.TextSecondary), 0, row++);
+            table.Controls.Add(MakeSection("\u2699 Default Options (all available choices)", WallyTheme.FontUIBold, WallyTheme.TextSecondary), 0, row++);
 
-            AddTextField("Default Model", out _txtDefaultModel);
-            AddTextField("Default Wrapper", out _txtDefaultWrapper);
             AddRichField("Available Models (one per line)", 80, out _txtDefaultModels);
             AddRichField("Available Wrappers (one per line)", 80, out _txtDefaultWrappers);
             AddRichField("Available Loops (one per line)", 80, out _txtDefaultLoops);
             AddRichField("Available Runbooks (one per line)", 80, out _txtDefaultRunbooks);
+
+            // ?? Default selected section (priority order) ??
+            table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            table.Controls.Add(MakeSection("\u2B50 Default Selected (priority order \u2014 first loaded wins)", WallyTheme.FontUIBold, WallyTheme.TextSecondary), 0, row++);
+
+            AddRichField("Selected Models (one per line, first available = default)", 60, out _txtSelectedModels);
+            AddRichField("Selected Wrappers (one per line, first loaded = default)", 60, out _txtSelectedWrappers);
+            AddRichField("Selected Loops (one per line, first loaded = default)", 60, out _txtSelectedLoops);
+            AddRichField("Selected Runbooks (one per line, first loaded = default)", 60, out _txtSelectedRunbooks);
 
             // ?? Runtime section ??
             table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
@@ -190,15 +230,24 @@ namespace Wally.Forms.Controls.Editors
                 _txtWrappersFolder.Text = cfg.WrappersFolderName;
                 _txtRunbooksFolder.Text = cfg.RunbooksFolderName;
 
-                _txtDefaultModel.Text = cfg.DefaultModel ?? "";
-                _txtDefaultWrapper.Text = cfg.DefaultWrapper;
                 _txtDefaultModels.Text = string.Join(Environment.NewLine, cfg.DefaultModels);
                 _txtDefaultWrappers.Text = string.Join(Environment.NewLine, cfg.DefaultWrappers);
                 _txtDefaultLoops.Text = string.Join(Environment.NewLine, cfg.DefaultLoops);
                 _txtDefaultRunbooks.Text = string.Join(Environment.NewLine, cfg.DefaultRunbooks);
 
+                _txtSelectedModels.Text = string.Join(Environment.NewLine, cfg.SelectedModels);
+                _txtSelectedWrappers.Text = string.Join(Environment.NewLine, cfg.SelectedWrappers);
+                _txtSelectedLoops.Text = string.Join(Environment.NewLine, cfg.SelectedLoops);
+                _txtSelectedRunbooks.Text = string.Join(Environment.NewLine, cfg.SelectedRunbooks);
+
                 _nudMaxIterations.Value = Math.Clamp(cfg.MaxIterations, 1, 1000);
                 _nudLogRotation.Value = Math.Clamp(cfg.LogRotationMinutes, 0, 120);
+
+                // Show resolved defaults (read-only)
+                _lblResolvedModel.Text = cfg.DefaultModel ?? "(none)";
+                _lblResolvedWrapper.Text = cfg.DefaultWrapper ?? "(none)";
+                _lblResolvedLoop.Text = cfg.ResolvedDefaultLoop ?? "(none)";
+                _lblResolvedRunbook.Text = cfg.ResolvedDefaultRunbook ?? "(none)";
 
                 SetDirty(false);
                 _lblStatus.Text = $"Loaded from: {_environment.WorkspaceFolder}";
@@ -222,12 +271,15 @@ namespace Wally.Forms.Controls.Editors
             cfg.WrappersFolderName = _txtWrappersFolder.Text.Trim();
             cfg.RunbooksFolderName = _txtRunbooksFolder.Text.Trim();
 
-            cfg.DefaultModel = string.IsNullOrWhiteSpace(_txtDefaultModel.Text) ? null : _txtDefaultModel.Text.Trim();
-            cfg.DefaultWrapper = _txtDefaultWrapper.Text.Trim();
             cfg.DefaultModels = ParseLines(_txtDefaultModels.Text);
             cfg.DefaultWrappers = ParseLines(_txtDefaultWrappers.Text);
             cfg.DefaultLoops = ParseLines(_txtDefaultLoops.Text);
             cfg.DefaultRunbooks = ParseLines(_txtDefaultRunbooks.Text);
+
+            cfg.SelectedModels = ParseLines(_txtSelectedModels.Text);
+            cfg.SelectedWrappers = ParseLines(_txtSelectedWrappers.Text);
+            cfg.SelectedLoops = ParseLines(_txtSelectedLoops.Text);
+            cfg.SelectedRunbooks = ParseLines(_txtSelectedRunbooks.Text);
 
             cfg.MaxIterations = (int)_nudMaxIterations.Value;
             cfg.LogRotationMinutes = (int)_nudLogRotation.Value;

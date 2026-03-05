@@ -693,16 +693,33 @@ namespace Wally.Core
 
             Console.WriteLine();
 
-            Console.WriteLine($"Default wrapper:   {(string.IsNullOrWhiteSpace(cfg.DefaultWrapper) ? "Copilot" : cfg.DefaultWrapper)}");
-            Console.WriteLine($"Default model:     {(string.IsNullOrWhiteSpace(cfg.DefaultModel) ? "(wrapper default)" : cfg.DefaultModel)}");
+            // Resolved effective defaults (from SelectedXxx priority lists)
+            Console.WriteLine($"Default model:     {cfg.DefaultModel ?? "(none)"}");
+            Console.WriteLine($"Default wrapper:   {cfg.DefaultWrapper ?? "(none)"}");
+            if (!string.IsNullOrEmpty(cfg.ResolvedDefaultLoop))
+                Console.WriteLine($"Default loop:      {cfg.ResolvedDefaultLoop}");
+            if (!string.IsNullOrEmpty(cfg.ResolvedDefaultRunbook))
+                Console.WriteLine($"Default runbook:   {cfg.ResolvedDefaultRunbook}");
+
+            // Available lists
             if (cfg.DefaultModels.Count > 0)
-                Console.WriteLine($"Default models:    {string.Join(", ", cfg.DefaultModels)}");
+                Console.WriteLine($"Available models:  {string.Join(", ", cfg.DefaultModels)}");
             if (cfg.DefaultWrappers.Count > 0)
-                Console.WriteLine($"Default wrappers:  {string.Join(", ", cfg.DefaultWrappers)}");
+                Console.WriteLine($"Available wrappers:{string.Join(", ", cfg.DefaultWrappers)}");
             if (cfg.DefaultLoops.Count > 0)
-                Console.WriteLine($"Default loops:     {string.Join(", ", cfg.DefaultLoops)}");
+                Console.WriteLine($"Available loops:   {string.Join(", ", cfg.DefaultLoops)}");
             if (cfg.DefaultRunbooks.Count > 0)
-                Console.WriteLine($"Default runbooks:  {string.Join(", ", cfg.DefaultRunbooks)}");
+                Console.WriteLine($"Available runbooks:{string.Join(", ", cfg.DefaultRunbooks)}");
+
+            // Selected (priority) lists
+            if (cfg.SelectedModels.Count > 0)
+                Console.WriteLine($"Selected models:   {string.Join(", ", cfg.SelectedModels)}");
+            if (cfg.SelectedWrappers.Count > 0)
+                Console.WriteLine($"Selected wrappers: {string.Join(", ", cfg.SelectedWrappers)}");
+            if (cfg.SelectedLoops.Count > 0)
+                Console.WriteLine($"Selected loops:    {string.Join(", ", cfg.SelectedLoops)}");
+            if (cfg.SelectedRunbooks.Count > 0)
+                Console.WriteLine($"Selected runbooks: {string.Join(", ", cfg.SelectedRunbooks)}");
 
             Console.WriteLine();
             Console.WriteLine($"Session ID:        {env.Logger.SessionId:N}");
@@ -928,7 +945,7 @@ namespace Wally.Core
             Console.WriteLine();
 
             Console.WriteLine("STEP 3: USE LOOPS FOR ITERATIVE TASKS");
-            Console.WriteLine("\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500");
+            Console.WriteLine("\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500");
             Console.WriteLine("Loops run an actor multiple times. Each iteration sees the previous response");
             Console.WriteLine("and decides whether to continue. The actor stops when it says [LOOP COMPLETED].");
             Console.WriteLine();
