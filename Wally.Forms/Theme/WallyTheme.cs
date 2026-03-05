@@ -148,17 +148,6 @@ namespace Wally.Forms.Theme
         }
 
         /// <summary>
-        /// Applies dark theme colors to a ComboBox embedded in a ToolStripComboBox.
-        /// </summary>
-        public static void StyleComboBox(ToolStripComboBox tsCombo)
-        {
-            var cb = tsCombo.ComboBox;
-            cb.BackColor = Surface2;
-            cb.ForeColor = TextPrimary;
-            cb.FlatStyle = FlatStyle.Flat;
-        }
-
-        /// <summary>
         /// Creates the standard dark-themed renderer used across all menus,
         /// toolstrips, and context menus.
         /// </summary>

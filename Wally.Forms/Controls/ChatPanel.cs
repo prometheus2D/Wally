@@ -44,8 +44,7 @@ namespace Wally.Forms.Controls
     ///   <item><b>Loop selection</b> — optionally runs the prompt through an iterative
     ///         loop definition from the workspace's Loops/ folder.</item>
     /// </list>
-    /// Actor and model are always selectable. "(No Actor)" sends the prompt
-    /// directly without RBA enrichment.
+    /// Dropdowns reflect exactly what is loaded from disk — no hardcoded items.
     /// </para>
     /// </summary>
     public sealed class ChatPanel : UserControl
@@ -66,10 +65,16 @@ namespace Wally.Forms.Controls
         // ── Toolbar (Actor, Loop, Model) ────────────────────────────────────
 
         private readonly ToolStrip _toolbar;
-        private readonly ToolStripComboBox _cboActor;
-        private readonly ToolStripComboBox _cboLoop;
-        private readonly ToolStripComboBox _cboModel;
+        private readonly ToolStripDropDownButton _ddActor;
+        private readonly ToolStripDropDownButton _ddLoop;
+        private readonly ToolStripDropDownButton _ddModel;
         private readonly ToolStripButton _btnClear;
+
+        // ── Selected values (tracked explicitly) ────────────────────────────
+
+        private string? _selectedActor;   // null = "None" (direct prompt)
+        private string? _selectedLoop;    // null = no loop (single run)
+        private string? _selectedModel;   // null = workspace default
 
         // ── Conversation area ───────────────────────────────────────────────
 
@@ -170,27 +175,10 @@ namespace Wally.Forms.Controls
             _modeBar.Controls.Add(_lblModeHint);
             _modeBar.Controls.Add(modeButtonPanel);
 
-            // ── Toolbar ──
-            _cboActor = new ToolStripComboBox("cboActor")
-            {
-                DropDownStyle = ComboBoxStyle.DropDownList,
-                ToolTipText = "Select actor (or No Actor for direct prompts)"
-            };
-            _cboActor.ComboBox.Width = 120;
-
-            _cboLoop = new ToolStripComboBox("cboLoop")
-            {
-                DropDownStyle = ComboBoxStyle.DropDownList,
-                ToolTipText = "Select loop (single-shot or iterative)"
-            };
-            _cboLoop.ComboBox.Width = 110;
-
-            _cboModel = new ToolStripComboBox("cboModel")
-            {
-                DropDownStyle = ComboBoxStyle.DropDown,
-                ToolTipText = "Model override (blank = workspace default)"
-            };
-            _cboModel.ComboBox.Width = 130;
+            // ── Toolbar dropdown buttons ──
+            _ddActor = CreateDropDown("None", "Select actor (None = direct prompt)");
+            _ddLoop = CreateDropDown("(none)", "Select loop (none = single run)");
+            _ddModel = CreateDropDown("(default)", "Select model (default = workspace default)");
 
             _btnClear = new ToolStripButton("\u2715 Clear")
             {
@@ -211,27 +199,22 @@ namespace Wally.Forms.Controls
             _toolbar.Items.AddRange(new ToolStripItem[]
             {
                 new ToolStripLabel("Actor") { ForeColor = WallyTheme.TextMuted, Font = WallyTheme.FontUISmallBold },
-                _cboActor,
+                _ddActor,
                 new ToolStripSeparator(),
                 new ToolStripLabel("Loop") { ForeColor = WallyTheme.TextMuted, Font = WallyTheme.FontUISmallBold },
-                _cboLoop,
+                _ddLoop,
                 new ToolStripSeparator(),
                 new ToolStripLabel("Model") { ForeColor = WallyTheme.TextMuted, Font = WallyTheme.FontUISmallBold },
-                _cboModel,
+                _ddModel,
                 new ToolStripSeparator(),
                 _btnClear
             });
-
-            // Apply dark styling to combo boxes.
-            WallyTheme.StyleComboBox(_cboActor);
-            WallyTheme.StyleComboBox(_cboLoop);
-            WallyTheme.StyleComboBox(_cboModel);
 
             // ── Empty state placeholder ──
             _lblEmptyState = new Label
             {
                 Text = "\U0001F4AC\n\nType a message to start a conversation.\n\n" +
-                       "Select an actor to add persona context,\nor leave it on \u201C(No Actor)\u201D for direct AI prompts.\n\n" +
+                       "Select an actor to add persona context,\nor leave it unselected for direct AI prompts.\n\n" +
                        "\uD83D\uDCAC Ask \u2014 text response only (read-only)\n" +
                        "\uD83E\uDD16 Agent \u2014 can make file changes\n" +
                        "\u2699 Automod \u2014 coming soon",
@@ -356,6 +339,62 @@ namespace Wally.Forms.Controls
             SetWorkspaceLoaded(false);
         }
 
+        // ── Dropdown factory ────────────────────────────────────────────────
+
+        /// <summary>
+        /// Creates a themed <see cref="ToolStripDropDownButton"/> that acts as a
+        /// simple single-level dropdown menu. Items are populated dynamically via
+        /// the Refresh* methods. No inner ComboBox — just ToolStripMenuItems.
+        /// </summary>
+        private static ToolStripDropDownButton CreateDropDown(string defaultText, string tooltip)
+        {
+            var dd = new ToolStripDropDownButton(defaultText)
+            {
+                AutoSize = true,
+                ShowDropDownArrow = true,
+                ToolTipText = tooltip,
+                ForeColor = WallyTheme.TextPrimary,
+                Font = WallyTheme.FontUISmall
+            };
+            dd.DropDown.BackColor = WallyTheme.Surface2;
+            dd.DropDown.ForeColor = WallyTheme.TextPrimary;
+            return dd;
+        }
+
+        /// <summary>
+        /// Replaces all items in a <see cref="ToolStripDropDownButton"/> with the
+        /// given list. When the user clicks an item, <paramref name="onSelected"/>
+        /// is called with the item text and a check mark is placed on the active item.
+        /// </summary>
+        private static void PopulateDropDown(
+            ToolStripDropDownButton dd,
+            IEnumerable<string> items,
+            string? selectedValue,
+            Action<string?> onSelected)
+        {
+            dd.DropDownItems.Clear();
+            foreach (string item in items)
+            {
+                var mi = new ToolStripMenuItem(item)
+                {
+                    ForeColor = WallyTheme.TextPrimary,
+                    BackColor = WallyTheme.Surface2,
+                    Font = WallyTheme.FontUISmall,
+                    Checked = string.Equals(item, selectedValue, StringComparison.Ordinal)
+                };
+                mi.Click += (s, _) =>
+                {
+                    string text = ((ToolStripMenuItem)s!).Text;
+                    dd.Text = text;
+                    // Update check marks.
+                    foreach (ToolStripMenuItem other in dd.DropDownItems)
+                        other.Checked = string.Equals(other.Text, text, StringComparison.Ordinal);
+                    onSelected(text);
+                };
+                dd.DropDownItems.Add(mi);
+            }
+        }
+
         // ── Button factories ────────────────────────────────────────────────
 
         private static Button CreateModeButton(string text)
@@ -445,9 +484,9 @@ namespace Wally.Forms.Controls
             // All controls remain enabled in Ask and Agent — actor, loop,
             // and model are orthogonal to the action mode.
             bool inputEnabled = _workspaceLoaded && !_isRunning && mode != ActionMode.Automod;
-            _cboActor.Enabled = inputEnabled;
-            _cboLoop.Enabled = inputEnabled;
-            _cboModel.Enabled = inputEnabled;
+            _ddActor.Enabled = inputEnabled;
+            _ddLoop.Enabled = inputEnabled;
+            _ddModel.Enabled = inputEnabled;
 
             // Update header.
             _lblTitle.Text = mode switch
@@ -502,9 +541,9 @@ namespace Wally.Forms.Controls
             _workspaceLoaded = loaded;
 
             bool inputEnabled = loaded && !_isRunning && _currentMode != ActionMode.Automod;
-            _cboActor.Enabled = inputEnabled;
-            _cboLoop.Enabled = inputEnabled;
-            _cboModel.Enabled = inputEnabled;
+            _ddActor.Enabled = inputEnabled;
+            _ddLoop.Enabled = inputEnabled;
+            _ddModel.Enabled = inputEnabled;
             _btnClear.Enabled = loaded;
             _btnSend.Enabled = inputEnabled;
             _txtInput.ReadOnly = !inputEnabled;
@@ -536,7 +575,7 @@ namespace Wally.Forms.Controls
                     "\uD83D\uDCAC Ask \u2014 text response only (read-only)\n" +
                     "\uD83E\uDD16 Agent \u2014 can make file changes on disk\n" +
                     "\u2699 Automod \u2014 deep Wally loop orchestration (coming soon)\n\n" +
-                    "Select an actor and loop, or go direct with \u201C(No Actor)\u201D.";
+                    "Select an actor and loop from the toolbar,\nor leave them unselected for a direct prompt.";
                 if (!_isRunning)
                 {
                     _lblStatus.Text = "  Ready";
@@ -549,85 +588,75 @@ namespace Wally.Forms.Controls
         {
             if (InvokeRequired) { Invoke(RefreshActorList); return; }
 
-            if (!_cboActor.ComboBox.IsHandleCreated)
-                _cboActor.ComboBox.CreateControl();
+            var items = new List<string> { "None" };
+            if (_environment?.HasWorkspace == true)
+                items.AddRange(_environment.Actors.Select(a => a.Name));
 
-            _cboActor.Items.Clear();
-            if (_environment?.HasWorkspace != true) return;
-            _cboActor.Items.Add("(No Actor)");
-            foreach (var actor in _environment.Actors)
-                _cboActor.Items.Add(actor.Name);
-            if (_cboActor.Items.Count > 0)
-                _cboActor.SelectedIndex = 0;
+            _selectedActor = null; // default to None
+            _ddActor.Text = "None";
+            PopulateDropDown(_ddActor, items, "None", value =>
+            {
+                _selectedActor = string.Equals(value, "None", StringComparison.OrdinalIgnoreCase) ? null : value;
+            });
         }
 
         public void RefreshLoopList()
         {
             if (InvokeRequired) { Invoke(RefreshLoopList); return; }
 
-            if (!_cboLoop.ComboBox.IsHandleCreated)
-                _cboLoop.ComboBox.CreateControl();
+            var items = new List<string> { "(none)" };
+            if (_environment?.HasWorkspace == true)
+                items.AddRange(_environment.Loops.Select(l => l.Name));
 
-            _cboLoop.Items.Clear();
-            if (_environment?.HasWorkspace != true) return;
-
-            _cboLoop.Items.Add("(Single-shot)");
-            foreach (var loop in _environment.Loops)
+            // Resolve default loop selection.
+            string selected = "(none)";
+            _selectedLoop = null;
+            if (_environment?.HasWorkspace == true)
             {
-                // Skip the internal SingleRun definition — it's the default.
-                if (string.Equals(loop.Name, "SingleRun", StringComparison.OrdinalIgnoreCase))
-                    continue;
-                _cboLoop.Items.Add(loop.Name);
-            }
-
-            // Select the resolved default loop from SelectedLoops priority.
-            var cfg = _environment.Workspace!.Config;
-            if (!string.IsNullOrEmpty(cfg.ResolvedDefaultLoop) &&
-                !string.Equals(cfg.ResolvedDefaultLoop, "SingleRun", StringComparison.OrdinalIgnoreCase))
-            {
-                int idx = _cboLoop.Items.IndexOf(cfg.ResolvedDefaultLoop);
-                if (idx >= 0)
+                var cfg = _environment.Workspace!.Config;
+                if (!string.IsNullOrEmpty(cfg.ResolvedDefaultLoop) &&
+                    _environment.Loops.Any(l => l.Name == cfg.ResolvedDefaultLoop))
                 {
-                    _cboLoop.SelectedIndex = idx;
-                    return;
+                    selected = cfg.ResolvedDefaultLoop;
+                    _selectedLoop = selected;
                 }
             }
 
-            if (_cboLoop.Items.Count > 0)
-                _cboLoop.SelectedIndex = 0;
+            _ddLoop.Text = selected;
+            PopulateDropDown(_ddLoop, items, selected, value =>
+            {
+                _selectedLoop = string.Equals(value, "(none)", StringComparison.OrdinalIgnoreCase) ? null : value;
+            });
         }
 
         public void RefreshModelList()
         {
             if (InvokeRequired) { Invoke(RefreshModelList); return; }
 
-            if (!_cboModel.ComboBox.IsHandleCreated)
-                _cboModel.ComboBox.CreateControl();
-
-            _cboModel.Items.Clear();
-            if (_environment?.HasWorkspace != true) return;
-            var cfg = _environment.Workspace!.Config;
-            _cboModel.Items.Add("");
-            foreach (var model in cfg.DefaultModels)
-                _cboModel.Items.Add(model);
-
-            // Select the effective default model. ResolveEffectiveDefaults
-            // has already set DefaultModel to the first entry in
-            // DefaultModels (if present), so this picks up the correct
-            // priority-ordered default.
-            if (!string.IsNullOrEmpty(cfg.DefaultModel))
+            var items = new List<string>();
+            if (_environment?.HasWorkspace == true)
             {
-                int idx = _cboModel.Items.IndexOf(cfg.DefaultModel);
-                if (idx >= 0)
-                    _cboModel.SelectedIndex = idx;
-                else
-                    _cboModel.Text = cfg.DefaultModel;
+                var cfg = _environment.Workspace!.Config;
+                items.AddRange(cfg.DefaultModels);
             }
-            else if (_cboModel.Items.Count > 1)
+
+            // Resolve default model selection.
+            string? selected = null;
+            if (_environment?.HasWorkspace == true)
             {
-                // No explicit default — select the first model in the list.
-                _cboModel.SelectedIndex = 1;
+                var cfg = _environment.Workspace!.Config;
+                if (!string.IsNullOrEmpty(cfg.DefaultModel) && cfg.DefaultModels.Contains(cfg.DefaultModel))
+                    selected = cfg.DefaultModel;
+                else if (cfg.DefaultModels.Count > 0)
+                    selected = cfg.DefaultModels[0];
             }
+
+            _selectedModel = selected;
+            _ddModel.Text = selected ?? "(default)";
+            PopulateDropDown(_ddModel, items, selected, value =>
+            {
+                _selectedModel = value;
+            });
         }
 
         /// <summary>
@@ -693,18 +722,16 @@ namespace Wally.Forms.Controls
                 return;
             }
 
-            // ── Resolve selections ──
-            string rawActor = _cboActor.SelectedItem?.ToString() ?? "";
-            string? actorName = rawActor == "(No Actor)" ? null : rawActor;
+            // ── Resolve selections from tracked state ──
+            string? actorName = _selectedActor;
             bool directMode = string.IsNullOrEmpty(actorName);
 
-            string rawLoop = _cboLoop.SelectedItem?.ToString() ?? "";
-            string? loopName = rawLoop == "(Single-shot)" ? null : rawLoop;
-            bool isLooped = loopName != null;
+            string? loopName = _selectedLoop;
+            bool isLooped = !string.IsNullOrEmpty(loopName);
 
-            string? modelOverride = string.IsNullOrWhiteSpace(_cboModel.Text)
-                ? null
-                : _cboModel.Text.Trim();
+            string? modelOverride = _selectedModel;
+            if (string.IsNullOrWhiteSpace(modelOverride))
+                modelOverride = null;
 
             string? wrapperName = ResolveWrapperForMode();
 
@@ -740,12 +767,6 @@ namespace Wally.Forms.Controls
                 {
                     token.ThrowIfCancellationRequested();
 
-                    // Use HandleRun which already handles:
-                    // - direct mode (no actor)
-                    // - actor mode
-                    // - loop resolution
-                    // - wrapper selection
-                    // - iteration management
                     return WallyCommands.HandleRun(
                         _environment!,
                         prompt,
@@ -836,9 +857,9 @@ namespace Wally.Forms.Controls
 
             bool inputEnabled = !running && _workspaceLoaded && _currentMode != ActionMode.Automod;
             _txtInput.ReadOnly = !inputEnabled;
-            _cboActor.Enabled = inputEnabled;
-            _cboLoop.Enabled = inputEnabled;
-            _cboModel.Enabled = inputEnabled;
+            _ddActor.Enabled = inputEnabled;
+            _ddLoop.Enabled = inputEnabled;
+            _ddModel.Enabled = inputEnabled;
             _btnModeAsk.Enabled = !running && _workspaceLoaded;
             _btnModeAgent.Enabled = !running && _workspaceLoaded;
             _btnModeAutomod.Enabled = !running && _workspaceLoaded;
