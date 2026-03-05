@@ -1,37 +1,179 @@
 # Wally.Core
 
-Domain library for Wally. No CLI, no UI — embed in any .NET 8 application.
+Domain library for Wally — the AI Actor Environment. This is the core engine that powers both the CLI and GUI. It contains all business logic, workspace management, actor orchestration, and command dispatch. No UI, no CLI — embed in any .NET 8 application.
+
+**Target:** .NET 8 | **Type:** Class Library | **Dependencies:** `CommandLineParser 2.9.1`
+
+---
+
+## Table of Contents
+
+- [Architecture Overview](#architecture-overview)
+- [Key Types](#key-types)
+  - [WallyEnvironment](#wallyenvironment)
+  - [Actor](#actor)
+  - [LLMWrapper](#llmwrapper)
+  - [WallyLoop](#wallyloop)
+  - [WallyLoopDefinition](#wallyloopdefinition)
+  - [WallyRunbook](#wallyrunbook)
+  - [WallyWorkspace](#wallyworkspace)
+  - [WallyConfig](#wallyconfig)
+  - [WallyCommands](#wallycommands)
+  - [SessionLogger](#sessionlogger)
+- [RBA Framework](#rba-framework)
+- [Workspace Layout](#workspace-layout)
+- [Embedding Wally.Core in Your App](#embedding-wallycore-in-your-app)
+- [Default Workspace Template](#default-workspace-template)
+- [File Structure](#file-structure)
+
+---
+
+## Architecture Overview
+
+```
+???????????????????????????????????????????????????????????
+?                    Your Host App                        ?
+?              (Console, WinForms, API, etc.)             ?
+???????????????????????????????????????????????????????????
+                       ?
+              ???????????????????
+              ? WallyCommands   ?  ? Shared command dispatcher
+              ? (static methods)?    used by CLI, GUI, and runbooks
+              ???????????????????
+                       ?
+              ???????????????????
+              ? WallyEnvironment?  ? Runtime orchestration layer
+              ?                 ?    (workspace + actors + wrappers)
+              ???????????????????
+                 ?         ?
+     ???????????????  ????????????????
+     ? Actor       ?  ? LLMWrapper   ?
+     ? (RBA prompt ?  ? (JSON-driven ?
+     ?  pipeline)  ?  ?  CLI recipe) ?
+     ???????????????  ????????????????
+                 ?
+     ???????????????????????????????
+     ? WallyWorkspace              ?
+     ? ??? Actors (loaded from disk)?
+     ? ??? Loops (JSON definitions)?
+     ? ??? Wrappers (JSON defs)    ?
+     ? ??? Runbooks (.wrb files)   ?
+     ? ??? Config (wally-config)   ?
+     ???????????????????????????????
+```
+
+| Concern | Owner |
+|---|---|
+| RBA personality & prompt enrichment | `Actor` |
+| CLI recipe & process spawning | `LLMWrapper` (JSON-driven) |
+| Orchestration (actor + wrapper + model) | `WallyEnvironment` |
+| Loop iteration & stop conditions | `WallyLoop` / `WallyLoopDefinition` |
+| Multi-step command workflows | `WallyRunbook` |
+| Command dispatch (CLI, GUI, runbooks) | `WallyCommands` |
+| Loading actors/loops/wrappers/runbooks from disk | `WallyHelper` |
+| Workspace layout & config | `WallyWorkspace` / `WallyConfig` |
+| Session logging | `SessionLogger` |
+
+---
 
 ## Key Types
 
-### `Actor`
+### WallyEnvironment
+
+The runtime orchestration layer. Manages workspace lifecycle, actor execution, wrapper resolution, and session logging. This is the main entry point for any host application.
+
+```csharp
+var env = new WallyEnvironment();
+
+// Scaffold a workspace (creates .wally/ if needed, then loads)
+env.SetupLocal(@"C:\repos\MyApp");
+
+// Single actor run
+var responses = env.RunActor("Review the auth module", "Engineer");
+
+// Direct mode (no actor — prompt sent as-is)
+string response = env.ExecutePrompt("What does this codebase do?");
+
+// Run all actors
+var allResponses = env.RunActors("Explain this module");
+
+// Execute with model/wrapper override
+string result = env.ExecuteActor(actor, "Explain this", modelOverride: "claude-sonnet-4");
+
+// Resolve the active LLM wrapper
+LLMWrapper wrapper = env.ResolveWrapper();
+LLMWrapper specific = env.ResolveWrapper("AutoCopilot");
+```
+
+**Key properties:**
+
+| Property | Description |
+|---|---|
+| `Workspace` | The loaded `WallyWorkspace` (null when not loaded) |
+| `HasWorkspace` | Whether a workspace is loaded |
+| `WorkspaceFolder` | Path to the `.wally/` folder |
+| `WorkSource` | Path to the codebase root (parent of `.wally/`) |
+| `Actors` | Loaded actor list (pass-through to workspace) |
+| `Loops` | Loaded loop definitions (pass-through) |
+| `Runbooks` | Loaded runbook definitions (pass-through) |
+| `Logger` | `SessionLogger` for this environment lifetime |
+
+**Key methods:**
+
+| Method | Description |
+|---|---|
+| `SetupLocal(path)` | Scaffold + load workspace |
+| `LoadWorkspace(path)` | Load an existing workspace |
+| `SaveWorkspace()` | Save config and actors to disk |
+| `CloseWorkspace()` | Close and unbind the workspace |
+| `ReloadActors()` | Re-read actor folders from disk |
+| `ExecuteActor(actor, prompt)` | Run actor pipeline ? LLM wrapper |
+| `ExecutePrompt(prompt)` | Direct mode — no actor enrichment |
+| `RunActor(prompt, actorName)` | Find actor by name and execute |
+| `RunActors(prompt)` | Execute all actors |
+| `ResolveWrapper(name?)` | Get the active or named LLM wrapper |
+| `GetActor(name)` | Find an actor by name (case-insensitive) |
+| `GetLoop(name)` | Find a loop by name |
+| `GetRunbook(name)` | Find a runbook by name |
+
+---
+
+### Actor
 
 An actor is a personality defined by RBA prompts (Role, AcceptanceCriteria, Intent). Actors own prompt enrichment — they know nothing about LLM wrappers or execution.
 
-**Prompt generation** — `GeneratePrompt(userPrompt)` wraps user input inside the actor's RBA context:
-
 ```csharp
-string prompt = actor.GeneratePrompt("Write requirements for the search feature");
-// Output:
-// # Actor: BusinessAnalyst
-// ## Role
-// Act as a Business Analyst and Project Manager...
-// ## Acceptance Criteria
-// Output must trace every requirement back to a stakeholder need...
-// ## Intent
-// Translate stakeholder needs into clear requirements...
-//
-// ## Prompt
-// Write requirements for the search feature
+var actor = new Actor(
+    "SecurityAuditor",
+    folderPath,
+    new Role("SecurityAuditor", "You are a security auditor..."),
+    new AcceptanceCriteria("SecurityAuditor", "Find all vulnerabilities..."),
+    new Intent("SecurityAuditor", "Produce a security report..."),
+    workspace
+);
+
+// Generate the full RBA prompt
+string prompt = actor.GeneratePrompt("Review the authentication module");
+
+// Process prompt (enriches with RBA context + documentation listings)
+string enriched = actor.ProcessPrompt("Review the authentication module");
 ```
 
-**Pipeline** — `ProcessPrompt(prompt)` enriches the raw prompt with RBA context and documentation file listings. `Setup()` runs any pre-processing. Neither method touches the LLM — execution is handled by `WallyEnvironment`.
+**Prompt generation pipeline:**
 
-Documentation files in `.wally/Docs/` and `.wally/Actors/<Name>/Docs/` are listed in the enriched prompt so the LLM knows they exist. The files themselves are accessible to the LLM wrapper via its own mechanisms (e.g. `--add-dir` for Copilot).
+1. `Setup()` — Called once before processing (hook for actor-specific initialization)
+2. `ProcessPrompt(userPrompt)` — Enriches the prompt with:
+   - Actor name and RBA identity (Role, Acceptance Criteria, Intent)
+   - Documentation context (files from actor `Docs/` and workspace `Docs/`)
+   - The user's prompt
 
-### `LlmWrapper`
+**Documentation context:** Files in `.wally/Docs/` and `.wally/Actors/<Name>/Docs/` are automatically listed in the enriched prompt so the LLM knows they exist and can reference them when relevant.
 
-A data-driven CLI wrapper loaded entirely from a JSON definition. Each `.json` file in the workspace's `Wrappers/` folder defines one wrapper: the executable to run, the argument template, display metadata, and behavioural flags. No C# subclass is needed — the JSON *is* the wrapper.
+---
+
+### LLMWrapper
+
+A data-driven CLI wrapper loaded entirely from a JSON definition. Each `.json` file in `Wrappers/` defines one wrapper. No C# subclass needed — the JSON *is* the wrapper.
 
 ```json
 {
@@ -46,24 +188,34 @@ A data-driven CLI wrapper loaded entirely from a JSON definition. Each `.json` f
 }
 ```
 
-Placeholders in `ArgumentTemplate`: `{prompt}`, `{model}`, `{sourcePath}`. When a value is null/empty, its placeholder (and the corresponding format segment) is omitted from the command line.
+**Placeholders in `ArgumentTemplate`:**
+
+| Placeholder | Resolved To |
+|---|---|
+| `{prompt}` | The fully enriched prompt text |
+| `{model}` | Model identifier (omitted when null) |
+| `{sourcePath}` | Codebase root path (omitted when null) |
+
+**Properties:**
+
+| Property | Type | Description |
+|---|---|---|
+| `Name` | `string` | Logical name (e.g. `"Copilot"`) |
+| `Description` | `string` | Human-readable description |
+| `Executable` | `string` | CLI executable (e.g. `"gh"`) |
+| `ArgumentTemplate` | `string` | Template with placeholders |
+| `ModelArgFormat` | `string` | Format for model argument segment |
+| `SourcePathArgFormat` | `string` | Format for source path segment |
+| `UseSourcePathAsWorkingDirectory` | `bool` | Set working directory to source path |
+| `CanMakeChanges` | `bool` | Whether this wrapper can edit files |
 
 To add a new LLM backend, drop a `.json` file in `Wrappers/` — zero code changes.
 
-### `WallyLoop`
+---
 
-Iterative execution loop. Each LLM call is stateless — the loop carries context forward explicitly by embedding the previous response in the next prompt.
+### WallyLoop
 
-| Piece | Purpose |
-|---|---|
-| **Action** | `Func<string, string>` — receives a prompt, returns a result |
-| **StartPrompt** | Prompt for the first iteration |
-| **ContinuePrompt** | `Func<string, string>` — receives previous result, returns next prompt. Falls back to using the result directly when null. |
-| **MaxIterations** | Hard ceiling on iterations (default: 10) |
-
-Stop keywords detected in the response:
-- `[LOOP COMPLETED]` — task finished successfully
-- `[LOOP ERROR]` — actor detected an error
+Iterative execution loop. Each LLM call is stateless — the loop carries context forward by embedding the previous response in the next prompt.
 
 ```csharp
 var loop = new WallyLoop(
@@ -73,14 +225,25 @@ var loop = new WallyLoop(
     maxIterations:  5
 );
 loop.Run();
-// loop.Results         — all iteration results
-// loop.ExecutionCount  — how many iterations ran
-// loop.StopReason      — Completed, Error, or MaxIterations
+
+// Results
+loop.Results         // List<string> — all iteration results
+loop.ExecutionCount  // int — how many iterations ran
+loop.StopReason      // LoopStopReason — Completed, Error, or MaxIterations
+loop.LastResult      // string? — the most recent iteration result
 ```
 
-### `WallyLoopDefinition`
+**Stop keywords detected in the response:**
+- `[LOOP COMPLETED]` — task finished successfully
+- `[LOOP ERROR]` — actor detected an error
 
-A serializable definition for a `WallyLoop`, loaded from a JSON file in `Loops/`. Defines the actor, prompts, stop keywords, and iteration limit as data — no code needed.
+**`LoopStopReason` enum:** `MaxIterations`, `Completed`, `Error`
+
+---
+
+### WallyLoopDefinition
+
+A serializable loop definition loaded from a JSON file in `Loops/`. Defines the actor, prompts, stop keywords, and iteration limit as data — no code needed.
 
 ```json
 {
@@ -95,11 +258,21 @@ A serializable definition for a `WallyLoop`, loaded from a JSON file in `Loops/`
 }
 ```
 
-Placeholders in prompts: `{userPrompt}`, `{previousResult}`, `{completedKeyword}`, `{errorKeyword}`.
+**Placeholders in prompts:** `{userPrompt}`, `{previousResult}`, `{completedKeyword}`, `{errorKeyword}`
 
-### `WallyRunbook`
+**Factory methods:**
 
-A runbook loaded from a `.wrb` (Wally Runbook) file. Runbooks are plain-text files with one Wally command per line — they chain multiple steps into a repeatable workflow.
+```csharp
+var loop = WallyLoopDefinition.LoadFromFile("path/to/CodeReview.json");
+var allLoops = WallyLoopDefinition.LoadFromFolder("path/to/Loops/");
+loop.SaveToFile("path/to/MyLoop.json");
+```
+
+---
+
+### WallyRunbook
+
+A runbook loaded from a `.wrb` (Wally Runbook) file. Runbooks are plain-text files with one Wally command per line.
 
 ```
 # First comment line becomes the description.
@@ -108,15 +281,24 @@ run "{userPrompt}" -a Stakeholder
 run "{userPrompt}" -a Engineer -l CodeReview
 ```
 
-- **Name** — derived from filename without extension (e.g. `hello-world`)
-- **Description** — extracted from the first comment line
-- **Commands** — parsed non-comment, non-blank lines
+**Properties:**
 
-Placeholders (`{userPrompt}`, `{workSourcePath}`, `{workspaceFolder}`) are resolved at runtime. Runbooks can call other runbooks (nesting capped at 10 levels). Execution stops on the first command failure.
+| Property | Type | Description |
+|---|---|---|
+| `Name` | `string` | Derived from filename (e.g. `hello-world`) |
+| `Description` | `string` | First comment line |
+| `FilePath` | `string` | Absolute path to the `.wrb` file |
+| `Commands` | `List<string>` | Parsed non-comment, non-blank lines |
 
-### `WallyWorkspace`
+**Placeholders** resolved at runtime: `{userPrompt}`, `{workSourcePath}`, `{workspaceFolder}`
 
-Owns the workspace layout on disk:
+**Nesting:** Runbooks can call other runbooks (max depth: 10). Execution stops on first error.
+
+---
+
+### WallyWorkspace
+
+Owns the workspace layout on disk. Loads actors, loops, wrappers, and runbooks from the filesystem.
 
 ```
 <WorkSource>/                   e.g. C:\repos\MyApp
@@ -134,80 +316,214 @@ Owns the workspace layout on disk:
         Logs/                   Session logs
 ```
 
-- **WorkSource** — the root of the user's codebase (parent of `.wally/`). Controls the LLM wrapper's working directory and context scope.
-- **WorkspaceFolder** — the `.wally/` folder holding config, actors, loops, wrappers, and docs.
+**Key properties:**
 
-### `WallyEnvironment`
+| Property | Description |
+|---|---|
+| `WorkSource` | Root of the user's codebase (parent of `.wally/`) |
+| `WorkspaceFolder` | The `.wally/` folder path |
+| `SourcePath` | Same as `WorkSource` — context scope for the LLM |
+| `Actors` | Loaded actor list |
+| `Loops` | Loaded loop definitions |
+| `LlmWrappers` | Loaded wrapper definitions |
+| `Runbooks` | Loaded runbook definitions |
+| `Config` | The parsed `WallyConfig` |
+| `IsLoaded` | Whether the workspace has been loaded |
 
-Runtime host over a `WallyWorkspace`. Manages workspace lifecycle, actor execution, wrapper resolution, and session logging. This is the orchestration layer that connects actors (RBA) with wrappers (LLM execution).
+---
 
-```csharp
-var env = new WallyEnvironment();
-env.SetupLocal(@"C:\repos\MyApp");   // scaffolds .wally/ if needed, then loads
+### WallyConfig
 
-// Single actor run
-var responses = env.RunActor("Review the auth module", "Engineer");
-
-// Run all actors
-var allResponses = env.RunActors("Explain this module");
-
-// Execute with model override
-string response = env.ExecuteActor(actor, "Explain this", modelOverride: "claude-sonnet-4");
-
-// Resolve the active LLM wrapper
-LlmWrapper wrapper = env.ResolveWrapper();
-```
-
-### `WallyConfig`
-
-Loaded from `wally-config.json`:
+Loaded from `wally-config.json`. Controls folder names, defaults, and runtime settings.
 
 | Property | Default | Description |
 |---|---|---|
-| `ActorsFolderName` | `"Actors"` | Actor directory name inside workspace. |
-| `LogsFolderName` | `"Logs"` | Session log directory name. |
-| `DocsFolderName` | `"Docs"` | Workspace-level documentation directory name. |
-| `TemplatesFolderName` | `"Templates"` | Document templates directory name. |
-| `LoopsFolderName` | `"Loops"` | Loop definition directory name. |
-| `WrappersFolderName` | `"Wrappers"` | LLM wrapper definition directory name. |
-| `RunbooksFolderName` | `"Runbooks"` | Runbook files directory name. |
-| `LogRotationMinutes` | `2` | Minutes per log file. `0` = single file. |
-| `DefaultModel` | `"gpt-4.1"` | Model identifier passed to the LLM wrapper. |
-| `DefaultModels` | `[...]` | Curated list of available model identifiers. |
-| `DefaultWrappers` | `["Copilot", "AutoCopilot"]` | Curated list of available wrapper names. |
-| `DefaultLoops` | `["SingleRun", ...]` | Curated list of available loop names. |
-| `DefaultRunbooks` | `["hello-world", ...]` | Curated list of available runbook names. |
-| `MaxIterations` | `10` | Default iteration cap for `WallyLoop`. |
-| `DefaultWrapper` | `"Copilot"` | Name of the LLM wrapper to use (matches `Wrappers/*.json`). |
+| `ActorsFolderName` | `"Actors"` | Actor directory name |
+| `LogsFolderName` | `"Logs"` | Session log directory |
+| `DocsFolderName` | `"Docs"` | Workspace-level docs directory |
+| `TemplatesFolderName` | `"Templates"` | Document templates directory |
+| `LoopsFolderName` | `"Loops"` | Loop definitions directory |
+| `WrappersFolderName` | `"Wrappers"` | LLM wrapper definitions directory |
+| `RunbooksFolderName` | `"Runbooks"` | Runbook files directory |
+| `LogRotationMinutes` | `2` | Minutes per log file (0 = single file) |
+| `MaxIterations` | `10` | Default iteration cap for loops |
+| `DefaultModels` | `[...]` | Available model identifiers (UI dropdowns) |
+| `DefaultWrappers` | `[...]` | Available wrapper names |
+| `DefaultLoops` | `[...]` | Available loop names |
+| `DefaultRunbooks` | `[...]` | Available runbook names |
+| `SelectedModels` | `[...]` | Priority-ordered preferred models |
+| `SelectedWrappers` | `[...]` | Priority-ordered preferred wrappers |
+| `SelectedLoops` | `[...]` | Priority-ordered preferred loops |
+| `SelectedRunbooks` | `[...]` | Priority-ordered preferred runbooks |
 
-Config resolution: workspace-local ? shipped template ? hard-coded defaults.
+**Resolved defaults** (runtime, not persisted): `DefaultModel`, `DefaultWrapper`, `ResolvedDefaultLoop`, `ResolvedDefaultRunbook` — the first `Selected*` entry that actually exists becomes the active default.
 
-### `SessionLogger`
+---
+
+### WallyCommands
+
+Static class containing all command implementations. Provides a single `DispatchCommand` entry point used by Console interactive mode, Forms CommandPanel, and runbook execution.
+
+```csharp
+// Dispatch any command
+WallyCommands.DispatchCommand(env, new[] { "run", "Review auth", "-a", "Engineer" });
+
+// Split a raw input line (respects quotes)
+string[] args = WallyCommands.SplitArgs("run \"Review the auth module\" -a Engineer");
+
+// Individual commands
+WallyCommands.HandleSetup(env, @"C:\repos\MyApp");
+WallyCommands.HandleRun(env, "Review auth", actorName: "Engineer", loopName: "CodeReview");
+WallyCommands.HandleRunbook(env, "full-analysis", "Explain the architecture");
+WallyCommands.HandleInfo(env);
+WallyCommands.HandleHelp();
+WallyCommands.HandleTutorial();
+```
+
+**Full command list:** `setup`, `load`, `save`, `run`, `runbook`, `list`, `list-loops`, `list-wrappers`, `list-runbooks`, `info`, `reload-actors`, `cleanup`, `help`/`commands`, `tutorial`, `add-actor`, `edit-actor`, `delete-actor`, `add-loop`, `edit-loop`, `delete-loop`, `add-wrapper`, `edit-wrapper`, `delete-wrapper`, `add-runbook`, `edit-runbook`, `delete-runbook`
+
+---
+
+### SessionLogger
 
 Structured per-session logger. Writes JSON entries to rotating log files under `.wally/Logs/<session>/`.
 
 - Buffers entries in memory until `Bind()` is called (on workspace load)
 - Thread-safe (serialized via lock)
 - Log categories: `Command`, `Prompt`, `ProcessedPrompt`, `Response`, `CliError`, `Info`, `Error`
+- Configurable rotation interval via `WallyConfig.LogRotationMinutes`
 
-### RBA (Role, AcceptanceCriteria, Intent)
+---
 
-Each actor carries three prompt components:
+## RBA Framework
 
-| Component | JSON key | Description |
-|---|---|---|
-| **Role** | `rolePrompt` | The persona the AI adopts |
-| **AcceptanceCriteria** | `criteriaPrompt` | Success criteria the output must meet |
-| **Intent** | `intentPrompt` | The goal the actor pursues |
+RBA (Role, Acceptance Criteria, Intent) is the core prompting strategy:
 
-## Architecture
+| Component | C# Type | JSON Key | Description |
+|---|---|---|---|
+| **Role** | `Role` | `rolePrompt` | The persona the AI adopts |
+| **Acceptance Criteria** | `AcceptanceCriteria` | `criteriaPrompt` | Success criteria the output must meet |
+| **Intent** | `Intent` | `intentPrompt` | The goal the actor pursues |
 
-| Concern | Owner |
-|---|---|
-| RBA personality & prompt enrichment | `Actor` |
-| CLI recipe & process spawning | `LlmWrapper` (JSON-driven) |
-| Orchestration (actor + wrapper + model) | `WallyEnvironment` |
-| Loop iteration & stop conditions | `WallyLoop` / `WallyLoopDefinition` |
-| Multi-step command workflows | `WallyRunbook` |
-| Loading actors/loops/wrappers/runbooks from disk | `WallyHelper` |
-| Workspace layout & config | `WallyWorkspace` / `WallyConfig` |
+Each type lives in the `Wally.Core.RBA` namespace and carries a `Name` and `Prompt` property. They are composed into an `Actor` instance that uses them to build enriched prompts.
+
+---
+
+## Workspace Layout
+
+```
+<WorkSource>/
+  .wally/
+    wally-config.json           ? WallyConfig
+    Actors/                     ? One folder per Actor
+      Engineer/
+        actor.json              ? { name, rolePrompt, criteriaPrompt, intentPrompt }
+        Docs/                   ? Actor-private docs (listed in enriched prompt)
+    Loops/                      ? WallyLoopDefinition JSON files
+    Wrappers/                   ? LLMWrapper JSON files
+    Runbooks/                   ? .wrb plain-text command files
+    Docs/                       ? Workspace-level docs (listed in enriched prompt)
+    Templates/                  ? Document templates (.md)
+    Logs/                       ? SessionLogger output
+```
+
+---
+
+## Embedding Wally.Core in Your App
+
+Add a project reference:
+
+```xml
+<ProjectReference Include="..\Wally.Core\Wally.Core.csproj" />
+```
+
+Minimal integration:
+
+```csharp
+using Wally.Core;
+
+var env = new WallyEnvironment();
+
+// Option A: Set up a workspace (scaffolds .wally/ if needed)
+env.SetupLocal(@"C:\repos\MyApp");
+
+// Option B: Load an existing workspace
+env.LoadWorkspace(@"C:\repos\MyApp\.wally");
+
+// Run a prompt
+var results = env.RunActor("Review error handling", "Engineer");
+
+// Use the shared command dispatcher
+WallyCommands.DispatchCommand(env, WallyCommands.SplitArgs("run \"Review auth\" -a Engineer"));
+
+// Cleanup
+env.Logger.Dispose();
+```
+
+---
+
+## Default Workspace Template
+
+The `Default/` folder ships alongside the library and is copied into new workspaces on `setup`:
+
+```
+Default/
+  wally-config.json
+  Docs/
+    README.md
+  Templates/
+    ArchitectureTemplate.md
+    RequirementsTemplate.md
+    ExecutionPlanTemplate.md
+    ProposalTemplate.md
+    ImplementationPlanTemplate.md
+    BugTemplate.md
+    TestPlanTemplate.md
+  Actors/
+    Stakeholder/   (actor.json + Docs/)
+    BusinessAnalyst/ (actor.json + Docs/)
+    Engineer/      (actor.json + Docs/)
+  Loops/
+    SingleRun.json, CodeReview.json, Refactor.json, RequirementsDeepDive.json
+  Wrappers/
+    Copilot.json, AutoCopilot.json
+  Runbooks/
+    hello-world.wrb, full-analysis.wrb, README.md
+```
+
+Contents are included via `<Content Include="Default\**\*" CopyToOutputDirectory="PreserveNewest" />` so they ship with any project that references Wally.Core.
+
+---
+
+## File Structure
+
+```
+Wally.Core/
+??? Wally.Core.csproj           ? .NET 8 class library
+??? Actors/
+?   ??? Actor.cs                ? RBA prompt pipeline
+??? RBA/
+?   ??? Role.cs                 ? Role prompt component
+?   ??? AcceptanceCriteria.cs   ? Acceptance criteria component
+?   ??? Intent.cs               ? Intent prompt component
+??? LLMWrappers/
+?   ??? LLMWrapper.cs           ? JSON-driven CLI wrapper
+??? Logging/
+?   ??? SessionLogger.cs        ? Structured JSON logger
+?   ??? LogEntry.cs             ? Log entry model
+??? WallyEnvironment.cs         ? Runtime orchestration
+??? WallyWorkspace.cs           ? Workspace layout & loading
+??? WallyConfig.cs              ? Configuration model
+??? WallyCommands.cs            ? Command implementations + dispatcher
+??? WallyHelper.cs              ? Loading, scaffolding, utilities
+??? WallyLoop.cs                ? Iterative execution loop
+??? WallyLoopDefinition.cs      ? Serializable loop definition
+??? WallyRunbook.cs             ? Runbook model & parser
+??? Default/                    ? Shipped workspace template
+    ??? wally-config.json
+    ??? Actors/                 ? Default actor definitions
+    ??? Loops/                  ? Default loop definitions
+    ??? Wrappers/               ? Default wrapper definitions
+    ??? Runbooks/               ? Default runbook files
+    ??? Docs/                   ? Default documentation
+    ??? Templates/              ? Document templates

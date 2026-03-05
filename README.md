@@ -1,347 +1,270 @@
-# Wally
+<p align="center">
+  <img src="https://img.shields.io/badge/.NET-8.0-512BD4?style=flat&logo=dotnet" alt=".NET 8" />
+  <img src="https://img.shields.io/badge/platform-Windows-0078D6?style=flat&logo=windows" alt="Windows" />
+  <img src="https://img.shields.io/badge/license-MIT-green?style=flat" alt="MIT License" />
+</p>
 
-[![.NET 8](https://img.shields.io/badge/.NET-8.0-512BD4?logo=dotnet)](https://dotnet.microsoft.com/download)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![GitHub CLI](https://img.shields.io/badge/Requires-GitHub%20CLI-181717?logo=github)](https://cli.github.com)
+# ?? Wally — AI Actor Environment
 
-**Role-Based Actor (RBA) framework that wraps GitHub Copilot CLI into a structured, prompt-driven AI environment.**
+**Wally** is a .NET 8 desktop application and CLI that manages AI-powered **actors** — persona-driven LLM assistants that produce structured, high-quality output using the **RBA (Role, Acceptance Criteria, Intent)** prompting framework.
 
-Wally scaffolds a `.wally/` workspace inside any codebase, loads actors defined by JSON, enriches every prompt with RBA context (Role, AcceptanceCriteria, Intent), and forwards it to `gh copilot`. Zero prompt engineering required—actors handle it for you.
-
-```
-???????????????????????????????????????????????????????????????????????????
-?  Your Prompt  ?  Actor (RBA)  ?  Wrapper (LLM)  ?  Structured Output   ?
-???????????????????????????????????????????????????????????????????????????
-```
+Instead of sending raw prompts to an LLM, Wally wraps every prompt in a rich persona context: *who* the AI is (Role), *what success looks like* (Acceptance Criteria), and *what it should accomplish* (Intent). The result is dramatically better, more consistent output — whether you're generating code reviews, architecture documents, requirements, or execution plans.
 
 ---
 
-## ? Quick Start
+## ? Key Features
+
+| Feature | Description |
+|---|---|
+| **RBA Actors** | Persona-driven prompting with Role, Acceptance Criteria, and Intent. Three default actors ship out of the box: Engineer, BusinessAnalyst, and Stakeholder. |
+| **Direct Mode** | Send prompts without an actor for general questions — no persona enrichment. |
+| **JSON-Driven LLM Wrappers** | Swap LLM backends by dropping a `.json` file in `Wrappers/`. Ships with `Copilot` (read-only) and `AutoCopilot` (agentic, can edit files). Zero code changes to add new backends. |
+| **Iterative Loops** | Run an actor in a loop — each iteration sees the previous response and decides whether to continue. Named loop definitions (JSON) or inline `--loop` mode. |
+| **Runbooks** | `.wrb` plain-text files with one Wally command per line. Chain setup, multiple actors, loops, and other commands into repeatable workflows. |
+| **Document Templates** | Architecture, Requirements, Execution Plan, Proposal, Bug Report, Test Plan, and Implementation Plan templates ship with the workspace. |
+| **Documentation Context** | Files in `Docs/` folders are listed in the enriched prompt so the LLM knows they exist and can reference them. |
+| **WinForms GUI** | Dark-themed desktop app with file explorer, tabbed entity editors, AI chat panel, and integrated command terminal. |
+| **CLI + Interactive REPL** | Full-featured command-line interface with one-shot and interactive modes. |
+| **Full CRUD for Everything** | Create, edit, delete, and list actors, loops, wrappers, and runbooks from the CLI or GUI. |
+| **Session Logging** | Structured JSON logs with configurable rotation under `.wally/Logs/`. |
+
+---
+
+## ?? Projects
+
+| Project | Type | Description |
+|---|---|---|
+| [`Wally.Core`](Wally.Core/README.md) | Class Library (.NET 8) | Domain library — actors, loops, wrappers, runbooks, workspace management, and command logic. Embeddable in any .NET 8 host. |
+| [`Wally.Console`](Wally.Console/README.md) | Console App (.NET 8) | CLI entry point — one-shot commands and interactive REPL. |
+| [`Wally.Forms`](Wally.Forms/README.md) | WinForms App (.NET 8) | Desktop GUI — dark-themed IDE-like interface with file explorer, tabbed editors, AI chat, and command terminal. |
+
+> ?? **New here?** See the [Quick Start Guide](QUICK-START.md) to get running in under 5 minutes.
+
+---
+
+## ?? Quick Start
 
 ### Prerequisites
 
-```sh
-# 1. Install GitHub CLI
-winget install GitHub.cli          # Windows
-brew install gh                    # macOS
+- [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
+- [GitHub CLI](https://cli.github.com/) with Copilot extension (`gh extension install github/gh-copilot`) — *or configure a different LLM wrapper*
+- Windows (WinForms GUI) — the CLI works on any .NET 8-supported platform
 
-# 2. Install Copilot extension
-gh extension install github/gh-copilot
-
-# 3. Authenticate (Copilot license required)
-gh auth login
-```
-
-### Install & Run
+### Build
 
 ```sh
-# Clone and build
 git clone https://github.com/prometheus2D/Wally.git
 cd Wally
 dotnet build
-
-# Publish self-contained (optional)
-dotnet publish Wally.Console -c Release -r win-x64 --self-contained -o ./dist
 ```
 
-### 3-Step Setup
+### Run the CLI
 
 ```sh
-# 1. Scaffold workspace in your project
-wally setup C:\repos\MyApp
+# Set up a workspace at your codebase root
+dotnet run --project Wally.Console -- setup C:\repos\MyApp
 cd C:\repos\MyApp
 
-# 2. Run an actor
-.\wally run Engineer "Review the authentication module"
+# Run a direct prompt (no actor)
+.\wally run "What does this codebase do?"
 
-# 3. View results
-.\wally info    # workspace state
-.\wally list    # available actors
+# Run with an actor
+.\wally run "Review the auth module for security issues" -a Engineer
+
+# Run with a loop
+.\wally run "Review the data access layer" -a Engineer -l CodeReview
+
+# Run a runbook
+.\wally runbook full-analysis "Explain the architecture"
+
+# Interactive mode
+.\wally
+wally> run "Write requirements for search" -a BusinessAnalyst
+wally> list
+wally> info
+wally> exit
 ```
 
-That's it. Every prompt is enriched with RBA context and logged under `.wally/Logs/`.
+### Run the GUI
+
+```sh
+dotnet run --project Wally.Forms
+```
+
+Or publish and run:
+
+```sh
+dotnet publish Wally.Forms -c Release
+```
 
 ---
 
-## ?? Table of Contents
+## ??? Workspace Structure
 
-- [Core Concepts](#core-concepts)
-- [Commands Reference](#commands-reference)
-- [Run Modes](#run-modes)
-- [Actors](#actors)
-- [Loops](#loops)
-- [Wrappers](#wrappers)
-- [Runbooks](#runbooks)
-- [Workspace Layout](#workspace-layout)
-- [Configuration](#configuration)
-- [Architecture](#architecture)
-- [Extending Wally](#extending-wally)
-- [Troubleshooting](#troubleshooting)
+When you run `wally setup`, a `.wally/` folder is created inside your codebase root:
+
+```
+MyApp/                          ? WorkSource (your codebase root)
+  .wally/                       ? Workspace folder
+    wally-config.json           ? Configuration
+    Actors/                     ? One folder per actor
+      Engineer/
+        actor.json              ? RBA prompts (Role, Criteria, Intent)
+        Docs/                   ? Actor-private documentation
+      BusinessAnalyst/
+        actor.json
+        Docs/
+      Stakeholder/
+        actor.json
+        Docs/
+    Loops/                      ? Loop definitions (JSON)
+      SingleRun.json
+      CodeReview.json
+      Refactor.json
+      RequirementsDeepDive.json
+    Wrappers/                   ? LLM wrapper definitions (JSON)
+      Copilot.json              ? Read-only (default)
+      AutoCopilot.json          ? Agentic, can edit files
+    Runbooks/                   ? Command sequence files (.wrb)
+      hello-world.wrb
+      full-analysis.wrb
+    Docs/                       ? Workspace-level documentation
+    Templates/                  ? Document templates
+      ArchitectureTemplate.md
+      RequirementsTemplate.md
+      ProposalTemplate.md
+      ImplementationPlanTemplate.md
+      ExecutionPlanTemplate.md
+      BugTemplate.md
+      TestPlanTemplate.md
+    Logs/                       ? Session logs (JSON, auto-rotated)
+```
+
+Everything is file-based and editable. Add new actors, loops, wrappers, or runbooks by creating files — zero code changes.
 
 ---
 
-## Core Concepts
-
-### Role-Based Actors (RBA)
+## ?? RBA Prompting Framework
 
 Every actor is defined by three prompt components:
 
 | Component | Purpose | Example |
-|-----------|---------|---------|
-| **Role** | Persona the AI adopts | *"Act as a senior software engineer..."* |
-| **AcceptanceCriteria** | Success criteria for output | *"Output must be technically precise..."* |
-| **Intent** | Goal the actor pursues | *"Design and build the system..."* |
+|---|---|---|
+| **Role** | *Who* the AI is | "You are a senior software engineer specializing in code review…" |
+| **Acceptance Criteria** | *What success looks like* | "Output must include severity ratings, specific line references…" |
+| **Intent** | *What the actor aims to accomplish* | "Produce a thorough code review that identifies bugs, security issues…" |
 
-When you run `wally run Engineer "Fix the login bug"`, Wally wraps your prompt:
+When you run a prompt through an actor, Wally wraps your input in this RBA context:
 
 ```
 # Actor: Engineer
 ## Role
-Act as a senior software engineer responsible for all technical work...
-
+You are a senior software engineer...
 ## Acceptance Criteria
-Output must be technically precise, trace back to a requirement...
-
+Output must include severity ratings...
 ## Intent
-Design and build the system to meet requirements...
-
+Produce a thorough code review...
 ## Documentation Context
-- Templates/ArchitectureTemplate.md
-- Actors/Engineer/Docs/README.md
-
+- .wally/Docs/ArchitectureOverview.md (workspace docs)
+- .wally/Actors/Engineer/Docs/CodingStandards.md (actor docs)
 ## Prompt
-Fix the login bug
+Review the authentication module for security issues
 ```
 
-### Data-Driven Everything
-
-Actors, loops, and wrappers are **JSON files**—no code changes needed to extend:
-
-```
-.wally/
-??? Actors/          # actor.json per subfolder
-??? Loops/           # *.json loop definitions
-??? Wrappers/        # *.json LLM wrapper definitions
-```
+This structured context produces dramatically better, more consistent results compared to raw prompts.
 
 ---
 
-## Commands Reference
+## ?? Command Reference
 
-### Global Commands (no workspace required)
+### Workspace
 
 | Command | Description |
-|---------|-------------|
-| `setup [<path>]` | Scaffold `.wally/` in `<path>` and copy exe there. Re-running repairs missing structure. |
-| `setup --verify` | Validate workspace structure without modifications. |
+|---|---|
+| `setup [<path>]` | Scaffold a workspace at `<path>` (creates `.wally/`). |
+| `setup --verify` | Check workspace structure without making changes. |
 | `load <path>` | Load an existing `.wally/` workspace. |
-| `info` | Display workspace paths, actors, wrappers, model config. |
-| `commands` | Print command reference. |
-| `tutorial` | Step-by-step guide to setting up and using Wally. |
-| `cleanup [<path>]` | Delete `.wally/` folder to allow fresh setup. |
+| `save <path>` | Save config and actors to disk. |
+| `cleanup [<path>]` | Delete `.wally/` so setup can run fresh. |
+| `info` | Show workspace paths, actors, wrappers, and session info. |
 
-### Workspace Commands
+### Running
 
 | Command | Description |
-|---------|-------------|
+|---|---|
+| `run "<prompt>" [options]` | Run a prompt through the AI. |
+| &nbsp;&nbsp;`-a, --actor <name>` | Use an actor (adds RBA context). Omit for direct mode. |
+| &nbsp;&nbsp;`-m, --model <model>` | Override the AI model. |
+| &nbsp;&nbsp;`-w, --wrapper <name>` | Override the LLM wrapper. |
+| &nbsp;&nbsp;`--loop` | Run in iterative loop mode. |
+| &nbsp;&nbsp;`-l, --loop-name <name>` | Use a named loop definition. |
+| &nbsp;&nbsp;`-n, --max-iterations <n>` | Maximum loop iterations. |
+| `runbook <name> ["<prompt>"]` | Execute a runbook (`.wrb` command sequence). |
+
+### Actors (CRUD)
+
+| Command | Description |
+|---|---|
 | `list` | List all actors and their RBA prompts. |
+| `add-actor <name> [-r] [-c] [-i]` | Create a new actor. |
+| `edit-actor <name> [-r] [-c] [-i]` | Edit an actor's prompts. |
+| `delete-actor <name>` | Delete an actor. |
+| `reload-actors` | Re-read actor folders from disk. |
+
+### Loops (CRUD)
+
+| Command | Description |
+|---|---|
 | `list-loops` | List all loop definitions. |
+| `add-loop <name> [-d] [-a] [-n] [-s]` | Create a loop. |
+| `edit-loop <name> [-d] [-a] [-n] [-s]` | Edit a loop. |
+| `delete-loop <name>` | Delete a loop. |
+
+### Wrappers (CRUD)
+
+| Command | Description |
+|---|---|
 | `list-wrappers` | List all LLM wrapper definitions. |
+| `add-wrapper <name> [-d] [-e] [-t] [--can-make-changes]` | Create a wrapper. |
+| `edit-wrapper <name> [-d] [-e] [-t] [--can-make-changes]` | Edit a wrapper. |
+| `delete-wrapper <name>` | Delete a wrapper. |
+
+### Runbooks (CRUD)
+
+| Command | Description |
+|---|---|
 | `list-runbooks` | List all runbook definitions. |
-| `reload-actors` | Re-read actors from disk. |
-| `save <path>` | Persist config and actors to disk. |
+| `add-runbook <name> [-d]` | Create a runbook scaffold. |
+| `edit-runbook <name> [-d]` | Edit a runbook's description. |
+| `delete-runbook <name>` | Delete a runbook. |
 
-### Execution Commands
+### Help
 
-```sh
-# Direct mode (no actor — prompt sent as-is)
-wally run "<prompt>" [-m <model>] [-w <wrapper>"
-
-# Single run with actor
-wally run "<prompt>" -a <actor> [-m <model>] [-w <wrapper>]
-
-# Iterative loop (generic)
-wally run "<prompt>" -a <actor> --loop [-n <max>]
-
-# Named loop definition
-wally run "<prompt>" -a <actor> -l <loop-name>
-
-# Multi-step runbook
-wally runbook <name> ["<prompt>"]
-```
-
-| Flag | Description |
-|------|-------------|
-| `-a, --actor <name>` | Run through an actor (adds RBA context). Omit for direct mode. |
-| `-m, --model <model>` | Override AI model (e.g., `claude-sonnet-4`, `gpt-5.2`) |
-| `-w, --wrapper <name>` | Override LLM wrapper (e.g., `AutoCopilot` for agentic mode) |
-| `--loop` | Enable iterative loop mode |
-| `-l, --loop-name <name>` | Use a named loop from `Loops/` |
-| `-n, --max-iterations <n>` | Max iterations (implies `--loop` when > 1) |
-
-### CRUD Commands
-
-| Resource | Add | Edit | Delete |
-|----------|-----|------|--------|
-| Actors | `add-actor <name> [-r] [-c] [-i]` | `edit-actor <name> [-r] [-c] [-i]` | `delete-actor <name>` |
-| Loops | `add-loop <name> [-d] [-a] [-n] [-s]` | `edit-loop <name> [-d] [-a] [-n] [-s]` | `delete-loop <name>` |
-| Wrappers | `add-wrapper <name> [-d] [-e] [-t] [--can-make-changes]` | `edit-wrapper <name> [...]` | `delete-wrapper <name>` |
-| Runbooks | `add-runbook <name> [-d]` | `edit-runbook <name> [-d]` | `delete-runbook <name>` |
+| Command | Description |
+|---|---|
+| `commands` / `help` | Full command reference. |
+| `tutorial` | Step-by-step getting started guide. |
 
 ---
 
-## Run Modes
+## ?? Default Actors
 
-### One-Shot
-
-Single command execution:
-
-```sh
-# Direct mode — no actor, prompt sent as-is
-wally run "What does this codebase do?"
-
-# With an actor
-wally run "Explain the data access layer" -a Engineer
-wally run "Write requirements for user search" -a BusinessAnalyst
-wally run "Define success criteria for the dashboard" -a Stakeholder
-```
-
-### Interactive REPL
-
-Run `wally` with no arguments:
-
-```
-.\wally
-wally> run Engineer "Review error handling"
-wally> run Engineer "Refactor the auth module" --loop -n 5
-wally> run Engineer "Code review" -l CodeReview
-wally> list-loops
-wally> exit
-```
-
-### Agentic Mode (File Changes)
-
-Use `AutoCopilot` wrapper for agentic execution with file modifications:
-
-```sh
-wally run Engineer "Fix the null reference bug in UserService.cs" -w AutoCopilot
-```
+| Actor | Role | Focus Areas |
+|---|---|---|
+| **Engineer** | Senior software engineer | Code reviews, architecture docs, proposals, bug reports, test plans |
+| **BusinessAnalyst** | Business analyst & project manager | Requirements, execution plans, project status |
+| **Stakeholder** | Business stakeholder | Business needs, priorities, success criteria |
 
 ---
 
-## Actors
+## ?? LLM Wrappers
 
-### Default Actors
-
-| Actor | Perspective | Produces |
-|-------|-------------|----------|
-| **Stakeholder** | Business—defines needs, priorities | Business context, acceptance feedback |
-| **BusinessAnalyst** | Bridge—translates needs to specs | Requirements docs, Execution Plans |
-| **Engineer** | Technical—designs, builds, tests | Architecture docs, Bug Reports, code reviews |
-
-### Actor Definition (`actor.json`)
-
-```json
-{
-  "name": "Engineer",
-  "rolePrompt": "Act as a senior software engineer responsible for all technical work...",
-  "criteriaPrompt": "Output must be technically precise, trace back to a requirement...",
-  "intentPrompt": "Design and build the system to meet requirements...",
-  "docsFolderName": "Docs"
-}
-```
-
-### Creating Custom Actors
-
-```sh
-# 1. Create folder
-mkdir .wally/Actors/SecurityReviewer
-
-# 2. Add actor.json
-```
-
-```json
-{
-  "name": "SecurityReviewer",
-  "rolePrompt": "Act as a security engineer focused on threat modeling and vulnerability analysis.",
-  "criteriaPrompt": "Identify all security vulnerabilities, rank by severity, provide remediation steps.",
-  "intentPrompt": "Review the system for security risks and produce actionable findings.",
-  "docsFolderName": "Docs"
-}
-```
-
-```sh
-# 3. Reload and run
-wally reload-actors
-wally run SecurityReviewer "Review the authentication module"
-```
-
----
-
-## Loops
-
-Loops enable **iterative execution** where each LLM call builds on the previous response.
-
-### Default Loops
-
-| Loop | Description | Max Iterations |
-|------|-------------|----------------|
-| `SingleRun` | One prompt, one response (default) | 1 |
-| `CodeReview` | Multi-pass code review, progressively deeper | 5 |
-| `Refactor` | Iterative refactoring until clean | 8 |
-| `RequirementsDeepDive` | Deep-dive requirements analysis | 5 |
-
-### Usage
-
-```sh
-# Generic loop
-wally run Engineer "Refactor error handling" --loop -n 5
-
-# Named loop
-wally run Engineer "Review the auth module" -l CodeReview
-```
-
-### Loop Definition (`Loops/*.json`)
-
-```json
-{
-  "Name": "CodeReview",
-  "Description": "Iterative code review with progressively deeper analysis",
-  "ActorName": "Engineer",
-  "StartPrompt": "{userPrompt}\n\nPerform a thorough code review...",
-  "ContinuePromptTemplate": "Previous pass:\n---\n{previousResult}\n---\n\nPerform another pass...",
-  "CompletedKeyword": "[LOOP COMPLETED]",
-  "ErrorKeyword": "[LOOP ERROR]",
-  "MaxIterations": 5
-}
-```
-
-**Placeholders:** `{userPrompt}`, `{previousResult}`, `{completedKeyword}`, `{errorKeyword}`
-
-**Stop conditions:**
-- `[LOOP COMPLETED]` in response ? success
-- `[LOOP ERROR]` in response ? error
-- Max iterations reached
-
----
-
-## Wrappers
-
-Wrappers define **how to invoke the LLM**—entirely via JSON, no code changes.
-
-### Default Wrappers
-
-| Wrapper | Mode | Command | Can Edit Files |
-|---------|------|---------|----------------|
-| `Copilot` | Read-only | `gh copilot -p` | ? |
-| `AutoCopilot` | Agentic | `gh copilot -i --yolo` | ? |
-
-### Wrapper Definition (`Wrappers/*.json`)
+Wrappers are JSON definitions that tell Wally how to call an LLM CLI tool:
 
 ```json
 {
   "Name": "Copilot",
-  "Description": "Read-only—runs gh copilot -p",
+  "Description": "Read-only — runs gh copilot -p",
   "Executable": "gh",
   "ArgumentTemplate": "copilot {model} {sourcePath} --yolo -s -p {prompt}",
   "ModelArgFormat": "--model {model}",
@@ -351,302 +274,132 @@ Wrappers define **how to invoke the LLM**—entirely via JSON, no code changes.
 }
 ```
 
-**Placeholders:** `{prompt}`, `{model}`, `{sourcePath}`
+**Shipped wrappers:**
 
-### Adding Custom Wrappers
+| Wrapper | Description |
+|---|---|
+| `Copilot` | Read-only — returns a text response (default) |
+| `AutoCopilot` | Agentic — can make code/file changes on disk |
 
-Drop a `.json` file in `.wally/Wrappers/`:
+**Add a custom wrapper** — drop a `.json` file in `.wally/Wrappers/`:
 
-```json
-{
-  "Name": "Claude",
-  "Description": "Direct Claude API via CLI",
-  "Executable": "claude",
-  "ArgumentTemplate": "chat --model {model} --prompt {prompt}",
-  "ModelArgFormat": "--model {model}",
-  "SourcePathArgFormat": "",
-  "UseSourcePathAsWorkingDirectory": false,
-  "CanMakeChanges": true
-}
+```sh
+wally add-wrapper OllamaChat -d "Local Ollama" -e ollama -t "run {model} {prompt}"
 ```
 
 ---
 
-## Runbooks
+## ?? Loops
 
-Runbooks are `.wrb` files that chain **multiple Wally commands** into a repeatable workflow. Each line is a Wally command — identical to what you'd type in the terminal.
-
-> For single-command tasks, use `run` directly with flags like `-a`, `-l`, `--loop`.
-> Runbooks are for when you need **more than one step**.
-
-### Default Runbooks
-
-| Runbook | Description |
-|---------|-------------|
-| `hello-world` | Verifies workspace setup, then runs a simple prompt |
-| `full-analysis` | Runs all three actors then summarizes the results |
-
-### Usage
+Loops run an actor iteratively. Each iteration sees the previous response and decides whether to continue. The actor signals completion with `[LOOP COMPLETED]` or error with `[LOOP ERROR]`.
 
 ```sh
-# Run a runbook
-wally runbook <name> "<prompt>"
+# Named loop
+wally run "Review the data access layer" -a Engineer -l CodeReview
 
-# List available runbooks
-wally list-runbooks
+# Inline loop
+wally run "Refactor error handling" -a Engineer --loop -n 5
 ```
 
-### Runbook Format (`.wrb`)
+---
+
+## ?? Runbooks
+
+Runbooks are `.wrb` files with one Wally command per line — repeatable multi-step workflows:
 
 ```
-# First comment line becomes the description.
-# Subsequent comment lines are ignored.
-
-setup --verify
+# Full analysis — run all default actors on a prompt
 run "{userPrompt}" -a Stakeholder
 run "{userPrompt}" -a BusinessAnalyst
 run "{userPrompt}" -a Engineer
-run "Summarize the key points from the previous analysis of: {userPrompt}"
 ```
 
 **Placeholders:** `{userPrompt}`, `{workSourcePath}`, `{workspaceFolder}`
 
-- **Blank lines** are ignored
-- **Comment lines** start with `#`
-- **Everything else** is a Wally command
-- **Nesting** — runbooks can call other runbooks (capped at 10 levels)
-- **Error handling** — stops on first command failure
-
-### Creating Custom Runbooks
+**Nesting:** Runbooks can call other runbooks (capped at 10 levels).
 
 ```sh
-# Scaffold
-wally add-runbook security-review -d "Full security review pipeline"
-
-# Then edit .wally/Runbooks/security-review.wrb:
-#   # Full security review pipeline
-#   run "{userPrompt}" -a SecurityAuditor -l SecurityScan
-#   run "{userPrompt}" -a Engineer -l CodeReview
-```
-
-Or drop a `.wrb` file directly in `.wally/Runbooks/`.
-
----
-
-## Workspace Layout
-
-```
-<YourProject>/                        # WorkSource (your codebase root)
-??? .wally/                           # WorkspaceFolder
-    ??? wally-config.json             # Configuration
-    ??? Docs/                         # Shared documentation
-    ??? Templates/                    # Document templates
-    ?   ??? RequirementsTemplate.md
-    ?   ??? ExecutionPlanTemplate.md
-    ?   ??? ProposalTemplate.md
-    ?   ??? ImplementationPlanTemplate.md
-    ?   ??? ArchitectureTemplate.md
-    ?   ??? BugTemplate.md
-    ?   ??? TestPlanTemplate.md
-    ??? Actors/
-    ?   ??? Stakeholder/
-    ?   ?   ??? actor.json
-    ?   ?   ??? Docs/
-    ?   ??? BusinessAnalyst/
-    ?   ?   ??? actor.json
-    ?   ?   ??? Docs/
-    ?   ??? Engineer/
-    ?       ??? actor.json
-    ?       ??? Docs/
-    ??? Loops/
-    ?   ??? SingleRun.json
-    ?   ??? CodeReview.json
-    ?   ??? Refactor.json
-    ?   ??? RequirementsDeepDive.json
-    ??? Wrappers/
-    ?   ??? Copilot.json
-    ?   ??? AutoCopilot.json
-    ??? Runbooks/
-    ?   ??? hello-world.wrb
-    ?   ??? full-analysis.wrb
-    ??? Logs/                         # Session logs (auto-created)
-        ??? <session>/
-            ??? <timestamp>.txt
-```
-
-Everything under `<YourProject>/` is accessible to the LLM via `--add-dir`.
-
----
-
-## Configuration
-
-### `wally-config.json`
-
-```json
-{
-  "ActorsFolderName": "Actors",
-  "LogsFolderName": "Logs",
-  "DocsFolderName": "Docs",
-  "TemplatesFolderName": "Templates",
-  "LoopsFolderName": "Loops",
-  "WrappersFolderName": "Wrappers",
-  "RunbooksFolderName": "Runbooks",
-  "LogRotationMinutes": 2,
-  "DefaultModel": "gpt-4.1",
-  "DefaultWrapper": "Copilot",
-  "MaxIterations": 10,
-  "DefaultModels": ["gpt-4.1", "gpt-5.2", "claude-sonnet-4", "..."],
-  "DefaultWrappers": ["Copilot", "AutoCopilot"],
-  "DefaultLoops": ["SingleRun", "CodeReview", "Refactor", "RequirementsDeepDive"],
-  "DefaultRunbooks": ["hello-world", "full-analysis"]
-}
-```
-
-| Property | Default | Description |
-|----------|---------|-------------|
-| `DefaultModel` | `gpt-4.1` | Model passed to wrapper's `{model}` placeholder |
-| `DefaultWrapper` | `Copilot` | Wrapper used when `-w` not specified |
-| `MaxIterations` | `10` | Default cap for loop iterations |
-| `LogRotationMinutes` | `2` | Minutes per log file (`0` = single file) |
-| `RunbooksFolderName` | `Runbooks` | Subfolder for `.wrb` runbook files |
-| `DefaultRunbooks` | `[...]` | Curated list of available runbook names |
-
-### Runtime Overrides
-
-```sh
-wally run Engineer "Explain this" -m claude-sonnet-4 -w AutoCopilot
+wally runbook full-analysis "Explain the architecture"
 ```
 
 ---
 
-## Architecture
+## ??? GUI Overview
+
+The WinForms application (`Wally.Forms`) provides a dark-themed IDE-like interface:
 
 ```
-??????????????????????????????????????????????????????????????????????????????
-?                              Wally.Console                                  ?
-?                         (CLI / Interactive REPL)                           ?
-??????????????????????????????????????????????????????????????????????????????
-                                  ?
-??????????????????????????????????????????????????????????????????????????????
-?                            Wally.Core                                       ?
-?  ???????????????????  ???????????????????  ???????????????????             ?
-?  ? WallyEnvironment?  ?   WallyLoop     ?  ?  WallyWorkspace ?             ?
-?  ? (orchestration) ?  ? (iteration)     ?  ? (disk layout)   ?             ?
-?  ???????????????????  ???????????????????  ???????????????????             ?
-?           ?                    ?                    ?                       ?
-?  ???????????????????  ???????????????????  ???????????????????             ?
-?  ?     Actor       ?  ? WallyLoopDef    ?  ?   WallyConfig   ?             ?
-?  ? (RBA prompts)   ?  ? (JSON-driven)   ?  ? (settings)      ?             ?
-?  ???????????????????  ???????????????????  ???????????????????             ?
-?           ?                                                                 ?
-?  ???????????????????                                                        ?
-?  ?   LlmWrapper    ? ??????????????????????????????????????? gh copilot    ?
-?  ? (JSON-driven)   ?                                                        ?
-?  ???????????????????                                                        ?
-??????????????????????????????????????????????????????????????????????????????
+???????????????????????????????????????????????????????????????
+? Menu Bar  ?  ToolStrip                                      ?
+???????????????????????????????????????????????????????????????
+?           ?  Welcome ? Actor ? Loop ? …  ?                  ?
+?  File     ????????????????????????????????   AI Chat        ?
+?  Explorer ?                              ?   Panel          ?
+?  (left)   ?  Tabbed Editors              ?   (right)        ?
+?           ?  • Actor editors             ?   • Actor select ?
+?           ?  • Loop editors              ?   • Model select ?
+?           ?  • Wrapper editors           ?   • Loop select  ?
+?           ?  • Runbook editors           ?   • Wrapper sel  ?
+?           ?  • Config editor             ?                  ?
+?           ?  • Log viewer                ?                  ?
+???????????????????????????????????????????????????????????????
+?                    Command Terminal (bottom)                  ?
+?                    Interactive REPL — same commands as CLI    ?
+???????????????????????????????????????????????????????????????
 ```
 
-| Layer | Responsibility |
-|-------|----------------|
-| `Actor` | RBA personality, prompt enrichment |
-| `LlmWrapper` | CLI recipe, process spawning (JSON-driven) |
-| `WallyEnvironment` | Orchestration (actor + wrapper + model) |
-| `WallyLoop` / `WallyLoopDefinition` | Iteration logic, stop conditions |
-| `WallyWorkspace` / `WallyConfig` | Disk layout, configuration |
-| `SessionLogger` | Structured logging with rotation |
+**Keyboard shortcuts:**
 
-### Projects
-
-| Project | Purpose |
-|---------|---------|
-| `Wally.Core` | Domain library—Actor, Loop, Workspace, Config. Embeddable in any .NET 8 app. |
-| `Wally.Console` | CLI entry point—verbs, REPL, ships default workspace template. |
-| `Wally.Forms` | Windows Forms UI (in progress). |
+| Shortcut | Action |
+|---|---|
+| `Ctrl+O` | Open workspace |
+| `Ctrl+Shift+N` | Setup new workspace |
+| `Ctrl+S` | Save workspace |
+| `` Ctrl+` `` | Focus command terminal |
+| `Ctrl+1` | Focus file explorer |
+| `Ctrl+2` | Focus chat panel |
+| `Ctrl+3` | Focus terminal |
+| `Ctrl+W` | Close active editor tab |
+| `F5` | Refresh file explorer |
 
 ---
 
-## Extending Wally
-
-### Add an Actor
-
-```sh
-mkdir .wally/Actors/DBA
-echo '{"name":"DBA","rolePrompt":"Act as a database administrator...","criteriaPrompt":"...","intentPrompt":"..."}' > .wally/Actors/DBA/actor.json
-wally reload-actors
-```
-
-### Add a Loop
-
-```sh
-cat > .wally/Loops/BugHunt.json << 'EOF'
-{
-  "Name": "BugHunt",
-  "Description": "Iterative bug hunting",
-  "ActorName": "Engineer",
-  "StartPrompt": "{userPrompt}\n\nSearch for bugs...",
-  "ContinuePromptTemplate": "Previous findings:\n{previousResult}\n\nContinue searching...",
-  "CompletedKeyword": "[LOOP COMPLETED]",
-  "ErrorKeyword": "[LOOP ERROR]",
-  "MaxIterations": 10
-}
-EOF
-```
-
-### Add a Wrapper
-
-```sh
-cat > .wally/Wrappers/Ollama.json << 'EOF'
-{
-  "Name": "Ollama",
-  "Description": "Local Ollama model",
-  "Executable": "ollama",
-  "ArgumentTemplate": "run {model} {prompt}",
-  "ModelArgFormat": "",
-  "SourcePathArgFormat": "",
-  "UseSourcePathAsWorkingDirectory": true,
-  "CanMakeChanges": false
-}
-EOF
-wally run Engineer "Explain this" -w Ollama -m codellama
-```
-
-### Add a Runbook
-
-Create a `.wrb` file in `.wally/Runbooks/` with one Wally command per line:
+## ?? Repository Structure
 
 ```
-# My custom pipeline
-# Runs a security audit followed by a code review.
-
-run "{userPrompt}" -a SecurityAuditor
-run "{userPrompt}" -a Engineer -l CodeReview
-run "Summarize findings from: {userPrompt}"
-```
-
-Or use the CLI:
-
-```sh
-wally add-runbook my-pipeline -d "Security audit then code review"
-# Then edit .wally/Runbooks/my-pipeline.wrb
+Wally.sln
+??? Wally.Core/             ? Domain library (actors, loops, wrappers, workspace)
+?   ??? Actors/             ? Actor class (RBA prompt pipeline)
+?   ??? RBA/                ? Role, AcceptanceCriteria, Intent types
+?   ??? LLMWrappers/        ? LLMWrapper (JSON-driven CLI wrapper)
+?   ??? Logging/            ? SessionLogger, LogEntry
+?   ??? Default/            ? Shipped workspace template
+?   ?   ??? Actors/         ? Default actor definitions
+?   ?   ??? Loops/          ? Default loop definitions
+?   ?   ??? Wrappers/       ? Default wrapper definitions
+?   ?   ??? Runbooks/       ? Default runbook files
+?   ?   ??? Docs/           ? Default documentation
+?   ?   ??? Templates/      ? Document templates
+?   ??? WallyEnvironment.cs ? Runtime orchestration layer
+?   ??? WallyWorkspace.cs   ? Workspace layout & loading
+?   ??? WallyConfig.cs      ? Configuration model
+?   ??? WallyCommands.cs    ? All command implementations + shared dispatcher
+?   ??? WallyLoop.cs        ? Iterative execution loop
+?   ??? WallyLoopDefinition.cs ? Serializable loop definition
+?   ??? WallyRunbook.cs     ? Runbook model & parser
+?   ??? WallyHelper.cs      ? Loading, scaffolding, utilities
+??? Wally.Console/          ? CLI entry point
+?   ??? Program.cs          ? One-shot + interactive REPL
+?   ??? Options/            ? CommandLineParser verb definitions
+??? Wally.Forms/            ? WinForms GUI
+?   ??? Controls/           ? UI panels (FileExplorer, Chat, Command, Welcome)
+?   ?   ??? Editors/        ? Entity editors (Actor, Loop, Wrapper, Runbook, Config, Logs)
+?   ??? Theme/              ? WallyTheme dark theme tokens & renderer
+?   ??? Wally.Forms.cs      ? Main form orchestration
 ```
 
 ---
 
-## Troubleshooting
+## ?? License
 
-| Symptom | Solution |
-|---------|----------|
-| `'gh' is not recognized` | Install [GitHub CLI](https://cli.github.com) and add to PATH |
-| `gh copilot: command not found` | `gh extension install github/gh-copilot` |
-| `HTTP 401` | `gh auth login` (ensure Copilot license) |
-| Empty responses | `wally info`—verify WorkSource points to a directory with code |
-| Model not available | `gh copilot -- --help`—check `--model` choices |
-| Actor not found | `wally list` / `wally reload-actors` |
-| Missing workspace structure | `wally setup <path>` repairs missing folders |
-| Loop never completes | Increase `-n` or edit loop's `MaxIterations` |
-
----
-
-## License
-
-MIT © [prometheus2D](https://github.com/prometheus2D)
+This project is open source. See the repository for license details.
