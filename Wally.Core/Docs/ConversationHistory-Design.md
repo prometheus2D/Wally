@@ -2,17 +2,15 @@
 
 ## 1. Problem
 
-Every LLM call in Wally is fire-and-forget. The wrapper spawns a process,
-captures stdout, and returns the string. Nothing records what went in or
-what came back in a form that can be read back.
+Every LLM call in Wally is fire-and-forget. `LLMWrapper.Execute` spawns a
+process, captures stdout, and returns the string. `SessionLogger` records
+prompts, processed prompts, responses, and errors as categorised JSON
+lines into time-rotated files under a per-session folder. It is a
+write-only audit trail. There is no retrieval API, no stable ordering
+across categories, and no way to reconstruct the sequence of (input,
+output) pairs that constitutes a conversation.
 
-`SessionLogger` captures everything — prompts, processed prompts, responses,
-errors — but it is a write-only audit trail. It writes categorised JSON lines
-into time-rotated files inside a per-session folder. There is no retrieval
-API, no stable ordering across categories, and no way to reconstruct the
-sequence of (input, output) pairs that constitutes a conversation.
-
-The stakeholder requirement is straightforward:
+The stakeholder requirement:
 
 > **Store all inputs to an LLM, and store all outputs, in order.**
 
@@ -20,15 +18,16 @@ That means:
 
 - Every prompt that goes to a wrapper gets recorded.
 - Every response that comes back gets recorded.
-- They are stored as ordered pairs — turn 1, turn 2, turn 3 — in a file
-  that can be read back.
-- Associated metadata (who, when, which model, which wrapper, how long)
-  is stored alongside each pair.
-- The file format is JSON so it is machine-parseable and human-readable.
+- They are stored as ordered pairs — turn 1, turn 2, turn 3 — in a
+  single file that can be read back.
+- Associated metadata (actor, wrapper, model, timing, error status,
+  session, loop context) is stored alongside each pair.
+- The file format is JSON Lines so it is machine-parseable, human-readable,
+  and append-friendly.
 
 Everything beyond that — injection into future prompts, cross-actor memory,
-conversation branching — is a consumer of this data, not part of this design.
-Get the recording right first. Build on it later.
+conversation branching — is a consumer of this data, not part of the core
+recording design. Get the recording right first. Build on it later.
 
 ## 2. Goals
 
@@ -36,11 +35,11 @@ Get the recording right first. Build on it later.
 |---|------|
 | G1 | Record every (prompt, response) pair that flows through `ExecutePrompt` and `ExecuteActor` |
 | G2 | Store turns in order in a single `.jsonl` file per workspace |
-| G3 | Include enough metadata to reconstruct context: actor, wrapper, model, timing, error status |
+| G3 | Include enough metadata to reconstruct context: actor, wrapper, model, timing, error status, session, loop context |
 | G4 | Support reading back recent turns for future prompt enrichment |
-| G5 | Follow the `SessionLogger` pattern: thread-safe, workspace-bound, append-only |
+| G5 | Follow the `SessionLogger` pattern: thread-safe, workspace-bound, append-only, pre-bind buffering |
 | G6 | Persist to disk so data survives process restarts |
-| G7 | Require zero configuration — no new `WallyConfig` properties |
+| G7 | Require zero configuration — no new `WallyConfig` properties needed |
 | G8 | Expose history to `ChatPanel` for display continuity across app restarts |
 
 ## 3. Core Principle
@@ -53,77 +52,87 @@ lifecycle.
 
 The codebase already has the pattern. `SessionLogger`:
 
-- Lives on `WallyEnvironment` (not `WallyWorkspace`)
+- Lives on `WallyEnvironment` (created at construction, not on `WallyWorkspace`)
 - Thread-safe via `lock`
 - Append-only with a `StreamWriter`
 - Bound to a workspace folder at runtime via `Bind()`
 - Unbound on workspace close via `Unbind()`
-- Buffers to memory before bind
+- Buffers to `MemoryStream` before bind, flushes on bind
 
-`ConversationLogger` follows the same pattern. The only new capability:
+`ConversationLogger` follows the same lifecycle. The only new capability:
 it supports reading back recent turns, because that is the one thing
-`SessionLogger` does not do and the one thing consumers need.
+`SessionLogger` does not do and the one thing downstream consumers need.
 
 ## 4. Data Model
 
 ### `ConversationTurn`
 
-One JSON line per completed LLM call. Lives in `Wally.Core.Logging`
-alongside `LogEntry`.
+One JSON line per completed LLM call. Lives in `Wally.Core/Logging/`
+alongside `LogEntry` and `SessionLogger`.
 
 ```csharp
+namespace Wally.Core.Logging;
+
+/// <summary>
+/// One completed LLM exchange: prompt in, response out.
+/// Serialised as a single JSON line in conversation.jsonl.
+/// </summary>
 public sealed class ConversationTurn
 {
-    public DateTimeOffset Timestamp { get; set; }       // UTC, when the call completed
-    public string         SessionId { get; set; }       // links to SessionLogger session
-    public string?        ActorName { get; set; }       // null = direct/no-actor mode
-    public string         WrapperName { get; set; }     // which wrapper executed
-    public string?        Model { get; set; }           // which model was used
-    public string         Prompt { get; set; }          // what the user typed (raw)
-    public string         Response { get; set; }        // what came back from the LLM
-    public bool           IsError { get; set; }         // true when wrapper returned error
-    public long           ElapsedMs { get; set; }       // wall-clock time for the call
-    public string?        LoopName { get; set; }        // null if not part of a loop
-    public int            Iteration { get; set; }       // 0 if not part of a loop
+    public DateTimeOffset Timestamp   { get; set; }   // UTC, when the call completed
+    public string         SessionId   { get; set; }   // links to SessionLogger.SessionId
+    public string?        ActorName   { get; set; }   // null = direct/no-actor mode
+    public string         WrapperName { get; set; }   // which LLMWrapper.Name executed
+    public string?        Model       { get; set; }   // resolved model identifier
+    public string         Prompt      { get; set; }   // raw user prompt (not the RBA-enriched version)
+    public string         Response    { get; set; }   // what came back from wrapper.Execute()
+    public bool           IsError     { get; set; }   // true when wrapper returned an error response
+    public long           ElapsedMs   { get; set; }   // wall-clock time for wrapper.Execute()
+    public string?        LoopName    { get; set; }   // null if not part of a named loop
+    public int            Iteration   { get; set; }   // 0-based; 0 for non-loop or first iteration
 }
 ```
 
-**What is not stored:**
+### What is not stored
 
 - **`ProcessedPrompt`** — the RBA-enriched prompt. It already lives in
-  `SessionLogger.LogProcessedPrompt`. Storing it here creates exponential
-  growth: the processed prompt at turn N contains injected history of
-  turns 1..N-1, each of which would contain their own history. The raw
-  user prompt is the stable input. The processed prompt is derived and
-  already logged elsewhere.
+  `SessionLogger.LogProcessedPrompt`. Storing it here would create
+  exponential growth once history injection is enabled: the processed
+  prompt at turn N contains injected history of turns 1..N-1. The raw
+  user prompt is the stable, compressible input. The enriched version is
+  derived and already captured in the audit trail.
 
 - **`Id`, `Tags`, `Pinned`** — this is a log line, not a record in a
-  relational database. If you need to identify a turn, its position in
-  the file *is* its identity.
+  relational database. A turn's position in the file is its identity.
 
-- **`ConversationId`** — there are no named conversations. The file *is*
-  the conversation. Start a new one by clearing the file.
+- **`ConversationId`** — there are no named conversations. The file is
+  the conversation. Clear the file to start fresh.
 
 ### Error detection
 
-`LLMWrapper.RunProcess` already produces detectable error patterns:
+`LLMWrapper.RunProcess` produces three distinct error patterns when the
+CLI process fails or returns a non-zero exit code:
 
 ```
-"Error from {Name} (exit {code}):\n{error}"
-"{Name} exited with code {code}."
-"Failed to call {Name}: {message}"
+"Error from {Name} (exit {code}):\n{error}"     // non-zero exit + stderr
+"{Name} exited with code {code}."                // non-zero exit, no stderr
+"Failed to call {Name}: {message}"               // process launch failure (caught in Execute)
 ```
 
-The call site in `ExecutePrompt`/`ExecuteActor` can detect these by
-checking the response string after the wrapper returns. This keeps the
-error knowledge at the boundary where it is produced — no new plumbing
-through the wrapper API.
+Detection at the recording call site in `ExecutePrompt`/`ExecuteActor`:
 
 ```csharp
-bool isError = response.StartsWith($"Error from {wrapper.Name}", StringComparison.Ordinal)
-            || response.StartsWith($"Failed to call {wrapper.Name}", StringComparison.Ordinal)
-            || response.StartsWith($"{wrapper.Name} exited with code", StringComparison.Ordinal);
+static bool IsWrapperError(string response, string wrapperName)
+{
+    return response.StartsWith($"Error from {wrapperName}", StringComparison.Ordinal)
+        || response.StartsWith($"{wrapperName} exited with code", StringComparison.Ordinal)
+        || response.StartsWith($"Failed to call {wrapperName}", StringComparison.Ordinal)
+        || response.StartsWith($"({wrapperName} returned an empty response)", StringComparison.Ordinal);
+}
 ```
+
+This keeps error knowledge at the boundary where it is produced. No
+changes to `LLMWrapper`'s return type or API.
 
 ## 5. `ConversationLogger`
 
@@ -139,52 +148,60 @@ structure exactly where applicable.
 ```
 
 One file. No rotation. A year of heavy use at 50 turns/day × ~2KB/turn =
-~36MB. That is a small file. If it gets too large, the user clears it.
-Date-stamped rotation can be added later if needed — but do not add it
-now when there is no evidence it is needed.
+~36MB. That is a small file. If it gets too large, the user clears it or
+deletes it. Date-stamped rotation can be added later if profiling shows a
+need — but do not add it now when there is no evidence it is needed.
 
 ### Thread safety
 
 Same as `SessionLogger`: a single `object _lock` guards all reads and
-writes.
+writes. The lock is held only for the duration of a `StreamWriter.WriteLine`
+(writes) or a `File.ReadAllLines` (reads). No async lock needed — these
+are fast I/O operations on small files.
 
 ### Binding lifecycle
 
 | Method | Behaviour |
 |--------|-----------|
-| `Bind(workspaceFolder, folderName)` | Creates `History/` folder, opens `StreamWriter` on `conversation.jsonl`, flushes any buffered turns. |
-| `Unbind()` | Closes the `StreamWriter`, re-enables in-memory buffering. |
+| `Bind(workspaceFolder, folderName)` | Creates `History/` folder, opens `StreamWriter` on `conversation.jsonl` (append mode, `FileShare.ReadWrite`), flushes any buffered turns. |
+| `Unbind()` | Closes the `StreamWriter`, nulls the folder path, re-enables in-memory buffering. |
 
 Identical to `SessionLogger.Bind`/`Unbind` except:
 
 - No session subfolder (history is per-workspace, not per-session).
-- No file rotation (single file).
+- No file rotation (single file, no timestamp bucketing).
 
 ### Pre-bind buffering
 
-Before `Bind()` is called, turns are accumulated in a `List<ConversationTurn>`. On bind, each buffered turn is serialised and appended to the file. This
-mirrors `SessionLogger`'s `MemoryStream` buffer but uses typed objects
-instead of pre-serialised text — simpler, and we never have more than a
-handful of buffered turns.
+Before `Bind()` is called, turns are accumulated in a `List<ConversationTurn>`.
+On bind, each buffered turn is serialised and appended to the file, then the
+buffer is cleared. This mirrors `SessionLogger`'s `MemoryStream` buffer but
+uses typed objects instead of pre-serialised text — simpler, and there are
+never more than a handful of buffered turns (only calls made between
+construction and workspace load).
 
-### Methods
+### Public methods
 
 ```
 RecordTurn(ConversationTurn turn)
-    Appends one JSON line to the file. Thread-safe.
+    Serialises the turn to JSON and appends one line to the file.
+    Thread-safe. If not yet bound, buffers the turn in memory.
 
 GetRecentTurns(int maxTurns, string? actorFilter = null)
-    Reads the file, returns the last N turns.
-    When actorFilter is non-null, returns only turns matching that actor.
+    Reads the file, returns the last N turns in chronological order.
+    When actorFilter is non-null, returns only turns where ActorName
+    matches (case-insensitive) or both are null (for direct mode).
     Skips turns where IsError == true.
-    Skips mid-loop turns (Iteration > 1).
-    Returns empty list if file does not exist.
-
-ClearHistory()
-    Acquires lock, closes writer, deletes the file, opens fresh writer.
+    Skips mid-loop turns (Iteration > 0).
+    Returns empty list if file does not exist or is not bound.
 
 GetAllTurns()
     Reads the file, returns all turns in order. For UI population.
+    Skips lines that fail to deserialise (standard JSONL resilience).
+
+ClearHistory()
+    Acquires lock, closes writer, deletes the file, opens a fresh
+    writer on a new empty file. Safe to call while bound.
 ```
 
 ### Reading strategy
@@ -193,56 +210,103 @@ GetAllTurns()
 in reverse, deserialises each line, applies filters, collects up to N
 matches, and reverses the result to restore chronological order.
 
-This is correct for the expected file sizes. Do not optimise this until
-profiling says otherwise.
+This is correct for the expected file sizes (~100KB for months of use).
+Do not optimise this until profiling says otherwise.
 
 ### JSONL format
 
-Each line is one `System.Text.Json.JsonSerializer.Serialize(turn)`. Lines
-that fail to deserialise are skipped — this handles partial writes from
+Each line is one `System.Text.Json.JsonSerializer.Serialize(turn, options)`
+where `options` has `WriteIndented = false` and `PropertyNamingPolicy = JsonNamingPolicy.CamelCase`
+(matching `SessionLogger`'s serialisation style). Lines that fail to
+deserialise on read are silently skipped — this handles partial writes from
 crashes and is the standard JSONL resilience property.
 
 ## 6. Ownership
 
 ```
 WallyEnvironment
-??? SessionLogger Logger       (existing — audit trail)
-??? ConversationLogger History  (new — ordered turn pairs)
-??? ExecutePrompt()            ? records turn after wrapper call
-??? ExecuteActor()             ? records turn after wrapper call
+??? SessionLogger Logger            (existing — audit trail, write-only)
+??? ConversationLogger History      (new — ordered turn pairs, read+write)
+??? ExecutePrompt()                 ? records turn after wrapper.Execute()
+??? ExecuteActor()                  ? records turn after wrapper.Execute()
 ```
 
 `WallyEnvironment` owns `ConversationLogger` the same way it owns
-`SessionLogger`. Both are created at construction, bound on workspace
-load, unbound on workspace close. `WallyWorkspace` has no involvement.
+`SessionLogger`. Both are created once at construction, bound on workspace
+load, unbound on workspace close. `WallyWorkspace` has no involvement —
+it holds authored entities (config, actors, loops, wrappers, runbooks).
+History is produced, not authored.
 
 ### Recording call site
 
-All recording happens inside `ExecutePrompt` and `ExecuteActor`. These
-are the two methods every execution path bottlenecks through:
-`HandleRun` ? `runAction` ? `ExecutePrompt` or `ExecuteActor`. No
-recording logic in callers. This is the only place that has both the
-input and the output.
+All recording happens inside `WallyEnvironment.ExecutePrompt` and
+`WallyEnvironment.ExecuteActor`. These are the two methods every execution
+path bottlenecks through:
 
-The sequence inside `ExecutePrompt`/`ExecuteActor`:
+- `WallyCommands.HandleRun` ? `runAction` lambda ? `ExecutePrompt` or `ExecuteActor`
+- `WallyEnvironment.RunActors` ? `ExecuteActor`
+- `WallyEnvironment.RunActor` ? `ExecuteActor`
+
+No recording logic in callers. This is the only place that has both the
+raw input prompt and the LLM output response.
+
+The sequence inside `ExecutePrompt` (and analogously `ExecuteActor`):
 
 ```
-1. Resolve wrapper and model                    (existing)
-2. Build processed prompt                       (existing)
-3. Log processed prompt via SessionLogger       (existing)
-4. Call wrapper.Execute()                       (existing)
-5. Detect error from response string            (new)
-6. Record turn via ConversationLogger           (new)
-7. Return response                              (existing)
+1. Resolve wrapper via ResolveWrapper()                    (existing)
+2. Resolve model (override ? config default)               (existing)
+3. [ExecuteActor only] actor.Setup() + actor.ProcessPrompt (existing)
+4. Log processed prompt via SessionLogger                  (existing)
+5. var sw = Stopwatch.StartNew();                          (new)
+6. string response = wrapper.Execute(...)                  (existing)
+7. sw.Stop();                                              (new)
+8. bool isError = IsWrapperError(response, wrapper.Name);  (new)
+9. History.RecordTurn(new ConversationTurn { ... });        (new)
+10. return response;                                       (existing)
 ```
 
-Step 6 is the only new code in the execution path. It is three lines:
-build a `ConversationTurn`, set its fields, call `History.RecordTurn()`.
+Steps 5, 7, 8, 9 are the only new code in the execution path. The
+`Stopwatch` provides `ElapsedMs` for the turn. The error detection uses
+the wrapper's known error patterns. The `RecordTurn` call is three lines:
+construct the turn object, set its fields from local variables, call
+the logger.
+
+### Metadata available at the call site
+
+| Field | Source |
+|-------|--------|
+| `Timestamp` | `DateTimeOffset.UtcNow` |
+| `SessionId` | `Logger.SessionId.ToString("N")` |
+| `ActorName` | `null` in `ExecutePrompt`, `actor.Name` in `ExecuteActor` |
+| `WrapperName` | `wrapper.Name` (resolved wrapper) |
+| `Model` | local `model` variable (already resolved) |
+| `Prompt` | the `prompt` parameter (raw user prompt) |
+| `Response` | the `response` return value from `wrapper.Execute()` |
+| `IsError` | `IsWrapperError(response, wrapper.Name)` |
+| `ElapsedMs` | `sw.ElapsedMilliseconds` |
+| `LoopName` | Not available here — set by caller. See note below. |
+| `Iteration` | Not available here — set by caller. See note below. |
+
+**Note on `LoopName` and `Iteration`:** These fields cannot be populated
+inside `ExecutePrompt`/`ExecuteActor` because those methods have no
+knowledge of loop context. Two options:
+
+1. Add optional parameters `string? loopName = null, int iteration = 0`
+   to both methods. Callers in `HandleRun`'s `runAction` lambda pass
+   them through. `RunActors`/`RunActor` pass defaults (null/0).
+2. Leave them as 0/null at the recording site. They are useful for
+   filtering in `GetRecentTurns` but not essential for the core
+   recording requirement.
+
+**Decision:** Option 1. The parameters are optional with defaults, so
+existing callers (`RunActors`, `RunActor`) are unaffected. The
+`runAction` lambda in `HandleRun` already has `iterationNumber` and
+`loopDef?.Name` in scope — just pass them through.
 
 ## 7. History Injection (Phase 2 — consumer of recorded data)
 
 Once turns are recorded, they can be injected into future prompts to
-give the stateless CLI wrapper the illusion of memory.
+give the stateless CLI wrapper the illusion of conversational memory.
 
 ### Where it goes
 
@@ -252,9 +316,14 @@ give the stateless CLI wrapper the illusion of memory.
 public virtual string ProcessPrompt(string prompt, string? conversationHistory = null)
 ```
 
-When non-null, the history block is inserted between the Documentation
-Context section and the `## Prompt` section. Callers that omit it get
-identical behaviour to today.
+When `conversationHistory` is non-null, the history block is inserted
+between the `## Documentation Context` section and the `## Prompt`
+section. When null (or empty), the method produces identical output to
+today. The existing single-parameter signature remains valid.
+
+For direct mode (no actor), `ExecutePrompt` prepends the history block
+directly to the prompt string, since there is no `Actor.ProcessPrompt`
+call.
 
 ### Format
 
@@ -276,180 +345,275 @@ Use them for context but focus on the current prompt.
 
 ### Limits
 
-Hardcoded constants. Not configuration.
+Hardcoded constants in `WallyEnvironment`. Not configuration. These can
+be promoted to `WallyConfig` later if users need to tune them — but start
+simple.
 
 | Limit | Value | Rationale |
 |-------|-------|-----------|
-| Max turns injected | 5 | Enough recent context for follow-up prompts |
-| Max response chars per turn | 2000 | ~400 words — preserves key points, drops noise |
-| Max total block chars | ~8000 | Oldest turns dropped if exceeded |
+| Max turns injected | 5 | Enough recent context for follow-up prompts without bloating the enriched prompt |
+| Max response chars per turn | 2000 | ~400 words — preserves key findings, drops verbose output |
+| Max total history block chars | 8000 | Oldest turns dropped first if the block exceeds this limit |
 
 ### Scope
 
 Same-actor only. Turns where `ActorName` matches the current actor (or
 both are null for direct mode). No cross-actor injection. Injecting
-Engineer diffs into a BusinessAnalyst prompt creates persona confusion.
+Engineer analysis into a BusinessAnalyst prompt creates persona confusion
+and violates the actor isolation that RBA provides.
 
 ### Loop behaviour
 
 History is injected on the first iteration of a loop only. Subsequent
-iterations use the loop's `ContinuePromptTemplate` and do not get
-history injection. Mid-loop turns (`Iteration > 1`) are excluded from
-`GetRecentTurns` results — only the initial prompt and final response
-of a completed loop appear in history for subsequent runs.
+iterations use the loop's `ContinuePromptTemplate` which carries its own
+context (the previous iteration's response). Mid-loop turns (`Iteration > 0`)
+are excluded from `GetRecentTurns` results — only the initial prompt and
+final result of a completed loop should appear as context for subsequent
+runs.
 
 ### Call site
 
-`ExecutePrompt` and `ExecuteActor` read recent history *before* the
-wrapper call and pass it to prompt building. New optional parameter
-`bool skipHistory = false` for loop iterations > 1.
+In `ExecutePrompt` and `ExecuteActor`, before the wrapper call:
+
+1. If `skipHistory` is false (default), call
+   `History.GetRecentTurns(5, actorName)`.
+2. Format the turns into the markdown block above.
+3. Pass the block to `Actor.ProcessPrompt(prompt, historyBlock)` or
+   prepend it to the direct-mode prompt.
+
+New optional parameter on both methods:
+`bool skipHistory = false` — set to `true` by the `runAction` lambda
+for loop iterations > 1 (where `iterationNumber > 1`).
+
+### History formatting helper
+
+A static method on `ConversationLogger` or a separate helper:
+
+```csharp
+public static string FormatHistoryBlock(List<ConversationTurn> turns, int maxCharsPerResponse = 2000, int maxTotalChars = 8000)
+```
+
+Builds the markdown block. Truncates individual responses to
+`maxCharsPerResponse` with `"…[truncated]"`. If the total block exceeds
+`maxTotalChars`, drops the oldest turns until it fits.
 
 ## 8. Integration Points
 
 ### `WallyEnvironment`
 
-1. **New property:** `ConversationLogger History { get; }` — created at
-   construction, bound/unbound alongside `SessionLogger`.
+1. **New property:** `public ConversationLogger History { get; }` — created
+   in constructor alongside `Logger`. Same pattern.
 
-2. **Modified `LoadWorkspace`:** Add `BindHistory()` call after
-   `BindLogger()`.
+2. **Constructor:** Add `History = new ConversationLogger();`
 
-3. **Modified `CloseWorkspace`:** Add `History.Unbind()` before
-   `Logger.Unbind()`.
+3. **`LoadWorkspace`:** Add `BindHistory();` after `BindLogger();`.
 
-4. **Modified `ExecutePrompt` and `ExecuteActor`:** After the wrapper
-   returns, build a `ConversationTurn` and call `History.RecordTurn()`. Before the wrapper call, optionally read recent history for injection.
+4. **New `BindHistory()` private method:** Mirrors `BindLogger()`:
+   ```csharp
+   private void BindHistory()
+   {
+       if (!HasWorkspace || History.HistoryFolder != null) return;
+       History.Bind(Workspace!.WorkspaceFolder, "History");
+   }
+   ```
+
+5. **`CloseWorkspace`:** Add `History.Unbind();` before `Logger.Unbind();`.
+
+6. **`ExecutePrompt`:** After wrapper call, build `ConversationTurn` and
+   call `History.RecordTurn(turn)`. Add optional `loopName`, `iteration`,
+   `skipHistory` parameters.
+
+7. **`ExecuteActor`:** Same as `ExecutePrompt`. After wrapper call, record
+   the turn. Add optional parameters.
 
 ### `Actor.ProcessPrompt`
 
-New optional parameter. Existing signature remains valid:
+New optional parameter. Existing single-parameter call remains valid:
 
 ```csharp
 public virtual string ProcessPrompt(string prompt, string? conversationHistory = null)
 ```
 
-When `conversationHistory` is non-null, inserts it between Documentation
-Context and `## Prompt`.
+When `conversationHistory` is non-null and non-empty, inserts the block
+between `## Documentation Context` and `## Prompt` in the enriched prompt.
 
 ### `WallyCommands`
 
-- `run` gains `--no-history` flag: suppresses history injection but still
-  records the turn.
-- New command `clear-history`: calls `History.ClearHistory()`.
+- `DispatchCommand` switch: add `case "clear-history":` that calls
+  `HandleClearHistory(env)`.
+- `HandleClearHistory(env)`: calls `env.History.ClearHistory()`, prints
+  confirmation.
+- `HandleRun`: the `runAction` lambda passes `loopDef?.Name` and
+  `iterationNumber` through to `ExecutePrompt`/`ExecuteActor`. For
+  loop iterations > 1, passes `skipHistory: true`.
+- `HandleRun`: add `--no-history` flag parsing. When set, passes
+  `skipHistory: true` for all iterations (recording still happens,
+  only injection is suppressed).
+- `HandleHelp`: add `clear-history` to command listing.
 
 ### `WallyHelper`
 
-- `CreateDefaultWorkspace`: add `Directory.CreateDirectory(Path.Combine(workspaceFolder, "History"))`.
-- `CheckWorkspace`: add `CheckDir(issues, workspaceFolder, "History")`.
+- `CreateDefaultWorkspace`: add
+  `Directory.CreateDirectory(Path.Combine(workspaceFolder, "History"));`
+  alongside the existing Docs, Loops, Wrappers, Runbooks folder creation.
+- `CheckWorkspace`: add `CheckDir(issues, workspaceFolder, "History");`
+  to the structural checks.
 
-### `WallyConfig` / `WallyWorkspace` / `WallyLoopDefinition`
+### `WallyConfig` / `WallyWorkspace` / `WallyLoopDefinition` / `WallyLoop`
 
-**No changes.** History is a runtime artifact, not a workspace entity.
-Zero new configuration properties.
+**No changes.** History is a runtime artifact owned by `WallyEnvironment`,
+not a workspace entity. Zero new configuration properties. Zero new
+folder name settings in `WallyConfig`.
+
+The `"History"` folder name is a constant in `ConversationLogger` (or
+passed as the `folderName` parameter to `Bind`), not a `WallyConfig`
+property. This matches the design principle: zero configuration required.
 
 ### `ChatPanel` (Forms)
 
-1. **On workspace load:** Call `History.GetRecentTurns(20)` and populate
-   chat bubbles inside `SuspendLayout`/`ResumeLayout`. Call
-   `ScrollControlIntoView` once at the end, not per bubble.
+1. **On workspace load (`SetWorkspaceLoaded(true)` or `BindEnvironment`):**
+   Call `_environment.History.GetAllTurns()` (or `GetRecentTurns(50)`)
+   inside `_messagesFlow.SuspendLayout()`/`ResumeLayout()`. For each
+   turn, call `AddMessage` with appropriate `MessageKind`:
+   - `turn.ActorName == null` ? sender "You" with `MessageKind.User`
+     for the prompt, then sender "AI" with `MessageKind.Actor` for the
+     response. (Actually: each turn is one prompt+response pair. Display
+     as two bubbles: one User, one Actor.)
+   - `turn.IsError` ? response bubble uses `MessageKind.Error`.
+   Call `ScrollControlIntoView` once after the batch, not per bubble.
 
-2. **"Clear History" toolbar button:** New `ToolStripButton` next to
-   `_btnClear`. Calls `History.ClearHistory()` then `ClearMessages()`. The existing "Clear" button remains visual-only — clears bubbles,
-   not data.
+2. **"Clear History" toolbar button:** New `ToolStripButton` added to
+   `_toolbar.Items.AddRange` next to `_btnClear`. Calls
+   `_environment.History.ClearHistory()` then `ClearMessages()`. The
+   existing "? Clear" button remains visual-only (clears bubbles, not
+   persisted data). The new button is labeled "?? Clear History" and
+   clears both the file and the bubbles.
 
 3. **No other changes.** Recording happens in `ExecutePrompt`/
-   `ExecuteActor`. The ChatPanel has no recording responsibility.
+   `ExecuteActor`. ChatPanel has no recording responsibility. It is a
+   pure consumer of `ConversationLogger.GetAllTurns()`.
 
 ## 9. Error and Edge Cases
 
 | Scenario | Behaviour |
 |----------|-----------|
-| Wrapper returns error response | Turn recorded with `IsError = true`. Skipped during injection. Visible in ChatPanel as error bubble. |
-| User cancels mid-run | No turn recorded. Cancellation caught in `ChatPanel.SendMessageAsync` catch block. |
-| Batch `RunActors` | Each actor goes through `ExecuteActor`, each records a turn. Actor filter in `GetRecentTurns` keeps them separate. |
-| `History/` folder missing | Created on `Bind()`. |
-| Corrupt JSON line in file | Skipped during read. Standard JSONL resilience. |
-| Concurrent processes | Both append to the same file. Single `WriteLine` calls are atomic enough. Worst case: a malformed line, which is skipped on read. |
-| Disk full | `StreamWriter.WriteLine` throws `IOException`. Turn lost. Same behaviour as `SessionLogger`. |
-| `ClearHistory` during active run | Lock serialises access. No corruption. |
-| File does not exist at read time | `GetRecentTurns` returns empty list. No injection. Identical to before this feature. |
+| Wrapper returns error response | Turn recorded with `IsError = true`. Excluded from history injection by `GetRecentTurns`. Visible in ChatPanel as error bubble. |
+| User cancels mid-run | No turn recorded — cancellation is caught in `ChatPanel.SendMessageAsync` before the response is available. `OperationCanceledException` does not reach `ExecutePrompt`/`ExecuteActor`. |
+| Batch `RunActors` | Each actor goes through `ExecuteActor`, each records a turn. Actor filter in `GetRecentTurns` keeps injection scoped to same-actor. |
+| `History/` folder missing at bind time | Created by `Bind()`, same as `SessionLogger` creates its session folder. |
+| `History/` folder missing at setup time | Created by `WallyHelper.CreateDefaultWorkspace`. |
+| Corrupt JSON line in file | Skipped during read. Standard JSONL resilience. No error surfaced to the user. |
+| Concurrent processes writing to same file | Both append single `WriteLine` calls. Worst case: interleaved bytes producing a malformed line, which is skipped on read. Acceptable — Wally is not designed for concurrent multi-process access to the same workspace. |
+| Disk full during write | `StreamWriter.WriteLine` throws `IOException`. Turn lost. Same failure mode as `SessionLogger`. No crash — the exception is caught at the recording site. |
+| `ClearHistory` during active run | Lock serialises access. Writer is closed and reopened atomically under the lock. No data corruption. |
+| File does not exist at read time | `GetRecentTurns`/`GetAllTurns` return empty list. No history injection. Behaviour identical to before this feature exists. |
+| Very large history file (>10MB) | `File.ReadAllLines` loads it all. Acceptable up to ~50MB. If this becomes a real problem, add a `tail`-style reader later. Do not optimise now. |
+| Workspace loaded with no prior history | Empty list from `GetAllTurns`. ChatPanel shows empty state. No injection. Everything works — there is just no history to display or inject. |
 
 ## 10. Implementation Plan
 
-### Phase 1 — Data and Recording
+### Phase 1 — Data Model and Recording
 
 **Create:**
-- `Wally.Core/Logging/ConversationTurn.cs`
-- `Wally.Core/Logging/ConversationLogger.cs`
+- `Wally.Core/Logging/ConversationTurn.cs` — the data class (11 properties)
+- `Wally.Core/Logging/ConversationLogger.cs` — the logger (Bind, Unbind,
+  RecordTurn, GetRecentTurns, GetAllTurns, ClearHistory)
 
 **Modify:**
-- `WallyEnvironment` — add `History` property, bind/unbind, record turns
-  in `ExecutePrompt` and `ExecuteActor`.
-- `WallyHelper` — add `History` folder to `CreateDefaultWorkspace` and
-  `CheckWorkspace`.
+- `WallyEnvironment` — add `History` property, bind in `LoadWorkspace`
+  (via `BindHistory()`), unbind in `CloseWorkspace`, record turns in
+  `ExecutePrompt` and `ExecuteActor` (add `Stopwatch`, error detection,
+  `RecordTurn` call). Add optional `loopName`, `iteration` parameters.
+- `WallyHelper.CreateDefaultWorkspace` — add `History` folder creation.
+- `WallyHelper.CheckWorkspace` — add `History` folder check.
 
-**Acceptance:**
-- Every `ExecutePrompt`/`ExecuteActor` call appends a line to
-  `conversation.jsonl`.
-- `GetRecentTurns(N)` reads back the last N non-error, non-mid-loop turns.
+**Acceptance criteria:**
+- Every `ExecutePrompt` and `ExecuteActor` call appends exactly one line
+  to `conversation.jsonl`.
+- `GetRecentTurns(N)` reads back the last N non-error, non-mid-loop turns
+  matching the actor filter.
+- `GetAllTurns()` reads back all turns in chronological order.
 - `ClearHistory()` deletes the file and opens a fresh writer.
-- Thread-safe under concurrent calls.
+- Thread-safe under concurrent calls from different `Task.Run` invocations.
+- Pre-bind buffering works: turns recorded before workspace load are
+  flushed on bind.
 
 ### Phase 2 — Prompt Injection
 
 **Modify:**
-- `Actor.ProcessPrompt` — accept optional `conversationHistory` string.
-- `WallyEnvironment.ExecutePrompt`/`ExecuteActor` — read recent history,
-  format it, pass to `ProcessPrompt`.
+- `Actor.ProcessPrompt` — add optional `string? conversationHistory = null`
+  parameter. Insert the block between Documentation Context and `## Prompt`
+  when non-null.
+- `WallyEnvironment.ExecutePrompt` / `ExecuteActor` — before the wrapper
+  call, read recent history via `History.GetRecentTurns(5, actorName)`,
+  format it via the static helper, pass to `ProcessPrompt`. Skip when
+  `skipHistory` is true (loop iterations > 1).
+- `ConversationLogger` (or a static helper) — add
+  `FormatHistoryBlock(List<ConversationTurn>, ...)` method.
 
-
-**Acceptance:**
-- Recent turns appear in the enriched prompt between Documentation Context
-  and `## Prompt`.
-- Loop iterations > 1 skip injection.
-- Empty history produces identical prompts to today.
+**Acceptance criteria:**
+- Recent same-actor turns appear in the enriched prompt between
+  Documentation Context and `## Prompt`.
+- Loop iterations > 1 do not get history injection.
+- `--no-history` flag suppresses injection but recording still occurs.
+- Empty history produces identical prompts to today's behaviour.
+- Existing `ProcessPrompt(string)` calls compile and behave identically.
 
 ### Phase 3 — CLI Commands
 
 **Modify:**
-- `WallyCommands` — add `--no-history` flag to `run`, add `clear-history`
-  command.
+- `WallyCommands.DispatchCommand` — add `case "clear-history"`.
+- `WallyCommands.HandleRun` — parse `--no-history` flag, pass
+  `skipHistory` and loop context through `runAction` lambda to
+  `ExecutePrompt`/`ExecuteActor`.
+- `WallyCommands.HandleHelp` — add `clear-history` to command reference.
 
-**Acceptance:**
-- `--no-history` suppresses injection but still records.
-- `clear-history` deletes all history files.
+**Acceptance criteria:**
+- `clear-history` command deletes all history and confirms.
+- `--no-history` on `run` suppresses injection but still records turns.
+- `runAction` lambda passes loop name and iteration number through.
 
 ### Phase 4 — Forms Integration
 
 **Modify:**
-- `ChatPanel` — populate bubbles on workspace load, add "Clear History"
-  toolbar button.
+- `ChatPanel` — on workspace load, populate chat bubbles from
+  `History.GetAllTurns()` inside `SuspendLayout`/`ResumeLayout`. Add
+  "Clear History" toolbar button that calls `History.ClearHistory()` +
 
-**Acceptance:**
+**Acceptance criteria:**
 - Recent turns appear as bubbles when the app starts with a workspace.
-- "Clear History" button clears the file and the UI.
+- "Clear History" button clears the persisted file and the UI bubbles.
+- Existing "Clear" button still works (visual-only, does not touch the
+  file).
 
 ## 11. Backward Compatibility
 
-- `Actor.ProcessPrompt(string)` remains valid — new parameter is optional.
+- `Actor.ProcessPrompt(string)` remains valid — new parameter is optional
+  with default `null`.
+- `WallyEnvironment.ExecutePrompt` and `ExecuteActor` gain optional
+  parameters with defaults — existing callers (`RunActors`, `RunActor`)
+  are unaffected.
 - No changes to `WallyConfig`, `WallyWorkspace`, `WallyLoopDefinition`,
-  `WallyLoop`, `SessionLogger`.
-- Missing `History/` folder is created on first bind.
+  `WallyLoop`, `WallyRunbook`, `SessionLogger`, `LLMWrapper`.
+- Missing `History/` folder is created on `Bind()` and by
+  `CreateDefaultWorkspace`.
 - No new config properties — existing `wally-config.json` files work
   unchanged.
-- Workspaces created before this feature simply have no history file.
-  Everything works; there is just no history to inject.
+- Workspaces created before this feature simply have no `History/` folder
+  and no `conversation.jsonl`. Everything works; there is just no history
+  to inject or display. The folder is created on first bind.
 
 ## 12. What This Design Does Not Do
 
-- Cross-actor history injection
+- Cross-actor history injection (each actor sees only its own history)
 - Named or branching conversations
-- Configurable injection format or limits
+- Configurable injection format or token limits in `WallyConfig`
 - Token counting or context-window-aware truncation
-- LLM-powered summarization of past turns
-- History search beyond "last N turns"
-- Cross-process synchronization
-- File rotation (single file per workspace; clear to reset)
+- LLM-powered summarisation of past turns
+- History search beyond "last N turns filtered by actor"
+- Cross-process synchronisation or file locking beyond `FileShare.ReadWrite`
+- File rotation or archival (single file per workspace; clear to reset)
+- Storing the `ProcessedPrompt` (it is derived data, already in `SessionLogger`)
 
 These are all possible extensions. None of them are needed to satisfy
 the stakeholder requirement: **store all inputs, store all outputs, in
@@ -457,45 +621,68 @@ order.** Build the recording layer. Everything else follows.
 
 ## 13. Expert Review
 
-### Architectural Correctness
+### Architectural Placement
 
 `ConversationLogger` belongs on `WallyEnvironment`, not `WallyWorkspace`.
 The precedent is `SessionLogger`. Both are runtime artifacts produced by
-execution. `WallyWorkspace` holds authored entities (config, actors,
-loops, wrappers, runbooks). History is not authored — it is produced.
+execution. `WallyWorkspace` holds authored entities: config, actors, loops,
+wrappers, runbooks. These are things the user creates and edits.
+History is produced by the system during operation. It is not authored.
+Mixing runtime state into the workspace model creates lifecycle confusion —
+who owns the file handle? Who calls `Unbind`? The answer must be the same
+object that calls `Bind`, and that object is `WallyEnvironment`.
 
 ### Data Model
 
 JSONL is the correct format: append-friendly, survives partial writes,
-trivially parseable, does not require the whole file to be valid JSON.
-Not storing `ProcessedPrompt` eliminates exponential growth.
-`File.ReadAllLines` + reverse scan is adequate for the expected file
-sizes (~100KB for months of use).
+trivially parseable line-by-line, and does not require the whole file to
+be valid JSON (unlike a JSON array). Not storing `ProcessedPrompt`
+eliminates exponential growth when history injection is enabled.
+`File.ReadAllLines` + reverse scan is adequate for the expected file sizes.
+If the file reaches 50MB (25,000+ turns), it has been months without a
+clear — the user's workflow, not the system's problem.
 
 ### Recording Placement
 
 `ExecutePrompt` and `ExecuteActor` are the only two methods in the
-codebase that have both the raw prompt and the LLM response. Recording
-here means every code path — `HandleRun`, `RunActors`, `RunActor`
-runbook dispatch — gets recording for free. No drift.
+codebase that have both the raw prompt and the LLM response. They are
+the bottleneck. Every code path — `HandleRun`, `RunActors`, `RunActor`,
+runbook dispatch — flows through one of these two methods. Recording
+here means every path gets recording for free. No caller needs to
+remember to record. No drift.
+
+### Error Detection
+
+The wrapper's error patterns are string conventions in `LLMWrapper.RunProcess`.
+Detecting them by prefix match at the recording site is brittle in the
+sense that a future change to error format breaks detection. But the
+alternative — changing `LLMWrapper.Execute` to return a result object
+instead of a string — is a larger refactor that changes every caller.
+The prefix match is pragmatic for now. If `LLMWrapper` is ever refactored
+to return structured results, error detection at the recording site
+simplifies to `result.IsError`.
 
 ### Forms Impact
 
-Adding bubbles from history on load is a batch `AddMessage` inside
-`SuspendLayout`/`ResumeLayout`. The existing scroll-to-bottom call
-handles positioning. Adding a toolbar button is one entry in an
-`Items.AddRange` call. No architectural changes to `ChatPanel`.
+Adding bubbles from history on load is a batch `AddMessage` call inside
+`SuspendLayout`/`ResumeLayout`. The existing `ScrollControlIntoView` call
+at the end handles positioning. Adding a toolbar button is one entry in the
+existing `_toolbar.Items.AddRange` call. No architectural changes to
+`ChatPanel`. The panel remains a pure consumer — it reads history, it does
+not write it.
 
 ### Simplicity
 
 The entire feature is:
-- One data class (`ConversationTurn`) — 11 properties
-- One logger class (`ConversationLogger`) — 4 public methods
-- One property on `WallyEnvironment`
-- Three lines added to each of `ExecutePrompt` and `ExecuteActor`
+- One data class (`ConversationTurn`) — 11 properties, no methods
+- One logger class (`ConversationLogger`) — 4 public methods, ~150 lines
+- One property on `WallyEnvironment` (`History`)
+- One private `BindHistory()` method on `WallyEnvironment`
+- ~8 lines added to `ExecutePrompt`, ~8 lines added to `ExecuteActor`
 - One optional parameter on `Actor.ProcessPrompt`
-- Two lines in `WallyHelper`
-- One CLI flag, one CLI command
-- One batch-load call and one button in `ChatPanel`
+- One static formatting helper method
+- Two lines in `WallyHelper` (folder creation + folder check)
+- One CLI command (`clear-history`), one CLI flag (`--no-history`)
+- One batch-load call and one toolbar button in `ChatPanel`
 
 If it is more complex than this, it is wrong.
