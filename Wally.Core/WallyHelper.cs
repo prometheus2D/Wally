@@ -86,6 +86,9 @@ namespace Wally.Core
 
             // Ensure the Runbooks folder exists.
             Directory.CreateDirectory(Path.Combine(workspaceFolder, config.RunbooksFolderName));
+
+            // Ensure the History folder exists (conversation history).
+            Directory.CreateDirectory(Path.Combine(workspaceFolder, Logging.ConversationLogger.DefaultFolderName));
         }
 
         // — Actor loading ———————————————————————————————————————————————————
@@ -208,6 +211,7 @@ namespace Wally.Core
             CheckDir(issues, workspaceFolder, config.WrappersFolderName);
             CheckDir(issues, workspaceFolder, config.LogsFolderName);
             CheckDir(issues, workspaceFolder, config.RunbooksFolderName);
+            CheckDir(issues, workspaceFolder, Logging.ConversationLogger.DefaultFolderName);
 
             string actorsDir = Path.Combine(workspaceFolder, config.ActorsFolderName);
             if (Directory.Exists(actorsDir))
@@ -389,6 +393,31 @@ namespace Wally.Core
             }
 
             return runbooks;
+        }
+
+        // — Runbook saving ————————————————————————————————————————
+
+        /// <summary>
+        /// Writes a runbook to its <c>.wrb</c> file on disk, creating the
+        /// Runbooks directory if needed. The file starts with a <c>#</c>
+        /// comment containing the description, followed by one command per line.
+        /// </summary>
+        public static void SaveRunbook(string workspaceFolder, WallyConfig config, WallyRunbook runbook)
+        {
+            string runbooksDir = Path.Combine(workspaceFolder, config.RunbooksFolderName);
+            Directory.CreateDirectory(runbooksDir);
+
+            string filePath = runbook.FilePath;
+            if (string.IsNullOrWhiteSpace(filePath))
+                filePath = Path.Combine(runbooksDir, $"{runbook.Name}.wrb");
+
+            var lines = new List<string>();
+            if (!string.IsNullOrWhiteSpace(runbook.Description))
+                lines.Add($"# {runbook.Description}");
+            lines.AddRange(runbook.Commands);
+
+            File.WriteAllLines(filePath, lines);
+            runbook.FilePath = Path.GetFullPath(filePath);
         }
 
         // — Private helpers —————————————————————————————————————————————————

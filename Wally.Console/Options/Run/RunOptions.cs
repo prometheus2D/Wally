@@ -31,5 +31,9 @@ namespace Wally.Console.Options.Run
         [Option('w', "wrapper", Required = false, Default = null,
             HelpText = "Override the LLM wrapper for this run (e.g. Copilot, AutoCopilot). Must match a Wrappers/*.json name.")]
         public string Wrapper { get; set; }
+
+        [Option("no-history", Required = false, Default = false,
+            HelpText = "Suppress conversation history injection into the prompt (turns are still recorded).")]
+        public bool NoHistory { get; set; }
     }
 }

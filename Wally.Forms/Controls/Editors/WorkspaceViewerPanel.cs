@@ -259,6 +259,7 @@ namespace Wally.Forms.Controls.Editors
                         sb.AppendLine($"    SourcePathArgFmt: {w.SourcePathArgFormat}");
                         sb.AppendLine($"    UseSourceAsWD:    {w.UseSourcePathAsWorkingDirectory}");
                         sb.AppendLine($"    CanMakeChanges:   {w.CanMakeChanges}");
+                        sb.AppendLine($"    UseConvHistory:   {w.UseConversationHistory}");
                         sb.AppendLine();
                     }
                     AppendSection($"Wrappers ({ws.LlmWrappers.Count})", sb.ToString().TrimEnd(), WallyTheme.TextPrimary);

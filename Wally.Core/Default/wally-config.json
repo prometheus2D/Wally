@@ -24,7 +24,8 @@
     "gpt-5.1",
     "gpt-5.1-codex-mini",
     "gpt-5-mini",
-    "gpt-4.1"
+    "gpt-4.1",
+    "gpt-4o"
   ],
   "DefaultWrappers": [
     "Copilot",
@@ -41,8 +42,10 @@
     "full-analysis"
   ],
   "SelectedModels": [
-    "claude-sonnet-4.6",
-    "gpt-4.1"
+    "gpt-5.3-codex",
+    "gpt-4.1",
+    "gpt-4o"
+
   ],
   "SelectedWrappers": [
     "Copilot"

@@ -109,7 +109,7 @@ namespace Wally.Core.Providers
         /// </summary>
         public bool UseSourcePathAsWorkingDirectory { get; set; } = true;
 
-        // — Behavioural flags (from JSON) —————————————————————————————————
+        // — Behavioural flags (from JSON) ———————————————————————————————
 
         /// <summary>
         /// When <see langword="true"/>, this wrapper can make changes to files
@@ -117,6 +117,19 @@ namespace Wally.Core.Providers
         /// <see langword="false"/>.
         /// </summary>
         public bool CanMakeChanges { get; set; }
+
+        /// <summary>
+        /// When <see langword="true"/> (the default), conversation history from
+        /// previous turns is injected into the prompt to give the LLM awareness
+        /// of prior exchanges. Set to <see langword="false"/> to disable history
+        /// injection for this wrapper (e.g. for wrappers that manage their own
+        /// context or have very small context windows).
+        /// <para>
+        /// This only controls injection — turns are always <em>recorded</em>
+        /// regardless of this setting.
+        /// </para>
+        /// </summary>
+        public bool UseConversationHistory { get; set; } = true;
 
         // — Execution —————————————————————————————————————————————————————
 

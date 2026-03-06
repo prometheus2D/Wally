@@ -100,15 +100,16 @@ namespace Wally.Core
 
                 case "run":
                 {
-                    if (args.Length < 2) { Console.WriteLine("Usage: run \"<prompt>\" [-a actor] [-m model] [-w wrapper] [--loop] [-l name] [-n max]"); return false; }
+                    if (args.Length < 2) { Console.WriteLine("Usage: run \"<prompt>\" [-a actor] [-m model] [-w wrapper] [--loop] [-l name] [-n max] [--no-history]"); return false; }
                     string? actorName = GetOption(args, "-a") ?? GetOption(args, "--actor");
                     string? model = GetOption(args, "-m") ?? GetOption(args, "--model");
                     string? wrapper = GetOption(args, "-w") ?? GetOption(args, "--wrapper");
                     string? loopName = GetOption(args, "-l") ?? GetOption(args, "--loop-name");
                     string? maxStr = GetOption(args, "-n") ?? GetOption(args, "--max-iterations");
                     bool looped = HasFlag(args, "--loop");
+                    bool noHistory = HasFlag(args, "--no-history");
                     int maxIter = int.TryParse(maxStr, out int n) ? n : 0;
-                    HandleRun(env, args[1], actorName, model, looped, loopName, maxIter, wrapper);
+                    HandleRun(env, args[1], actorName, model, looped, loopName, maxIter, wrapper, noHistory);
                     return true;
                 }
 
@@ -149,6 +150,10 @@ namespace Wally.Core
                     HandleCleanup(env, cleanupPath);
                     return true;
                 }
+
+                case "clear-history":
+                    HandleClearHistory(env);
+                    return true;
 
                 case "commands" or "help":
                     HandleHelp();
@@ -217,22 +222,24 @@ namespace Wally.Core
                 // — Wrapper CRUD ————————————————————————————————————————
                 case "add-wrapper":
                 {
-                    if (args.Length < 2) { Console.WriteLine("Usage: add-wrapper <name> [-d desc] [-e exe] [-t template] [--can-make-changes]"); return false; }
+                    if (args.Length < 2) { Console.WriteLine("Usage: add-wrapper <name> [-d desc] [-e exe] [-t template] [--can-make-changes] [--no-conversation-history]"); return false; }
                     string desc = GetOption(args, "-d") ?? GetOption(args, "--description") ?? "";
                     string exe = GetOption(args, "-e") ?? GetOption(args, "--executable") ?? "gh";
                     string template = GetOption(args, "-t") ?? GetOption(args, "--template") ?? "";
                     bool canChange = HasFlag(args, "--can-make-changes");
-                    HandleAddWrapper(env, args[1], desc, exe, template, canChange);
+                    bool useHistory = !HasFlag(args, "--no-conversation-history");
+                    HandleAddWrapper(env, args[1], desc, exe, template, canChange, useHistory);
                     return true;
                 }
                 case "edit-wrapper":
                 {
-                    if (args.Length < 2) { Console.WriteLine("Usage: edit-wrapper <name> [-d desc] [-e exe] [-t template] [--can-make-changes]"); return false; }
+                    if (args.Length < 2) { Console.WriteLine("Usage: edit-wrapper <name> [-d desc] [-e exe] [-t template] [--can-make-changes] [--no-conversation-history]"); return false; }
                     string? desc = GetOption(args, "-d") ?? GetOption(args, "--description");
                     string? exe = GetOption(args, "-e") ?? GetOption(args, "--executable");
                     string? template = GetOption(args, "-t") ?? GetOption(args, "--template");
                     bool? canChange = HasFlag(args, "--can-make-changes") ? true : null;
-                    HandleEditWrapper(env, args[1], desc, exe, template, canChange);
+                    bool? useHistory = HasFlag(args, "--no-conversation-history") ? false : null;
+                    HandleEditWrapper(env, args[1], desc, exe, template, canChange, useHistory);
                     return true;
                 }
                 case "delete-wrapper":
@@ -345,7 +352,8 @@ namespace Wally.Core
             bool looped = false,
             string? loopName = null,
             int maxIterations = 0,
-            string? wrapper = null)
+            string? wrapper = null,
+            bool noHistory = false)
         {
             if (RequireWorkspace(env, "run") == null) return new List<string>();
 
@@ -423,7 +431,7 @@ namespace Wally.Core
             env.Logger.LogCommand("run",
                 $"Actor='{actorLabel}' loop='{loopDef?.Name ?? "(inline)"}' " +
                 $"iterations={iterations} model='{model ?? "(default)"}' " +
-                $"wrapper='{wrapper ?? "(default)"}'"
+                $"wrapper='{wrapper ?? "(default)"}' noHistory={noHistory}"
             );
 
             if (directMode)
@@ -436,16 +444,26 @@ namespace Wally.Core
 
             int iterationNumber = 0;
             string? resolvedModel = model ?? env.Workspace!.Config.DefaultModel;
+            string? resolvedLoopName = loopDef?.Name != "SingleRun" ? loopDef?.Name : null;
 
             Func<string, string> runAction = currentPrompt =>
             {
                 iterationNumber++;
 
+                // Skip history injection for loop iterations > 1, or when --no-history is set.
+                bool skipHistory = noHistory || iterationNumber > 1;
+                // 0-based iteration for ConversationTurn metadata.
+                int iterationIndex = iterationNumber - 1;
+
                 if (directMode)
                 {
                     env.Logger.LogPrompt("(no actor)", currentPrompt, resolvedModel);
                     var sw = System.Diagnostics.Stopwatch.StartNew();
-                    string result = env.ExecutePrompt(currentPrompt, model, wrapper);
+                    string result = env.ExecutePrompt(
+                        currentPrompt, model, wrapper,
+                        loopName: resolvedLoopName,
+                        iteration: iterationIndex,
+                        skipHistory: skipHistory);
                     sw.Stop();
                     env.Logger.LogResponse("(no actor)", result, sw.ElapsedMilliseconds, iterationNumber);
                     return result;
@@ -454,7 +472,11 @@ namespace Wally.Core
                 {
                     env.Logger.LogPrompt(actor!.Name, currentPrompt, resolvedModel);
                     var sw = System.Diagnostics.Stopwatch.StartNew();
-                    string result = env.ExecuteActor(actor!, currentPrompt, model, wrapper);
+                    string result = env.ExecuteActor(
+                        actor!, currentPrompt, model, wrapper,
+                        loopName: resolvedLoopName,
+                        iteration: iterationIndex,
+                        skipHistory: skipHistory);
                     sw.Stop();
                     env.Logger.LogResponse(actor!.Name, result, sw.ElapsedMilliseconds, iterationNumber);
                     return result;
@@ -808,6 +830,21 @@ namespace Wally.Core
             }
         }
 
+        // — Clear history ——————————————————————————————————————————————
+
+        /// <summary>
+        /// Clears the conversation history file, removing all recorded
+        /// (prompt, response) pairs. Recording continues on subsequent runs.
+        /// </summary>
+        public static void HandleClearHistory(WallyEnvironment env)
+        {
+            if (RequireWorkspace(env, "clear-history") == null) return;
+
+            env.History.ClearHistory();
+            env.Logger.LogCommand("clear-history", "Conversation history cleared.");
+            Console.WriteLine("Conversation history cleared.");
+        }
+
         // — Help ————————————————————————————————————————————————————————
 
         public static void HandleHelp()
@@ -841,6 +878,7 @@ namespace Wally.Core
             Console.WriteLine("    --loop                         Run in iterative loop mode.");
             Console.WriteLine("    -l, --loop-name <name>         Use a named loop definition from Loops/.");
             Console.WriteLine("    -n, --max-iterations <n>       Maximum iterations (implies --loop when > 1).");
+            Console.WriteLine("    --no-history                   Suppress conversation history injection (still records turns).");
             Console.WriteLine();
             Console.WriteLine("  When no actor is specified, the prompt is sent directly to the AI without");
             Console.WriteLine("  any Role/AcceptanceCriteria/Intent context. This is useful for general");
@@ -863,8 +901,8 @@ namespace Wally.Core
             Console.WriteLine();
             Console.WriteLine("  Wrappers:");
             Console.WriteLine("    list-wrappers                    List all LLM wrapper definitions.");
-            Console.WriteLine("    add-wrapper <name> [-d] [-e] [-t] [--can-make-changes]  Create a wrapper.");
-            Console.WriteLine("    edit-wrapper <name> [-d] [-e] [-t] [--can-make-changes] Edit a wrapper.");
+            Console.WriteLine("    add-wrapper <name> [-d] [-e] [-t] [--can-make-changes] [--no-conversation-history]  Create a wrapper.");
+            Console.WriteLine("    edit-wrapper <name> [-d] [-e] [-t] [--can-make-changes] [--no-conversation-history] Edit a wrapper.");
             Console.WriteLine("    delete-wrapper <name>            Delete a wrapper.");
             Console.WriteLine();
             Console.WriteLine("  Runbooks:");
@@ -875,6 +913,7 @@ namespace Wally.Core
             Console.WriteLine();
             Console.WriteLine("  save <path>                      Save config and actor files to disk.");
             Console.WriteLine("  cleanup [<path>]                 Delete the local .wally/ folder so setup can run fresh.");
+            Console.WriteLine("  clear-history                    Clear the conversation history (prompt/response pairs).");
             Console.WriteLine();
             Console.WriteLine("Default actors:");
             Console.WriteLine("  Engineer         \u2014 code reviews, architecture docs, proposals, bug reports, test plans");
@@ -995,7 +1034,7 @@ namespace Wally.Core
             Console.WriteLine();
 
             Console.WriteLine("STEP 6: BUILD YOUR OWN LOOPS");
-            Console.WriteLine("\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500");
+            Console.WriteLine("\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500");
             Console.WriteLine("Loops are JSON files in .wally/Loops/. They define the start prompt,");
             Console.WriteLine("continuation template, stop keywords, and max iterations.");
             Console.WriteLine();
@@ -1009,7 +1048,7 @@ namespace Wally.Core
             Console.WriteLine();
 
             Console.WriteLine("STEP 7: BUILD YOUR OWN WRAPPERS");
-            Console.WriteLine("\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500");
+            Console.WriteLine("\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500");
             Console.WriteLine("Wrappers are JSON files in .wally/Wrappers/ that define how to call");
             Console.WriteLine("an LLM CLI tool. Each wrapper specifies the executable, argument template,");
             Console.WriteLine("and placeholders ({prompt}, {model}, {sourcePath}).");
@@ -1028,7 +1067,7 @@ namespace Wally.Core
             Console.WriteLine();
 
             Console.WriteLine("STEP 8: BUILD YOUR OWN RUNBOOKS");
-            Console.WriteLine("\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500");
+            Console.WriteLine("\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500");
             Console.WriteLine("Runbooks are .wrb text files in .wally/Runbooks/. Each line is a");
             Console.WriteLine("Wally command. Use {userPrompt} to pass in the runtime prompt.");
             Console.WriteLine();
@@ -1047,7 +1086,7 @@ namespace Wally.Core
             Console.WriteLine();
 
             Console.WriteLine("STEP 9: INSPECT & EXPLORE");
-            Console.WriteLine("\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500");
+            Console.WriteLine("\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500");
             Console.WriteLine("  wally info               Show workspace paths, actors, wrappers, session info");
             Console.WriteLine("  wally list               List all actors and their RBA prompts");
             Console.WriteLine("  wally list-loops         List all loop definitions");
@@ -1057,7 +1096,7 @@ namespace Wally.Core
             Console.WriteLine();
 
             Console.WriteLine("REFERENCE: ALL MANAGEMENT COMMANDS");
-            Console.WriteLine("\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500");
+            Console.WriteLine("\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500");
             Console.WriteLine("  Actors:    add-actor, edit-actor, delete-actor, list, reload-actors");
             Console.WriteLine("  Loops:     add-loop, edit-loop, delete-loop, list-loops");
             Console.WriteLine("  Wrappers:  add-wrapper, edit-wrapper, delete-wrapper, list-wrappers");
@@ -1090,6 +1129,7 @@ namespace Wally.Core
                 Console.WriteLine($"    Executable:   {w.Executable}");
                 Console.WriteLine($"    Template:     {w.ArgumentTemplate}");
                 Console.WriteLine($"    CanMakeChanges: {w.CanMakeChanges}");
+                Console.WriteLine($"    UseConversationHistory: {w.UseConversationHistory}");
             }
         }
 
@@ -1267,12 +1307,13 @@ namespace Wally.Core
             Console.WriteLine($"Loop '{name}' deleted.");
         }
 
-        // — Wrapper CRUD ————————————————————————————————————————————————
+        // — Wrapper CRUD ——————————————————————————————————————————————————
 
         /// <summary>Creates a new LLM wrapper definition and saves it to disk.</summary>
         public static void HandleAddWrapper(
             WallyEnvironment env, string name, string description,
-            string executable, string argumentTemplate, bool canMakeChanges)
+            string executable, string argumentTemplate, bool canMakeChanges,
+            bool useConversationHistory = true)
         {
             if (RequireWorkspace(env, "add-wrapper") == null) return;
 
@@ -1294,7 +1335,8 @@ namespace Wally.Core
                 Description = description,
                 Executable = executable,
                 ArgumentTemplate = argumentTemplate,
-                CanMakeChanges = canMakeChanges
+                CanMakeChanges = canMakeChanges,
+                UseConversationHistory = useConversationHistory
             };
 
             string filePath = Path.Combine(wrappersDir, $"{name}.json");
@@ -1308,7 +1350,8 @@ namespace Wally.Core
         /// <summary>Edits an existing LLM wrapper definition (only fields that are provided).</summary>
         public static void HandleEditWrapper(
             WallyEnvironment env, string name,
-            string? description, string? executable, string? argumentTemplate, bool? canMakeChanges)
+            string? description, string? executable, string? argumentTemplate, bool? canMakeChanges,
+            bool? useConversationHistory = null)
         {
             if (RequireWorkspace(env, "edit-wrapper") == null) return;
 
@@ -1326,6 +1369,7 @@ namespace Wally.Core
             if (executable != null) wrapper.Executable = executable;
             if (argumentTemplate != null) wrapper.ArgumentTemplate = argumentTemplate;
             if (canMakeChanges.HasValue) wrapper.CanMakeChanges = canMakeChanges.Value;
+            if (useConversationHistory.HasValue) wrapper.UseConversationHistory = useConversationHistory.Value;
 
             string filePath = Path.Combine(
                 env.Workspace.WorkspaceFolder, env.Workspace.Config.WrappersFolderName, $"{name}.json");
@@ -1358,8 +1402,9 @@ namespace Wally.Core
 
         // — Runbook CRUD ————————————————————————————————————————————————
 
-        /// <summary>Creates a new runbook scaffold (.wrb file) in the workspace.</summary>
-        public static void HandleAddRunbook(WallyEnvironment env, string name, string description)
+        /// <summary>Creates a new runbook and saves it to disk.</summary>
+        public static void HandleAddRunbook(
+            WallyEnvironment env, string name, string description)
         {
             if (RequireWorkspace(env, "add-runbook") == null) return;
 
@@ -1374,28 +1419,23 @@ namespace Wally.Core
             string runbooksDir = Path.Combine(ws.WorkspaceFolder, ws.Config.RunbooksFolderName);
             Directory.CreateDirectory(runbooksDir);
 
-            string filePath = Path.Combine(runbooksDir, $"{name}.wrb");
-            var lines = new List<string>();
-            if (!string.IsNullOrWhiteSpace(description))
-                lines.Add($"# {description}");
-            else
-                lines.Add($"# {name}");
-            lines.Add("");
-            lines.Add("# Add your commands below, one per line.");
-            lines.Add("# Use {userPrompt} to pass in the runtime prompt.");
-            lines.Add("# Example:");
-            lines.Add("# run \"{userPrompt}\" -a Engineer");
+            var runbook = new WallyRunbook
+            {
+                Name = name,
+                Description = description,
+                Commands = new List<string>(),
+                FilePath = Path.Combine(runbooksDir, $"{name}.wrb")
+            };
 
-            File.WriteAllLines(filePath, lines);
-            ws.ReloadRunbooks();
-
+            WallyHelper.SaveRunbook(ws.WorkspaceFolder, ws.Config, runbook);
             env.Logger.LogCommand("add-runbook", $"Created runbook '{name}'");
-            Console.WriteLine($"Runbook '{name}' created at: {filePath}");
-            Console.WriteLine("  Edit the .wrb file to add commands.");
+            Console.WriteLine($"Runbook '{name}' created. Edit {runbook.FilePath} to add commands.");
         }
 
-        /// <summary>Edits the description comment of an existing runbook.</summary>
-        public static void HandleEditRunbook(WallyEnvironment env, string name, string? description)
+        /// <summary>Edits an existing runbook's description.</summary>
+        public static void HandleEditRunbook(
+            WallyEnvironment env, string name,
+            string? description)
         {
             if (RequireWorkspace(env, "edit-runbook") == null) return;
 
@@ -1408,43 +1448,14 @@ namespace Wally.Core
                 return;
             }
 
-            if (description == null)
-            {
-                Console.WriteLine($"Runbook '{name}': {runbook.Description}");
-                Console.WriteLine($"  File: {runbook.FilePath}");
-                Console.WriteLine("  Use -d \"new description\" to update.");
-                return;
-            }
+            if (description != null) runbook.Description = description;
 
-            // Rewrite the file with the updated description line.
-            if (!File.Exists(runbook.FilePath))
-            {
-                Console.WriteLine($"Runbook file not found: {runbook.FilePath}");
-                return;
-            }
-
-            var allLines = new List<string>(File.ReadAllLines(runbook.FilePath));
-            bool replaced = false;
-            for (int i = 0; i < allLines.Count; i++)
-            {
-                if (allLines[i].TrimStart().StartsWith('#'))
-                {
-                    allLines[i] = $"# {description}";
-                    replaced = true;
-                    break;
-                }
-            }
-            if (!replaced)
-                allLines.Insert(0, $"# {description}");
-
-            File.WriteAllLines(runbook.FilePath, allLines);
-            env.Workspace!.ReloadRunbooks();
-
-            env.Logger.LogCommand("edit-runbook", $"Updated runbook '{name}' description");
-            Console.WriteLine($"Runbook '{name}' description updated.");
+            WallyHelper.SaveRunbook(env.Workspace!.WorkspaceFolder, env.Workspace.Config, runbook);
+            env.Logger.LogCommand("edit-runbook", $"Updated runbook '{name}'");
+            Console.WriteLine($"Runbook '{name}' updated.");
         }
 
-        /// <summary>Deletes a runbook (.wrb) file from the workspace.</summary>
+        /// <summary>Deletes a runbook file from the workspace.</summary>
         public static void HandleDeleteRunbook(WallyEnvironment env, string name)
         {
             if (RequireWorkspace(env, "delete-runbook") == null) return;
@@ -1459,55 +1470,69 @@ namespace Wally.Core
             }
 
             File.Delete(filePath);
-            ws.ReloadRunbooks();
-
             env.Logger.LogCommand("delete-runbook", $"Deleted runbook '{name}'");
             Console.WriteLine($"Runbook '{name}' deleted.");
         }
 
         // — Private helpers ———————————————————————————————————————————————
 
+        /// <summary>Resolves the workspace folder path from the given source path.</summary>
         private static string ResolveWorkspaceFolder(string? workSourcePath)
         {
-            if (workSourcePath != null)
-            {
-                if (!Path.IsPathRooted(workSourcePath))
-                    workSourcePath = Path.Combine(WallyHelper.GetExeDirectory(), workSourcePath);
-                return Path.Combine(Path.GetFullPath(workSourcePath), WallyHelper.DefaultWorkspaceFolderName);
-            }
-            return WallyHelper.GetDefaultWorkspaceFolder();
+            if (!string.IsNullOrWhiteSpace(workSourcePath) && Directory.Exists(workSourcePath))
+                return Path.Combine(Path.GetFullPath(workSourcePath), ".wally");
+
+            // Default to exe location
+            string exeFolder = AppDomain.CurrentDomain.BaseDirectory;
+            return Path.Combine(Path.GetFullPath(exeFolder), "..", "..", "..", ".wally");
         }
 
+        /// <summary>Prints a summary of the current workspace setup.</summary>
         private static void PrintWorkspaceSummary(string header, WallyEnvironment env)
         {
             Console.WriteLine(header);
-            Console.WriteLine($"  WorkSource: {env.WorkSource}");
-            Console.WriteLine($"  Workspace:  {env.WorkspaceFolder}");
-            Console.WriteLine($"  Actors:     {env.Actors.Count}");
+            Console.WriteLine(new string('=', header.Length));
+            Console.WriteLine();
+            Console.WriteLine($"WorkSource:        {env.WorkSource}");
+            Console.WriteLine($"Workspace folder:  {env.WorkspaceFolder}");
+            Console.WriteLine($"Actors folder:     {Path.Combine(env.WorkspaceFolder, env.Workspace!.Config.ActorsFolderName)}");
+            Console.WriteLine($"Docs folder:       {Path.Combine(env.WorkspaceFolder, env.Workspace!.Config.DocsFolderName)}");
+            Console.WriteLine($"Templates folder:  {Path.Combine(env.WorkspaceFolder, env.Workspace!.Config.TemplatesFolderName)}");
+            Console.WriteLine($"Logs folder:       {Path.Combine(env.WorkspaceFolder, env.Workspace!.Config.LogsFolderName)}");
         }
 
-        private static void PrintRbaLine(string label, string prompt)
+        /// <summary>Prints a formatted line for RBA prompt sections.</summary>
+        private static void PrintRbaLine(string name, string prompt)
         {
-            string display = prompt?.Length > 80 ? prompt[..80] + "\u2026" : prompt ?? "";
-            Console.WriteLine($"{label}: {display}");
+            Console.WriteLine($"    {name}:  {(string.IsNullOrWhiteSpace(prompt) ? "(none)" : prompt)}");
         }
 
-        private static string? GetOption(string[] args, string flag)
+        /// <summary>Gets the first matching option value from the args array.</summary>
+        private static string? GetOption(string[] args, string shortLong)
         {
             for (int i = 0; i < args.Length - 1; i++)
-                if (args[i].Equals(flag, StringComparison.OrdinalIgnoreCase))
+            {
+                if (args[i].Equals(shortLong, StringComparison.OrdinalIgnoreCase))
                     return args[i + 1];
+            }
             return null;
         }
 
-        private static bool HasFlag(string[] args, string flag) =>
-            Array.Exists(args, a => a.Equals(flag, StringComparison.OrdinalIgnoreCase));
+        /// <summary>
+        /// Checks if the specified long or short flag is present in the args array.
+        /// </summary>
+        private static bool HasFlag(string[] args, string shortLong)
+        {
+            return args.Any(a => a.Equals(shortLong, StringComparison.OrdinalIgnoreCase));
+        }
 
+        /// <summary>
+        /// Gets the first positional argument from the args array, starting at the specified index.
+        /// </summary>
         private static string? GetFirstPositional(string[] args, int startIndex)
         {
-            for (int i = startIndex; i < args.Length; i++)
-                if (!args[i].StartsWith('-'))
-                    return args[i];
+            if (args.Length > startIndex)
+                return args[startIndex];
             return null;
         }
     }

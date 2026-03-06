@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using Wally.Core;
+using Wally.Core.Logging;
 using Wally.Core.Providers;
 using Wally.Forms.Theme;
 
@@ -63,6 +64,7 @@ namespace Wally.Forms.Controls
         private readonly ToolStripDropDownButton _ddLoop;
         private readonly ToolStripDropDownButton _ddModel;
         private readonly ToolStripButton _btnClear;
+        private readonly ToolStripButton _btnClearHistory;
 
         // ── Selected values (tracked explicitly) ────────────────────────────
 
@@ -173,10 +175,21 @@ namespace Wally.Forms.Controls
 
             _btnClear = new ToolStripButton("\u2715 Clear")
             {
-                ToolTipText = "Clear conversation",
+                ToolTipText = "Clear conversation bubbles (does not delete history file)",
                 ForeColor = WallyTheme.TextSecondary
             };
             _btnClear.Click += (_, _) => ClearMessages();
+
+            _btnClearHistory = new ToolStripButton("\uD83D\uDDD1 Clear History")
+            {
+                ToolTipText = "Clear persisted conversation history and chat bubbles",
+                ForeColor = WallyTheme.TextSecondary
+            };
+            _btnClearHistory.Click += (_, _) =>
+            {
+                _environment?.History.ClearHistory();
+                ClearMessages();
+            };
 
             _toolbar = new ToolStrip
             {
@@ -198,7 +211,8 @@ namespace Wally.Forms.Controls
                 new ToolStripLabel("Model") { ForeColor = WallyTheme.TextMuted, Font = WallyTheme.FontUISmallBold },
                 _ddModel,
                 new ToolStripSeparator(),
-                _btnClear
+                _btnClear,
+                _btnClearHistory
             });
 
             // ── Empty state placeholder ──
@@ -529,6 +543,7 @@ namespace Wally.Forms.Controls
             _ddLoop.Enabled = inputEnabled;
             _ddModel.Enabled = inputEnabled;
             _btnClear.Enabled = loaded;
+            _btnClearHistory.Enabled = loaded;
             _btnSend.Enabled = inputEnabled;
             _txtInput.ReadOnly = !inputEnabled;
 
@@ -563,6 +578,9 @@ namespace Wally.Forms.Controls
                     _lblStatus.Text = "  Ready";
                     _lblStatus.ForeColor = WallyTheme.TextMuted;
                 }
+
+                // Populate chat bubbles from persisted conversation history.
+                LoadHistory();
             }
         }
 
@@ -663,6 +681,63 @@ namespace Wally.Forms.Controls
             _txtInput.SelectionFont = WallyTheme.FontUI;
 
             UpdateEmptyState();
+        }
+
+        /// <summary>
+        /// Populates the chat panel with bubbles from the persisted conversation
+        /// history. Called once on workspace load to provide display continuity
+        /// across app restarts.
+        /// </summary>
+        private void LoadHistory()
+        {
+            if (_environment?.HasWorkspace != true) return;
+
+            var turns = _environment.History.GetAllTurns();
+            if (turns.Count == 0) return;
+
+            _messagesFlow.SuspendLayout();
+
+            // Cap at the most recent 50 turns to avoid sluggish UI.
+            int start = Math.Max(0, turns.Count - 50);
+            for (int i = start; i < turns.Count; i++)
+            {
+                var turn = turns[i];
+                int bubbleWidth = Math.Max(200, _messagesContainer.ClientSize.Width - 48);
+
+                // Prompt bubble (User).
+                string userLabel = turn.ActorName != null ? $"You \u2192 {turn.ActorName}" : "You";
+                var userBubble = new ChatBubble(userLabel, turn.Prompt, MessageKind.User, bubbleWidth);
+                _messagesFlow.Controls.Add(userBubble);
+
+                // Response bubble (Actor or Error).
+                string responseLabel = turn.ActorName ?? "AI";
+                var responseKind = turn.IsError ? MessageKind.Error : MessageKind.Actor;
+                var responseBubble = new ChatBubble(responseLabel, turn.Response, responseKind, bubbleWidth);
+                _messagesFlow.Controls.Add(responseBubble);
+            }
+
+            _messagesFlow.ResumeLayout(true);
+
+            // Scroll to the end and update empty state.
+            if (_messagesFlow.Controls.Count > 0)
+                _messagesContainer.ScrollControlIntoView(
+                    _messagesFlow.Controls[_messagesFlow.Controls.Count - 1]);
+            UpdateEmptyState();
+        }
+
+        // ── Clear history logic ──────────────────────────────────────────────
+
+        private void ClearHistory()
+        {
+            if (InvokeRequired) { Invoke(ClearHistory); return; }
+
+            var result = MessageBox.Show("Clear conversation history?", "Confirm",
+                MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+            if (result != DialogResult.Yes) return;
+
+            // TODO: Implement history clearing logic
+            MessageBox.Show("History cleared (not really, implement me).", "Info",
+                MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
 
         // ── Send logic ──────────────────────────────────────────────────────

@@ -21,6 +21,7 @@ namespace Wally.Forms.Controls.Editors
         private readonly TextBox _txtSourcePathArgFormat;
         private readonly CheckBox _chkUseSourceAsWD;
         private readonly CheckBox _chkCanMakeChanges;
+        private readonly CheckBox _chkUseConversationHistory;
         private readonly Label _lblStatus;
         private readonly Button _btnSave;
         private readonly Button _btnRevert;
@@ -155,6 +156,11 @@ namespace Wally.Forms.Controls.Editors
             table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             table.Controls.Add(_chkCanMakeChanges, 0, row++);
 
+            _chkUseConversationHistory = CreateCheckBox("Inject conversation history into prompts");
+            _chkUseConversationHistory.CheckedChanged += OnFieldChanged;
+            table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            table.Controls.Add(_chkUseConversationHistory, 0, row++);
+
             scroll.Controls.Add(table);
             Controls.Add(scroll);
             ResumeLayout(true);
@@ -187,6 +193,7 @@ namespace Wally.Forms.Controls.Editors
             _txtSourcePathArgFormat.Text = _wrapper.SourcePathArgFormat;
             _chkUseSourceAsWD.Checked = _wrapper.UseSourcePathAsWorkingDirectory;
             _chkCanMakeChanges.Checked = _wrapper.CanMakeChanges;
+            _chkUseConversationHistory.Checked = _wrapper.UseConversationHistory;
         }
 
         private void ApplyFieldsToWrapper()
@@ -201,6 +208,7 @@ namespace Wally.Forms.Controls.Editors
             _wrapper.SourcePathArgFormat = _txtSourcePathArgFormat.Text.Trim();
             _wrapper.UseSourcePathAsWorkingDirectory = _chkUseSourceAsWD.Checked;
             _wrapper.CanMakeChanges = _chkCanMakeChanges.Checked;
+            _wrapper.UseConversationHistory = _chkUseConversationHistory.Checked;
         }
 
         // ── Event handlers ──────────────────────────────────────────────────

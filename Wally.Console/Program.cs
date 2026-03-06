@@ -88,33 +88,34 @@ namespace Wally.Console
                             ro.Looped,
                             ro.LoopName,
                             ro.MaxIterations,
-                            ro.Wrapper);
+                            ro.Wrapper,
+                            ro.NoHistory);
                         return 0;
                     }
-                    if (opts is RunbookOptions rbo)       { WallyCommands.HandleRunbook(_environment, rbo.Name, rbo.Prompt); return 0; }
+                    if (opts is RunbookOptions rbo) { WallyCommands.HandleRunbook(_environment, rbo.Name, rbo.Prompt); return 0; }
 
                     // ── Inspection ────────────────────────────────────────────
-                    if (opts is InfoOptions)              { WallyCommands.HandleInfo(_environment); return 0; }
-                    if (opts is HelpOptions)              { WallyCommands.HandleHelp(); return 0; }
-                    if (opts is TutorialOptions)          { WallyCommands.HandleTutorial(); return 0; }
+                    if (opts is InfoOptions)     { WallyCommands.HandleInfo(_environment); return 0; }
+                    if (opts is HelpOptions)     { WallyCommands.HandleHelp(); return 0; }
+                    if (opts is TutorialOptions) { WallyCommands.HandleTutorial(); return 0; }
 
                     // ── Actors ────────────────────────────────────────────────
-                    if (opts is ListActorsOptions)        { WallyCommands.HandleList(_environment); return 0; }
-                    if (opts is ReloadActorsOptions)      { WallyCommands.HandleReloadActors(_environment); return 0; }
-                    if (opts is AddActorOptions aao)      { WallyCommands.HandleAddActor(_environment, aao.Name, aao.RolePrompt, aao.CriteriaPrompt, aao.IntentPrompt); return 0; }
-                    if (opts is EditActorOptions eao)     { WallyCommands.HandleEditActor(_environment, eao.Name, eao.RolePrompt, eao.CriteriaPrompt, eao.IntentPrompt); return 0; }
-                    if (opts is DeleteActorOptions dao)   { WallyCommands.HandleDeleteActor(_environment, dao.Name); return 0; }
+                    if (opts is ListActorsOptions)      { WallyCommands.HandleList(_environment); return 0; }
+                    if (opts is ReloadActorsOptions)    { WallyCommands.HandleReloadActors(_environment); return 0; }
+                    if (opts is AddActorOptions aao)    { WallyCommands.HandleAddActor(_environment, aao.Name, aao.RolePrompt, aao.CriteriaPrompt, aao.IntentPrompt); return 0; }
+                    if (opts is EditActorOptions eao)   { WallyCommands.HandleEditActor(_environment, eao.Name, eao.RolePrompt, eao.CriteriaPrompt, eao.IntentPrompt); return 0; }
+                    if (opts is DeleteActorOptions dao) { WallyCommands.HandleDeleteActor(_environment, dao.Name); return 0; }
 
                     // ── Loops ─────────────────────────────────────────────────
-                    if (opts is ListLoopsOptions)         { WallyCommands.HandleListLoops(_environment); return 0; }
-                    if (opts is AddLoopOptions alo)       { WallyCommands.HandleAddLoop(_environment, alo.Name, alo.Description, alo.ActorName, alo.MaxIterations, alo.StartPrompt); return 0; }
-                    if (opts is EditLoopOptions elo)      { WallyCommands.HandleEditLoop(_environment, elo.Name, elo.Description, elo.ActorName, elo.MaxIterations, elo.StartPrompt); return 0; }
-                    if (opts is DeleteLoopOptions dlo)    { WallyCommands.HandleDeleteLoop(_environment, dlo.Name); return 0; }
+                    if (opts is ListLoopsOptions)       { WallyCommands.HandleListLoops(_environment); return 0; }
+                    if (opts is AddLoopOptions alo)     { WallyCommands.HandleAddLoop(_environment, alo.Name, alo.Description, alo.ActorName, alo.MaxIterations, alo.StartPrompt); return 0; }
+                    if (opts is EditLoopOptions elo)    { WallyCommands.HandleEditLoop(_environment, elo.Name, elo.Description, elo.ActorName, elo.MaxIterations, elo.StartPrompt); return 0; }
+                    if (opts is DeleteLoopOptions dlo)  { WallyCommands.HandleDeleteLoop(_environment, dlo.Name); return 0; }
 
                     // ── Wrappers ──────────────────────────────────────────────
                     if (opts is ListWrappersOptions)      { WallyCommands.HandleListWrappers(_environment); return 0; }
-                    if (opts is AddWrapperOptions awo)    { WallyCommands.HandleAddWrapper(_environment, awo.Name, awo.Description, awo.Executable, awo.ArgumentTemplate, awo.CanMakeChanges); return 0; }
-                    if (opts is EditWrapperOptions ewo)   { WallyCommands.HandleEditWrapper(_environment, ewo.Name, ewo.Description, ewo.Executable, ewo.ArgumentTemplate, ewo.CanMakeChanges); return 0; }
+                    if (opts is AddWrapperOptions awo)    { WallyCommands.HandleAddWrapper(_environment, awo.Name, awo.Description, awo.Executable, awo.ArgumentTemplate, awo.CanMakeChanges, !awo.NoConversationHistory); return 0; }
+                    if (opts is EditWrapperOptions ewo)   { WallyCommands.HandleEditWrapper(_environment, ewo.Name, ewo.Description, ewo.Executable, ewo.ArgumentTemplate, ewo.CanMakeChanges, ewo.NoConversationHistory.HasValue ? !ewo.NoConversationHistory.Value : null); return 0; }
                     if (opts is DeleteWrapperOptions dwo) { WallyCommands.HandleDeleteWrapper(_environment, dwo.Name); return 0; }
 
                     // ── Runbooks ──────────────────────────────────────────────

@@ -1,10 +1,11 @@
 {
   "Name": "Copilot",
-  "Description": "Read-only � runs gh copilot -p (non-interactive, stateless).",
+  "Description": "Read-only \u2014 runs gh copilot -p (non-interactive, stateless).",
   "Executable": "gh",
   "ArgumentTemplate": "copilot {model} {sourcePath} --yolo -s -p {prompt}",
   "ModelArgFormat": "--model {model}",
   "SourcePathArgFormat": "--add-dir {sourcePath}",
   "UseSourcePathAsWorkingDirectory": true,
-  "CanMakeChanges": false
+  "CanMakeChanges": false,
+  "UseConversationHistory": true
 }

@@ -23,5 +23,9 @@ namespace Wally.Console.Options.Wrappers
         [Option("can-make-changes", Required = false, Default = null,
             HelpText = "Whether this wrapper can make file changes (omit to keep current).")]
         public bool? CanMakeChanges { get; set; }
+
+        [Option("no-conversation-history", Required = false, Default = null,
+            HelpText = "Disable conversation history injection (omit to keep current).")]
+        public bool? NoConversationHistory { get; set; }
     }
 }

@@ -28,6 +28,15 @@ namespace Wally.Core
         [JsonIgnore]
         public SessionLogger Logger { get; }
 
+        // — Conversation history ——————————————————————————————————————————————
+
+        /// <summary>
+        /// Ordered conversation history (prompt/response pairs). Created once at
+        /// construction; bound to the workspace History folder on workspace load.
+        /// </summary>
+        [JsonIgnore]
+        public ConversationLogger History { get; }
+
         // — Folder pass-throughs ——————————————————————————————————————————————
 
         /// <summary>The workspace folder path (e.g. <c>/repo/.wally</c>).</summary>
@@ -62,6 +71,7 @@ namespace Wally.Core
         public WallyEnvironment()
         {
             Logger = new SessionLogger();
+            History = new ConversationLogger();
         }
 
         // — Workspace lifecycle ———————————————————————————————————————————————
@@ -71,6 +81,7 @@ namespace Wally.Core
         {
             Workspace = WallyWorkspace.Load(workspaceFolder);
             BindLogger();
+            BindHistory();
             InjectLoggerIntoActors();
         }
 
@@ -152,6 +163,7 @@ namespace Wally.Core
         /// </summary>
         public void CloseWorkspace()
         {
+            History.Unbind();
             Logger.Unbind();
             Workspace = null;
         }
@@ -232,7 +244,22 @@ namespace Wally.Core
         /// enrichment. Use this when no actor is specified — the user's prompt is
         /// sent as-is.
         /// </summary>
-        public string ExecutePrompt(string prompt, string? modelOverride = null, string? wrapperOverride = null)
+        /// <param name="prompt">The raw user prompt.</param>
+        /// <param name="modelOverride">Model override, or <see langword="null"/> for config default.</param>
+        /// <param name="wrapperOverride">Wrapper override, or <see langword="null"/> for config default.</param>
+        /// <param name="loopName">Loop name for history metadata, or <see langword="null"/>.</param>
+        /// <param name="iteration">0-based iteration index for history metadata.</param>
+        /// <param name="skipHistory">
+        /// When <see langword="true"/>, suppresses history injection into the prompt
+        /// but still records the turn. Used for loop iterations &gt; 1 and <c>--no-history</c>.
+        /// </param>
+        public string ExecutePrompt(
+            string prompt,
+            string? modelOverride = null,
+            string? wrapperOverride = null,
+            string? loopName = null,
+            int iteration = 0,
+            bool skipHistory = false)
         {
             var wrapper = ResolveWrapper(wrapperOverride);
             var ws = Workspace!;
@@ -243,9 +270,41 @@ namespace Wally.Core
                 ? modelOverride
                 : ws.Config.DefaultModel;
 
-            Logger.LogProcessedPrompt("(no actor)", prompt, model);
+            // — History injection (direct mode: prepend to prompt) ————————
+            string effectivePrompt = prompt;
+            if (!skipHistory && wrapper.UseConversationHistory)
+            {
+                var recentTurns = History.GetRecentTurns(ConversationLogger.MaxInjectedTurns, null);
+                string? historyBlock = ConversationLogger.FormatHistoryBlock(recentTurns);
+                if (historyBlock != null)
+                    effectivePrompt = historyBlock + "\n" + prompt;
+            }
 
-            return wrapper.Execute(prompt, ws.SourcePath, model, Logger);
+            Logger.LogProcessedPrompt("(no actor)", effectivePrompt, model);
+
+            // — Execute ———————————————————————————————————————————————————
+            var sw = Stopwatch.StartNew();
+            string response = wrapper.Execute(effectivePrompt, ws.SourcePath, model, Logger);
+            sw.Stop();
+
+            // — Record turn ——————————————————————————————————————————————
+            bool isError = IsWrapperError(response, wrapper.Name);
+            History.RecordTurn(new ConversationTurn
+            {
+                Timestamp   = DateTimeOffset.UtcNow,
+                SessionId   = Logger.SessionId.ToString("N"),
+                ActorName   = null,
+                WrapperName = wrapper.Name,
+                Model       = model,
+                Prompt      = prompt,
+                Response    = response,
+                IsError     = isError,
+                ElapsedMs   = sw.ElapsedMilliseconds,
+                LoopName    = loopName,
+                Iteration   = iteration
+            });
+
+            return response;
         }
 
         /// <summary>
@@ -253,13 +312,39 @@ namespace Wally.Core
         /// <paramref name="modelOverride"/> takes priority over <see cref="WallyConfig.DefaultModel"/>.
         /// <paramref name="wrapperOverride"/> takes priority over <see cref="WallyConfig.DefaultWrapper"/>.
         /// </summary>
-        public string ExecuteActor(Actor actor, string prompt, string? modelOverride = null, string? wrapperOverride = null)
+        /// <param name="actor">The actor to execute.</param>
+        /// <param name="prompt">The raw user prompt.</param>
+        /// <param name="modelOverride">Model override, or <see langword="null"/> for config default.</param>
+        /// <param name="wrapperOverride">Wrapper override, or <see langword="null"/> for config default.</param>
+        /// <param name="loopName">Loop name for history metadata, or <see langword="null"/>.</param>
+        /// <param name="iteration">0-based iteration index for history metadata.</param>
+        /// <param name="skipHistory">
+        /// When <see langword="true"/>, suppresses history injection into the prompt
+        /// but still records the turn. Used for loop iterations &gt; 1 and <c>--no-history</c>.
+        /// </param>
+        public string ExecuteActor(
+            Actor actor,
+            string prompt,
+            string? modelOverride = null,
+            string? wrapperOverride = null,
+            string? loopName = null,
+            int iteration = 0,
+            bool skipHistory = false)
         {
             var wrapper = ResolveWrapper(wrapperOverride);
             var ws = Workspace!;
 
             actor.Setup();
-            string processed = actor.ProcessPrompt(prompt);
+
+            // — History injection (actor mode: pass to ProcessPrompt) —————
+            string? historyBlock = null;
+            if (!skipHistory && wrapper.UseConversationHistory)
+            {
+                var recentTurns = History.GetRecentTurns(ConversationLogger.MaxInjectedTurns, actor.Name);
+                historyBlock = ConversationLogger.FormatHistoryBlock(recentTurns);
+            }
+
+            string processed = actor.ProcessPrompt(prompt, historyBlock);
 
             // Resolve model: explicit override ? config default.
             bool isDefaultKeyword = string.Equals(modelOverride, "default", StringComparison.OrdinalIgnoreCase);
@@ -269,54 +354,29 @@ namespace Wally.Core
 
             Logger.LogProcessedPrompt(actor.Name, processed, model);
 
-            return wrapper.Execute(processed, ws.SourcePath, model, Logger);
-        }
-
-        public List<string> RunActors(string prompt, string? modelOverride = null, string? wrapperOverride = null)
-        {
-            RequireWorkspace();
-            var responses = new List<string>();
-            foreach (var actor in Actors)
-            {
-                Logger.LogPrompt(actor.Name, prompt, modelOverride ?? Workspace!.Config.DefaultModel);
-                var sw = Stopwatch.StartNew();
-
-                string response = ExecuteActor(actor, prompt, modelOverride, wrapperOverride);
-
-                sw.Stop();
-                Logger.LogResponse(actor.Name, response, sw.ElapsedMilliseconds);
-
-                if (response != null)
-                    responses.Add($"[Role: {actor.Role.Name}]\n{response}");
-            }
-            return responses;
-        }
-
-        public List<string> RunActor(string prompt, string actorName, string? modelOverride = null, string? wrapperOverride = null)
-        {
-            RequireWorkspace();
-            var actor = Actors.Find(a =>
-                string.Equals(a.Name, actorName, StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(a.Role.Name, actorName, StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(a.GetType().Name, actorName, StringComparison.OrdinalIgnoreCase));
-
-            if (actor == null)
-            {
-                Logger.LogError($"Actor '{actorName}' not found.", "run");
-                return new List<string> { $"Actor '{actorName}' not found." };
-            }
-
-            Logger.LogPrompt(actor.Name, prompt, modelOverride ?? Workspace!.Config.DefaultModel);
+            // — Execute ———————————————————————————————————————————————————
             var sw = Stopwatch.StartNew();
-
-            string response = ExecuteActor(actor, prompt, modelOverride, wrapperOverride);
-
+            string response = wrapper.Execute(processed, ws.SourcePath, model, Logger);
             sw.Stop();
-            Logger.LogResponse(actor.Name, response, sw.ElapsedMilliseconds);
 
-            return response != null
-                ? new List<string> { $"[Role: {actor.Role.Name}]\n{response}" }
-                : new List<string>();
+            // — Record turn ——————————————————————————————————————————————
+            bool isError = IsWrapperError(response, wrapper.Name);
+            History.RecordTurn(new ConversationTurn
+            {
+                Timestamp   = DateTimeOffset.UtcNow,
+                SessionId   = Logger.SessionId.ToString("N"),
+                ActorName   = actor.Name,
+                WrapperName = wrapper.Name,
+                Model       = model,
+                Prompt      = prompt,
+                Response    = response,
+                IsError     = isError,
+                ElapsedMs   = sw.ElapsedMilliseconds,
+                LoopName    = loopName,
+                Iteration   = iteration
+            });
+
+            return response;
         }
 
         // — Guard —————————————————————————————————————————————————————————————
@@ -351,6 +411,17 @@ namespace Wally.Core
         }
 
         /// <summary>
+        /// Binds the conversation history logger to the current workspace's History folder.
+        /// Creates the History directory on disk if it doesn't exist.
+        /// Safe to call multiple times — only the first bind takes effect.
+        /// </summary>
+        private void BindHistory()
+        {
+            if (!HasWorkspace || History.HistoryFolder != null) return;
+            History.Bind(Workspace!.WorkspaceFolder, ConversationLogger.DefaultFolderName);
+        }
+
+        /// <summary>
         /// Sets <see cref="SessionLogger"/> on every loaded actor so the actor
         /// pipeline can log processed prompts.
         /// </summary>
@@ -358,6 +429,18 @@ namespace Wally.Core
         {
             foreach (var actor in Actors)
                 actor.Logger = Logger;
+        }
+
+        /// <summary>
+        /// Detects whether a wrapper response string represents an error condition.
+        /// Matches the known error patterns produced by <see cref="LLMWrapper"/>.
+        /// </summary>
+        private static bool IsWrapperError(string response, string wrapperName)
+        {
+            return response.StartsWith($"Error from {wrapperName}", StringComparison.Ordinal)
+                || response.StartsWith($"{wrapperName} exited with code", StringComparison.Ordinal)
+                || response.StartsWith($"Failed to call {wrapperName}", StringComparison.Ordinal)
+                || response.StartsWith($"({wrapperName} returned an empty response)", StringComparison.Ordinal);
         }
     }
 }

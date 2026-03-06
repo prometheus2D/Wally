@@ -6,6 +6,7 @@ using System.Text;
 using System.Windows.Forms;
 using Wally.Core;
 using Wally.Core.Actors;
+using Wally.Core.Logging;
 using Wally.Core.Providers;
 using Wally.Forms.Controls;
 using Wally.Forms.Theme;
@@ -390,13 +391,49 @@ namespace Wally.Forms.Controls.Editors
                     }
                 }
 
-                // ?? Section 4: Actor-enriched prompt (ProcessPrompt) ??
+                // — Section 4: Conversation history injection preview —
+                string? historyBlock = null;
+                bool wrapperUsesHistory = true;
+                if (wrapperName != null)
+                {
+                    var resolvedWrapper = _environment.Workspace!.LlmWrappers
+                        .FirstOrDefault(w => string.Equals(w.Name, wrapperName, StringComparison.OrdinalIgnoreCase));
+                    if (resolvedWrapper != null)
+                        wrapperUsesHistory = resolvedWrapper.UseConversationHistory;
+                }
+
+                if (wrapperUsesHistory)
+                {
+                    string? actorFilter = directMode ? null : actorName;
+                    var recentTurns = _environment.History.GetRecentTurns(
+                        ConversationLogger.MaxInjectedTurns, actorFilter);
+
+                    if (recentTurns.Count > 0)
+                    {
+                        historyBlock = ConversationLogger.FormatHistoryBlock(recentTurns);
+                        AppendSection(
+                            $"Conversation History ({recentTurns.Count} turn(s) — same-actor filter: {actorFilter ?? "(direct mode)"})",
+                            historyBlock ?? "(empty)", WallyTheme.TextSecondary);
+                    }
+                    else
+                    {
+                        AppendSection("Conversation History", "(no matching history turns)", WallyTheme.TextMuted);
+                    }
+                }
+                else
+                {
+                    AppendSection("Conversation History",
+                        $"Disabled for wrapper '{wrapperName}' (UseConversationHistory = false).",
+                        WallyTheme.TextMuted);
+                }
+
+                // — Section 5: Actor-enriched prompt (ProcessPrompt) —
                 if (!directMode)
                 {
                     var actor = _environment.GetActor(actorName!);
                     if (actor != null)
                     {
-                        string processedPrompt = actor.ProcessPrompt(effectivePrompt);
+                        string processedPrompt = actor.ProcessPrompt(effectivePrompt, historyBlock);
                         AppendSection(
                             $"Actor-Enriched Prompt (Actor.ProcessPrompt — {actor.Name})",
                             processedPrompt, WallyTheme.TextPrimary);
@@ -409,12 +446,15 @@ namespace Wally.Forms.Controls.Editors
                 }
                 else
                 {
-                    // Direct mode — prompt is sent as-is
+                    // Direct mode — history block is prepended to the prompt.
+                    string finalPrompt = historyBlock != null
+                        ? historyBlock + "\n" + effectivePrompt
+                        : effectivePrompt;
                     AppendSection("Final Prompt (direct mode — no actor enrichment)",
-                        effectivePrompt, WallyTheme.TextPrimary);
+                        finalPrompt, WallyTheme.TextPrimary);
                 }
 
-                // ?? Section 5: Wrapper CLI command preview ??
+                // — Section 6: Wrapper CLI command preview —
                 if (wrapperName != null)
                 {
                     var wrapper = _environment.Workspace!.LlmWrappers
@@ -427,16 +467,17 @@ namespace Wally.Forms.Controls.Editors
                         string sourcePath = _environment.SourcePath ?? "";
 
                         var cliPreview = new StringBuilder();
-                        cliPreview.AppendLine($"Executable:      {wrapper.Executable}");
-                        cliPreview.AppendLine($"Template:        {wrapper.ArgumentTemplate}");
-                        cliPreview.AppendLine($"CanMakeChanges:  {wrapper.CanMakeChanges}");
-                        cliPreview.AppendLine($"Model:           {(string.IsNullOrEmpty(resolvedModel) ? "(none)" : resolvedModel)}");
-                        cliPreview.AppendLine($"SourcePath:      {(string.IsNullOrEmpty(sourcePath) ? "(none)" : sourcePath)}");
+                        cliPreview.AppendLine($"Executable:             {wrapper.Executable}");
+                        cliPreview.AppendLine($"Template:               {wrapper.ArgumentTemplate}");
+                        cliPreview.AppendLine($"CanMakeChanges:         {wrapper.CanMakeChanges}");
+                        cliPreview.AppendLine($"UseConversationHistory: {wrapper.UseConversationHistory}");
+                        cliPreview.AppendLine($"Model:                  {(string.IsNullOrEmpty(resolvedModel) ? "(none)" : resolvedModel)}");
+                        cliPreview.AppendLine($"SourcePath:             {(string.IsNullOrEmpty(sourcePath) ? "(none)" : sourcePath)}");
 
                         if (!string.IsNullOrWhiteSpace(wrapper.ModelArgFormat) && !string.IsNullOrEmpty(resolvedModel))
-                            cliPreview.AppendLine($"ModelArgs:       {wrapper.ModelArgFormat.Replace("{model}", resolvedModel)}");
+                            cliPreview.AppendLine($"ModelArgs:              {wrapper.ModelArgFormat.Replace("{model}", resolvedModel)}");
                         if (!string.IsNullOrWhiteSpace(wrapper.SourcePathArgFormat) && !string.IsNullOrEmpty(sourcePath))
-                            cliPreview.AppendLine($"SourcePathArgs:  {wrapper.SourcePathArgFormat.Replace("{sourcePath}", sourcePath)}");
+                            cliPreview.AppendLine($"SourcePathArgs:         {wrapper.SourcePathArgFormat.Replace("{sourcePath}", sourcePath)}");
 
                         AppendSection($"Wrapper: {wrapper.Name}", cliPreview.ToString().TrimEnd(), WallyTheme.TextMuted);
                     }

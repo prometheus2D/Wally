@@ -6,5 +6,6 @@
   "ModelArgFormat": "--model {model}",
   "SourcePathArgFormat": "--add-dir {sourcePath}",
   "UseSourcePathAsWorkingDirectory": true,
-  "CanMakeChanges": true
+  "CanMakeChanges": true,
+  "UseConversationHistory": true
 }
