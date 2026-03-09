@@ -62,7 +62,8 @@ namespace Wally.Core.Logging
             _jsonOptions = new JsonSerializerOptions
             {
                 WriteIndented = false,
-                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                PropertyNameCaseInsensitive = true
             };
 
             // Buffer turns in memory until Bind() is called.
@@ -169,6 +170,26 @@ namespace Wally.Core.Logging
         // — Reading ——————————————————————————————————————————————————————————
 
         /// <summary>
+        /// Reads all lines from the history file using sharing flags compatible
+        /// with the open writer (which holds a Write handle with ReadWrite sharing).
+        /// <c>File.ReadAllLines</c> uses <c>FileShare.Read</c> internally, which
+        /// conflicts with the writer and throws <see cref="IOException"/>.
+        /// </summary>
+        private string[] ReadAllLinesShared(string filePath)
+        {
+            using var stream = new FileStream(
+                filePath, FileMode.Open, FileAccess.Read,
+                FileShare.ReadWrite | FileShare.Delete);
+            using var reader = new StreamReader(stream, Encoding.UTF8);
+
+            var lines = new List<string>();
+            string? line;
+            while ((line = reader.ReadLine()) != null)
+                lines.Add(line);
+            return lines.ToArray();
+        }
+
+        /// <summary>
         /// Returns the last <paramref name="maxTurns"/> turns in chronological order,
         /// filtered by actor and excluding errors and mid-loop iterations.
         /// <para>
@@ -197,11 +218,11 @@ namespace Wally.Core.Logging
                 _writer?.Flush();
             }
 
-            // Read outside the lock — File.ReadAllLines on a FileShare.ReadWrite file is safe.
+            // Read outside the lock — using shared file access compatible with the writer.
             string[] lines;
             try
             {
-                lines = File.ReadAllLines(_filePath!);
+                lines = ReadAllLinesShared(_filePath!);
             }
             catch (IOException)
             {
@@ -269,7 +290,7 @@ namespace Wally.Core.Logging
             string[] lines;
             try
             {
-                lines = File.ReadAllLines(_filePath!);
+                lines = ReadAllLinesShared(_filePath!);
             }
             catch (IOException)
             {

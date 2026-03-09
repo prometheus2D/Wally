@@ -56,6 +56,7 @@ namespace Wally.Forms
             editorsSeparator1 = new ToolStripSeparator();
             editConfigMenuItem = new ToolStripMenuItem();
             viewLogsMenuItem = new ToolStripMenuItem();
+            viewChatHistoryMenuItem = new ToolStripMenuItem();
             viewPromptViewerMenuItem = new ToolStripMenuItem();
             viewWorkspaceViewerMenuItem = new ToolStripMenuItem();
             editorsSeparator2 = new ToolStripSeparator();
@@ -296,6 +297,7 @@ namespace Wally.Forms
                 editWrappersMenuItem, editRunbooksMenuItem,
                 editorsSeparator1,
                 editConfigMenuItem, viewLogsMenuItem,
+                viewChatHistoryMenuItem,
                 viewPromptViewerMenuItem, viewWorkspaceViewerMenuItem,
                 editorsSeparator2,
                 closeAllEditorsMenuItem
@@ -337,6 +339,11 @@ namespace Wally.Forms
             viewLogsMenuItem.Size = new Size(260, 22);
             viewLogsMenuItem.Text = "\uD83D\uDCCB  Session &Logs";
             viewLogsMenuItem.ForeColor = WallyTheme.TextPrimary;
+
+            viewChatHistoryMenuItem.Name = "viewChatHistoryMenuItem";
+            viewChatHistoryMenuItem.Size = new Size(260, 22);
+            viewChatHistoryMenuItem.Text = "\uD83D\uDCAC  Chat &History";
+            viewChatHistoryMenuItem.ForeColor = WallyTheme.TextPrimary;
 
             viewPromptViewerMenuItem.Name = "viewPromptViewerMenuItem";
             viewPromptViewerMenuItem.Size = new Size(260, 22);
@@ -589,6 +596,7 @@ namespace Wally.Forms
         private ToolStripSeparator editorsSeparator1;
         private ToolStripMenuItem editConfigMenuItem;
         private ToolStripMenuItem viewLogsMenuItem;
+        private ToolStripMenuItem viewChatHistoryMenuItem;
         private ToolStripMenuItem viewPromptViewerMenuItem;
         private ToolStripMenuItem viewWorkspaceViewerMenuItem;
         private ToolStripSeparator editorsSeparator2;

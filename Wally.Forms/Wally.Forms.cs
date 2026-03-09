@@ -50,6 +50,7 @@ namespace Wally.Forms
         private const string TabKeyWelcome = "__welcome__";
         private const string TabKeyConfig  = "__config__";
         private const string TabKeyLogs    = "__logs__";
+        private const string TabKeyChatHistory = "__chat_history__";
         private const string TabKeyPromptViewer = "__prompt_viewer__";
         private const string TabKeyWorkspaceViewer = "__workspace_viewer__";
 
@@ -204,6 +205,7 @@ namespace Wally.Forms
             editRunbooksMenuItem.Click += (_, _) => OpenRunbookPicker();
             editConfigMenuItem.Click += (_, _) => OpenConfigEditor();
             viewLogsMenuItem.Click += (_, _) => OpenLogViewer();
+            viewChatHistoryMenuItem.Click += (_, _) => OpenChatHistoryViewer();
             viewPromptViewerMenuItem.Click += (_, _) => OpenPromptViewer();
             viewWorkspaceViewerMenuItem.Click += (_, _) => OpenWorkspaceViewer();
             closeAllEditorsMenuItem.Click += (_, _) => _tabHost.CloseAllTabs();
@@ -727,6 +729,19 @@ namespace Wally.Forms
             viewer.RefreshSessions();
 
             _tabHost.OpenTab(TabKeyLogs, "Logs", "\uD83D\uDCCB", viewer);
+        }
+
+        private void OpenChatHistoryViewer()
+        {
+            if (!_environment.HasWorkspace) return;
+
+            if (_tabHost.SelectTab(TabKeyChatHistory)) return;
+
+            var viewer = new ChatHistoryViewerPanel();
+            viewer.BindEnvironment(_environment);
+            viewer.RefreshHistory();
+
+            _tabHost.OpenTab(TabKeyChatHistory, "Chat History", "\uD83D\uDCAC", viewer);
         }
 
         private void OpenPromptViewer()
