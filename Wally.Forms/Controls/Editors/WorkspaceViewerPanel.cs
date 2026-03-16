@@ -8,6 +8,7 @@ using System.Windows.Forms;
 using Wally.Core;
 using Wally.Core.Actors;
 using Wally.Core.Providers;
+using Wally.Forms.Controls;
 using Wally.Forms.Theme;
 
 namespace Wally.Forms.Controls.Editors
@@ -40,13 +41,19 @@ namespace Wally.Forms.Controls.Editors
             Dock = DockStyle.Fill;
             BackColor = WallyTheme.Surface0;
 
-            // ?? Header ??
+            var scroll = ThemedEditorFactory.CreateScrollableSurface();
+
+            var table = ThemedEditorFactory.CreateScrollableFormTable(1, new Padding(20, 12, 20, 12));
+            table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
+
+            int row = 0;
+
             var headerPanel = new Panel
             {
                 Dock = DockStyle.Top,
-                Height = 60,
+                Height = 48,
                 BackColor = WallyTheme.Surface0,
-                Padding = new Padding(20, 12, 20, 4)
+                Margin = new Padding(0, 0, 0, 8)
             };
 
             var lblTitle = new Label
@@ -100,22 +107,22 @@ namespace Wally.Forms.Controls.Editors
             headerPanel.Controls.Add(actionBar);
             headerPanel.Controls.Add(_lblStatus);
 
-            // ?? Output ??
-            _txtOutput = new RichTextBox
-            {
-                Dock = DockStyle.Fill,
-                Font = WallyTheme.FontMono,
-                BackColor = WallyTheme.Surface0,
-                ForeColor = WallyTheme.TextPrimary,
-                BorderStyle = BorderStyle.None,
-                ReadOnly = true,
-                WordWrap = false,
-                ScrollBars = RichTextBoxScrollBars.Both,
-                DetectUrls = false
-            };
+            table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            table.Controls.Add(headerPanel, 0, row++);
 
-            Controls.Add(_txtOutput);
-            Controls.Add(headerPanel);
+            _txtOutput = ThemedEditorFactory.CreateFormTextArea(
+                400,
+                wordWrap: false,
+                readOnly: true,
+                backColor: WallyTheme.Surface0,
+                margin: new Padding(0));
+            _txtOutput.BorderStyle = BorderStyle.None;
+
+            table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            table.Controls.Add(_txtOutput, 0, row++);
+
+            scroll.Controls.Add(table);
+            Controls.Add(scroll);
 
             ResumeLayout(true);
         }

@@ -5,6 +5,7 @@ using System.Linq;
 using System.Windows.Forms;
 using Wally.Core;
 using Wally.Core.Logging;
+using Wally.Forms.Controls;
 using Wally.Forms.Theme;
 
 namespace Wally.Forms.Controls.Editors
@@ -81,16 +82,7 @@ namespace Wally.Forms.Controls.Editors
             headerPanel.Controls.Add(_lblInfo);
 
             // ?? Session list (left) ??
-            _lstSessions = new ListBox
-            {
-                Dock = DockStyle.Left,
-                Width = 260,
-                Font = WallyTheme.FontMono,
-                BackColor = WallyTheme.Surface1,
-                ForeColor = WallyTheme.TextPrimary,
-                BorderStyle = BorderStyle.None,
-                IntegralHeight = false
-            };
+            _lstSessions = ThemedEditorFactory.CreateListViewer(260, WallyTheme.FontMono, WallyTheme.Surface1);
             _lstSessions.SelectedIndexChanged += OnSessionSelected;
 
             var splitter = new Splitter
@@ -102,18 +94,7 @@ namespace Wally.Forms.Controls.Editors
             };
 
             // ?? Log content (fill) ??
-            _txtLogContent = new RichTextBox
-            {
-                Dock = DockStyle.Fill,
-                Font = WallyTheme.FontMono,
-                BackColor = WallyTheme.Surface0,
-                ForeColor = WallyTheme.TextPrimary,
-                BorderStyle = BorderStyle.None,
-                ReadOnly = true,
-                WordWrap = false,
-                ScrollBars = RichTextBoxScrollBars.Both,
-                DetectUrls = false
-            };
+            _txtLogContent = ThemedEditorFactory.CreateDocumentViewer(wordWrap: false, backColor: WallyTheme.Surface0);
 
             Controls.Add(_txtLogContent);
             Controls.Add(splitter);

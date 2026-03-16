@@ -34,8 +34,10 @@ namespace Wally.Forms.Controls.Editors
         private readonly ComboBox _cboMode;
         private readonly RichTextBox _txtUserPrompt;
         private readonly RichTextBox _txtOutput;
+        private readonly RichTextBox _txtExactPrompt;
         private readonly Button _btnBuild;
         private readonly Button _btnCopy;
+        private readonly Button _btnCopyExact;
         private readonly Label _lblStatus;
 
         // ?? State ???????????????????????????????????????????????????????????
@@ -52,21 +54,9 @@ namespace Wally.Forms.Controls.Editors
             BackColor = WallyTheme.Surface0;
 
             // Scrollable wrapper for the top form area.
-            var scroll = new ThemedScrollPanel
-            {
-                Dock = DockStyle.Fill,
-                BackColor = WallyTheme.Surface0
-            };
+            var scroll = ThemedEditorFactory.CreateScrollableSurface();
 
-            var table = new TableLayoutPanel
-            {
-                AutoSize = true,
-                AutoSizeMode = AutoSizeMode.GrowAndShrink,
-                Dock = DockStyle.Top,
-                ColumnCount = 2,
-                BackColor = WallyTheme.Surface0,
-                Padding = new Padding(20)
-            };
+            var table = ThemedEditorFactory.CreateScrollableFormTable(2);
             table.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 130f));
             table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
 
@@ -101,13 +91,24 @@ namespace Wally.Forms.Controls.Editors
             _btnBuild = CreateButton("\u25B6 Build Prompt");
             _btnBuild.Click += (_, _) => BuildPromptPreview();
 
-            _btnCopy = CreateButton("\uD83D\uDCCB Copy");
+            _btnCopy = CreateButton("\uD83D\uDCCB Copy Details");
             _btnCopy.Click += (_, _) =>
             {
                 if (!string.IsNullOrEmpty(_txtOutput.Text))
                 {
                     Clipboard.SetText(_txtOutput.Text);
-                    _lblStatus.Text = "Copied to clipboard.";
+                    _lblStatus.Text = "Prompt details copied.";
+                    _lblStatus.ForeColor = WallyTheme.Green;
+                }
+            };
+
+            _btnCopyExact = CreateButton("\uD83E\uDDFE Copy Exact Prompt");
+            _btnCopyExact.Click += (_, _) =>
+            {
+                if (!string.IsNullOrEmpty(_txtExactPrompt.Text))
+                {
+                    Clipboard.SetText(_txtExactPrompt.Text);
+                    _lblStatus.Text = "Exact prompt copied.";
                     _lblStatus.ForeColor = WallyTheme.Green;
                 }
             };
@@ -124,6 +125,7 @@ namespace Wally.Forms.Controls.Editors
 
             actionBar.Controls.Add(_btnBuild);
             actionBar.Controls.Add(_btnCopy);
+            actionBar.Controls.Add(_btnCopyExact);
             actionBar.Controls.Add(_lblStatus);
 
             table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
@@ -175,19 +177,11 @@ namespace Wally.Forms.Controls.Editors
             table.SetColumnSpan(lblPrompt, 2);
             row++;
 
-            _txtUserPrompt = new RichTextBox
-            {
-                Dock = DockStyle.Top,
-                Height = 80,
-                MinimumSize = new Size(0, 80),
-                Font = WallyTheme.FontMono,
-                BackColor = WallyTheme.Surface2,
-                ForeColor = WallyTheme.TextPrimary,
-                BorderStyle = BorderStyle.FixedSingle,
-                WordWrap = true,
-                ScrollBars = RichTextBoxScrollBars.Vertical,
-                Margin = new Padding(0, 0, 0, 8)
-            };
+            _txtUserPrompt = ThemedEditorFactory.CreateFormTextArea(
+                80,
+                wordWrap: true,
+                backColor: WallyTheme.Surface2,
+                margin: new Padding(0, 0, 0, 8));
             _txtUserPrompt.KeyDown += (_, e) =>
             {
                 if (e.Control && e.KeyCode == Keys.Enter)
@@ -205,31 +199,58 @@ namespace Wally.Forms.Controls.Editors
             // ?? Output section header ??
             table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             var lblOutput = CreateSectionLabel(
-                "\uD83D\uDCE4 Constructed Prompt Preview", WallyTheme.FontUIBold, WallyTheme.TextSecondary);
+                "\uD83D\uDD2C Prompt Construction Details", WallyTheme.FontUIBold, WallyTheme.TextSecondary);
             table.Controls.Add(lblOutput, 0, row);
             table.SetColumnSpan(lblOutput, 2);
             row++;
 
+            table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            var lblOutputHelp = CreateSectionLabel(
+                "Review each stage of prompt assembly below. The exact first prompt sent to the model is shown in its own section at the bottom.",
+                WallyTheme.FontUISmall, WallyTheme.TextMuted);
+            table.Controls.Add(lblOutputHelp, 0, row);
+            table.SetColumnSpan(lblOutputHelp, 2);
+            row++;
+
             // ?? Output display ??
-            _txtOutput = new RichTextBox
-            {
-                Dock = DockStyle.Top,
-                Height = 400,
-                MinimumSize = new Size(0, 200),
-                Font = WallyTheme.FontMono,
-                BackColor = WallyTheme.Surface1,
-                ForeColor = WallyTheme.TextPrimary,
-                BorderStyle = BorderStyle.FixedSingle,
-                ReadOnly = true,
-                WordWrap = true,
-                ScrollBars = RichTextBoxScrollBars.Both,
-                DetectUrls = false,
-                Margin = new Padding(0, 0, 0, 4)
-            };
+            _txtOutput = ThemedEditorFactory.CreateFormTextArea(
+                200,
+                wordWrap: true,
+                readOnly: true,
+                backColor: WallyTheme.Surface1,
+                margin: new Padding(0, 0, 0, 8));
 
             table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             table.Controls.Add(_txtOutput, 0, row);
             table.SetColumnSpan(_txtOutput, 2);
+            row++;
+
+            table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            var lblExactPrompt = CreateSectionLabel(
+                "\uD83E\uDDFE Exact Prompt Sent To The LLM", WallyTheme.FontUIBold, WallyTheme.TextPrimary);
+            table.Controls.Add(lblExactPrompt, 0, row);
+            table.SetColumnSpan(lblExactPrompt, 2);
+            row++;
+
+            table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            var lblExactPromptHelp = CreateSectionLabel(
+                "This is the exact text used for the first LLM request. If a loop is selected, later iterations use the continue prompt template shown above.",
+                WallyTheme.FontUISmall, WallyTheme.TextMuted);
+            table.Controls.Add(lblExactPromptHelp, 0, row);
+            table.SetColumnSpan(lblExactPromptHelp, 2);
+            row++;
+
+            _txtExactPrompt = ThemedEditorFactory.CreateFormTextArea(
+                160,
+                wordWrap: true,
+                readOnly: true,
+                backColor: WallyTheme.Surface2,
+                detectUrls: false,
+                margin: new Padding(0, 0, 0, 4));
+
+            table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            table.Controls.Add(_txtExactPrompt, 0, row);
+            table.SetColumnSpan(_txtExactPrompt, 2);
             row++;
 
             scroll.Controls.Add(table);
@@ -288,6 +309,7 @@ namespace Wally.Forms.Controls.Editors
         private void BuildPromptPreview()
         {
             _txtOutput.Clear();
+            _txtExactPrompt.Clear();
 
             if (_environment?.HasWorkspace != true)
             {
@@ -321,8 +343,8 @@ namespace Wally.Forms.Controls.Editors
 
                 string modeText = _cboMode.SelectedItem?.ToString() ?? "Ask";
                 bool isAgent = string.Equals(modeText, "Agent", StringComparison.OrdinalIgnoreCase);
+                string? exactPromptToSend = null;
 
-                // Resolve wrapper
                 string? wrapperName = null;
                 if (_cboWrapper.SelectedIndex > 0)
                 {
@@ -330,7 +352,6 @@ namespace Wally.Forms.Controls.Editors
                 }
                 else
                 {
-                    // Auto-resolve like ChatPanel does
                     var wrappers = _environment.Workspace!.LlmWrappers;
                     var match = wrappers.FirstOrDefault(w => w.CanMakeChanges == isAgent);
                     wrapperName = match?.Name ?? (wrappers.Count > 0 ? wrappers[0].Name : null);
@@ -434,6 +455,7 @@ namespace Wally.Forms.Controls.Editors
                     if (actor != null)
                     {
                         string processedPrompt = actor.ProcessPrompt(effectivePrompt, historyBlock);
+                        exactPromptToSend = processedPrompt;
                         AppendSection(
                             $"Actor-Enriched Prompt (Actor.ProcessPrompt — {actor.Name})",
                             processedPrompt, WallyTheme.TextPrimary);
@@ -450,6 +472,7 @@ namespace Wally.Forms.Controls.Editors
                     string finalPrompt = historyBlock != null
                         ? historyBlock + "\n" + effectivePrompt
                         : effectivePrompt;
+                    exactPromptToSend = finalPrompt;
                     AppendSection("Final Prompt (direct mode — no actor enrichment)",
                         finalPrompt, WallyTheme.TextPrimary);
                 }
@@ -482,6 +505,9 @@ namespace Wally.Forms.Controls.Editors
                         AppendSection($"Wrapper: {wrapper.Name}", cliPreview.ToString().TrimEnd(), WallyTheme.TextMuted);
                     }
                 }
+
+                if (!string.IsNullOrWhiteSpace(exactPromptToSend))
+                    _txtExactPrompt.Text = exactPromptToSend;
 
                 _lblStatus.Text = $"Built at {DateTime.Now:HH:mm:ss}";
                 _lblStatus.ForeColor = WallyTheme.Green;

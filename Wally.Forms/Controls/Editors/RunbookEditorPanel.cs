@@ -3,6 +3,7 @@ using System.Drawing;
 using System.IO;
 using System.Windows.Forms;
 using Wally.Core;
+using Wally.Forms.Controls;
 using Wally.Forms.Theme;
 
 namespace Wally.Forms.Controls.Editors
@@ -15,7 +16,7 @@ namespace Wally.Forms.Controls.Editors
     {
         private readonly Label _lblName;
         private readonly Label _lblDescription;
-        private readonly RichTextBox _txtContent;
+        private readonly ThemedRichTextBox _txtContent;
         private readonly Label _lblStatus;
         private readonly Button _btnSave;
         private readonly Button _btnRevert;
@@ -104,19 +105,10 @@ namespace Wally.Forms.Controls.Editors
             headerPanel.Controls.Add(_lblDescription);
 
             // Content editor (raw .wrb text)
-            _txtContent = new RichTextBox
-            {
-                Dock = DockStyle.Fill,
-                Font = WallyTheme.FontMonoLarge,
-                BackColor = WallyTheme.Surface1,
-                ForeColor = WallyTheme.TextPrimary,
-                BorderStyle = BorderStyle.None,
-                WordWrap = false,
-                ScrollBars = RichTextBoxScrollBars.Both,
-                AcceptsTab = true,
-                DetectUrls = false
-            };
-            _txtContent.TextChanged += OnContentChanged;
+            _txtContent = ThemedEditorFactory.CreateDocumentViewer(wordWrap: false, backColor: WallyTheme.Surface1);
+            _txtContent.Font = WallyTheme.FontMonoLarge;
+            _txtContent.AcceptsTab = true;
+            _txtContent.DetectUrls = false;
 
             Controls.Add(_txtContent);
             Controls.Add(headerPanel);

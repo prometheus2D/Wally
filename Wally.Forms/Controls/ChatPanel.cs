@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -31,33 +31,33 @@ namespace Wally.Forms.Controls
     }
 
     /// <summary>
-    /// AI chat panel — right-side copilot conversation window.
+    /// AI chat panel � right-side copilot conversation window.
     /// <para>
     /// The panel exposes two axes of control:
     /// <list type="bullet">
-    ///   <item><b>Action mode</b> (Ask / Agent) — determines the wrapper
+    ///   <item><b>Action mode</b> (Ask / Agent) � determines the wrapper
     ///         and whether the AI can make file changes.</item>
-    ///   <item><b>Loop selection</b> — optionally runs the prompt through an iterative
+    ///   <item><b>Loop selection</b> � optionally runs the prompt through an iterative
     ///         loop definition from the workspace's Loops/ folder.</item>
     /// </list>
-    /// Dropdowns reflect exactly what is loaded from disk — no hardcoded items.
+    /// Dropdowns reflect exactly what is loaded from disk � no hardcoded items.
     /// </para>
     /// </summary>
     public sealed class ChatPanel : UserControl
     {
-        // ── Header ──────────────────────────────────────────────────────────
+        // -- Header ----------------------------------------------------------
 
         private readonly Panel _header;
         private readonly Label _lblTitle;
 
-        // ── Action mode selector ────────────────────────────────────────────
+        // -- Action mode selector --------------------------------------------
 
         private readonly Panel _modeBar;
         private readonly Button _btnModeAsk;
         private readonly Button _btnModeAgent;
         private readonly Label _lblModeHint;
 
-        // ── Toolbar (Actor, Loop, Model) ────────────────────────────────────
+        // -- Toolbar (Actor, Loop, Model) ------------------------------------
 
         private readonly ToolStrip _toolbar;
         private readonly ToolStripDropDownButton _ddActor;
@@ -66,19 +66,19 @@ namespace Wally.Forms.Controls
         private readonly ToolStripButton _btnClear;
         private readonly ToolStripButton _btnClearHistory;
 
-        // ── Selected values (tracked explicitly) ────────────────────────────
+        // -- Selected values (tracked explicitly) ----------------------------
 
         private string? _selectedActor;   // null = "None" (direct prompt)
         private string? _selectedLoop;    // null = no loop (single run)
         private string? _selectedModel;   // null = workspace default
 
-        // ── Conversation area ───────────────────────────────────────────────
+        // -- Conversation area -----------------------------------------------
 
         private readonly Panel _messagesContainer;
         private readonly FlowLayoutPanel _messagesFlow;
         private readonly Label _lblEmptyState;
 
-        // ── Input area ──────────────────────────────────────────────────────
+        // -- Input area ------------------------------------------------------
 
         private readonly Panel _inputArea;
         private readonly Panel _inputBorder;
@@ -88,7 +88,7 @@ namespace Wally.Forms.Controls
         private readonly Label _lblStatus;
         private readonly Label _lblHint;
 
-        // ── State ───────────────────────────────────────────────────────────
+        // -- State -----------------------------------------------------------
 
         private WallyEnvironment? _environment;
         private CancellationTokenSource? _cts;
@@ -96,11 +96,11 @@ namespace Wally.Forms.Controls
         private bool _workspaceLoaded;
         private ActionMode _currentMode = ActionMode.Ask;
 
-        // ── Events ──────────────────────────────────────────────────────────
+        // -- Events ----------------------------------------------------------
 
         public event EventHandler<string>? CommandIssued;
 
-        // ── Constructor ─────────────────────────────────────────────────────
+        // -- Constructor -----------------------------------------------------
 
         public ChatPanel()
         {
@@ -108,7 +108,7 @@ namespace Wally.Forms.Controls
 
             var renderer = WallyTheme.CreateRenderer();
 
-            // ── Header ──
+            // -- Header --
             _lblTitle = new Label
             {
                 Text = "AI CHAT",
@@ -127,7 +127,7 @@ namespace Wally.Forms.Controls
             };
             _header.Controls.Add(_lblTitle);
 
-            // ── Action mode selector bar ──
+            // -- Action mode selector bar --
             _btnModeAsk = CreateModeButton("\uD83D\uDCAC Ask");
             _btnModeAgent = CreateModeButton("\uD83E\uDD16 Agent");
 
@@ -168,7 +168,7 @@ namespace Wally.Forms.Controls
             _modeBar.Controls.Add(_lblModeHint);
             _modeBar.Controls.Add(modeButtonPanel);
 
-            // ── Toolbar dropdown buttons ──
+            // -- Toolbar dropdown buttons --
             _ddActor = CreateDropDown("None", "Select actor (None = direct prompt)");
             _ddLoop = CreateDropDown("(none)", "Select loop (none = single run)");
             _ddModel = CreateDropDown("(default)", "Select model (default = workspace default)");
@@ -215,7 +215,7 @@ namespace Wally.Forms.Controls
                 _btnClearHistory
             });
 
-            // ── Empty state placeholder ──
+            // -- Empty state placeholder --
             _lblEmptyState = new Label
             {
                 Text = "\U0001F4AC\n\nType a message to start a conversation.\n\n" +
@@ -230,7 +230,7 @@ namespace Wally.Forms.Controls
                 AutoSize = false
             };
 
-            // ── Message flow ──
+            // -- Message flow --
             _messagesFlow = new FlowLayoutPanel
             {
                 Dock = DockStyle.Top,
@@ -242,19 +242,15 @@ namespace Wally.Forms.Controls
                 BackColor = WallyTheme.Surface0
             };
 
-            // ── Scrollable message container ──
-            _messagesContainer = new ThemedScrollPanel
-            {
-                Dock = DockStyle.Fill,
-                BackColor = WallyTheme.Surface0
-            };
+            // -- Scrollable message container --
+            _messagesContainer = ThemedEditorFactory.CreateScrollableSurface();
             _messagesContainer.Controls.Add(_messagesFlow);
             _messagesContainer.Controls.Add(_lblEmptyState);
             _messagesContainer.Controls.SetChildIndex(_lblEmptyState, 1);
             _messagesContainer.Controls.SetChildIndex(_messagesFlow, 0);
             _messagesContainer.Resize += OnMessagesResize;
 
-            // ── Status label ──
+            // -- Status label --
             _lblStatus = new Label
             {
                 Dock = DockStyle.Bottom,
@@ -266,19 +262,8 @@ namespace Wally.Forms.Controls
                 TextAlign = ContentAlignment.MiddleLeft
             };
 
-            // ── Input text box ──
-            _txtInput = new RichTextBox
-            {
-                Dock = DockStyle.Fill,
-                Font = WallyTheme.FontUI,
-                BackColor = WallyTheme.Surface2,
-                ForeColor = WallyTheme.TextPrimary,
-                BorderStyle = BorderStyle.None,
-                AcceptsTab = false,
-                Multiline = true,
-                ScrollBars = RichTextBoxScrollBars.Vertical,
-                WordWrap = true
-            };
+            // -- Input text box --
+            _txtInput = ThemedEditorFactory.CreateInputTextArea(wordWrap: true, acceptsTab: false, backColor: WallyTheme.Surface2);
             _txtInput.KeyDown += OnInputKeyDown;
             _txtInput.GotFocus += (_, _) => _inputBorder.BackColor = WallyTheme.BorderFocused;
             _txtInput.LostFocus += (_, _) => _inputBorder.BackColor = WallyTheme.Border;
@@ -324,7 +309,7 @@ namespace Wally.Forms.Controls
             _inputArea.Controls.Add(inputContent);
             _inputArea.Controls.Add(_lblHint);
 
-            // ── Assembly (order: fill first, then docked edges) ──
+            // -- Assembly (order: fill first, then docked edges) --
             Controls.Add(_messagesContainer);   // Fill
             Controls.Add(_lblStatus);            // Bottom
             Controls.Add(_inputArea);            // Bottom
@@ -337,17 +322,17 @@ namespace Wally.Forms.Controls
 
             ResumeLayout(true);
 
-            // ── Initial state ──
+            // -- Initial state --
             SetMode(ActionMode.Ask);
             SetWorkspaceLoaded(false);
         }
 
-        // ── Dropdown factory ────────────────────────────────────────────────
+        // -- Dropdown factory ------------------------------------------------
 
         /// <summary>
         /// Creates a themed <see cref="ToolStripDropDownButton"/> that acts as a
         /// simple single-level dropdown menu. Items are populated dynamically via
-        /// the Refresh* methods. No inner ComboBox — just ToolStripMenuItems.
+        /// the Refresh* methods. No inner ComboBox � just ToolStripMenuItems.
         /// </summary>
         private static ToolStripDropDownButton CreateDropDown(string defaultText, string tooltip)
         {
@@ -398,7 +383,7 @@ namespace Wally.Forms.Controls
             }
         }
 
-        // ── Button factories ────────────────────────────────────────────────
+        // -- Button factories ------------------------------------------------
 
         private static Button CreateModeButton(string text)
         {
@@ -439,7 +424,7 @@ namespace Wally.Forms.Controls
             return btn;
         }
 
-        // ── Action mode management ──────────────────────────────────────────
+        // -- Action mode management ------------------------------------------
 
         private void SetMode(ActionMode mode)
         {
@@ -481,7 +466,7 @@ namespace Wally.Forms.Controls
                 _txtInput.ReadOnly = false;
             }
 
-            // All controls remain enabled — actor, loop, and model are orthogonal to the action mode.
+            // All controls remain enabled � actor, loop, and model are orthogonal to the action mode.
             bool inputEnabled = _workspaceLoaded && !_isRunning;
             _ddActor.Enabled = inputEnabled;
             _ddLoop.Enabled = inputEnabled;
@@ -496,7 +481,7 @@ namespace Wally.Forms.Controls
             };
         }
 
-        // ── Wrapper resolution ──────────────────────────────────────────────
+        // -- Wrapper resolution ----------------------------------------------
 
         /// <summary>
         /// Resolves the wrapper name for the current action mode.
@@ -519,7 +504,7 @@ namespace Wally.Forms.Controls
             return wrappers.Count > 0 ? wrappers[0].Name : null;
         }
 
-        // ── Public API ──────────────────────────────────────────────────────
+        // -- Public API ------------------------------------------------------
 
         public void BindEnvironment(WallyEnvironment environment)
         {
@@ -725,7 +710,7 @@ namespace Wally.Forms.Controls
             UpdateEmptyState();
         }
 
-        // ── Clear history logic ──────────────────────────────────────────────
+        // -- Clear history logic ----------------------------------------------
 
         private void ClearHistory()
         {
@@ -740,7 +725,7 @@ namespace Wally.Forms.Controls
                 MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
 
-        // ── Send logic ──────────────────────────────────────────────────────
+        // -- Send logic ------------------------------------------------------
 
         private void OnInputKeyDown(object? sender, KeyEventArgs e)
         {
@@ -771,7 +756,7 @@ namespace Wally.Forms.Controls
                 return;
             }
 
-            // ── Resolve selections from tracked state ──
+            // -- Resolve selections from tracked state --
             string? actorName = _selectedActor;
             bool directMode = string.IsNullOrEmpty(actorName);
 
@@ -784,7 +769,7 @@ namespace Wally.Forms.Controls
 
             string? wrapperName = ResolveWrapperForMode();
 
-            // ── Build the equivalent CLI command for logging ──
+            // -- Build the equivalent CLI command for logging --
             string label = directMode ? "AI" : actorName!;
             var cmdParts = new List<string> { "run", $"\"{prompt}\"" };
             if (!directMode) cmdParts.Add($"-a {actorName}");
@@ -840,7 +825,7 @@ namespace Wally.Forms.Controls
                     for (int i = 0; i < results.Count; i++)
                         AddMessage($"{label} [{i + 1}/{results.Count}]", results[i], MessageKind.Actor);
                     AddMessage("System",
-                        $"Loop completed — {results.Count} iteration(s).",
+                        $"Loop completed � {results.Count} iteration(s).",
                         MessageKind.System);
                 }
             }
@@ -860,7 +845,7 @@ namespace Wally.Forms.Controls
             }
         }
 
-        // ── Message rendering ───────────────────────────────────────────────
+        // -- Message rendering -----------------------------------------------
 
         private void AddMessage(string sender, string text, MessageKind kind)
         {
@@ -893,7 +878,7 @@ namespace Wally.Forms.Controls
             if (empty) _lblEmptyState.BringToFront();
         }
 
-        // ── UI state ────────────────────────────────────────────────────────
+        // -- UI state --------------------------------------------------------
 
         private void SetRunning(bool running, string? context = null)
         {
@@ -922,9 +907,9 @@ namespace Wally.Forms.Controls
         }
     }
 
-    // ────────────────────────────────────────────────────────────────────────
-    //  ChatBubble — custom owner-drawn message with rounded corners
-    // ────────────────────────────────────────────────────────────────────────
+    // ------------------------------------------------------------------------
+    //  ChatBubble � custom owner-drawn message with rounded corners
+    // ------------------------------------------------------------------------
 
     internal sealed class ChatBubble : Control
     {
@@ -1039,3 +1024,4 @@ namespace Wally.Forms.Controls
         }
     }
 }
+

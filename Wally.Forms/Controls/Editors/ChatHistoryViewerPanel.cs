@@ -6,6 +6,7 @@ using System.Linq;
 using System.Windows.Forms;
 using Wally.Core;
 using Wally.Core.Logging;
+using Wally.Forms.Controls;
 using Wally.Forms.Theme;
 
 namespace Wally.Forms.Controls.Editors
@@ -29,9 +30,9 @@ namespace Wally.Forms.Controls.Editors
         private readonly ComboBox _cboActorFilter;
         private readonly Label _lblInfo;
 
-        private readonly ListBox _lstTurns;
+        private readonly ThemedListBox _lstTurns;
         private readonly Splitter _splitter;
-        private readonly RichTextBox _txtDetail;
+        private readonly ThemedRichTextBox _txtDetail;
 
         // ?? State ???????????????????????????????????????????????????????????
 
@@ -144,17 +145,8 @@ namespace Wally.Forms.Controls.Editors
 
             // ?? Turn list (left) ????????????????????????????????????????????
 
-            _lstTurns = new ListBox
-            {
-                Dock = DockStyle.Left,
-                Width = 340,
-                Font = WallyTheme.FontUISmall,
-                BackColor = WallyTheme.Surface1,
-                ForeColor = WallyTheme.TextPrimary,
-                BorderStyle = BorderStyle.None,
-                IntegralHeight = false,
-                DrawMode = DrawMode.OwnerDrawVariable
-            };
+            _lstTurns = ThemedEditorFactory.CreateListViewer(340, WallyTheme.FontUISmall, WallyTheme.Surface1);
+            _lstTurns.DrawMode = DrawMode.OwnerDrawVariable;
             _lstTurns.MeasureItem += OnMeasureItem;
             _lstTurns.DrawItem += OnDrawItem;
             _lstTurns.SelectedIndexChanged += OnTurnSelected;
@@ -169,18 +161,7 @@ namespace Wally.Forms.Controls.Editors
 
             // ?? Detail pane (fill) ??????????????????????????????????????????
 
-            _txtDetail = new RichTextBox
-            {
-                Dock = DockStyle.Fill,
-                Font = WallyTheme.FontMono,
-                BackColor = WallyTheme.Surface0,
-                ForeColor = WallyTheme.TextPrimary,
-                BorderStyle = BorderStyle.None,
-                ReadOnly = true,
-                WordWrap = true,
-                ScrollBars = RichTextBoxScrollBars.Both,
-                DetectUrls = false
-            };
+            _txtDetail = ThemedEditorFactory.CreateDocumentViewer(wordWrap: true, backColor: WallyTheme.Surface0);
 
             // ?? Assembly ????????????????????????????????????????????????????
             // Order: Fill first, then docked edges.

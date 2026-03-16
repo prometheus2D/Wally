@@ -41,21 +41,9 @@ namespace Wally.Forms.Controls.Editors
             Dock = DockStyle.Fill;
             BackColor = WallyTheme.Surface0;
 
-            var scroll = new ThemedScrollPanel
-            {
-                Dock = DockStyle.Fill,
-                BackColor = WallyTheme.Surface0
-            };
+            var scroll = ThemedEditorFactory.CreateScrollableSurface();
 
-            var table = new TableLayoutPanel
-            {
-                AutoSize = true,
-                AutoSizeMode = AutoSizeMode.GrowAndShrink,
-                Dock = DockStyle.Top,
-                ColumnCount = 1,
-                BackColor = WallyTheme.Surface0,
-                Padding = new Padding(20)
-            };
+            var table = ThemedEditorFactory.CreateScrollableFormTable(1);
             table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
 
             int row = 0;
@@ -278,7 +266,7 @@ namespace Wally.Forms.Controls.Editors
             new() { Dock = DockStyle.Top, Font = WallyTheme.FontUI, BackColor = WallyTheme.Surface2, ForeColor = WallyTheme.TextPrimary, BorderStyle = BorderStyle.FixedSingle, Margin = new Padding(0, 0, 0, 4) };
 
         private static RichTextBox CreateRichTextBox(int height) =>
-            new() { Dock = DockStyle.Top, Height = height, MinimumSize = new Size(0, height), Font = WallyTheme.FontMono, BackColor = WallyTheme.Surface2, ForeColor = WallyTheme.TextPrimary, BorderStyle = BorderStyle.FixedSingle, WordWrap = true, ScrollBars = RichTextBoxScrollBars.Vertical, Margin = new Padding(0, 0, 0, 4) };
+            ThemedEditorFactory.CreateFormTextArea(height, wordWrap: true, backColor: WallyTheme.Surface2);
 
         private static Button CreateButton(string text)
         {

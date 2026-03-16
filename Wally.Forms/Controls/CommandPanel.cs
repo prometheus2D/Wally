@@ -21,7 +21,7 @@ namespace Wally.Forms.Controls
 
         private readonly Panel _header;
         private readonly Label _lblTitle;
-        private readonly RichTextBox _output;
+        private readonly ThemedRichTextBox _output;
         private readonly Panel _inputRow;
         private readonly Panel _separator;
         private readonly Panel _inputBorder;
@@ -77,19 +77,9 @@ namespace Wally.Forms.Controls
             _header.Controls.Add(_lblTitle);
 
             // ?? Output area ??
-            _output = new RichTextBox
-            {
-                Dock = DockStyle.Fill,
-                ReadOnly = true,
-                BorderStyle = BorderStyle.None,
-                Font = WallyTheme.FontMonoLarge,
-                BackColor = WallyTheme.Surface0,
-                ForeColor = WallyTheme.TextPrimary,
-                WordWrap = true,
-                ScrollBars = RichTextBoxScrollBars.Vertical,
-                DetectUrls = false,
-                ShortcutsEnabled = true   // ensures Ctrl+C works on read-only RTB
-            };
+            _output = ThemedEditorFactory.CreateDocumentViewer(wordWrap: true, readOnly: true, backColor: WallyTheme.Surface0);
+            _output.Font = WallyTheme.FontMonoLarge;
+            _output.ShortcutsEnabled = true;   // ensures Ctrl+C works on read-only RTB
 
             // Right-click context menu (standard WinForms terminal pattern).
             var ctxMenu = new ContextMenuStrip();

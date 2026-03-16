@@ -28,7 +28,8 @@ namespace Wally.Forms.Controls
 
         // ?? Constants ???????????????????????????????????????????????????????
 
-        private const int BarWidth = 8;
+        private const int BarWidth = 12;
+        private const int ScrollGutterWidth = BarWidth + 6;
         private const int MinThumbHeight = 24;
         private const int ThumbRadius = 4;
 
@@ -44,8 +45,24 @@ namespace Wally.Forms.Controls
         public ThemedScrollPanel()
         {
             AutoScroll = true;
+            Padding = new Padding(0, 0, ScrollGutterWidth, 0);
             SetStyle(ControlStyles.OptimizedDoubleBuffer |
-                     ControlStyles.AllPaintingInWmPaint, true);
+                     ControlStyles.AllPaintingInWmPaint |
+                     ControlStyles.ResizeRedraw, true);
+        }
+
+        protected override void OnControlAdded(ControlEventArgs e)
+        {
+            base.OnControlAdded(e);
+            HookChildTree(e.Control);
+            Invalidate();
+        }
+
+        protected override void OnControlRemoved(ControlEventArgs e)
+        {
+            UnhookChildTree(e.Control);
+            base.OnControlRemoved(e);
+            Invalidate();
         }
 
         // ?? Suppress native scrollbar on every layout pass ??????????????????
@@ -55,6 +72,7 @@ namespace Wally.Forms.Controls
             base.OnLayout(levent);
             if (IsHandleCreated && VerticalScroll.Visible)
                 ShowScrollBar(Handle, SB_VERT, false);
+            Invalidate();
         }
 
         /// <summary>Override WndProc to keep the native scrollbar hidden.</summary>
@@ -72,13 +90,35 @@ namespace Wally.Forms.Controls
         private bool NeedsScrollbar => VerticalScroll.Visible ||
                                        DisplayRectangle.Height > ClientSize.Height;
 
+        private bool ShouldRenderScrollbar
+        {
+            get
+            {
+                if (!NeedsScrollbar)
+                    return false;
+
+                if (_thumbDragging)
+                    return true;
+
+                var mouse = PointToClient(Cursor.Position);
+                if (!ClientRectangle.Contains(mouse))
+                    return false;
+
+                if (GetTrackRect().Contains(mouse))
+                    return true;
+
+                var child = GetChildAtPoint(mouse, GetChildAtPointSkip.Invisible);
+                return child == null;
+            }
+        }
+
         private int ContentHeight => DisplayRectangle.Height;
         private int ViewHeight => ClientSize.Height;
         private int ScrollY => VerticalScroll.Value;
         private int MaxScrollY => Math.Max(0, ContentHeight - ViewHeight);
 
         private Rectangle GetTrackRect() =>
-            new(ClientSize.Width - BarWidth, 0, BarWidth, ViewHeight);
+            new(ClientSize.Width - BarWidth - 2, 0, BarWidth, ViewHeight);
 
         private Rectangle GetThumbRect()
         {
@@ -93,10 +133,10 @@ namespace Wally.Forms.Controls
                 : 0;
 
             return new Rectangle(
-                ClientSize.Width - BarWidth + 1,
+                ClientSize.Width - BarWidth - 1,
                 thumbY + 1,
                 BarWidth - 2,
-                thumbH - 2);
+                Math.Max(2, thumbH - 2));
         }
 
         // ?? Paint the overlay scrollbar ?????????????????????????????????????
@@ -105,7 +145,7 @@ namespace Wally.Forms.Controls
         {
             base.OnPaint(e);
 
-            if (!NeedsScrollbar) return;
+            if (!ShouldRenderScrollbar) return;
 
             var g = e.Graphics;
             g.SmoothingMode = SmoothingMode.AntiAlias;
@@ -153,7 +193,7 @@ namespace Wally.Forms.Controls
             }
 
             bool wasHovered = _thumbHovered;
-            _thumbHovered = NeedsScrollbar && GetThumbRect().Contains(e.Location);
+            _thumbHovered = ShouldRenderScrollbar && GetThumbRect().Contains(e.Location);
             if (wasHovered != _thumbHovered)
                 Invalidate();
         }
@@ -215,6 +255,48 @@ namespace Wally.Forms.Controls
         protected override void OnMouseWheel(MouseEventArgs e)
         {
             base.OnMouseWheel(e);
+            Invalidate();
+        }
+
+        private void HookChildTree(Control control)
+        {
+            control.MouseEnter += OnChildInteractionChanged;
+            control.MouseLeave += OnChildInteractionChanged;
+            control.MouseMove += OnChildInteractionChanged;
+            control.GotFocus += OnChildInteractionChanged;
+            control.LostFocus += OnChildInteractionChanged;
+            control.ControlAdded += OnChildControlAdded;
+            control.ControlRemoved += OnChildControlRemoved;
+
+            foreach (Control child in control.Controls)
+                HookChildTree(child);
+        }
+
+        private void UnhookChildTree(Control control)
+        {
+            control.MouseEnter -= OnChildInteractionChanged;
+            control.MouseLeave -= OnChildInteractionChanged;
+            control.MouseMove -= OnChildInteractionChanged;
+            control.GotFocus -= OnChildInteractionChanged;
+            control.LostFocus -= OnChildInteractionChanged;
+            control.ControlAdded -= OnChildControlAdded;
+            control.ControlRemoved -= OnChildControlRemoved;
+
+            foreach (Control child in control.Controls)
+                UnhookChildTree(child);
+        }
+
+        private void OnChildInteractionChanged(object? sender, EventArgs e) => Invalidate();
+
+        private void OnChildControlAdded(object? sender, ControlEventArgs e)
+        {
+            HookChildTree(e.Control);
+            Invalidate();
+        }
+
+        private void OnChildControlRemoved(object? sender, ControlEventArgs e)
+        {
+            UnhookChildTree(e.Control);
             Invalidate();
         }
     }
