@@ -2,8 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text.Json;
-using Wally.Core;
 using Wally.Core.Actors;
 using Wally.Core.Providers;
 using Wally.Core.RBA;
@@ -70,16 +68,13 @@ namespace Wally.Core
                     return true;
                 case "run":
                 {
-                    if (args.Length < 2) { Console.WriteLine("Usage: run \"<prompt>\" [-a actor] [-m model] [-w wrapper] [--loop] [-l name] [-n max] [--no-history]"); return false; }
+                    if (args.Length < 2) { Console.WriteLine("Usage: run \"<prompt>\" [-a actor] [-m model] [-w wrapper] [-l name] [--no-history]"); return false; }
                     string? actorName = GetOption(args, "-a") ?? GetOption(args, "--actor");
                     string? model     = GetOption(args, "-m") ?? GetOption(args, "--model");
                     string? wrapper   = GetOption(args, "-w") ?? GetOption(args, "--wrapper");
                     string? loopName  = GetOption(args, "-l") ?? GetOption(args, "--loop-name");
-                    string? maxStr    = GetOption(args, "-n") ?? GetOption(args, "--max-iterations");
-                    bool looped       = HasFlag(args, "--loop");
                     bool noHistory    = HasFlag(args, "--no-history");
-                    int maxIter       = int.TryParse(maxStr, out int n) ? n : 0;
-                    HandleRun(env, args[1], actorName, model, looped, loopName, maxIter, wrapper, noHistory);
+                    HandleRun(env, args[1], actorName, model, loopName, wrapper, noHistory);
                     return true;
                 }
                 case "runbook":
@@ -101,16 +96,16 @@ namespace Wally.Core
                     return true;
                 }
                 case "clear-history": HandleClearHistory(env); return true;
-                case "commands" or "help": HandleHelp();      return true;
-                case "tutorial":           HandleTutorial();  return true;
+                case "commands" or "help": HandleHelp();     return true;
+                case "tutorial":           HandleTutorial(); return true;
 
-                // ?? Actor CRUD ??????????????????????????????????????????
+                // ?? Actor CRUD ?????????????????????????????????????????
                 case "add-actor":
                 {
                     if (args.Length < 2) { Console.WriteLine("Usage: add-actor <name> [-r \"role\"] [-c \"criteria\"] [-i \"intent\"]"); return false; }
-                    string? role     = GetOption(args, "-r") ?? GetOption(args, "--role")     ?? "";
-                    string? criteria = GetOption(args, "-c") ?? GetOption(args, "--criteria") ?? "";
-                    string? intent   = GetOption(args, "-i") ?? GetOption(args, "--intent")   ?? "";
+                    string role     = GetOption(args, "-r") ?? GetOption(args, "--role")     ?? "";
+                    string criteria = GetOption(args, "-c") ?? GetOption(args, "--criteria") ?? "";
+                    string intent   = GetOption(args, "-i") ?? GetOption(args, "--intent")   ?? "";
                     HandleAddActor(env, args[1], role, criteria, intent);
                     return true;
                 }
@@ -128,27 +123,23 @@ namespace Wally.Core
                     HandleDeleteActor(env, args[1]);
                     return true;
 
-                // ?? Loop CRUD ???????????????????????????????????????????
+                // ?? Loop CRUD ??????????????????????????????????????????
                 case "add-loop":
                 {
-                    if (args.Length < 2) { Console.WriteLine("Usage: add-loop <name> [-d desc] [-a actor] [-n max] [-s prompt]"); return false; }
-                    string desc        = GetOption(args, "-d") ?? GetOption(args, "--description")   ?? "";
-                    string actor       = GetOption(args, "-a") ?? GetOption(args, "--actor")          ?? "";
-                    string? maxStr2    = GetOption(args, "-n") ?? GetOption(args, "--max-iterations");
-                    int max            = int.TryParse(maxStr2, out int m) ? m : 5;
-                    string startPrompt = GetOption(args, "-s") ?? GetOption(args, "--start-prompt")  ?? "{userPrompt}";
-                    HandleAddLoop(env, args[1], desc, actor, max, startPrompt);
+                    if (args.Length < 2) { Console.WriteLine("Usage: add-loop <name> [-d desc] [-a actor] [-s prompt]"); return false; }
+                    string desc        = GetOption(args, "-d") ?? GetOption(args, "--description") ?? "";
+                    string actor       = GetOption(args, "-a") ?? GetOption(args, "--actor")        ?? "";
+                    string startPrompt = GetOption(args, "-s") ?? GetOption(args, "--start-prompt") ?? "{userPrompt}";
+                    HandleAddLoop(env, args[1], desc, actor, startPrompt);
                     return true;
                 }
                 case "edit-loop":
                 {
-                    if (args.Length < 2) { Console.WriteLine("Usage: edit-loop <name> [-d desc] [-a actor] [-n max] [-s prompt]"); return false; }
-                    string? desc       = GetOption(args, "-d") ?? GetOption(args, "--description");
-                    string? actor      = GetOption(args, "-a") ?? GetOption(args, "--actor");
-                    string? maxStr2    = GetOption(args, "-n") ?? GetOption(args, "--max-iterations");
-                    int? max           = int.TryParse(maxStr2, out int m) ? m : null;
+                    if (args.Length < 2) { Console.WriteLine("Usage: edit-loop <name> [-d desc] [-a actor] [-s prompt]"); return false; }
+                    string? desc        = GetOption(args, "-d") ?? GetOption(args, "--description");
+                    string? actor       = GetOption(args, "-a") ?? GetOption(args, "--actor");
                     string? startPrompt = GetOption(args, "-s") ?? GetOption(args, "--start-prompt");
-                    HandleEditLoop(env, args[1], desc, actor, max, startPrompt);
+                    HandleEditLoop(env, args[1], desc, actor, startPrompt);
                     return true;
                 }
                 case "delete-loop":
@@ -156,15 +147,15 @@ namespace Wally.Core
                     HandleDeleteLoop(env, args[1]);
                     return true;
 
-                // ?? Wrapper CRUD ????????????????????????????????????????
+                // ?? Wrapper CRUD ???????????????????????????????????????
                 case "add-wrapper":
                 {
                     if (args.Length < 2) { Console.WriteLine("Usage: add-wrapper <name> [-d desc] [-e exe] [-t template] [--can-make-changes] [--no-conversation-history]"); return false; }
-                    string desc        = GetOption(args, "-d") ?? GetOption(args, "--description") ?? "";
-                    string exe         = GetOption(args, "-e") ?? GetOption(args, "--executable")  ?? "gh";
-                    string template    = GetOption(args, "-t") ?? GetOption(args, "--template")    ?? "";
-                    bool canChange     = HasFlag(args, "--can-make-changes");
-                    bool useHistory    = !HasFlag(args, "--no-conversation-history");
+                    string desc     = GetOption(args, "-d") ?? GetOption(args, "--description") ?? "";
+                    string exe      = GetOption(args, "-e") ?? GetOption(args, "--executable")  ?? "gh";
+                    string template = GetOption(args, "-t") ?? GetOption(args, "--template")    ?? "";
+                    bool canChange  = HasFlag(args, "--can-make-changes");
+                    bool useHistory = !HasFlag(args, "--no-conversation-history");
                     HandleAddWrapper(env, args[1], desc, exe, template, canChange, useHistory);
                     return true;
                 }
@@ -184,7 +175,7 @@ namespace Wally.Core
                     HandleDeleteWrapper(env, args[1]);
                     return true;
 
-                // ?? Runbook CRUD ????????????????????????????????????????
+                // ?? Runbook CRUD ???????????????????????????????????????
                 case "add-runbook":
                 {
                     if (args.Length < 2) { Console.WriteLine("Usage: add-runbook <name> [-d desc]"); return false; }
@@ -255,23 +246,36 @@ namespace Wally.Core
         // ?? Run ???????????????????????????????????????????????????????????????
 
         /// <summary>
-        /// Unified run command. Routes to multi-step or single-actor execution based
-        /// on whether the resolved loop definition contains steps.
+        /// Backward-compatible overload — returns raw response strings.
         /// </summary>
         public static List<string> HandleRun(
             WallyEnvironment env,
             string prompt,
-            string? actorName    = null,
-            string? model        = null,
-            bool looped          = false,
-            string? loopName     = null,
-            int maxIterations    = 0,
-            string? wrapper      = null,
-            bool noHistory       = false)
+            string? actorName  = null,
+            string? model      = null,
+            string? loopName   = null,
+            string? wrapper    = null,
+            bool noHistory     = false)
         {
-            if (RequireWorkspace(env, "run") == null) return new List<string>();
+            return WallyRunResult.ToStringList(
+                HandleRunTyped(env, prompt, actorName, model, loopName, wrapper, noHistory));
+        }
 
-            bool isLooped = looped || !string.IsNullOrWhiteSpace(loopName) || maxIterations > 1;
+        /// <summary>
+        /// Executes a prompt through the pipeline defined by the selected loop definition
+        /// (or a direct single-actor call when no loop is specified).
+        /// Returns one <see cref="WallyRunResult"/> per step executed.
+        /// </summary>
+        public static List<WallyRunResult> HandleRunTyped(
+            WallyEnvironment env,
+            string prompt,
+            string? actorName  = null,
+            string? model      = null,
+            string? loopName   = null,
+            string? wrapper    = null,
+            bool noHistory     = false)
+        {
+            if (RequireWorkspace(env, "run") == null) return new List<WallyRunResult>();
 
             // ?? Resolve loop definition ????????????????????????????????????
             WallyLoopDefinition? loopDef = null;
@@ -280,37 +284,25 @@ namespace Wally.Core
                 loopDef = env.GetLoop(loopName!);
                 if (loopDef == null)
                 {
-                    Console.WriteLine($"Loop definition '{loopName}' not found. Available loops:");
+                    Console.WriteLine($"Loop '{loopName}' not found. Available loops:");
                     foreach (var l in env.Loops) Console.WriteLine($"  {l.Name} \u2014 {l.Description}");
-                    env.Logger.LogError($"Loop definition '{loopName}' not found.", "run");
-                    return new List<string>();
+                    env.Logger.LogError($"Loop '{loopName}' not found.", "run");
+                    return new List<WallyRunResult>();
                 }
             }
-            else if (!isLooped)
-            {
-                loopDef = env.GetLoop("SingleRun") ?? new WallyLoopDefinition
-                    { Name = "SingleRun", Description = "Single-shot execution", StartPrompt = "{userPrompt}", MaxIterations = 1 };
-            }
 
-            // ?? Resolve iterations ?????????????????????????????????????????
-            int iterations = maxIterations > 0          ? maxIterations :
-                             loopDef?.MaxIterations > 0 ? loopDef.MaxIterations :
-                             isLooped                   ? env.Workspace!.Config.MaxIterations :
-                             1;
+            string loopLabel = loopDef != null ? $"[run:{loopDef.Name}]" : "[run]";
 
-            string loopLabel      = (loopDef != null && loopDef.Name != "SingleRun") ? $"[run:{loopDef.Name}]" : "[run]";
-            string? resolvedLoopName = (loopDef?.Name != "SingleRun") ? loopDef?.Name : null;
+            // ?? Multi-step pipeline ????????????????????????????????????????
+            if (loopDef?.HasSteps == true)
+                return RunPipeline(env, prompt, loopDef, loopLabel, model, wrapper, noHistory);
 
-            // ?? Route: multi-step vs single-actor ?????????????????????????
-            if (loopDef != null && loopDef.HasSteps)
-                return HandleRunMultiStep(env, prompt, loopDef, iterations, loopLabel, resolvedLoopName, model, wrapper, noHistory);
+            // ?? Single-actor / direct ??????????????????????????????????????
+            if (string.IsNullOrWhiteSpace(actorName) && !string.IsNullOrWhiteSpace(loopDef?.ActorName))
+                actorName = loopDef!.ActorName;
 
-            // ?? Single-actor ???????????????????????????????????????????????
-            if (string.IsNullOrWhiteSpace(actorName) && loopDef != null && !string.IsNullOrWhiteSpace(loopDef.ActorName))
-                actorName = loopDef.ActorName;
-
-            Actor? actor    = null;
             bool directMode = string.IsNullOrWhiteSpace(actorName);
+            Actor? actor = null;
             if (!directMode)
             {
                 actor = env.GetActor(actorName!);
@@ -318,182 +310,121 @@ namespace Wally.Core
                 {
                     Console.WriteLine($"Actor '{actorName}' not found.");
                     env.Logger.LogError($"Actor '{actorName}' not found.", "run");
-                    return new List<string>();
+                    return new List<WallyRunResult>();
                 }
             }
 
             string actorLabel = directMode ? "(no actor)" : actorName!;
-            env.Logger.LogCommand("run",
-                $"Actor='{actorLabel}' loop='{loopDef?.Name ?? "(inline)"}' iterations={iterations} " +
-                $"model='{model ?? "(default)"}' wrapper='{wrapper ?? "(default)"}' noHistory={noHistory}");
 
-            if (directMode) { Console.WriteLine($"{loopLabel} Running without actor context (direct mode)."); Console.WriteLine(); }
+            // Resolve the prompt — apply StartPrompt template if defined.
+            string resolvedPrompt = (loopDef != null && !string.IsNullOrWhiteSpace(loopDef.StartPrompt))
+                ? loopDef.StartPrompt.Replace("{userPrompt}", prompt)
+                : prompt;
 
-            int iterNum = 0;
-            string? resolvedModel = model ?? env.Workspace!.Config.DefaultModel;
+            env.Logger.LogCommand("run", $"Actor='{actorLabel}' loop='{loopDef?.Name ?? "(none)"}' model='{model ?? "(default)"}' wrapper='{wrapper ?? "(default)"}'");
+            env.Logger.LogPrompt(actorLabel, resolvedPrompt, model ?? env.Workspace!.Config.DefaultModel);
 
-            Func<string, string> runAction = currentPrompt =>
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            string response = directMode
+                ? env.ExecutePrompt(resolvedPrompt, model, wrapper, skipHistory: noHistory)
+                : env.ExecuteActor(actor!, resolvedPrompt, model, wrapper, skipHistory: noHistory);
+            sw.Stop();
+            env.Logger.LogResponse(actorLabel, response, sw.ElapsedMilliseconds, 1);
+
+            Console.WriteLine(response);
+            Console.WriteLine();
+
+            return new List<WallyRunResult>
             {
-                iterNum++;
-                bool skip = noHistory || iterNum > 1;
-                int idx   = iterNum - 1;
-                if (directMode)
-                {
-                    env.Logger.LogPrompt("(no actor)", currentPrompt, resolvedModel);
-                    var sw = System.Diagnostics.Stopwatch.StartNew();
-                    string r = env.ExecutePrompt(currentPrompt, model, wrapper, loopName: resolvedLoopName, iteration: idx, skipHistory: skip);
-                    sw.Stop();
-                    env.Logger.LogResponse("(no actor)", r, sw.ElapsedMilliseconds, iterNum);
-                    return r;
-                }
-                else
-                {
-                    env.Logger.LogPrompt(actor!.Name, currentPrompt, resolvedModel);
-                    var sw = System.Diagnostics.Stopwatch.StartNew();
-                    string r = env.ExecuteActor(actor!, currentPrompt, model, wrapper, loopName: resolvedLoopName, iteration: idx, skipHistory: skip);
-                    sw.Stop();
-                    env.Logger.LogResponse(actor!.Name, r, sw.ElapsedMilliseconds, iterNum);
-                    return r;
-                }
+                new WallyRunResult { StepName = null, ActorName = actorLabel, Response = response }
             };
-
-            WallyLoop loop;
-            if (loopDef != null)
-                loop = WallyLoop.FromDefinition(loopDef, prompt, runAction, iterations);
-            else
-            {
-                Func<string, string> cont = prev =>
-                    $"You are continuing a task. Here is your previous response:\n\n---\n{prev}\n---\n\n" +
-                    $"Continue where you left off. " +
-                    $"If you are finished, respond with: {WallyLoop.CompletedKeyword}\n" +
-                    $"If something went wrong, respond with: {WallyLoop.ErrorKeyword}";
-                loop = new WallyLoop(runAction, prompt, cont, iterations);
-            }
-
-            if (iterations > 1)
-            {
-                Console.WriteLine($"{loopLabel} {(directMode ? "Direct mode" : $"Actor: {actor!.Name}")}  MaxIterations: {iterations}");
-                Console.WriteLine();
-            }
-
-            loop.Run();
-            PrintLoopResults(loop, iterations, loopLabel);
-            env.Logger.LogInfo($"run finished: {loop.ExecutionCount} iteration(s), stopReason={loop.StopReason}");
-            return loop.Results;
         }
 
-        // ?? Multi-step loop ???????????????????????????????????????????????????
+        // ?? Pipeline execution ????????????????????????????????????????????????
 
-        private static List<string> HandleRunMultiStep(
+        private static List<WallyRunResult> RunPipeline(
             WallyEnvironment env,
             string prompt,
             WallyLoopDefinition loopDef,
-            int iterations,
             string loopLabel,
-            string? resolvedLoopName,
             string? model,
             string? wrapper,
             bool noHistory)
         {
-            env.Logger.LogCommand("run",
-                $"[multi-step] loop='{loopDef.Name}' steps={loopDef.Steps.Count} passes={iterations} " +
-                $"model='{model ?? "(default)"}' wrapper='{wrapper ?? "(default)"}'");
+            var stepDefs = loopDef.Steps;
 
-            Console.WriteLine($"{loopLabel} Multi-step loop \u2014 {loopDef.Steps.Count} step(s) per pass, MaxPasses: {iterations}");
+            env.Logger.LogCommand("run", $"[pipeline] loop='{loopDef.Name}' steps={stepDefs.Count} model='{model ?? "(default)"}' wrapper='{wrapper ?? "(default)"}'");
+            Console.WriteLine($"{loopLabel} Pipeline \u2014 {stepDefs.Count} step(s)");
             Console.WriteLine();
 
-            var builtSteps = new List<WallyStep>();
-            string? resolvedModel = model ?? env.Workspace!.Config.DefaultModel;
-
-            for (int i = 0; i < loopDef.Steps.Count; i++)
+            // ?? Resolve actors once ????????????????????????????????????????
+            var stepActors = new (Actor? actor, bool isDirect, string actorLabel)[stepDefs.Count];
+            for (int i = 0; i < stepDefs.Count; i++)
             {
-                var stepDef = loopDef.Steps[i];
-
+                var stepDef = stepDefs[i];
                 string resolvedActorName = !string.IsNullOrWhiteSpace(stepDef.ActorName)
                     ? stepDef.ActorName : loopDef.ActorName;
 
-                bool stepDirect = string.IsNullOrWhiteSpace(resolvedActorName);
+                bool isDirect = string.IsNullOrWhiteSpace(resolvedActorName);
                 Actor? stepActor = null;
-
-                if (!stepDirect)
+                if (!isDirect)
                 {
                     stepActor = env.GetActor(resolvedActorName!);
                     if (stepActor == null)
                     {
                         Console.WriteLine($"{loopLabel} Step '{stepDef.Name}': actor '{resolvedActorName}' not found.");
-                        env.Logger.LogError(
-                            $"Multi-step loop '{loopDef.Name}' step '{stepDef.Name}': actor '{resolvedActorName}' not found.", "run");
-                        return new List<string>();
+                        env.Logger.LogError($"Pipeline '{loopDef.Name}' step '{stepDef.Name}': actor '{resolvedActorName}' not found.", "run");
+                        return new List<WallyRunResult>();
                     }
                 }
 
-                // Capture per-step closure variables.
-                int    capturedIdx       = i;
-                Actor? capturedActor     = stepActor;
-                bool   capturedDirect    = stepDirect;
-                string capturedActorName = stepDirect ? "(no actor)" : resolvedActorName!;
-                int    stepIterCounter   = 0;
-
-                Func<string, string> stepAction = currentPrompt =>
-                {
-                    stepIterCounter++;
-                    bool skip = noHistory || stepIterCounter > 1;
-                    int  idx  = stepIterCounter - 1;
-
-                    env.Logger.LogPrompt(capturedActorName, currentPrompt, resolvedModel);
-                    var sw = System.Diagnostics.Stopwatch.StartNew();
-                    string r = capturedDirect
-                        ? env.ExecutePrompt(currentPrompt, model, wrapper, loopName: resolvedLoopName, iteration: idx, skipHistory: skip)
-                        : env.ExecuteActor(capturedActor!, currentPrompt, model, wrapper, loopName: resolvedLoopName, iteration: idx, skipHistory: skip);
-                    sw.Stop();
-                    env.Logger.LogResponse(capturedActorName, r, sw.ElapsedMilliseconds, stepIterCounter);
-                    return r;
-                };
-
-                int stepMaxIter = stepDef.MaxIterations > 0 ? stepDef.MaxIterations : 1;
-                WallyStep step  = loopDef.BuildStep(stepDef, prompt, stepAction, stepMaxIter);
-
-                Console.WriteLine($"  Step {capturedIdx + 1}: [{step.Name}]  Actor: {capturedActorName}  MaxIterations: {stepMaxIter}");
-                builtSteps.Add(step);
+                string actorLabel = isDirect ? "(no actor)" : resolvedActorName!;
+                stepActors[i] = (stepActor, isDirect, actorLabel);
+                Console.WriteLine($"  Step {i + 1}: [{(string.IsNullOrWhiteSpace(stepDef.Name) ? $"step-{i+1}" : stepDef.Name)}]  Actor: {actorLabel}");
             }
-
             Console.WriteLine();
 
-            var loop = WallyLoop.FromDefinitionWithSteps(loopDef, prompt, builtSteps, iterations);
-            loop.Run();
+            // ?? Run steps in order ?????????????????????????????????????????
+            var results = new List<WallyRunResult>(stepDefs.Count);
+            string? previousStepResult = null;
 
-            int stepCount   = loopDef.Steps.Count;
-            int totalPasses = loop.ExecutionCount;
-
-            // Results are stored flat: pass 1 step A, pass 1 step B, pass 2 step A …
-            // Print with contextual headers.
-            if (loop.Results.Count > 0)
+            for (int i = 0; i < stepDefs.Count; i++)
             {
-                for (int r = 0; r < loop.Results.Count; r++)
+                var stepDef = stepDefs[i];
+                var (stepActor, isDirect, actorLabel) = stepActors[i];
+                string stepName = string.IsNullOrWhiteSpace(stepDef.Name) ? $"step-{i + 1}" : stepDef.Name;
+
+                string stepPrompt = stepDef.BuildPrompt(prompt, previousStepResult);
+
+                Console.WriteLine($"--- Step {i + 1}: {stepName} ({actorLabel}) ---");
+
+                env.Logger.LogPrompt(actorLabel, stepPrompt, model ?? env.Workspace!.Config.DefaultModel);
+                var sw = System.Diagnostics.Stopwatch.StartNew();
+                string response = isDirect
+                    ? env.ExecutePrompt(stepPrompt, model, wrapper, skipHistory: noHistory)
+                    : env.ExecuteActor(stepActor!, stepPrompt, model, wrapper, skipHistory: noHistory);
+                sw.Stop();
+                env.Logger.LogResponse(actorLabel, response, sw.ElapsedMilliseconds, i + 1);
+
+                Console.WriteLine(response);
+                Console.WriteLine();
+
+                results.Add(new WallyRunResult
                 {
-                    int passNum  = r / stepCount + 1;
-                    int stepNum  = r % stepCount;
-                    string sName = loopDef.Steps[stepNum].Name;
-                    Console.WriteLine($"--- Pass {passNum} / Step {stepNum + 1}: {sName} ---");
-                    Console.WriteLine(loop.Results[r]);
-                    Console.WriteLine();
-                }
+                    StepName  = stepName,
+                    ActorName = actorLabel,
+                    Response  = response
+                });
+
+                previousStepResult = response;
             }
 
-            switch (loop.StopReason)
-            {
-                case LoopStopReason.Completed:    Console.WriteLine($"{loopLabel} Loop completed after {totalPasses} pass(es)."); break;
-                case LoopStopReason.Error:        Console.WriteLine($"{loopLabel} Loop stopped by error after {totalPasses} pass(es)."); break;
-                case LoopStopReason.MaxIterations:Console.WriteLine($"{loopLabel} Loop reached max passes ({totalPasses})."); break;
-            }
-
-            if (loop.Results.Count == 0) Console.WriteLine("No responses from AI.");
-
-            env.Logger.LogInfo($"run finished (multi-step): {totalPasses} pass(es), stopReason={loop.StopReason}");
-            return loop.Results;
+            Console.WriteLine($"{loopLabel} Pipeline complete \u2014 {results.Count} step(s).");
+            env.Logger.LogInfo($"Pipeline '{loopDef.Name}' complete: {results.Count} step(s).");
+            return results;
         }
 
-        // ?? Runbooks ?????????????????????????????????????????????????????????
+        // ?? Runbooks ??????????????????????????????????????????????????????????
 
         public static bool HandleRunbook(WallyEnvironment env, string runbookName, string? userPrompt = null, int depth = 0)
         {
@@ -521,9 +452,9 @@ namespace Wally.Core
             for (int i = 0; i < runbook.Commands.Count; i++)
             {
                 string line = runbook.Commands[i]
-                    .Replace("{workSourcePath}",  env.WorkSource       ?? "")
-                    .Replace("{workspaceFolder}", env.WorkspaceFolder  ?? "")
-                    .Replace("{userPrompt}",      userPrompt           ?? "");
+                    .Replace("{workSourcePath}",  env.WorkSource      ?? "")
+                    .Replace("{workspaceFolder}", env.WorkspaceFolder ?? "")
+                    .Replace("{userPrompt}",      userPrompt          ?? "");
 
                 Console.WriteLine($"[runbook:{runbookName}] ({i + 1}/{runbook.Commands.Count}) {line}");
                 bool success = DispatchCommand(env, SplitArgs(line), depth + 1);
@@ -540,6 +471,8 @@ namespace Wally.Core
             return true;
         }
 
+        // ?? Workspace inspection ??????????????????????????????????????????????
+
         public static void HandleListRunbooks(WallyEnvironment env)
         {
             if (RequireWorkspace(env, "list-runbooks") == null) return;
@@ -551,12 +484,10 @@ namespace Wally.Core
             {
                 Console.WriteLine($"  [{rb.Name}]");
                 if (!string.IsNullOrWhiteSpace(rb.Description)) Console.WriteLine($"    Description: {rb.Description}");
-                Console.WriteLine($"    Commands:    {rb.Commands.Count}");
-                Console.WriteLine($"    File:        {rb.FilePath}");
+                Console.WriteLine($"    Commands: {rb.Commands.Count}");
+                Console.WriteLine($"    File:     {rb.FilePath}");
             }
         }
-
-        // ?? Workspace inspection ??????????????????????????????????????????????
 
         public static void HandleList(WallyEnvironment env)
         {
@@ -584,46 +515,40 @@ namespace Wally.Core
             env.Logger.LogCommand("info");
             if (!env.HasWorkspace)
             {
-                Console.WriteLine("Status:            No workspace loaded.");
-                Console.WriteLine("                   Use 'load <path>' or 'setup <path>' first.");
+                Console.WriteLine("Status:           No workspace loaded.");
+                Console.WriteLine("                  Use 'load <path>' or 'setup <path>' first.");
                 return;
             }
             var ws  = env.Workspace!;
             var cfg = ws.Config;
-            Console.WriteLine($"Status:            Workspace loaded");
-            Console.WriteLine($"WorkSource:        {ws.WorkSource}");
-            Console.WriteLine($"Workspace folder:  {ws.WorkspaceFolder}");
-            Console.WriteLine($"Actors folder:     {Path.Combine(ws.WorkspaceFolder, cfg.ActorsFolderName)}");
-            Console.WriteLine($"Docs folder:       {Path.Combine(ws.WorkspaceFolder, cfg.DocsFolderName)}");
-            Console.WriteLine($"Templates folder:  {Path.Combine(ws.WorkspaceFolder, cfg.TemplatesFolderName)}");
-            Console.WriteLine($"Logs folder:       {Path.Combine(ws.WorkspaceFolder, cfg.LogsFolderName)}");
-            Console.WriteLine($"Actors loaded:     {ws.Actors.Count}");
+            Console.WriteLine($"Status:           Workspace loaded");
+            Console.WriteLine($"WorkSource:       {ws.WorkSource}");
+            Console.WriteLine($"Workspace folder: {ws.WorkspaceFolder}");
+            Console.WriteLine($"Actors folder:    {Path.Combine(ws.WorkspaceFolder, cfg.ActorsFolderName)}");
+            Console.WriteLine($"Docs folder:      {Path.Combine(ws.WorkspaceFolder, cfg.DocsFolderName)}");
+            Console.WriteLine($"Templates folder: {Path.Combine(ws.WorkspaceFolder, cfg.TemplatesFolderName)}");
+            Console.WriteLine($"Logs folder:      {Path.Combine(ws.WorkspaceFolder, cfg.LogsFolderName)}");
+            Console.WriteLine($"Actors:           {ws.Actors.Count}");
             foreach (var a in ws.Actors)      Console.WriteLine($"  {a.Name}");
-            Console.WriteLine($"Loops loaded:      {ws.Loops.Count}");
+            Console.WriteLine($"Loops:            {ws.Loops.Count}");
             foreach (var l in ws.Loops)       Console.WriteLine($"  {l.Name}{(string.IsNullOrWhiteSpace(l.Description) ? "" : $" \u2014 {l.Description}")}");
-            Console.WriteLine($"Wrappers loaded:   {ws.LlmWrappers.Count}");
+            Console.WriteLine($"Wrappers:         {ws.LlmWrappers.Count}");
             foreach (var w in ws.LlmWrappers) Console.WriteLine($"  {w.Name}{(string.IsNullOrWhiteSpace(w.Description) ? "" : $" \u2014 {w.Description}")}");
-            Console.WriteLine($"Runbooks loaded:   {ws.Runbooks.Count}");
+            Console.WriteLine($"Runbooks:         {ws.Runbooks.Count}");
             foreach (var r in ws.Runbooks)    Console.WriteLine($"  {r.Name}{(string.IsNullOrWhiteSpace(r.Description) ? "" : $" \u2014 {r.Description}")}");
             Console.WriteLine();
-            Console.WriteLine($"Default model:     {cfg.DefaultModel    ?? "(none)"}");
-            Console.WriteLine($"Default wrapper:   {cfg.DefaultWrapper  ?? "(none)"}");
-            if (!string.IsNullOrEmpty(cfg.ResolvedDefaultLoop))    Console.WriteLine($"Default loop:      {cfg.ResolvedDefaultLoop}");
-            if (!string.IsNullOrEmpty(cfg.ResolvedDefaultRunbook)) Console.WriteLine($"Default runbook:   {cfg.ResolvedDefaultRunbook}");
-            if (cfg.DefaultModels.Count  > 0) Console.WriteLine($"Available models:  {string.Join(", ", cfg.DefaultModels)}");
-            if (cfg.DefaultWrappers.Count > 0) Console.WriteLine($"Available wrappers:{string.Join(", ", cfg.DefaultWrappers)}");
-            if (cfg.DefaultLoops.Count   > 0) Console.WriteLine($"Available loops:   {string.Join(", ", cfg.DefaultLoops)}");
-            if (cfg.DefaultRunbooks.Count > 0) Console.WriteLine($"Available runbooks:{string.Join(", ", cfg.DefaultRunbooks)}");
-            if (cfg.SelectedModels.Count  > 0) Console.WriteLine($"Selected models:   {string.Join(", ", cfg.SelectedModels)}");
-            if (cfg.SelectedWrappers.Count > 0) Console.WriteLine($"Selected wrappers: {string.Join(", ", cfg.SelectedWrappers)}");
-            if (cfg.SelectedLoops.Count   > 0) Console.WriteLine($"Selected loops:    {string.Join(", ", cfg.SelectedLoops)}");
-            if (cfg.SelectedRunbooks.Count > 0) Console.WriteLine($"Selected runbooks: {string.Join(", ", cfg.SelectedRunbooks)}");
+            Console.WriteLine($"Default model:    {cfg.DefaultModel   ?? "(none)"}");
+            Console.WriteLine($"Default wrapper:  {cfg.DefaultWrapper ?? "(none)"}");
+            if (!string.IsNullOrEmpty(cfg.ResolvedDefaultLoop))    Console.WriteLine($"Default loop:     {cfg.ResolvedDefaultLoop}");
+            if (!string.IsNullOrEmpty(cfg.ResolvedDefaultRunbook)) Console.WriteLine($"Default runbook:  {cfg.ResolvedDefaultRunbook}");
+            if (cfg.DefaultModels.Count   > 0) Console.WriteLine($"Models:           {string.Join(", ", cfg.DefaultModels)}");
+            if (cfg.DefaultWrappers.Count > 0) Console.WriteLine($"Wrappers:         {string.Join(", ", cfg.DefaultWrappers)}");
             Console.WriteLine();
-            Console.WriteLine($"Session ID:        {env.Logger.SessionId:N}");
-            Console.WriteLine($"Session started:   {env.Logger.StartedAt:u}");
-            Console.WriteLine($"Session log:       {env.Logger.LogFolder ?? "(not bound \u2014 no workspace loaded)"}");
-            Console.WriteLine($"Current log file:  {env.Logger.CurrentLogFile ?? "(none)"}");
-            Console.WriteLine($"Log rotation:      {(cfg.LogRotationMinutes > 0 ? $"every {cfg.LogRotationMinutes} min" : "disabled")}");
+            Console.WriteLine($"Session ID:       {env.Logger.SessionId:N}");
+            Console.WriteLine($"Session started:  {env.Logger.StartedAt:u}");
+            Console.WriteLine($"Session log:      {env.Logger.LogFolder ?? "(not bound)"}");
+            Console.WriteLine($"Current log file: {env.Logger.CurrentLogFile ?? "(none)"}");
+            Console.WriteLine($"Log rotation:     {(cfg.LogRotationMinutes > 0 ? $"every {cfg.LogRotationMinutes} min" : "disabled")}");
         }
 
         public static void HandleReloadActors(WallyEnvironment env)
@@ -647,14 +572,11 @@ namespace Wally.Core
             {
                 Console.WriteLine($"  [{loop.Name}]");
                 if (!string.IsNullOrWhiteSpace(loop.Description))
-                    Console.WriteLine($"    Description:    {loop.Description}");
+                    Console.WriteLine($"    Description: {loop.Description}");
 
                 if (loop.HasSteps)
                 {
-                    Console.WriteLine($"    Mode:           multi-step ({loop.Steps.Count} step(s))");
-                    Console.WriteLine($"    MaxPasses:      {(loop.MaxIterations > 0 ? loop.MaxIterations.ToString() : "(workspace default)")}");
-                    Console.WriteLine($"    Completed:      {loop.ResolvedCompletedKeyword}");
-                    Console.WriteLine($"    Error:          {loop.ResolvedErrorKeyword}");
+                    Console.WriteLine($"    Mode:        pipeline ({loop.Steps.Count} step(s))");
                     for (int i = 0; i < loop.Steps.Count; i++)
                     {
                         var s = loop.Steps[i];
@@ -668,17 +590,15 @@ namespace Wally.Core
                 }
                 else
                 {
-                    Console.WriteLine($"    Mode:           single-actor");
-                    Console.WriteLine($"    Actor:          {(string.IsNullOrWhiteSpace(loop.ActorName) ? "(caller must specify)" : loop.ActorName)}");
-                    Console.WriteLine($"    MaxIterations:  {(loop.MaxIterations > 0 ? loop.MaxIterations.ToString() : "(workspace default)")}");
-                    Console.WriteLine($"    Completed:      {loop.ResolvedCompletedKeyword}");
-                    Console.WriteLine($"    Error:          {loop.ResolvedErrorKeyword}");
-                    PrintRbaLine("    StartPrompt", loop.StartPrompt);
+                    Console.WriteLine($"    Mode:        single-actor");
+                    Console.WriteLine($"    Actor:       {(string.IsNullOrWhiteSpace(loop.ActorName) ? "(caller must specify)" : loop.ActorName)}");
+                    PrintRbaLine("    Prompt", loop.StartPrompt);
                 }
             }
         }
 
         // ?? Cleanup ???????????????????????????????????????????????????????????
+
         public static void HandleCleanup(WallyEnvironment env, string? workSourcePath = null)
         {
             string wsFolder = ResolveWorkspaceFolder(workSourcePath);
@@ -726,28 +646,24 @@ namespace Wally.Core
             Console.WriteLine();
             Console.WriteLine("Quick start:");
             Console.WriteLine("  wally setup C:\\repos\\MyApp");
-            Console.WriteLine("  cd C:\\repos\\MyApp");
-            Console.WriteLine("  .\\wally run \"Review the auth module\" -a Engineer");
-            Console.WriteLine("  .\\wally run \"Write requirements for the search feature\" -a BusinessAnalyst");
-            Console.WriteLine("  .\\wally run \"What is this project about?\"              # no actor, direct AI prompt");
+            Console.WriteLine("  wally run \"Review the auth module\" -a Engineer");
+            Console.WriteLine("  wally run \"What is this project about?\"");
             Console.WriteLine();
             Console.WriteLine("Commands:");
-            Console.WriteLine("  setup [<path>] [--verify]        Set up / verify a workspace.");
-            Console.WriteLine("  load <path>                      Load an existing .wally/ workspace folder.");
-            Console.WriteLine("  info                             Show workspace paths, actors, model config, and session info.");
-            Console.WriteLine("  tutorial                         Step-by-step guide.");
-            Console.WriteLine("  commands                         Show this help message.");
+            Console.WriteLine("  setup [<path>] [--verify]     Set up / verify a workspace.");
+            Console.WriteLine("  load <path>                   Load an existing .wally/ workspace.");
+            Console.WriteLine("  info                          Show workspace info and session details.");
+            Console.WriteLine("  tutorial                      Step-by-step guide.");
+            Console.WriteLine("  commands                      Show this help message.");
             Console.WriteLine();
             Console.WriteLine("  run \"<prompt>\" [options]");
-            Console.WriteLine("    -a, --actor <name>             Actor to run (adds RBA context).");
-            Console.WriteLine("    -m, --model <model>            Override the AI model.");
-            Console.WriteLine("    -w, --wrapper <name>           Override the LLM wrapper.");
-            Console.WriteLine("    --loop                         Iterative loop mode.");
-            Console.WriteLine("    -l, --loop-name <name>         Use a named loop definition.");
-            Console.WriteLine("    -n, --max-iterations <n>       Maximum iterations / passes.");
-            Console.WriteLine("    --no-history                   Suppress conversation history injection.");
+            Console.WriteLine("    -a, --actor <name>          Actor to use (adds RBA context).");
+            Console.WriteLine("    -m, --model <model>         Override the AI model.");
+            Console.WriteLine("    -w, --wrapper <name>        Override the LLM wrapper.");
+            Console.WriteLine("    -l, --loop-name <name>      Run a named pipeline definition.");
+            Console.WriteLine("    --no-history                Suppress conversation history injection.");
             Console.WriteLine();
-            Console.WriteLine("  runbook <name> [\"<prompt>\"]      Execute a runbook (.wrb command sequence).");
+            Console.WriteLine("  runbook <name> [\"<prompt>\"]   Execute a runbook (.wrb command sequence).");
             Console.WriteLine();
             Console.WriteLine("  Actors:   list | add-actor | edit-actor | delete-actor | reload-actors");
             Console.WriteLine("  Loops:    list-loops | add-loop | edit-loop | delete-loop");
@@ -756,18 +672,16 @@ namespace Wally.Core
             Console.WriteLine();
             Console.WriteLine("  save <path> | cleanup [<path>] | clear-history");
             Console.WriteLine();
-            Console.WriteLine("Loop modes:");
-            Console.WriteLine("  Single-actor:  classic iterative loop — one actor, evolving prompt.");
-            Console.WriteLine("  Multi-step:    each pass executes an ordered sequence of steps; each step");
-            Console.WriteLine("                 can use a different actor and has its own prompt templates.");
-            Console.WriteLine("                 Defined by adding a 'steps' array in the loop JSON file.");
+            Console.WriteLine("Pipeline loops:");
+            Console.WriteLine("  Define a steps array in the loop JSON. Each step names an actor and a");
+            Console.WriteLine("  promptTemplate. Steps run in order; each receives the previous step's");
+            Console.WriteLine("  output via {previousStepResult}.");
             Console.WriteLine();
             Console.WriteLine("Examples:");
             Console.WriteLine("  .\\wally run \"What does this codebase do?\"");
-            Console.WriteLine("  .\\wally run \"Review the data access layer\" -a Engineer -l CodeReview");
+            Console.WriteLine("  .\\wally run \"Review the auth module\" -a Engineer");
+            Console.WriteLine("  .\\wally run \"Review the auth module\" -l CodeReview");
             Console.WriteLine("  .\\wally run \"Analyse auth module\" -l AnalyseAndReview");
-            Console.WriteLine("  .\\wally run \"Refactor error handling\" -a Engineer --loop -n 5");
-            Console.WriteLine("  .\\wally tutorial");
         }
 
         public static void HandleTutorial()
@@ -778,38 +692,33 @@ namespace Wally.Core
             Console.WriteLine("STEP 1: SET UP A WORKSPACE");
             Console.WriteLine("\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500");
             Console.WriteLine("  wally setup C:\\repos\\MyApp");
-            Console.WriteLine("  cd C:\\repos\\MyApp");
             Console.WriteLine();
             Console.WriteLine("STEP 2: RUN A PROMPT");
             Console.WriteLine("\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500");
             Console.WriteLine("  wally run \"What does this codebase do?\"");
             Console.WriteLine("  wally run \"Review the auth module\" -a Engineer");
             Console.WriteLine();
-            Console.WriteLine("STEP 3: USE LOOPS");
+            Console.WriteLine("STEP 3: USE A PIPELINE LOOP");
             Console.WriteLine("\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500");
-            Console.WriteLine("Single-actor loop — one actor iterates:");
-            Console.WriteLine("  wally run \"Review the data access layer\" -a Engineer -l CodeReview");
-            Console.WriteLine();
-            Console.WriteLine("Multi-step loop — multiple actors collaborate in sequence:");
+            Console.WriteLine("  wally run \"Review the auth module\" -l CodeReview");
             Console.WriteLine("  wally run \"Analyse the auth module\" -l AnalyseAndReview");
             Console.WriteLine();
-            Console.WriteLine("Define your own multi-step loop in .wally/Loops/MyLoop.json:");
-            Console.WriteLine("  { \"name\": \"MyLoop\", \"maxIterations\": 3, \"steps\": [");
+            Console.WriteLine("Define your own pipeline in .wally/Loops/MyLoop.json:");
+            Console.WriteLine("  {");
+            Console.WriteLine("    \"name\": \"MyLoop\",");
+            Console.WriteLine("    \"steps\": [");
             Console.WriteLine("      { \"name\": \"Analyse\", \"actorName\": \"BusinessAnalyst\", \"promptTemplate\": \"{userPrompt}\" },");
-            Console.WriteLine("      { \"name\": \"Review\",  \"actorName\": \"Engineer\",         \"promptTemplate\": \"{previousStepResult}\" }");
-            Console.WriteLine("  ] }");
-            Console.WriteLine();
-            Console.WriteLine("Step prompt placeholders: {userPrompt}, {previousStepResult}, {previousResult},");
-            Console.WriteLine("                          {completedKeyword}, {errorKeyword}");
+            Console.WriteLine("      { \"name\": \"Review\",  \"actorName\": \"Engineer\", \"promptTemplate\": \"{previousStepResult}\\n\\nOriginal: {userPrompt}\" }");
+            Console.WriteLine("    ]");
+            Console.WriteLine("  }");
             Console.WriteLine();
             Console.WriteLine("STEP 4: BUILD YOUR OWN ACTORS");
             Console.WriteLine("\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500");
             Console.WriteLine("  wally add-actor SecurityAuditor -r \"You are a security auditor\" -c \"Find vulnerabilities\" -i \"Produce a security report\"");
-            Console.WriteLine("  wally list");
             Console.WriteLine();
             Console.WriteLine("STEP 5: INSPECT & EXPLORE");
             Console.WriteLine("\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500");
-            Console.WriteLine("  wally info | wally list | wally list-loops | wally list-wrappers | wally list-runbooks");
+            Console.WriteLine("  wally info | wally list | wally list-loops | wally list-wrappers");
             Console.WriteLine("  wally commands");
         }
 
@@ -828,7 +737,7 @@ namespace Wally.Core
                 if (!string.IsNullOrWhiteSpace(w.Description)) Console.WriteLine($"    Description:  {w.Description}");
                 Console.WriteLine($"    Executable:   {w.Executable}");
                 Console.WriteLine($"    Template:     {w.ArgumentTemplate}");
-                Console.WriteLine($"    CanMakeChanges: {w.CanMakeChanges}");
+                Console.WriteLine($"    CanMakeChanges:         {w.CanMakeChanges}");
                 Console.WriteLine($"    UseConversationHistory: {w.UseConversationHistory}");
             }
         }
@@ -853,9 +762,9 @@ namespace Wally.Core
             if (RequireWorkspace(env, "edit-actor") == null) return;
             var actor = env.GetActor(name);
             if (actor == null) { Console.WriteLine($"Actor '{name}' not found."); foreach (var a in env.Actors) Console.WriteLine($"  {a.Name}"); return; }
-            if (rolePrompt     != null) actor.Role.Prompt                  = rolePrompt;
-            if (criteriaPrompt != null) actor.AcceptanceCriteria.Prompt    = criteriaPrompt;
-            if (intentPrompt   != null) actor.Intent.Prompt                = intentPrompt;
+            if (rolePrompt     != null) actor.Role.Prompt               = rolePrompt;
+            if (criteriaPrompt != null) actor.AcceptanceCriteria.Prompt = criteriaPrompt;
+            if (intentPrompt   != null) actor.Intent.Prompt             = intentPrompt;
             WallyHelper.SaveActor(env.Workspace!.WorkspaceFolder, env.Workspace.Config, actor);
             env.Logger.LogCommand("edit-actor", $"Updated actor '{name}'");
             Console.WriteLine($"Actor '{name}' updated.");
@@ -867,20 +776,26 @@ namespace Wally.Core
             var actor = env.GetActor(name);
             if (actor == null) { Console.WriteLine($"Actor '{name}' not found."); return; }
             string actorDir = Path.Combine(env.Workspace!.WorkspaceFolder, env.Workspace.Config.ActorsFolderName, name);
-            if (Directory.Exists(actorDir)) { Directory.Delete(actorDir, recursive: true); env.ReloadActors(); env.Logger.LogCommand("delete-actor", $"Deleted actor '{name}'"); Console.WriteLine($"Actor '{name}' deleted."); }
+            if (Directory.Exists(actorDir))
+            {
+                Directory.Delete(actorDir, recursive: true);
+                env.ReloadActors();
+                env.Logger.LogCommand("delete-actor", $"Deleted actor '{name}'");
+                Console.WriteLine($"Actor '{name}' deleted.");
+            }
             else Console.WriteLine($"Actor folder not found: {actorDir}");
         }
 
         // ?? Loop CRUD ?????????????????????????????????????????????????????????
 
-        public static void HandleAddLoop(WallyEnvironment env, string name, string description, string actorName, int maxIterations, string startPrompt)
+        public static void HandleAddLoop(WallyEnvironment env, string name, string description, string actorName, string startPrompt)
         {
             if (RequireWorkspace(env, "add-loop") == null) return;
             if (env.GetLoop(name) != null) { Console.WriteLine($"Loop '{name}' already exists. Use 'edit-loop' to modify it."); return; }
             var ws = env.Workspace!;
             string loopsDir = Path.Combine(ws.WorkspaceFolder, ws.Config.LoopsFolderName);
             Directory.CreateDirectory(loopsDir);
-            var loop = new WallyLoopDefinition { Name = name, Description = description, ActorName = actorName, MaxIterations = maxIterations, StartPrompt = startPrompt };
+            var loop = new WallyLoopDefinition { Name = name, Description = description, ActorName = actorName, StartPrompt = startPrompt };
             string filePath = Path.Combine(loopsDir, $"{name}.json");
             loop.SaveToFile(filePath);
             ws.ReloadLoops();
@@ -888,15 +803,14 @@ namespace Wally.Core
             Console.WriteLine($"Loop '{name}' created at: {filePath}");
         }
 
-        public static void HandleEditLoop(WallyEnvironment env, string name, string? description, string? actorName, int? maxIterations, string? startPrompt)
+        public static void HandleEditLoop(WallyEnvironment env, string name, string? description, string? actorName, string? startPrompt)
         {
             if (RequireWorkspace(env, "edit-loop") == null) return;
             var loop = env.GetLoop(name);
             if (loop == null) { Console.WriteLine($"Loop '{name}' not found."); foreach (var l in env.Loops) Console.WriteLine($"  {l.Name}"); return; }
-            if (description  != null) loop.Description  = description;
-            if (actorName    != null) loop.ActorName     = actorName;
-            if (maxIterations.HasValue) loop.MaxIterations = maxIterations.Value;
-            if (startPrompt  != null) loop.StartPrompt   = startPrompt;
+            if (description != null) loop.Description = description;
+            if (actorName   != null) loop.ActorName   = actorName;
+            if (startPrompt != null) loop.StartPrompt = startPrompt;
             string filePath = Path.Combine(env.Workspace!.WorkspaceFolder, env.Workspace.Config.LoopsFolderName, $"{name}.json");
             loop.SaveToFile(filePath);
             env.Logger.LogCommand("edit-loop", $"Updated loop '{name}'");
@@ -937,10 +851,10 @@ namespace Wally.Core
             if (RequireWorkspace(env, "edit-wrapper") == null) return;
             var wrapper = env.Workspace!.LlmWrappers.FirstOrDefault(w => string.Equals(w.Name, name, StringComparison.OrdinalIgnoreCase));
             if (wrapper == null) { Console.WriteLine($"Wrapper '{name}' not found."); foreach (var w in env.Workspace.LlmWrappers) Console.WriteLine($"  {w.Name}"); return; }
-            if (description          != null) wrapper.Description            = description;
-            if (executable           != null) wrapper.Executable             = executable;
-            if (argumentTemplate     != null) wrapper.ArgumentTemplate       = argumentTemplate;
-            if (canMakeChanges.HasValue)      wrapper.CanMakeChanges         = canMakeChanges.Value;
+            if (description             != null) wrapper.Description            = description;
+            if (executable              != null) wrapper.Executable             = executable;
+            if (argumentTemplate        != null) wrapper.ArgumentTemplate       = argumentTemplate;
+            if (canMakeChanges.HasValue)         wrapper.CanMakeChanges         = canMakeChanges.Value;
             if (useConversationHistory.HasValue) wrapper.UseConversationHistory = useConversationHistory.Value;
             string filePath = Path.Combine(env.Workspace.WorkspaceFolder, env.Workspace.Config.WrappersFolderName, $"{name}.json");
             wrapper.SaveToFile(filePath);
@@ -997,31 +911,6 @@ namespace Wally.Core
 
         // ?? Private helpers ???????????????????????????????????????????????????
 
-        private static void PrintLoopResults(WallyLoop loop, int iterations, string loopLabel)
-        {
-            if (iterations == 1 && loop.Results.Count == 1)
-            {
-                Console.WriteLine(loop.Results[0]);
-                Console.WriteLine();
-            }
-            else
-            {
-                for (int i = 0; i < loop.Results.Count; i++)
-                {
-                    Console.WriteLine($"--- Iteration {i + 1} ---");
-                    Console.WriteLine(loop.Results[i]);
-                    Console.WriteLine();
-                }
-                switch (loop.StopReason)
-                {
-                    case LoopStopReason.Completed:    Console.WriteLine($"{loopLabel} Loop completed after {loop.ExecutionCount} iteration(s)."); break;
-                    case LoopStopReason.Error:        Console.WriteLine($"{loopLabel} Loop stopped by error after {loop.ExecutionCount} iteration(s)."); break;
-                    case LoopStopReason.MaxIterations:Console.WriteLine($"{loopLabel} Loop reached max iterations ({loop.ExecutionCount})."); break;
-                }
-            }
-            if (loop.Results.Count == 0) Console.WriteLine("No responses from AI.");
-        }
-
         private static string ResolveWorkspaceFolder(string? workSourcePath)
         {
             if (!string.IsNullOrWhiteSpace(workSourcePath) && Directory.Exists(workSourcePath))
@@ -1035,16 +924,16 @@ namespace Wally.Core
             Console.WriteLine(header);
             Console.WriteLine(new string('=', header.Length));
             Console.WriteLine();
-            Console.WriteLine($"WorkSource:        {env.WorkSource}");
-            Console.WriteLine($"Workspace folder:  {env.WorkspaceFolder}");
-            Console.WriteLine($"Actors folder:     {Path.Combine(env.WorkspaceFolder, env.Workspace!.Config.ActorsFolderName)}");
-            Console.WriteLine($"Docs folder:       {Path.Combine(env.WorkspaceFolder, env.Workspace!.Config.DocsFolderName)}");
-            Console.WriteLine($"Templates folder:  {Path.Combine(env.WorkspaceFolder, env.Workspace!.Config.TemplatesFolderName)}");
-            Console.WriteLine($"Logs folder:       {Path.Combine(env.WorkspaceFolder, env.Workspace!.Config.LogsFolderName)}");
+            Console.WriteLine($"WorkSource:       {env.WorkSource}");
+            Console.WriteLine($"Workspace folder: {env.WorkspaceFolder}");
+            Console.WriteLine($"Actors folder:    {Path.Combine(env.WorkspaceFolder, env.Workspace!.Config.ActorsFolderName)}");
+            Console.WriteLine($"Docs folder:      {Path.Combine(env.WorkspaceFolder, env.Workspace!.Config.DocsFolderName)}");
+            Console.WriteLine($"Templates folder: {Path.Combine(env.WorkspaceFolder, env.Workspace!.Config.TemplatesFolderName)}");
+            Console.WriteLine($"Logs folder:      {Path.Combine(env.WorkspaceFolder, env.Workspace!.Config.LogsFolderName)}");
         }
 
-        private static void PrintRbaLine(string name, string prompt) =>
-            Console.WriteLine($"    {name}:  {(string.IsNullOrWhiteSpace(prompt) ? "(none)" : prompt)}");
+        private static void PrintRbaLine(string label, string value) =>
+            Console.WriteLine($"{label}: {(string.IsNullOrWhiteSpace(value) ? "(none)" : value)}");
 
         private static string? GetOption(string[] args, string flag)
         {

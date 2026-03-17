@@ -237,14 +237,25 @@ namespace Wally.Forms.Controls.Editors
                     {
                         sb.AppendLine($"  [{loop.Name}]");
                         if (!string.IsNullOrWhiteSpace(loop.Description))
-                            sb.AppendLine($"    Description:    {loop.Description}");
-                        sb.AppendLine($"    Actor:          {(string.IsNullOrWhiteSpace(loop.ActorName) ? "(caller specifies)" : loop.ActorName)}");
-                        sb.AppendLine($"    MaxIterations:  {(loop.MaxIterations > 0 ? loop.MaxIterations.ToString() : "(workspace default)")}");
-                        sb.AppendLine($"    Completed:      {loop.ResolvedCompletedKeyword}");
-                        sb.AppendLine($"    Error:          {loop.ResolvedErrorKeyword}");
-                        sb.AppendLine($"    StartPrompt:    {Truncate(loop.StartPrompt, 120)}");
-                        if (!string.IsNullOrWhiteSpace(loop.ContinuePromptTemplate))
-                            sb.AppendLine($"    ContinueTmpl:   {Truncate(loop.ContinuePromptTemplate, 120)}");
+                            sb.AppendLine($"    Description: {loop.Description}");
+                        sb.AppendLine($"    Actor:       {(string.IsNullOrWhiteSpace(loop.ActorName) ? "(caller specifies)" : loop.ActorName)}");
+                        if (loop.HasSteps)
+                        {
+                            sb.AppendLine($"    Mode:        pipeline ({loop.Steps.Count} step(s))");
+                            for (int i = 0; i < loop.Steps.Count; i++)
+                            {
+                                var s = loop.Steps[i];
+                                string stepActor = string.IsNullOrWhiteSpace(s.ActorName)
+                                    ? (string.IsNullOrWhiteSpace(loop.ActorName) ? "(direct)" : loop.ActorName)
+                                    : s.ActorName;
+                                sb.AppendLine($"    Step {i + 1}: [{(string.IsNullOrWhiteSpace(s.Name) ? $"step-{i+1}" : s.Name)}]  Actor: {stepActor}");
+                            }
+                        }
+                        else
+                        {
+                            sb.AppendLine($"    Mode:        single-actor");
+                            sb.AppendLine($"    StartPrompt: {Truncate(loop.StartPrompt, 120)}");
+                        }
                         sb.AppendLine();
                     }
                     AppendSection($"Loops ({ws.Loops.Count})", sb.ToString().TrimEnd(), WallyTheme.TextPrimary);

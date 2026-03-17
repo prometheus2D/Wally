@@ -16,10 +16,6 @@ namespace Wally.Forms.Controls.Editors
         private readonly TextBox _txtDescription;
         private readonly TextBox _txtActorName;
         private readonly RichTextBox _txtStartPrompt;
-        private readonly RichTextBox _txtContinueTemplate;
-        private readonly TextBox _txtCompletedKeyword;
-        private readonly TextBox _txtErrorKeyword;
-        private readonly NumericUpDown _nudMaxIter;
         private readonly Label _lblStatus;
         private readonly Button _btnSave;
         private readonly Button _btnRevert;
@@ -112,44 +108,6 @@ namespace Wally.Forms.Controls.Editors
             table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             table.Controls.Add(_txtStartPrompt, 0, row++);
 
-            table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            table.Controls.Add(CreateSectionLabel("Continue Prompt Template", WallyTheme.FontUISmallBold, WallyTheme.TextMuted), 0, row++);
-            _txtContinueTemplate = CreateRichTextBox(140);
-            _txtContinueTemplate.TextChanged += OnFieldChanged;
-            table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            table.Controls.Add(_txtContinueTemplate, 0, row++);
-
-            table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            table.Controls.Add(CreateFieldLabel("Completed Keyword"), 0, row++);
-            _txtCompletedKeyword = CreateTextBox();
-            _txtCompletedKeyword.TextChanged += OnFieldChanged;
-            table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            table.Controls.Add(_txtCompletedKeyword, 0, row++);
-
-            table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            table.Controls.Add(CreateFieldLabel("Error Keyword"), 0, row++);
-            _txtErrorKeyword = CreateTextBox();
-            _txtErrorKeyword.TextChanged += OnFieldChanged;
-            table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            table.Controls.Add(_txtErrorKeyword, 0, row++);
-
-            table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            table.Controls.Add(CreateFieldLabel("Max Iterations (0 = use workspace default)"), 0, row++);
-            _nudMaxIter = new NumericUpDown
-            {
-                Width = 120,
-                Minimum = 0,
-                Maximum = 1000,
-                Font = WallyTheme.FontUI,
-                BackColor = WallyTheme.Surface2,
-                ForeColor = WallyTheme.TextPrimary,
-                BorderStyle = BorderStyle.FixedSingle,
-                Margin = new Padding(0, 0, 0, 4)
-            };
-            _nudMaxIter.ValueChanged += OnFieldChanged;
-            table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            table.Controls.Add(_nudMaxIter, 0, row++);
-
             scroll.Controls.Add(table);
             Controls.Add(scroll);
             ResumeLayout(true);
@@ -168,37 +126,24 @@ namespace Wally.Forms.Controls.Editors
             _lblStatus.ForeColor = WallyTheme.TextMuted;
         }
 
-        // ?? Field population ????????????????????????????????????????????????
+        // ?? Field population ??????????????????????????????????????????????????
 
         private void PopulateFields()
         {
             if (_loop == null) return;
-
-            _txtName.Text = _loop.Name;
+            _txtName.Text        = _loop.Name;
             _txtDescription.Text = _loop.Description;
-            _txtActorName.Text = _loop.ActorName;
+            _txtActorName.Text   = _loop.ActorName;
             _txtStartPrompt.Text = _loop.StartPrompt;
-            _txtContinueTemplate.Text = _loop.ContinuePromptTemplate ?? "";
-            _txtCompletedKeyword.Text = _loop.CompletedKeyword ?? "";
-            _txtErrorKeyword.Text = _loop.ErrorKeyword ?? "";
-            _nudMaxIter.Value = Math.Max(0, Math.Min(1000, _loop.MaxIterations));
         }
 
         private void ApplyFieldsToLoop()
         {
             if (_loop == null) return;
-
-            _loop.Name = _txtName.Text.Trim();
+            _loop.Name        = _txtName.Text.Trim();
             _loop.Description = _txtDescription.Text.Trim();
-            _loop.ActorName = _txtActorName.Text.Trim();
+            _loop.ActorName   = _txtActorName.Text.Trim();
             _loop.StartPrompt = _txtStartPrompt.Text.Trim();
-            _loop.ContinuePromptTemplate = string.IsNullOrWhiteSpace(_txtContinueTemplate.Text)
-                ? null : _txtContinueTemplate.Text.Trim();
-            _loop.CompletedKeyword = string.IsNullOrWhiteSpace(_txtCompletedKeyword.Text)
-                ? null : _txtCompletedKeyword.Text.Trim();
-            _loop.ErrorKeyword = string.IsNullOrWhiteSpace(_txtErrorKeyword.Text)
-                ? null : _txtErrorKeyword.Text.Trim();
-            _loop.MaxIterations = (int)_nudMaxIter.Value;
         }
 
         // ?? Event handlers ??????????????????????????????????????????????????

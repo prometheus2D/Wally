@@ -16,10 +16,6 @@ namespace Wally.Console.Options.Loops
             HelpText = "New default actor name (omit to keep current).")]
         public string? ActorName { get; set; }
 
-        [Option('n', "max-iterations", Required = false, Default = null,
-            HelpText = "New max iterations (omit to keep current).")]
-        public int? MaxIterations { get; set; }
-
         [Option('s', "start-prompt", Required = false, Default = null,
             HelpText = "New start prompt template (omit to keep current).")]
         public string? StartPrompt { get; set; }

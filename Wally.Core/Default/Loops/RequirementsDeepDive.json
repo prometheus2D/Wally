@@ -1,28 +1,24 @@
 {
   "Name": "RequirementsDeepDive",
   "Description": "Three-step requirements elaboration: BusinessAnalyst refines requirements, Stakeholder validates business alignment, then Engineer assesses technical feasibility.",
-  "MaxIterations": 3,
   "Steps": [
     {
       "Name": "Elaborate",
-      "Description": "BusinessAnalyst produces and refines a structured requirements set.",
+      "Description": "BusinessAnalyst produces a structured requirements set.",
       "ActorName": "BusinessAnalyst",
-      "PromptTemplate": "Analyse the following request and produce a structured requirements set:\n\n{userPrompt}\n\nIdentify functional requirements, non-functional requirements, assumptions, acceptance criteria, priorities (Must/Should/Could), and areas needing further clarification. If your requirements are complete and well-defined, end with: {completedKeyword}\nIf you found a contradiction or blocking issue, end with: {errorKeyword}",
-      "ContinuePromptTemplate": "You are refining requirements iteratively. Here is your previous analysis:\n\n---\n{previousResult}\n---\n\nOriginal request: {userPrompt}\n\nRefine the requirements further — resolve ambiguities, tighten definitions, add edge cases. If the requirements are complete and well-defined, end with: {completedKeyword}\nIf you found a contradiction or blocking issue, end with: {errorKeyword}"
+      "PromptTemplate": "Analyse the following request and produce a structured requirements set:\n\n{userPrompt}\n\nIdentify functional requirements, non-functional requirements, assumptions, acceptance criteria, and priorities (Must/Should/Could)."
     },
     {
       "Name": "StakeholderValidation",
       "Description": "Stakeholder reviews the requirements for business alignment and completeness.",
       "ActorName": "Stakeholder",
-      "PromptTemplate": "The Business Analyst has produced the following requirements:\n\n---\n{previousStepResult}\n---\n\nOriginal request: {userPrompt}\n\nReview these requirements from a business perspective. Confirm they address the original business need, define clear success criteria, and have correct priorities. Flag anything that: drifts from the original goal, adds unscoped features, is missing a user outcome, or is technically prescribed instead of outcome-focused. If requirements are aligned, confirm and end with: {completedKeyword}\nIf you find a blocking misalignment, end with: {errorKeyword}",
-      "ContinuePromptTemplate": "You are continuing your stakeholder review. Here is your previous pass:\n\n---\n{previousResult}\n---\n\nOriginal request: {userPrompt}\n\nContinue your review. If requirements are now aligned, end with: {completedKeyword}\nIf there is still a blocking issue, end with: {errorKeyword}"
+      "PromptTemplate": "The Business Analyst has produced the following requirements:\n\n---\n{previousStepResult}\n---\n\nOriginal request: {userPrompt}\n\nReview these requirements from a business perspective. Confirm they address the original business need, define clear success criteria, and have correct priorities. Flag anything that drifts from the original goal, adds unscoped features, is missing a user outcome, or is technically prescribed instead of outcome-focused."
     },
     {
       "Name": "FeasibilityCheck",
-      "Description": "Engineer assesses technical feasibility, identifies risks, and flags any requirements that need rework.",
+      "Description": "Engineer assesses technical feasibility and flags any requirements that need rework.",
       "ActorName": "Engineer",
-      "PromptTemplate": "The following requirements have been produced and stakeholder-validated:\n\n---\n{previousStepResult}\n---\n\nOriginal request: {userPrompt}\n\nReview these requirements for technical feasibility. For each requirement: confirm it is implementable, identify technical risks or dependencies, flag any that are ambiguous from an engineering perspective, and suggest clarifications if needed. If the requirements are feasible and ready for implementation planning, end with: {completedKeyword}\nIf you find a blocking technical issue, end with: {errorKeyword}",
-      "ContinuePromptTemplate": "You are continuing your technical feasibility review. Here is your previous pass:\n\n---\n{previousResult}\n---\n\nOriginal request: {userPrompt}\n\nContinue your review. If all requirements are now feasible and clear, end with: {completedKeyword}\nIf there is a blocking technical issue, end with: {errorKeyword}"
+      "PromptTemplate": "The following requirements have been produced and stakeholder-validated:\n\n---\n{previousStepResult}\n---\n\nOriginal request: {userPrompt}\n\nReview these requirements for technical feasibility. For each requirement: confirm it is implementable, identify technical risks or dependencies, and flag any that are ambiguous from an engineering perspective."
     }
   ]
 }

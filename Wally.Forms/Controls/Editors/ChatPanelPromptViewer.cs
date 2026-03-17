@@ -383,32 +383,28 @@ namespace Wally.Forms.Controls.Editors
                     if (loopDef != null && !string.IsNullOrWhiteSpace(loopDef.StartPrompt))
                     {
                         effectivePrompt = loopDef.StartPrompt.Replace("{userPrompt}", userPrompt);
-                        AppendSection("Loop Start Prompt (expanded)",
-                            effectivePrompt, WallyTheme.TextSecondary);
-
-                        // Also show the continue prompt template
-                        if (!string.IsNullOrWhiteSpace(loopDef.ContinuePromptTemplate))
+                        AppendSection("Loop Start Prompt (expanded)", effectivePrompt, WallyTheme.TextSecondary);
+                    }
+                    else if (loopDef?.HasSteps == true)
+                    {
+                        // Pipeline — show each step's prompt template
+                        var sb = new System.Text.StringBuilder();
+                        for (int i = 0; i < loopDef.Steps.Count; i++)
                         {
-                            string continuePreview = loopDef.ContinuePromptTemplate
-                                .Replace("{userPrompt}", userPrompt)
-                                .Replace("{previousResult}", "<previous AI response>")
-                                .Replace("{completedKeyword}", loopDef.ResolvedCompletedKeyword)
-                                .Replace("{errorKeyword}", loopDef.ResolvedErrorKeyword);
-                            AppendSection("Loop Continue Prompt Template (preview)",
-                                continuePreview, WallyTheme.TextMuted);
+                            var s = loopDef.Steps[i];
+                            string stepName = string.IsNullOrWhiteSpace(s.Name) ? $"step-{i + 1}" : s.Name;
+                            string actor = string.IsNullOrWhiteSpace(s.ActorName)
+                                ? (string.IsNullOrWhiteSpace(loopDef.ActorName) ? "(direct)" : loopDef.ActorName)
+                                : s.ActorName;
+                            sb.AppendLine($"Step {i + 1}: {stepName}  ({actor})");
+                            sb.AppendLine(string.IsNullOrWhiteSpace(s.PromptTemplate) ? "(default)" : s.PromptTemplate);
+                            sb.AppendLine();
                         }
-
-                        AppendSection("Loop Settings",
-                            $"MaxIterations:    {(loopDef.MaxIterations > 0 ? loopDef.MaxIterations.ToString() : "(workspace default)")}\n" +
-                            $"CompletedKeyword: {loopDef.ResolvedCompletedKeyword}\n" +
-                            $"ErrorKeyword:     {loopDef.ResolvedErrorKeyword}",
-                            WallyTheme.TextMuted);
+                        AppendSection($"Pipeline Steps ({loopDef.Steps.Count})", sb.ToString().TrimEnd(), WallyTheme.TextSecondary);
                     }
                     else
                     {
-                        AppendSection("Loop Warning",
-                            $"Loop '{loopName}' not found or has no start prompt.",
-                            WallyTheme.Red);
+                        AppendSection("Loop Warning", $"Loop '{loopName}' not found or has no prompt.", WallyTheme.Red);
                     }
                 }
 

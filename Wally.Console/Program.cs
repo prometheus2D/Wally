@@ -85,9 +85,7 @@ namespace Wally.Console
                             ro.Prompt,
                             ro.ActorName,
                             ro.Model,
-                            ro.Looped,
                             ro.LoopName,
-                            ro.MaxIterations,
                             ro.Wrapper,
                             ro.NoHistory);
                         return 0;
@@ -108,8 +106,8 @@ namespace Wally.Console
 
                     // ── Loops ─────────────────────────────────────────────────
                     if (opts is ListLoopsOptions)       { WallyCommands.HandleListLoops(_environment); return 0; }
-                    if (opts is AddLoopOptions alo)     { WallyCommands.HandleAddLoop(_environment, alo.Name, alo.Description, alo.ActorName, alo.MaxIterations, alo.StartPrompt); return 0; }
-                    if (opts is EditLoopOptions elo)    { WallyCommands.HandleEditLoop(_environment, elo.Name, elo.Description, elo.ActorName, elo.MaxIterations, elo.StartPrompt); return 0; }
+                    if (opts is AddLoopOptions alo)     { WallyCommands.HandleAddLoop(_environment, alo.Name, alo.Description, alo.ActorName, alo.StartPrompt); return 0; }
+                    if (opts is EditLoopOptions elo)    { WallyCommands.HandleEditLoop(_environment, elo.Name, elo.Description, elo.ActorName, elo.StartPrompt); return 0; }
                     if (opts is DeleteLoopOptions dlo)  { WallyCommands.HandleDeleteLoop(_environment, dlo.Name); return 0; }
 
                     // ── Wrappers ──────────────────────────────────────────────

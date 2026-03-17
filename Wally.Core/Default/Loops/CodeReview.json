@@ -1,21 +1,18 @@
 {
   "Name": "CodeReview",
   "Description": "Two-step code review: Engineer performs a deep technical review, then BusinessAnalyst triages findings by business priority and impact.",
-  "MaxIterations": 3,
   "Steps": [
     {
       "Name": "TechnicalReview",
       "Description": "Engineer reviews the codebase for bugs, security issues, performance problems, and code quality.",
       "ActorName": "Engineer",
-      "PromptTemplate": "Perform a thorough technical code review of the following:\n\n{userPrompt}\n\nFocus on bugs, security vulnerabilities, performance problems, and code quality. Report your findings as a structured list with severity (Critical / High / Medium / Low) for each item. If your review is complete, end with: {completedKeyword}\nIf you hit a blocking problem, end with: {errorKeyword}",
-      "ContinuePromptTemplate": "You are continuing your technical code review. Here is your previous pass:\n\n---\n{previousResult}\n---\n\nOriginal request: {userPrompt}\n\nPerform another review pass — look for issues you may have missed or go deeper on the ones already found. If you are satisfied the review is complete, end with: {completedKeyword}\nIf you hit a blocking problem, end with: {errorKeyword}"
+      "PromptTemplate": "Perform a thorough technical code review of the following:\n\n{userPrompt}\n\nFocus on bugs, security vulnerabilities, performance problems, and code quality. Report your findings as a structured list with severity (Critical / High / Medium / Low) for each item."
     },
     {
       "Name": "BusinessTriage",
       "Description": "BusinessAnalyst triages the Engineer's findings by business priority and user impact.",
       "ActorName": "BusinessAnalyst",
-      "PromptTemplate": "The Engineer has completed a technical code review. Here are the findings:\n\n---\n{previousStepResult}\n---\n\nOriginal request: {userPrompt}\n\nTriage these findings from a business perspective. For each item: assess user impact, business risk, and recommend a priority (Must Fix / Should Fix / Could Fix / Won't Fix). Group findings by priority. Identify any findings that have broader scope or requirement implications. If your triage is complete, end with: {completedKeyword}\nIf you hit a blocking problem, end with: {errorKeyword}",
-      "ContinuePromptTemplate": "You are continuing your triage of the code review findings. Here is your previous pass:\n\n---\n{previousResult}\n---\n\nOriginal request: {userPrompt}\n\nRefine your triage — resolve any ambiguities and ensure every finding has a clear recommendation. If complete, end with: {completedKeyword}\nIf you hit a blocking problem, end with: {errorKeyword}"
+      "PromptTemplate": "The Engineer has completed a technical code review. Here are the findings:\n\n---\n{previousStepResult}\n---\n\nOriginal request: {userPrompt}\n\nTriage these findings from a business perspective. For each item: assess user impact, business risk, and recommend a priority (Must Fix / Should Fix / Could Fix / Won't Fix). Group findings by priority. Identify any findings that have broader scope or requirement implications."
     }
   ]
 }

@@ -1,21 +1,18 @@
 {
   "Name": "Refactor",
   "Description": "Two-step refactoring: Engineer identifies and applies refactoring improvements, then BusinessAnalyst verifies scope hasn't drifted from original requirements.",
-  "MaxIterations": 5,
   "Steps": [
     {
       "Name": "Refactor",
       "Description": "Engineer identifies and applies the most impactful refactoring step.",
       "ActorName": "Engineer",
-      "PromptTemplate": "Analyse the code and identify the most impactful refactoring to apply first:\n\n{userPrompt}\n\nDescribe what you would change and why. Be specific about files, classes, and methods. Explain the before/after improvement. If there are no more meaningful improvements to make, end with: {completedKeyword}\nIf you hit a blocker or dependency issue, end with: {errorKeyword}",
-      "ContinuePromptTemplate": "You are continuing an iterative refactoring task. Here is what you did in the previous step:\n\n---\n{previousResult}\n---\n\nOriginal request: {userPrompt}\n\nIdentify the next refactoring step. If there are no more meaningful improvements to make, end with: {completedKeyword}\nIf you hit a blocker or dependency issue, end with: {errorKeyword}"
+      "PromptTemplate": "Analyse the code and identify the most impactful refactoring to apply:\n\n{userPrompt}\n\nDescribe what you would change and why. Be specific about files, classes, and methods. Explain the before/after improvement."
     },
     {
       "Name": "ScopeCheck",
       "Description": "BusinessAnalyst verifies the refactoring stays within scope and hasn't introduced unintended requirement changes.",
       "ActorName": "BusinessAnalyst",
-      "PromptTemplate": "The Engineer has proposed a refactoring step. Here are the details:\n\n---\n{previousStepResult}\n---\n\nOriginal request: {userPrompt}\n\nReview this refactoring from a requirements and scope perspective. Check that: (1) no existing functionality has been removed or changed unintentionally, (2) the change stays within the scope of the original request, (3) any new patterns introduced are consistent with stated requirements. Flag any drift or unintended changes. If scope is clean, confirm and end with: {completedKeyword}\nIf you identify a scope violation, end with: {errorKeyword}",
-      "ContinuePromptTemplate": "You are continuing your scope review of the refactoring. Here is your previous pass:\n\n---\n{previousResult}\n---\n\nOriginal request: {userPrompt}\n\nContinue your scope check. If scope is confirmed clean, end with: {completedKeyword}\nIf you identify a blocking scope violation, end with: {errorKeyword}"
+      "PromptTemplate": "The Engineer has proposed a refactoring step. Here are the details:\n\n---\n{previousStepResult}\n---\n\nOriginal request: {userPrompt}\n\nReview this refactoring from a requirements and scope perspective. Check that: (1) no existing functionality has been removed or changed unintentionally, (2) the change stays within the scope of the original request, (3) any new patterns introduced are consistent with stated requirements. Flag any drift or unintended changes."
     }
   ]
 }

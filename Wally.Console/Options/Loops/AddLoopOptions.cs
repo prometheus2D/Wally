@@ -13,12 +13,8 @@ namespace Wally.Console.Options.Loops
         public string Description { get; set; } = string.Empty;
 
         [Option('a', "actor", Required = false, Default = "",
-            HelpText = "Default actor name for this loop.")]
+            HelpText = "Default actor name for single-actor runs.")]
         public string ActorName { get; set; } = string.Empty;
-
-        [Option('n', "max-iterations", Required = false, Default = 5,
-            HelpText = "Maximum number of iterations.")]
-        public int MaxIterations { get; set; } = 5;
 
         [Option('s', "start-prompt", Required = false, Default = "{userPrompt}",
             HelpText = "The start prompt template. Use {userPrompt} as a placeholder.")]

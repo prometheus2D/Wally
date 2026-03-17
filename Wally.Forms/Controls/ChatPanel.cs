@@ -773,9 +773,9 @@ namespace Wally.Forms.Controls
             string label = directMode ? "AI" : actorName!;
             var cmdParts = new List<string> { "run", $"\"{prompt}\"" };
             if (!directMode) cmdParts.Add($"-a {actorName}");
-            if (isLooped) cmdParts.Add($"-l {loopName}");
+            if (isLooped)    cmdParts.Add($"-l {loopName}");
             if (modelOverride != null) cmdParts.Add($"-m {modelOverride}");
-            if (wrapperName != null) cmdParts.Add($"-w {wrapperName}");
+            if (wrapperName   != null) cmdParts.Add($"-w {wrapperName}");
             string cmdText = string.Join(" ", cmdParts);
             CommandIssued?.Invoke(this, cmdText);
 
@@ -801,15 +801,14 @@ namespace Wally.Forms.Controls
                 {
                     token.ThrowIfCancellationRequested();
 
-                    return WallyCommands.HandleRun(
+                    return WallyCommands.HandleRunTyped(
                         _environment!,
                         prompt,
                         actorName,
                         modelOverride,
-                        looped: isLooped,
-                        loopName: loopName,
-                        maxIterations: 0,   // use loop definition or config default
-                        wrapper: wrapperName);
+                        loopName:   loopName,
+                        wrapper:    wrapperName,
+                        noHistory:  false);
                 }, token);
 
                 if (results.Count == 0)
@@ -818,15 +817,14 @@ namespace Wally.Forms.Controls
                 }
                 else if (results.Count == 1)
                 {
-                    AddMessage(label, results[0], MessageKind.Actor);
+                    AddMessage(results[0].DisplayLabel(), results[0].Response, MessageKind.Actor);
                 }
                 else
                 {
-                    for (int i = 0; i < results.Count; i++)
-                        AddMessage($"{label} [{i + 1}/{results.Count}]", results[i], MessageKind.Actor);
-                    AddMessage("System",
-                        $"Loop completed — {results.Count} iteration(s).",
-                        MessageKind.System);
+                    foreach (var r in results)
+                        AddMessage(r.DisplayLabel(), r.Response, MessageKind.Actor);
+
+                    AddMessage("System", $"Pipeline complete \u2014 {results.Count} step(s).", MessageKind.System);
                 }
             }
             catch (OperationCanceledException)
