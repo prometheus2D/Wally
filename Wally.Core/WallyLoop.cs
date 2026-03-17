@@ -6,18 +6,25 @@ namespace Wally.Core
     /// <summary>
     /// Represents an iterative execution loop for Wally operations.
     /// <para>
-    /// A <see cref="WallyLoop"/> is constructed with three core pieces:
+    /// A <see cref="WallyLoop"/> operates in one of two modes:
+    /// </para>
     /// <list type="bullet">
-    ///   <item><b>Action</b> — a <see cref="Func{String, String}"/> that receives a
-    ///         prompt and returns a result string (e.g. an actor's response).</item>
-    ///   <item><b>StartPrompt</b> — the prompt used for the first iteration.</item>
-    ///   <item><b>ContinuePrompt</b> — a function that receives the previous iteration's
-    ///         result and returns the prompt for the next iteration. This is how
-    ///         context is carried forward between stateless calls. When
-    ///         <see langword="null"/>, the previous result is fed directly as the
-    ///         next prompt.</item>
+    ///   <item>
+    ///     <b>Single-actor mode</b> (legacy) — constructed with a single action, a start
+    ///     prompt, and an optional continue-prompt factory. Each iteration runs the same
+    ///     action with an evolving prompt.
+    ///   </item>
+    ///   <item>
+    ///     <b>Multi-step mode</b> — constructed with a list of <see cref="WallyStep"/> objects.
+    ///     Each loop pass executes every step in order, threading the previous step's result
+    ///     into the next step's prompt. The loop terminates when any step reports
+    ///     <see cref="LoopStopReason.Completed"/> or <see cref="LoopStopReason.Error"/>, 
+    ///     or when <see cref="MaxIterations"/> full passes have been completed.
+    ///   </item>
     /// </list>
-    /// After each iteration the result is checked for two keywords:
+    /// <para>
+    /// After each iteration (single-actor) or each full pass (multi-step) the result
+    /// is checked for two keywords:
     /// <list type="bullet">
     ///   <item><see cref="CompletedKeyword"/> (<c>[LOOP COMPLETED]</c>) — the loop finished successfully.</item>
     ///   <item><see cref="ErrorKeyword"/> (<c>[LOOP ERROR]</c>) — the actor detected an error.</item>
@@ -27,7 +34,7 @@ namespace Wally.Core
     /// </summary>
     public class WallyLoop
     {
-        // — Keywords ——————————————————————————————————————————————————————————
+        // ??? Keywords ?????????????????????????????????????????????????????????
 
         /// <summary>
         /// Keyword that signals the loop has completed successfully.
@@ -41,51 +48,71 @@ namespace Wally.Core
         /// </summary>
         public const string ErrorKeyword = "[LOOP ERROR]";
 
-        // — State ——————————————————————————————————————————————————————————————
+        // ??? Single-actor state ???????????????????????????????????????????????
 
         /// <summary>
         /// The action lambda that this loop executes on each iteration.
-        /// Receives the current prompt and returns a result string.
+        /// <see langword="null"/> when running in multi-step mode.
         /// </summary>
-        private readonly Func<string, string> _action;
+        private readonly Func<string, string>? _action;
 
         /// <summary>
-        /// The prompt used on the first iteration of the loop.
+        /// The prompt used on the first iteration of the loop (single-actor mode).
         /// </summary>
         public string StartPrompt { get; set; }
 
         /// <summary>
-        /// Function that builds the prompt for iterations after the first.
-        /// Receives the previous iteration's result so that context can be
-        /// carried forward between stateless calls. When <see langword="null"/>, 
+        /// Function that builds the prompt for iterations after the first (single-actor mode).
+        /// Receives the previous iteration's result. When <see langword="null"/>, 
         /// the previous result is fed directly as the next prompt.
         /// </summary>
         public Func<string, string>? ContinuePrompt { get; set; }
 
+        // ??? Multi-step state ?????????????????????????????????????????????????
+
         /// <summary>
-        /// The maximum number of iterations the loop is allowed to perform.
-        /// The loop ends when this ceiling is reached even if neither
-        /// keyword has been detected.
+        /// The ordered list of steps to execute on each loop pass.
+        /// When non-empty the loop operates in multi-step mode, ignoring
+        /// <see cref="_action"/>, <see cref="StartPrompt"/>, and
+        /// <see cref="ContinuePrompt"/>.
+        /// </summary>
+        public IReadOnlyList<WallyStep> Steps { get; }
+
+        /// <summary>
+        /// The user's original runtime prompt. Passed to each step's prompt
+        /// factories in multi-step mode.
+        /// </summary>
+        public string UserPrompt { get; set; }
+
+        /// <summary>Returns <see langword="true"/> when this loop runs in multi-step mode.</summary>
+        public bool HasSteps => Steps != null && Steps.Count > 0;
+
+        // ??? Shared state ?????????????????????????????????????????????????????
+
+        /// <summary>
+        /// The maximum number of iterations (single-actor) or full passes (multi-step)
+        /// the loop is allowed to perform.
         /// </summary>
         public int MaxIterations { get; set; }
 
         /// <summary>
         /// The keyword checked after each iteration to detect successful completion.
-        /// Defaults to <see cref="CompletedKeyword"/>. Can be overridden per-instance
-        /// (e.g. from a <see cref="WallyLoopDefinition"/>).
+        /// Defaults to <see cref="CompletedKeyword"/>. Can be overridden per-instance.
+        /// Only used in single-actor mode; multi-step mode delegates keyword checking
+        /// to each individual <see cref="WallyStep"/>.
         /// </summary>
         public string CompletedKeywordOverride { get; set; } = CompletedKeyword;
 
         /// <summary>
         /// The keyword checked after each iteration to detect an error.
-        /// Defaults to <see cref="ErrorKeyword"/>. Can be overridden per-instance
-        /// (e.g. from a <see cref="WallyLoopDefinition"/>).
+        /// Defaults to <see cref="ErrorKeyword"/>. Can be overridden per-instance.
+        /// Only used in single-actor mode.
         /// </summary>
         public string ErrorKeywordOverride { get; set; } = ErrorKeyword;
 
         /// <summary>
-        /// Gets the number of iterations that have been executed since
-        /// the last call to <see cref="Run"/>.
+        /// Gets the number of iterations (single-actor) or passes (multi-step)
+        /// executed since the last call to <see cref="Run"/>.
         /// </summary>
         public int ExecutionCount { get; private set; }
 
@@ -97,33 +124,30 @@ namespace Wally.Core
         public LoopStopReason StopReason { get; private set; }
 
         /// <summary>
-        /// The result strings produced by each iteration, in order.
+        /// The result strings produced by each iteration (single-actor) or each
+        /// step execution (multi-step, flattened in pass × step order), in order.
         /// Populated during <see cref="Run"/> and cleared at the start of each run.
         /// </summary>
         public List<string> Results { get; } = new();
 
         /// <summary>
-        /// The result of the most recent iteration, or <see langword="null"/>
-        /// if <see cref="Run"/> has not been called.
+        /// The result of the most recent iteration or step execution, or
+        /// <see langword="null"/> if <see cref="Run"/> has not been called.
         /// </summary>
         public string? LastResult => Results.Count > 0 ? Results[^1] : null;
 
-        // — Factory ———————————————————————————————————————————————————————
+        // ??? Factory ??????????????????????????????????????????????????????????
 
         /// <summary>
         /// Creates a <see cref="WallyLoop"/> from a <see cref="WallyLoopDefinition"/>
-        /// and an actor action. The definition's prompts, keywords, and iteration
+        /// in <b>single-actor</b> mode. The definition's prompts, keywords, and iteration
         /// limit drive the loop behaviour.
         /// </summary>
         /// <param name="definition">The loop definition loaded from JSON.</param>
-        /// <param name="userPrompt">The user's runtime prompt, substituted into <c>{userPrompt}</c> placeholders.</param>
-        /// <param name="actorAction">
-        /// The action to execute each iteration — typically
-        /// <c>env.ExecuteActor(actor, prompt)</c>.
-        /// </param>
+        /// <param name="userPrompt">The user's runtime prompt.</param>
+        /// <param name="actorAction">The action to execute each iteration.</param>
         /// <param name="fallbackMaxIterations">
         /// Used when the definition's <see cref="WallyLoopDefinition.MaxIterations"/> is 0.
-        /// Typically the workspace <see cref="WallyConfig.MaxIterations"/>.
         /// </param>
         public static WallyLoop FromDefinition(
             WallyLoopDefinition definition,
@@ -146,34 +170,39 @@ namespace Wally.Core
 
             // Apply custom keywords from the definition.
             loop.CompletedKeywordOverride = definition.ResolvedCompletedKeyword;
-            loop.ErrorKeywordOverride = definition.ResolvedErrorKeyword;
+            loop.ErrorKeywordOverride     = definition.ResolvedErrorKeyword;
 
             return loop;
         }
 
-        // — Constructor ————————————————————————————————————————————————————————
+        /// <summary>
+        /// Creates a <see cref="WallyLoop"/> from a <see cref="WallyLoopDefinition"/>
+        /// in <b>multi-step</b> mode, using the provided pre-built steps.
+        /// </summary>
+        /// <param name="definition">The loop definition loaded from JSON.</param>
+        /// <param name="userPrompt">The user's runtime prompt.</param>
+        /// <param name="steps">
+        /// The ordered list of runtime steps to execute on each pass.
+        /// Must not be empty.
+        /// </param>
+        /// <param name="fallbackMaxIterations">
+        /// Used when the definition's <see cref="WallyLoopDefinition.MaxIterations"/> is 0.
+        /// </param>
+        public static WallyLoop FromDefinitionWithSteps(
+            WallyLoopDefinition definition,
+            string userPrompt,
+            IReadOnlyList<WallyStep> steps,
+            int fallbackMaxIterations = 10)
+        {
+            int maxIter = definition.MaxIterations > 0 ? definition.MaxIterations : fallbackMaxIterations;
+            return new WallyLoop(steps, userPrompt, maxIter);
+        }
+
+        // ??? Constructors ?????????????????????????????????????????????????????
 
         /// <summary>
-        /// Creates a new <see cref="WallyLoop"/>.
+        /// Creates a new <see cref="WallyLoop"/> in single-actor mode.
         /// </summary>
-        /// <param name="action">
-        /// The work to perform on each iteration. Receives a prompt and returns
-        /// a result. Must not be <see langword="null"/>.
-        /// </param>
-        /// <param name="startPrompt">
-        /// The prompt for the first iteration. Must not be <see langword="null"/>.
-        /// </param>
-        /// <param name="continuePrompt">
-        /// Function that receives the previous result and returns the next prompt.
-        /// When <see langword="null"/>, the previous result is used directly.
-        /// </param>
-        /// <param name="maxIterations">
-        /// Hard ceiling on iterations. Defaults to <c>10</c>.
-        /// </param>
-        /// <exception cref="ArgumentNullException">
-        /// Thrown when <paramref name="action"/> or <paramref name="startPrompt"/>
-        /// is <see langword="null"/>.
-        /// </exception>
         public WallyLoop(
             Func<string, string> action,
             string startPrompt,
@@ -184,42 +213,74 @@ namespace Wally.Core
             StartPrompt    = startPrompt ?? throw new ArgumentNullException(nameof(startPrompt));
             ContinuePrompt = continuePrompt;
             MaxIterations  = maxIterations;
+            Steps          = Array.Empty<WallyStep>();
+            UserPrompt     = startPrompt;
         }
 
-        // — Execution ——————————————————————————————————————————————————————————
+        /// <summary>
+        /// Creates a new <see cref="WallyLoop"/> in multi-step mode.
+        /// </summary>
+        /// <param name="steps">Ordered list of steps. Must not be null or empty.</param>
+        /// <param name="userPrompt">The original user prompt, threaded into step prompt factories.</param>
+        /// <param name="maxIterations">Maximum number of full step-sequence passes.</param>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="steps"/> or <paramref name="userPrompt"/> is null.</exception>
+        /// <exception cref="ArgumentException">Thrown when <paramref name="steps"/> is empty.</exception>
+        public WallyLoop(
+            IReadOnlyList<WallyStep> steps,
+            string userPrompt,
+            int maxIterations = 10)
+        {
+            if (steps == null)        throw new ArgumentNullException(nameof(steps));
+            if (steps.Count == 0)     throw new ArgumentException("Steps list must not be empty.", nameof(steps));
+
+            Steps         = steps;
+            UserPrompt    = userPrompt ?? throw new ArgumentNullException(nameof(userPrompt));
+            MaxIterations = maxIterations;
+            StartPrompt   = userPrompt;
+        }
+
+        // ??? Execution ????????????????????????????????????????????????????????
 
         /// <summary>
         /// Executes the loop.
         /// <para>
-        /// The first iteration uses <see cref="StartPrompt"/>. Subsequent
-        /// iterations call <see cref="ContinuePrompt"/> with the previous result
-        /// to build the next prompt (carrying context forward). If
-        /// <see cref="ContinuePrompt"/> is null, the previous result is used directly.
+        /// <b>Single-actor mode:</b> The first iteration uses <see cref="StartPrompt"/>.
+        /// Subsequent iterations call <see cref="ContinuePrompt"/> with the previous result.
+        /// Stops when <see cref="CompletedKeywordOverride"/> or <see cref="ErrorKeywordOverride"/>
+        /// is found, or <see cref="MaxIterations"/> is reached.
         /// </para>
         /// <para>
-        /// After each iteration the result is checked for
-        /// <see cref="CompletedKeyword"/> and <see cref="ErrorKeyword"/>.
-        /// If either is found the loop ends immediately. If
-        /// <see cref="MaxIterations"/> is reached first, the loop ends with
-        /// <see cref="StopReason"/> = <see cref="LoopStopReason.MaxIterations"/>.
+        /// <b>Multi-step mode:</b> Each pass executes every step in <see cref="Steps"/> in order.
+        /// The result of each step is passed as <c>previousStepResult</c> to the next step's
+        /// prompt factories. The pass ends early if any step reports
+        /// <see cref="LoopStopReason.Error"/>. A pass that sees at least one step report
+        /// <see cref="LoopStopReason.Completed"/> marks the loop as completed.
         /// </para>
         /// </summary>
         public void Run()
         {
-            // Reset per-run state.
             ExecutionCount = 0;
             StopReason     = LoopStopReason.MaxIterations;
             Results.Clear();
 
+            if (HasSteps)
+                RunMultiStep();
+            else
+                RunSingleActor();
+        }
+
+        // ??? Private: single-actor execution ?????????????????????????????????
+
+        private void RunSingleActor()
+        {
             string currentPrompt = StartPrompt;
 
             while (ExecutionCount < MaxIterations)
             {
-                string result = _action.Invoke(currentPrompt);
+                string result = _action!.Invoke(currentPrompt);
                 ExecutionCount++;
                 Results.Add(result);
 
-                // Check for stop keywords in the result (using instance overrides).
                 if (result.Contains(CompletedKeywordOverride, StringComparison.OrdinalIgnoreCase))
                 {
                     StopReason = LoopStopReason.Completed;
@@ -232,12 +293,58 @@ namespace Wally.Core
                     break;
                 }
 
-                // Build the next prompt — either via the ContinuePrompt function
-                // (which receives the previous result for context) or by using
-                // the result directly.
                 currentPrompt = ContinuePrompt != null
                     ? ContinuePrompt.Invoke(result)
                     : result;
+            }
+        }
+
+        // ??? Private: multi-step execution ???????????????????????????????????
+
+        private void RunMultiStep()
+        {
+            while (ExecutionCount < MaxIterations)
+            {
+                ExecutionCount++;
+
+                string? previousStepResult = null;
+                bool passCompleted = false;
+                bool passErrored   = false;
+
+                foreach (var step in Steps)
+                {
+                    string stepResult = step.Execute(UserPrompt, previousStepResult);
+                    Results.Add(stepResult);
+
+                    if (step.StopReason == LoopStopReason.Error)
+                    {
+                        passErrored = true;
+                        break;
+                    }
+
+                    if (step.StopReason == LoopStopReason.Completed)
+                    {
+                        passCompleted = true;
+                        // Don't break — allow remaining steps to run in this pass
+                        // only if the completed keyword came from the last step.
+                        // Convention: if any step signals completion, the whole pass is complete.
+                        break;
+                    }
+
+                    previousStepResult = stepResult;
+                }
+
+                if (passErrored)
+                {
+                    StopReason = LoopStopReason.Error;
+                    break;
+                }
+
+                if (passCompleted)
+                {
+                    StopReason = LoopStopReason.Completed;
+                    break;
+                }
             }
         }
     }

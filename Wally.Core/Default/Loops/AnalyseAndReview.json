@@ -1,0 +1,21 @@
+{
+  "Name": "AnalyseAndReview",
+  "Description": "Two-step loop: BusinessAnalyst analyses the area, then Engineer reviews and validates. Each actor works from the previous step\u2019s output.",
+  "MaxIterations": 3,
+  "Steps": [
+    {
+      "Name": "Analyse",
+      "Description": "BusinessAnalyst identifies requirements, gaps, and areas of concern.",
+      "ActorName": "BusinessAnalyst",
+      "PromptTemplate": "Analyse the following area of the codebase and identify requirements, risks, or gaps:\n\n{userPrompt}\n\nProvide a structured analysis. If your analysis is complete, end with: {completedKeyword}\nIf you hit a blocking problem, end with: {errorKeyword}",
+      "ContinuePromptTemplate": "You are continuing your analysis. Here is your previous pass:\n\n---\n{previousResult}\n---\n\nOriginal request: {userPrompt}\n\nRefine or extend your analysis. If complete, end with: {completedKeyword}\nIf you hit a blocking problem, end with: {errorKeyword}"
+    },
+    {
+      "Name": "Review",
+      "Description": "Engineer validates the analysis against the actual code and adds technical findings.",
+      "ActorName": "Engineer",
+      "PromptTemplate": "Review the following analysis produced by the Business Analyst and validate it against the code:\n\n---\n{previousStepResult}\n---\n\nOriginal request: {userPrompt}\n\nIdentify any inaccuracies, missing technical detail, or implementation concerns. If your review is complete, end with: {completedKeyword}\nIf you hit a blocking problem, end with: {errorKeyword}",
+      "ContinuePromptTemplate": "You are continuing your code review. Here is your previous pass:\n\n---\n{previousResult}\n---\n\nOriginal request: {userPrompt}\n\nContinue reviewing. If complete, end with: {completedKeyword}\nIf you hit a blocking problem, end with: {errorKeyword}"
+    }
+  ]
+}
