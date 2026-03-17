@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using Wally.Core;
@@ -21,6 +22,7 @@ namespace Wally.Forms.Controls
 
         private readonly Panel _header;
         private readonly Label _lblTitle;
+        private readonly Button _btnStop;      // header stop button
         private readonly ThemedRichTextBox _output;
         private readonly Panel _inputRow;
         private readonly Panel _separator;
@@ -34,6 +36,8 @@ namespace Wally.Forms.Controls
         private readonly List<string> _history = new();
         private int _historyIndex = -1;
         private bool _isRunning;
+        private bool _isExternallyBusy;   // true while the chat panel is running
+        private CancellationTokenSource? _cts;
 
         private static readonly string[] KnownCommands =
         {
@@ -50,6 +54,12 @@ namespace Wally.Forms.Controls
         // ?? Events ??????????????????????????????????????????????????????????
 
         public event EventHandler? WorkspaceChanged;
+
+        /// <summary>
+        /// Raised on the UI thread whenever the running state changes.
+        /// <c>EventArgs</c> is always <see cref="EventArgs.Empty"/>.
+        /// </summary>
+        public event EventHandler? RunningChanged;
 
         // ?? Constructor ?????????????????????????????????????????????????????
 
@@ -68,6 +78,25 @@ namespace Wally.Forms.Controls
                 TextAlign = ContentAlignment.MiddleLeft,
                 Padding = new Padding(10, 0, 0, 0)
             };
+
+            _btnStop = new Button
+            {
+                Text = "\u23F9 Stop",
+                Dock = DockStyle.Right,
+                Width = 58,
+                Font = new Font("Segoe UI", 7.5f, FontStyle.Bold),
+                FlatStyle = FlatStyle.Flat,
+                BackColor = WallyTheme.Surface2,
+                ForeColor = WallyTheme.TextDisabled,
+                Cursor = Cursors.Hand,
+                Enabled = false,
+                TextAlign = ContentAlignment.MiddleCenter,
+                Margin = Padding.Empty
+            };
+            _btnStop.FlatAppearance.BorderSize = 0;
+            _btnStop.FlatAppearance.MouseOverBackColor = WallyTheme.Surface3;
+            _btnStop.Click += (_, _) => _cts?.Cancel();
+
             _header = new Panel
             {
                 Dock = DockStyle.Top,
@@ -75,6 +104,7 @@ namespace Wally.Forms.Controls
                 BackColor = WallyTheme.Surface2
             };
             _header.Controls.Add(_lblTitle);
+            _header.Controls.Add(_btnStop);
 
             // ?? Output area ??
             _output = ThemedEditorFactory.CreateDocumentViewer(wordWrap: true, readOnly: true, backColor: WallyTheme.Surface0);
@@ -204,6 +234,38 @@ namespace Wally.Forms.Controls
         /// <summary>Focuses the input text box.</summary>
         public void FocusInput() => _txtInput.Focus();
 
+        /// <summary>
+        /// Returns <see langword="true"/> while a command is being executed.
+        /// </summary>
+        public bool IsRunning => _isRunning;
+
+        /// <summary>
+        /// Requests cancellation of the currently running command, if any.
+        /// </summary>
+        public void Cancel()
+        {
+            _cts?.Cancel();
+        }
+
+        /// <summary>
+        /// Called by the host form when an external panel (e.g. the chat panel)
+        /// starts or stops a long-running operation. While busy, the terminal
+        /// input is locked so the user cannot queue a conflicting command.
+        /// </summary>
+        public void SetExternallyBusy(bool busy)
+        {
+            if (InvokeRequired) { Invoke(() => SetExternallyBusy(busy)); return; }
+
+            _isExternallyBusy = busy;
+
+            // Don't override the terminal's own running state.
+            if (_isRunning) return;
+
+            _txtInput.ReadOnly = busy;
+            _lblPrompt.ForeColor = busy ? WallyTheme.TextDisabled : WallyTheme.TextSecondary;
+            _inputBorder.BackColor = busy ? WallyTheme.BorderSubtle : WallyTheme.Border;
+        }
+
         // ?? Private output helper ???????????????????????????????????????????
 
         private void AppendStyledLine(string text, Color color)
@@ -225,10 +287,8 @@ namespace Wally.Forms.Controls
             {
                 case Keys.Enter:
                     e.SuppressKeyPress = true;
-                    if (_isRunning)
+                    if (_isRunning || _isExternallyBusy)
                     {
-                        // Command already in flight — swallow the keystroke and
-                        // flash the prompt so the user knows we're busy.
                         FlashBusyPrompt();
                         return;
                     }
@@ -245,7 +305,7 @@ namespace Wally.Forms.Controls
 
                 case Keys.Up:
                     e.SuppressKeyPress = true;
-                    if (!_isRunning && _history.Count > 0 && _historyIndex > 0)
+                    if (!_isRunning && !_isExternallyBusy && _history.Count > 0 && _historyIndex > 0)
                     {
                         _historyIndex--;
                         _txtInput.Text = _history[_historyIndex];
@@ -255,7 +315,7 @@ namespace Wally.Forms.Controls
 
                 case Keys.Down:
                     e.SuppressKeyPress = true;
-                    if (!_isRunning)
+                    if (!_isRunning && !_isExternallyBusy)
                     {
                         if (_historyIndex < _history.Count - 1)
                         {
@@ -273,13 +333,15 @@ namespace Wally.Forms.Controls
 
                 case Keys.Tab:
                     e.SuppressKeyPress = true;
-                    if (!_isRunning)
+                    if (!_isRunning && !_isExternallyBusy)
                         HandleTabCompletion();
                     break;
 
                 case Keys.Escape:
                     e.SuppressKeyPress = true;
-                    if (!_isRunning)
+                    if (_isRunning)
+                        _cts?.Cancel();
+                    else if (!_isExternallyBusy)
                         _txtInput.Clear();
                     break;
             }
@@ -410,22 +472,45 @@ namespace Wally.Forms.Controls
             _isRunning = true;
             _txtInput.ReadOnly = true;
             _lblPrompt.ForeColor = WallyTheme.TextMuted;
+            _btnStop.Enabled = true;
+            _btnStop.ForeColor = WallyTheme.Red;
+            _cts = new CancellationTokenSource();
+            RunningChanged?.Invoke(this, EventArgs.Empty);
 
             try
             {
                 using var capture = new ConsoleCapture(this);
+                var token = _cts.Token;
 
+                // Do NOT pass the token as Task.Run's second argument — that would
+                // cancel the task scheduling itself. The token is checked and
+                // threaded through execution inside the lambda instead.
                 await Task.Run(() =>
                 {
+                    token.ThrowIfCancellationRequested();
+
                     string[] args = WallyCommands.SplitArgs(input);
                     if (args.Length == 0) return;
 
                     string verb = args[0].ToLowerInvariant();
 
-                    // Handle clear/cls locally — not a Core command.
                     if (verb is "clear" or "cls")
                     {
                         Invoke(_output.Clear);
+                        return;
+                    }
+
+                    // Thread the cancellation token into 'run' and 'runbook' commands
+                    // so the child process is actually killed when Stop is pressed.
+                    if (verb == "run" && args.Length >= 2)
+                    {
+                        string? actorName = GetOption(args, "-a") ?? GetOption(args, "--actor");
+                        string? model     = GetOption(args, "-m") ?? GetOption(args, "--model");
+                        string? wrapper   = GetOption(args, "-w") ?? GetOption(args, "--wrapper");
+                        string? loopName  = GetOption(args, "-l") ?? GetOption(args, "--loop-name");
+                        bool noHistory    = HasFlag(args, "--no-history");
+                        WallyCommands.HandleRun(_environment, args[1], actorName, model,
+                            loopName, wrapper, noHistory, token);
                         return;
                     }
 
@@ -444,6 +529,10 @@ namespace Wally.Forms.Controls
                 if (stateChanging)
                     WorkspaceChanged?.Invoke(this, EventArgs.Empty);
             }
+            catch (OperationCanceledException)
+            {
+                AppendStyledLine("Cancelled.", WallyTheme.TextMuted);
+            }
             catch (Exception ex)
             {
                 AppendStyledLine($"Error: {ex.Message}", WallyTheme.Red);
@@ -451,9 +540,15 @@ namespace Wally.Forms.Controls
             finally
             {
                 _isRunning = false;
-                _txtInput.ReadOnly = false;
+                _cts?.Dispose();
+                _cts = null;
+                _btnStop.Enabled = false;
+                _btnStop.ForeColor = WallyTheme.TextDisabled;
+                _txtInput.ReadOnly = _isExternallyBusy;  // stay locked if chat is still running
                 _txtInput.Focus();
-                _lblPrompt.ForeColor = WallyTheme.TextSecondary;
+                _lblPrompt.ForeColor = _isExternallyBusy ? WallyTheme.TextDisabled : WallyTheme.TextSecondary;
+                _inputBorder.BackColor = _isExternallyBusy ? WallyTheme.BorderSubtle : WallyTheme.Border;
+                RunningChanged?.Invoke(this, EventArgs.Empty);
             }
         }
 

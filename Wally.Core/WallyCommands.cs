@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using Wally.Core.Actors;
 using Wally.Core.Providers;
 using Wally.Core.RBA;
@@ -255,10 +256,11 @@ namespace Wally.Core
             string? model      = null,
             string? loopName   = null,
             string? wrapper    = null,
-            bool noHistory     = false)
+            bool noHistory     = false,
+            CancellationToken cancellationToken = default)
         {
             return WallyRunResult.ToStringList(
-                HandleRunTyped(env, prompt, actorName, model, loopName, wrapper, noHistory));
+                HandleRunTyped(env, prompt, actorName, model, loopName, wrapper, noHistory, cancellationToken));
         }
 
         /// <summary>
@@ -273,7 +275,8 @@ namespace Wally.Core
             string? model      = null,
             string? loopName   = null,
             string? wrapper    = null,
-            bool noHistory     = false)
+            bool noHistory     = false,
+            CancellationToken cancellationToken = default)
         {
             if (RequireWorkspace(env, "run") == null) return new List<WallyRunResult>();
 
@@ -295,7 +298,7 @@ namespace Wally.Core
 
             // ?? Multi-step pipeline ????????????????????????????????????????
             if (loopDef?.HasSteps == true)
-                return RunPipeline(env, prompt, loopDef, loopLabel, model, wrapper, noHistory);
+                return RunPipeline(env, prompt, loopDef, loopLabel, model, wrapper, noHistory, cancellationToken);
 
             // ?? Single-actor / direct ??????????????????????????????????????
             if (string.IsNullOrWhiteSpace(actorName) && !string.IsNullOrWhiteSpace(loopDef?.ActorName))
@@ -326,8 +329,8 @@ namespace Wally.Core
 
             var sw = System.Diagnostics.Stopwatch.StartNew();
             string response = directMode
-                ? env.ExecutePrompt(resolvedPrompt, model, wrapper, skipHistory: noHistory)
-                : env.ExecuteActor(actor!, resolvedPrompt, model, wrapper, skipHistory: noHistory);
+                ? env.ExecutePrompt(resolvedPrompt, model, wrapper, skipHistory: noHistory, cancellationToken: cancellationToken)
+                : env.ExecuteActor(actor!, resolvedPrompt, model, wrapper, skipHistory: noHistory, cancellationToken: cancellationToken);
             sw.Stop();
             env.Logger.LogResponse(actorLabel, response, sw.ElapsedMilliseconds, 1);
 
@@ -349,7 +352,8 @@ namespace Wally.Core
             string loopLabel,
             string? model,
             string? wrapper,
-            bool noHistory)
+            bool noHistory,
+            CancellationToken cancellationToken = default)
         {
             var stepDefs = loopDef.Steps;
 
@@ -390,6 +394,8 @@ namespace Wally.Core
 
             for (int i = 0; i < stepDefs.Count; i++)
             {
+                cancellationToken.ThrowIfCancellationRequested();
+
                 var stepDef = stepDefs[i];
                 var (stepActor, isDirect, actorLabel) = stepActors[i];
                 string stepName = string.IsNullOrWhiteSpace(stepDef.Name) ? $"step-{i + 1}" : stepDef.Name;
@@ -401,8 +407,8 @@ namespace Wally.Core
                 env.Logger.LogPrompt(actorLabel, stepPrompt, model ?? env.Workspace!.Config.DefaultModel);
                 var sw = System.Diagnostics.Stopwatch.StartNew();
                 string response = isDirect
-                    ? env.ExecutePrompt(stepPrompt, model, wrapper, skipHistory: noHistory)
-                    : env.ExecuteActor(stepActor!, stepPrompt, model, wrapper, skipHistory: noHistory);
+                    ? env.ExecutePrompt(stepPrompt, model, wrapper, skipHistory: noHistory, cancellationToken: cancellationToken)
+                    : env.ExecuteActor(stepActor!, stepPrompt, model, wrapper, skipHistory: noHistory, cancellationToken: cancellationToken);
                 sw.Stop();
                 env.Logger.LogResponse(actorLabel, response, sw.ElapsedMilliseconds, i + 1);
 

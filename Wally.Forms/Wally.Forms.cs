@@ -34,6 +34,7 @@ namespace Wally.Forms
         private readonly ToolStripStatusLabel _lblWorkspaceStatus;
         private readonly ToolStripStatusLabel _lblActorCount;
         private readonly ToolStripStatusLabel _lblSessionId;
+        private readonly ToolStripProgressBar _progressBar;
 
         // -- Runtime ---------------------------------------------------------
 
@@ -86,6 +87,19 @@ namespace Wally.Forms
                 Padding = new Padding(6, 0, 6, 0)
             };
 
+            _progressBar = new ToolStripProgressBar
+            {
+                Name = "progressBar",
+                Width = 120,
+                Minimum = 0,
+                Maximum = 100,
+                Style = ProgressBarStyle.Marquee,
+                MarqueeAnimationSpeed = 30,
+                Visible = false,
+                Alignment = ToolStripItemAlignment.Right,
+                ToolTipText = "Operation in progress…"
+            };
+
             _statusBar = new StatusStrip
             {
                 BackColor = WallyTheme.StatusBarInactive,
@@ -94,7 +108,7 @@ namespace Wally.Forms
             };
             _statusBar.Items.AddRange(new ToolStripItem[]
             {
-                _lblWorkspaceStatus, _lblActorCount, _lblSessionId
+                _lblWorkspaceStatus, _lblActorCount, _lblSessionId, _progressBar
             });
 
             // -- File Explorer (left) — created but NOT added to Controls yet --
@@ -173,6 +187,8 @@ namespace Wally.Forms
             _chatPanel.BindEnvironment(_environment);
 
             _commandPanel.WorkspaceChanged += OnWorkspaceChanged;
+            _commandPanel.RunningChanged += OnRunningChanged;
+            _chatPanel.RunningChanged += OnRunningChanged;
             _chatPanel.CommandIssued += (_, cmd) =>
                 _commandPanel.AppendLine($"  \u2192 {cmd}", WallyTheme.TextMuted);
             _fileExplorer.FileDoubleClicked += OnFileDoubleClicked;
@@ -234,6 +250,7 @@ namespace Wally.Forms
             tsbEditActors.Click += (_, _) => OpenActorPicker();
             tsbConfig.Click += (_, _) => OpenConfigEditor();
             tsbLogs.Click += (_, _) => OpenLogViewer();
+            tsbStop.Click += OnStopClick;
 
             // -- Global shortcuts --
             KeyPreview = true;
@@ -311,7 +328,12 @@ namespace Wally.Forms
 
         private void OnGlobalKeyDown(object? sender, KeyEventArgs e)
         {
-            if (e.Control && e.KeyCode == Keys.Oem3) // Ctrl+`
+            if (e.KeyCode == Keys.Escape && tsbStop.Enabled)
+            {
+                e.Handled = true;
+                OnStopClick(this, EventArgs.Empty);
+            }
+            else if (e.Control && e.KeyCode == Keys.Oem3) // Ctrl+`
             {
                 e.Handled = true;
                 _commandPanel.FocusInput();
@@ -536,6 +558,11 @@ namespace Wally.Forms
             tsbEditActors.Enabled = loaded;
             tsbConfig.Enabled = loaded;
             tsbLogs.Enabled = loaded;
+
+            // Stop is driven purely by running state, not workspace state.
+            bool anyRunning = _chatPanel.IsRunning || _commandPanel.IsRunning;
+            tsbStop.Enabled = anyRunning;
+            tsbStop.ForeColor = anyRunning ? WallyTheme.Red : WallyTheme.TextDisabled;
 
             _chatPanel.SetWorkspaceLoaded(loaded);
         }
@@ -978,6 +1005,38 @@ namespace Wally.Forms
         {
             _environment.Logger.Dispose();
             base.OnFormClosing(e);
+        }
+
+        // -- Stop button -----------------------------------------------------
+
+        /// <summary>
+        /// Raised by either <see cref="_chatPanel"/> or <see cref="_commandPanel"/>
+        /// when their running state changes. Enables/disables the global Stop button.
+        /// </summary>
+        private void OnRunningChanged(object? sender, EventArgs e)
+        {
+            if (InvokeRequired) { Invoke(() => OnRunningChanged(sender, e)); return; }
+
+            bool anyRunning = _chatPanel.IsRunning || _commandPanel.IsRunning;
+            tsbStop.Enabled = anyRunning;
+            tsbStop.ForeColor = anyRunning ? WallyTheme.Red : WallyTheme.TextDisabled;
+
+            // Progress bar — marquee while anything is running.
+            _progressBar.Visible = anyRunning;
+
+            // Lock the terminal input while the chat panel is running so the
+            // user cannot queue a conflicting command or see a misleadingly
+            // active prompt.
+            _commandPanel.SetExternallyBusy(_chatPanel.IsRunning);
+        }
+
+        private void OnStopClick(object? sender, EventArgs e)
+        {
+            if (_chatPanel.IsRunning)
+                _chatPanel.Cancel();
+
+            if (_commandPanel.IsRunning)
+                _commandPanel.Cancel();
         }
     }
 }

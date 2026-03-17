@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text.Json.Serialization;
+using System.Threading;
 using Wally.Core.Actors;
 using Wally.Core.Logging;
 using Wally.Core.Providers;
@@ -259,7 +260,8 @@ namespace Wally.Core
             string? wrapperOverride = null,
             string? loopName = null,
             int iteration = 0,
-            bool skipHistory = false)
+            bool skipHistory = false,
+            CancellationToken cancellationToken = default)
         {
             var wrapper = ResolveWrapper(wrapperOverride);
             var ws = Workspace!;
@@ -284,7 +286,7 @@ namespace Wally.Core
 
             // — Execute ———————————————————————————————————————————————————
             var sw = Stopwatch.StartNew();
-            string response = wrapper.Execute(effectivePrompt, ws.SourcePath, model, Logger);
+            string response = wrapper.Execute(effectivePrompt, ws.SourcePath, model, Logger, cancellationToken);
             sw.Stop();
 
             // — Record turn ——————————————————————————————————————————————
@@ -309,19 +311,7 @@ namespace Wally.Core
 
         /// <summary>
         /// Executes a single actor: Setup ? ProcessPrompt ? LlmWrapper.Execute.
-        /// <paramref name="modelOverride"/> takes priority over <see cref="WallyConfig.DefaultModel"/>.
-        /// <paramref name="wrapperOverride"/> takes priority over <see cref="WallyConfig.DefaultWrapper"/>.
         /// </summary>
-        /// <param name="actor">The actor to execute.</param>
-        /// <param name="prompt">The raw user prompt.</param>
-        /// <param name="modelOverride">Model override, or <see langword="null"/> for config default.</param>
-        /// <param name="wrapperOverride">Wrapper override, or <see langword="null"/> for config default.</param>
-        /// <param name="loopName">Loop name for history metadata, or <see langword="null"/>.</param>
-        /// <param name="iteration">0-based iteration index for history metadata.</param>
-        /// <param name="skipHistory">
-        /// When <see langword="true"/>, suppresses history injection into the prompt
-        /// but still records the turn. Used for loop iterations &gt; 1 and <c>--no-history</c>.
-        /// </param>
         public string ExecuteActor(
             Actor actor,
             string prompt,
@@ -329,7 +319,8 @@ namespace Wally.Core
             string? wrapperOverride = null,
             string? loopName = null,
             int iteration = 0,
-            bool skipHistory = false)
+            bool skipHistory = false,
+            CancellationToken cancellationToken = default)
         {
             var wrapper = ResolveWrapper(wrapperOverride);
             var ws = Workspace!;
@@ -356,7 +347,7 @@ namespace Wally.Core
 
             // — Execute ———————————————————————————————————————————————————
             var sw = Stopwatch.StartNew();
-            string response = wrapper.Execute(processed, ws.SourcePath, model, Logger);
+            string response = wrapper.Execute(processed, ws.SourcePath, model, Logger, cancellationToken);
             sw.Stop();
 
             // — Record turn ——————————————————————————————————————————————

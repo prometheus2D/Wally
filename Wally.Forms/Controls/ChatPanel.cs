@@ -100,6 +100,11 @@ namespace Wally.Forms.Controls
 
         public event EventHandler<string>? CommandIssued;
 
+        /// <summary>
+        /// Raised on the UI thread whenever the running state changes.
+        /// </summary>
+        public event EventHandler? RunningChanged;
+
         // -- Constructor -----------------------------------------------------
 
         public ChatPanel()
@@ -514,6 +519,12 @@ namespace Wally.Forms.Controls
             RefreshModelList();
         }
 
+        /// <summary>Returns <see langword="true"/> while an AI request is in flight.</summary>
+        public bool IsRunning => _isRunning;
+
+        /// <summary>Requests cancellation of the currently running AI request, if any.</summary>
+        public void Cancel() => _cts?.Cancel();
+
         /// <summary>
         /// Called by the main form to enable or disable workspace-dependent controls.
         /// </summary>
@@ -818,7 +829,8 @@ namespace Wally.Forms.Controls
                         modelOverride,
                         loopName:   loopName,
                         wrapper:    wrapperName,
-                        noHistory:  false);
+                        noHistory:  false,
+                        cancellationToken: token);
                 }, token);
 
                 if (results.Count == 0)
@@ -912,6 +924,8 @@ namespace Wally.Forms.Controls
 
             if (!running && _workspaceLoaded)
                 _btnSend.BackColor = WallyTheme.Surface3;
+
+            RunningChanged?.Invoke(this, EventArgs.Empty);
         }
     }
 

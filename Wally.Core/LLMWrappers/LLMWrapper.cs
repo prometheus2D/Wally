@@ -5,6 +5,8 @@ using System.IO;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Threading;
+using System.Threading.Tasks;
 using Wally.Core.Logging;
 
 namespace Wally.Core.Providers
@@ -149,12 +151,17 @@ namespace Wally.Core.Providers
         /// <param name="logger">
         /// Session logger for CLI errors. May be <see langword="null"/>.
         /// </param>
+        /// <param name="cancellationToken">
+        /// Optional token. When cancelled, the spawned child process is killed
+        /// and an <see cref="OperationCanceledException"/> is thrown.
+        /// </param>
         /// <returns>The LLM response text, or an error message.</returns>
         public string Execute(
             string processedPrompt,
             string? sourcePath,
             string? model,
-            SessionLogger? logger)
+            SessionLogger? logger,
+            CancellationToken cancellationToken = default)
         {
             try
             {
@@ -179,7 +186,11 @@ namespace Wally.Core.Providers
                 if (UseSourcePathAsWorkingDirectory && hasSourcePath)
                     startInfo.WorkingDirectory = sourcePath!;
 
-                return RunProcess(startInfo, logger);
+                return RunProcess(startInfo, logger, cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;  // propagate cleanly — do not wrap as an error message
             }
             catch (Exception ex)
             {
@@ -251,16 +262,43 @@ namespace Wally.Core.Providers
 
         // — Process execution —————————————————————————————————————————————
 
-        private string RunProcess(ProcessStartInfo startInfo, SessionLogger? logger)
+        private string RunProcess(ProcessStartInfo startInfo, SessionLogger? logger,
+            CancellationToken cancellationToken)
         {
             using var process = new Process { StartInfo = startInfo };
 
             process.Start();
             process.StandardInput.Close();
 
-            string output = process.StandardOutput.ReadToEnd();
-            string error  = process.StandardError.ReadToEnd();
-            process.WaitForExit();
+            // Async-read both streams concurrently to prevent deadlock when the
+            // child process fills one pipe buffer while the other is unread.
+            // We pass CancellationToken.None here — the kill registration below
+            // handles termination; passing the token to ReadToEndAsync would
+            // abort the read before we can drain the pipe on kill.
+            var stdoutTask = process.StandardOutput.ReadToEndAsync(CancellationToken.None);
+            var stderrTask = process.StandardError.ReadToEndAsync(CancellationToken.None);
+
+            // Register kill callback — fires immediately when the token is cancelled.
+            using var registration = cancellationToken.Register(() =>
+            {
+                try { process.Kill(entireProcessTree: true); }
+                catch { /* already exited */ }
+            });
+
+            // WaitForExitAsync yields the thread-pool thread while waiting, so
+            // the kill callback above can be serviced without a deadlock.
+            // We pass CancellationToken.None because we want to wait for the
+            // process to actually exit after Kill() (which is near-instant).
+            process.WaitForExitAsync(CancellationToken.None).GetAwaiter().GetResult();
+
+            // Drain streams — they complete immediately after the process exits.
+            string output = string.Empty;
+            string error  = string.Empty;
+            try { output = stdoutTask.GetAwaiter().GetResult(); } catch { /* killed */ }
+            try { error  = stderrTask.GetAwaiter().GetResult(); } catch { /* killed */ }
+
+            // Throw after draining so the caller sees a clean cancellation.
+            cancellationToken.ThrowIfCancellationRequested();
 
             if (process.ExitCode != 0)
             {

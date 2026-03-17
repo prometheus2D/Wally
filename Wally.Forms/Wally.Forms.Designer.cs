@@ -82,6 +82,8 @@ namespace Wally.Forms
             tsbRefresh = new ToolStripButton();
             tsbReloadActors = new ToolStripButton();
             tsSeparator2 = new ToolStripSeparator();
+            tsbStop = new ToolStripButton();
+            tsSeparator4 = new ToolStripSeparator();
             tsbInfo = new ToolStripButton();
             tsbClearChat = new ToolStripButton();
             tsSeparator3 = new ToolStripSeparator();
@@ -437,6 +439,8 @@ namespace Wally.Forms
                 tsSeparator1,
                 tsbRefresh, tsbReloadActors,
                 tsSeparator2,
+                tsbStop,
+                tsSeparator4,
                 tsbInfo, tsbClearChat,
                 tsSeparator3,
                 tsbEditActors, tsbConfig, tsbLogs
@@ -485,6 +489,17 @@ namespace Wally.Forms
             tsbReloadActors.Font = WallyTheme.FontUISmall;
 
             tsSeparator2.Name = "tsSeparator2";
+
+            // Stop
+            tsbStop.Name = "tsbStop";
+            tsbStop.DisplayStyle = ToolStripItemDisplayStyle.Text;
+            tsbStop.Text = "\u23F9 Stop";
+            tsbStop.ToolTipText = "Stop the current running AI or terminal command (Esc)";
+            tsbStop.ForeColor = WallyTheme.Red;
+            tsbStop.Font = WallyTheme.FontUISmallBold;
+            tsbStop.Enabled = false;
+
+            tsSeparator4.Name = "tsSeparator4";
 
             // Info
             tsbInfo.Name = "tsbInfo";
@@ -622,6 +637,8 @@ namespace Wally.Forms
         private ToolStripButton tsbRefresh;
         private ToolStripButton tsbReloadActors;
         private ToolStripSeparator tsSeparator2;
+        private ToolStripButton tsbStop;
+        private ToolStripSeparator tsSeparator4;
         private ToolStripButton tsbInfo;
         private ToolStripButton tsbClearChat;
         private ToolStripSeparator tsSeparator3;
