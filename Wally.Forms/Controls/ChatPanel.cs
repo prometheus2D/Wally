@@ -732,6 +732,12 @@ namespace Wally.Forms.Controls
             if (e.KeyCode == Keys.Enter && !e.Shift)
             {
                 e.SuppressKeyPress = true;
+                if (_isRunning)
+                {
+                    // Swallow the Enter key while a response is in flight —
+                    // let the user cancel via the Stop button or Escape instead.
+                    return;
+                }
                 _ = SendMessageAsync();
             }
             else if (e.KeyCode == Keys.Escape && _isRunning)
@@ -741,7 +747,11 @@ namespace Wally.Forms.Controls
             }
         }
 
-        private void OnSendClick(object? sender, EventArgs e) => _ = SendMessageAsync();
+        private void OnSendClick(object? sender, EventArgs e)
+        {
+            if (_isRunning) return;  // button should already be hidden, but guard defensively
+            _ = SendMessageAsync();
+        }
 
         private async Task SendMessageAsync()
         {

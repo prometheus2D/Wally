@@ -225,8 +225,15 @@ namespace Wally.Forms.Controls
             {
                 case Keys.Enter:
                     e.SuppressKeyPress = true;
+                    if (_isRunning)
+                    {
+                        // Command already in flight — swallow the keystroke and
+                        // flash the prompt so the user knows we're busy.
+                        FlashBusyPrompt();
+                        return;
+                    }
                     string cmd = _txtInput.Text.Trim();
-                    if (!string.IsNullOrEmpty(cmd) && !_isRunning)
+                    if (!string.IsNullOrEmpty(cmd))
                     {
                         _txtInput.Clear();
                         _history.Add(cmd);
@@ -238,7 +245,7 @@ namespace Wally.Forms.Controls
 
                 case Keys.Up:
                     e.SuppressKeyPress = true;
-                    if (_history.Count > 0 && _historyIndex > 0)
+                    if (!_isRunning && _history.Count > 0 && _historyIndex > 0)
                     {
                         _historyIndex--;
                         _txtInput.Text = _history[_historyIndex];
@@ -248,27 +255,32 @@ namespace Wally.Forms.Controls
 
                 case Keys.Down:
                     e.SuppressKeyPress = true;
-                    if (_historyIndex < _history.Count - 1)
+                    if (!_isRunning)
                     {
-                        _historyIndex++;
-                        _txtInput.Text = _history[_historyIndex];
-                        _txtInput.SelectionStart = _txtInput.Text.Length;
-                    }
-                    else
-                    {
-                        _historyIndex = _history.Count;
-                        _txtInput.Clear();
+                        if (_historyIndex < _history.Count - 1)
+                        {
+                            _historyIndex++;
+                            _txtInput.Text = _history[_historyIndex];
+                            _txtInput.SelectionStart = _txtInput.Text.Length;
+                        }
+                        else
+                        {
+                            _historyIndex = _history.Count;
+                            _txtInput.Clear();
+                        }
                     }
                     break;
 
                 case Keys.Tab:
                     e.SuppressKeyPress = true;
-                    HandleTabCompletion();
+                    if (!_isRunning)
+                        HandleTabCompletion();
                     break;
 
                 case Keys.Escape:
                     e.SuppressKeyPress = true;
-                    _txtInput.Clear();
+                    if (!_isRunning)
+                        _txtInput.Clear();
                     break;
             }
         }
@@ -371,6 +383,20 @@ namespace Wally.Forms.Controls
             }
         }
 
+        /// <summary>
+        /// Briefly flashes the prompt label red to signal that the terminal is
+        /// busy processing a command. Resets after 400 ms without blocking the UI thread.
+        /// </summary>
+        private async void FlashBusyPrompt()
+        {
+            _lblPrompt.ForeColor = WallyTheme.Red;
+            await Task.Delay(400);
+            // Only reset if still running — RunCommandAsync restores the
+            // correct colour in its finally block when the operation finishes.
+            if (_isRunning)
+                _lblPrompt.ForeColor = WallyTheme.TextMuted;
+        }
+
         // — Command execution ———————————————————————————————————————————
 
         private async Task RunCommandAsync(string input)
@@ -382,7 +408,7 @@ namespace Wally.Forms.Controls
             }
 
             _isRunning = true;
-            _txtInput.Enabled = false;
+            _txtInput.ReadOnly = true;
             _lblPrompt.ForeColor = WallyTheme.TextMuted;
 
             try
@@ -425,7 +451,7 @@ namespace Wally.Forms.Controls
             finally
             {
                 _isRunning = false;
-                _txtInput.Enabled = true;
+                _txtInput.ReadOnly = false;
                 _txtInput.Focus();
                 _lblPrompt.ForeColor = WallyTheme.TextSecondary;
             }
