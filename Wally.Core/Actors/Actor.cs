@@ -4,7 +4,6 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using Wally.Core.Logging;
-using Wally.Core.RBA;
 
 namespace Wally.Core.Actors
 {
@@ -27,16 +26,16 @@ namespace Wally.Core.Actors
         /// <summary>The absolute path to this actor's folder inside the workspace.</summary>
         public string FolderPath { get; set; }
 
-        // — RBA identity ——————————————————————————————————————————————————————
+        // — RBA prompts ———————————————————————————————————————————————————————
 
-        /// <summary>The role this Actor plays.</summary>
-        public Role Role { get; set; }
+        /// <summary>The role prompt for this actor (the "R" in RBA).</summary>
+        public string RolePrompt { get; set; } = string.Empty;
 
-        /// <summary>The acceptance criteria this Actor targets.</summary>
-        public AcceptanceCriteria AcceptanceCriteria { get; set; }
+        /// <summary>The acceptance criteria prompt for this actor (the "B" in RBA).</summary>
+        public string CriteriaPrompt { get; set; } = string.Empty;
 
-        /// <summary>The intent this Actor pursues.</summary>
-        public Intent Intent { get; set; }
+        /// <summary>The intent prompt for this actor (the "A" in RBA).</summary>
+        public string IntentPrompt { get; set; } = string.Empty;
 
         // — Documentation ————————————————————————————————————————————————————
 
@@ -64,18 +63,18 @@ namespace Wally.Core.Actors
         // — Constructor ———————————————————————————————————————————————————————
 
         /// <summary>
-        /// Initializes an Actor with RBA components and an optional workspace.
+        /// Initializes an Actor with RBA prompts and an optional workspace.
         /// </summary>
         public Actor(string name, string folderPath,
-                     Role role, AcceptanceCriteria acceptanceCriteria, Intent intent,
+                     string rolePrompt, string criteriaPrompt, string intentPrompt,
                      WallyWorkspace? workspace = null)
         {
-            Name               = name;
-            FolderPath         = folderPath;
-            Role               = role;
-            AcceptanceCriteria = acceptanceCriteria;
-            Intent             = intent;
-            Workspace          = workspace;
+            Name           = name;
+            FolderPath     = folderPath;
+            RolePrompt     = rolePrompt;
+            CriteriaPrompt = criteriaPrompt;
+            IntentPrompt   = intentPrompt;
+            Workspace      = workspace;
         }
 
         // — Prompt generation ——————————————————————————————————————————————
@@ -100,14 +99,14 @@ namespace Wally.Core.Actors
 
             sb.AppendLine($"# Actor: {Name}");
 
-            if (!string.IsNullOrWhiteSpace(Role.Prompt))
-                sb.AppendLine($"## Role\n{Role.Prompt}");
+            if (!string.IsNullOrWhiteSpace(RolePrompt))
+                sb.AppendLine($"## Role\n{RolePrompt}");
 
-            if (!string.IsNullOrWhiteSpace(AcceptanceCriteria.Prompt))
-                sb.AppendLine($"## Acceptance Criteria\n{AcceptanceCriteria.Prompt}");
+            if (!string.IsNullOrWhiteSpace(CriteriaPrompt))
+                sb.AppendLine($"## Acceptance Criteria\n{CriteriaPrompt}");
 
-            if (!string.IsNullOrWhiteSpace(Intent.Prompt))
-                sb.AppendLine($"## Intent\n{Intent.Prompt}");
+            if (!string.IsNullOrWhiteSpace(IntentPrompt))
+                sb.AppendLine($"## Intent\n{IntentPrompt}");
 
             if (!string.IsNullOrWhiteSpace(userPrompt))
             {
@@ -147,13 +146,13 @@ namespace Wally.Core.Actors
             var sb = new StringBuilder();
 
             // Actor system context
-            sb.AppendLine($"# Actor: {Role.Name}");
-            if (!string.IsNullOrWhiteSpace(Role.Prompt))
-                sb.AppendLine($"## Role\n{Role.Prompt}");
-            if (!string.IsNullOrWhiteSpace(AcceptanceCriteria.Prompt))
-                sb.AppendLine($"## Acceptance Criteria\n{AcceptanceCriteria.Prompt}");
-            if (!string.IsNullOrWhiteSpace(Intent.Prompt))
-                sb.AppendLine($"## Intent\n{Intent.Prompt}");
+            sb.AppendLine($"# Actor: {Name}");
+            if (!string.IsNullOrWhiteSpace(RolePrompt))
+                sb.AppendLine($"## Role\n{RolePrompt}");
+            if (!string.IsNullOrWhiteSpace(CriteriaPrompt))
+                sb.AppendLine($"## Acceptance Criteria\n{CriteriaPrompt}");
+            if (!string.IsNullOrWhiteSpace(IntentPrompt))
+                sb.AppendLine($"## Intent\n{IntentPrompt}");
 
             // Documentation context — list available doc files so the LLM
             // knows they exist and can consult them for additional context.

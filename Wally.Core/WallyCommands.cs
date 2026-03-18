@@ -5,7 +5,6 @@ using System.Linq;
 using System.Threading;
 using Wally.Core.Actors;
 using Wally.Core.Providers;
-using Wally.Core.RBA;
 
 namespace Wally.Core
 {
@@ -501,13 +500,13 @@ namespace Wally.Core
             env.Logger.LogCommand("list");
             var ws = env.Workspace!;
             Console.WriteLine($"Actors ({ws.Actors.Count}):");
-            if (ws.Actors.Count == 0) Console.WriteLine($"  (none \u2014 add a subfolder with actor.json to {ws.WorkspaceFolder}/Actors/)");
+            if (ws.Actors.Count == 0) Console.WriteLine($"  (none — add a subfolder with actor.json to {ws.WorkspaceFolder}/Actors/)");
             foreach (var actor in ws.Actors)
             {
                 Console.WriteLine($"  [{actor.Name}]  folder: {actor.FolderPath}");
-                PrintRbaLine("    Role",     actor.Role.Prompt);
-                PrintRbaLine("    Criteria", actor.AcceptanceCriteria.Prompt);
-                PrintRbaLine("    Intent",   actor.Intent.Prompt);
+                PrintRbaLine("    Role",     actor.RolePrompt);
+                PrintRbaLine("    Criteria", actor.CriteriaPrompt);
+                PrintRbaLine("    Intent",   actor.IntentPrompt);
                 if (!string.IsNullOrEmpty(actor.FolderPath))
                 {
                     string docsPath = Path.Combine(actor.FolderPath, actor.DocsFolderName);
@@ -756,7 +755,7 @@ namespace Wally.Core
             if (env.GetActor(name) != null) { Console.WriteLine($"Actor '{name}' already exists. Use 'edit-actor' to modify it."); return; }
             var ws = env.Workspace!;
             string actorDir = Path.Combine(ws.WorkspaceFolder, ws.Config.ActorsFolderName, name);
-            var actor = new Actor(name, actorDir, new Role(name, rolePrompt), new AcceptanceCriteria(name, criteriaPrompt), new Intent(name, intentPrompt), ws);
+            var actor = new Actor(name, actorDir, rolePrompt, criteriaPrompt, intentPrompt, ws);
             WallyHelper.SaveActor(ws.WorkspaceFolder, ws.Config, actor);
             env.ReloadActors();
             env.Logger.LogCommand("add-actor", $"Created actor '{name}'");
@@ -768,9 +767,9 @@ namespace Wally.Core
             if (RequireWorkspace(env, "edit-actor") == null) return;
             var actor = env.GetActor(name);
             if (actor == null) { Console.WriteLine($"Actor '{name}' not found."); foreach (var a in env.Actors) Console.WriteLine($"  {a.Name}"); return; }
-            if (rolePrompt     != null) actor.Role.Prompt               = rolePrompt;
-            if (criteriaPrompt != null) actor.AcceptanceCriteria.Prompt = criteriaPrompt;
-            if (intentPrompt   != null) actor.Intent.Prompt             = intentPrompt;
+            if (rolePrompt     != null) actor.RolePrompt     = rolePrompt;
+            if (criteriaPrompt != null) actor.CriteriaPrompt = criteriaPrompt;
+            if (intentPrompt   != null) actor.IntentPrompt   = intentPrompt;
             WallyHelper.SaveActor(env.Workspace!.WorkspaceFolder, env.Workspace.Config, actor);
             env.Logger.LogCommand("edit-actor", $"Updated actor '{name}'");
             Console.WriteLine($"Actor '{name}' updated.");

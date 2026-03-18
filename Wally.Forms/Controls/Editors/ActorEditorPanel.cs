@@ -144,19 +144,19 @@ namespace Wally.Forms.Controls.Editors
         {
             if (_actor == null) return;
 
-            _txtName.Text = _actor.Name;
-            _txtRolePrompt.Text = _actor.Role.Prompt;
-            _txtCriteriaPrompt.Text = _actor.AcceptanceCriteria.Prompt;
-            _txtIntentPrompt.Text = _actor.Intent.Prompt;
+            _txtName.Text          = _actor.Name;
+            _txtRolePrompt.Text    = _actor.RolePrompt;
+            _txtCriteriaPrompt.Text = _actor.CriteriaPrompt;
+            _txtIntentPrompt.Text  = _actor.IntentPrompt;
         }
 
         private void ApplyFieldsToActor()
         {
             if (_actor == null) return;
 
-            _actor.Role.Prompt = _txtRolePrompt.Text.Trim();
-            _actor.AcceptanceCriteria.Prompt = _txtCriteriaPrompt.Text.Trim();
-            _actor.Intent.Prompt = _txtIntentPrompt.Text.Trim();
+            _actor.RolePrompt     = _txtRolePrompt.Text.Trim();
+            _actor.CriteriaPrompt = _txtCriteriaPrompt.Text.Trim();
+            _actor.IntentPrompt   = _txtIntentPrompt.Text.Trim();
         }
 
         // ?? Event handlers ??????????????????????????????????????????????????

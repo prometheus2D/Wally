@@ -5,7 +5,6 @@ using System.Linq;
 using System.Text.Json;
 using Wally.Core.Actors;
 using Wally.Core.Providers;
-using Wally.Core.RBA;
 
 namespace Wally.Core
 {
@@ -134,9 +133,9 @@ namespace Wally.Core
             var obj = new
             {
                 name           = actor.Name,
-                rolePrompt     = actor.Role.Prompt,
-                criteriaPrompt = actor.AcceptanceCriteria.Prompt,
-                intentPrompt   = actor.Intent.Prompt,
+                rolePrompt     = actor.RolePrompt,
+                criteriaPrompt = actor.CriteriaPrompt,
+                intentPrompt   = actor.IntentPrompt,
                 docsFolderName = actor.DocsFolderName
             };
 
@@ -499,9 +498,9 @@ namespace Wally.Core
             var actor = new Actor(
                 name,
                 isFallback ? string.Empty : actorDir,
-                new Role(name, rolePrompt),
-                new AcceptanceCriteria(name, criteriaPrompt),
-                new Intent(name, intentPrompt),
+                rolePrompt,
+                criteriaPrompt,
+                intentPrompt,
                 workspace);
 
             actor.DocsFolderName = docsFolderName;

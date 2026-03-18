@@ -211,9 +211,9 @@ namespace Wally.Forms.Controls.Editors
                     {
                         sb.AppendLine($"  [{actor.Name}]");
                         sb.AppendLine($"    Folder:   {actor.FolderPath}");
-                        sb.AppendLine($"    Role:     {Truncate(actor.Role.Prompt, 100)}");
-                        sb.AppendLine($"    Criteria: {Truncate(actor.AcceptanceCriteria.Prompt, 100)}");
-                        sb.AppendLine($"    Intent:   {Truncate(actor.Intent.Prompt, 100)}");
+                        sb.AppendLine($"    Role:     {Truncate(actor.RolePrompt, 100)}");
+                        sb.AppendLine($"    Criteria: {Truncate(actor.CriteriaPrompt, 100)}");
+                        sb.AppendLine($"    Intent:   {Truncate(actor.IntentPrompt, 100)}");
                         sb.AppendLine($"    Docs:     {actor.DocsFolderName}");
 
                         // Check for actor-level docs
