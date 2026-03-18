@@ -22,6 +22,7 @@ namespace Wally.Forms.Controls
 
         private readonly Panel _header;
         private readonly Label _lblTitle;
+        private readonly Button _btnHelp;      // header help button
         private readonly Button _btnStop;      // header stop button
         private readonly ThemedRichTextBox _output;
         private readonly Panel _inputRow;
@@ -97,6 +98,30 @@ namespace Wally.Forms.Controls
             _btnStop.FlatAppearance.MouseOverBackColor = WallyTheme.Surface3;
             _btnStop.Click += (_, _) => _cts?.Cancel();
 
+            _btnHelp = new Button
+            {
+                Text = "? Help",
+                Dock = DockStyle.Right,
+                Width = 52,
+                Font = new Font("Segoe UI", 7.5f, FontStyle.Bold),
+                FlatStyle = FlatStyle.Flat,
+                BackColor = WallyTheme.Surface2,
+                ForeColor = WallyTheme.TextSecondary,
+                Cursor = Cursors.Hand,
+                TextAlign = ContentAlignment.MiddleCenter,
+                Margin = Padding.Empty
+            };
+            _btnHelp.FlatAppearance.BorderSize = 0;
+            _btnHelp.FlatAppearance.MouseOverBackColor = WallyTheme.Surface3;
+            _btnHelp.Click += (_, _) =>
+            {
+                if (!_isRunning && !_isExternallyBusy)
+                    ExecuteCommand("commands");
+            };
+
+            var headerTooltip = new ToolTip();
+            headerTooltip.SetToolTip(_btnHelp, "Show available console commands");
+
             _header = new Panel
             {
                 Dock = DockStyle.Top,
@@ -105,11 +130,14 @@ namespace Wally.Forms.Controls
             };
             _header.Controls.Add(_lblTitle);
             _header.Controls.Add(_btnStop);
+            _header.Controls.Add(_btnHelp);
 
             // ?? Output area ??
-            _output = ThemedEditorFactory.CreateDocumentViewer(wordWrap: true, readOnly: true, backColor: WallyTheme.Surface0);
+            _output = ThemedEditorFactory.CreateDocumentViewer(wordWrap: false, readOnly: true, backColor: WallyTheme.Surface0);
             _output.Font = WallyTheme.FontMonoLarge;
-            _output.ShortcutsEnabled = true;   // ensures Ctrl+C works on read-only RTB
+            _output.ShortcutsEnabled = true;            // ensures Ctrl+C works on read-only RTB
+            _output.AlwaysShowScrollbar    = true;      // vertical thumb always visible
+            _output.ShowHorizontalScrollbar = true;     // native horizontal bar when lines overflow
 
             // Right-click context menu (standard WinForms terminal pattern).
             var ctxMenu = new ContextMenuStrip();
@@ -272,11 +300,41 @@ namespace Wally.Forms.Controls
         {
             if (InvokeRequired) { Invoke(() => AppendStyledLine(text, color)); return; }
 
+            // Only auto-scroll to the new line if the user is already at (or near)
+            // the bottom of the output — so manually scrolling up to read history
+            // is not interrupted by incoming text.
+            bool nearBottom = IsOutputNearBottom();
+
             _output.SelectionStart = _output.TextLength;
             _output.SelectionLength = 0;
             _output.SelectionColor = color;
             _output.AppendText(text + Environment.NewLine);
-            _output.ScrollToCaret();
+
+            if (nearBottom)
+                _output.ScrollToCaret();
+        }
+
+        /// <summary>
+        /// Returns <see langword="true"/> when the terminal output's scroll position
+        /// is within one page of the bottom, meaning new lines should auto-scroll.
+        /// </summary>
+        private bool IsOutputNearBottom()
+        {
+            if (!_output.IsHandleCreated)
+                return true;
+
+            // Use the first visible character index to approximate scroll position.
+            int firstVisible = _output.GetCharIndexFromPosition(new Point(1, 1));
+            int lastChar     = _output.TextLength;
+
+            // If less than ~one screen's worth of characters remain after the
+            // first visible char, we consider ourselves "near the bottom".
+            // A rough estimate: visible lines * average chars/line.
+            int visibleLines = Math.Max(1, _output.ClientSize.Height / (_output.Font.Height + 2));
+            int charsPerLine = Math.Max(1, _output.ClientSize.Width  / Math.Max(1, _output.Font.Height));
+            int pageChars    = visibleLines * charsPerLine;
+
+            return (lastChar - firstVisible) <= pageChars * 2;
         }
 
         // ?? Input handling ??????????????????????????????????????????????????

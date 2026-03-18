@@ -10,6 +10,7 @@ namespace Wally.Forms.Controls
     internal class ThemedRichTextBox : RichTextBox
     {
         private const int SB_VERT = 1;
+        private const int SB_HORZ = 0;
         private const int SIF_RANGE = 0x0001;
         private const int SIF_PAGE = 0x0002;
         private const int SIF_POS = 0x0004;
@@ -19,6 +20,7 @@ namespace Wally.Forms.Controls
         private const int WM_PAINT = 0x000F;
         private const int WM_MOUSEWHEEL = 0x020A;
         private const int WM_VSCROLL = 0x0115;
+        private const int WM_HSCROLL = 0x0114;
         private const int WM_NCCALCSIZE = 0x0083;
         private const int WM_SIZE = 0x0005;
         private const int EM_SETRECT = 0x00B3;
@@ -36,6 +38,33 @@ namespace Wally.Forms.Controls
         private bool _thumbDragging;
         private int _dragStartMouseY;
         private int _dragStartScrollY;
+
+        /// <summary>
+        /// When <see langword="true"/>, the scrollbar thumb is always rendered
+        /// whenever there is content to scroll — regardless of focus or mouse
+        /// position. Useful for read-only terminal / log viewers where the user
+        /// needs a persistent positional indicator.
+        /// Default: <see langword="false"/> (hover-to-show behaviour).
+        /// </summary>
+        public bool AlwaysShowScrollbar { get; set; }
+
+        /// <summary>
+        /// When <see langword="true"/>, the native horizontal scrollbar is shown
+        /// whenever content is wider than the control. Only meaningful when
+        /// <see cref="RichTextBox.WordWrap"/> is <see langword="false"/>.
+        /// Default: <see langword="false"/>.
+        /// </summary>
+        public bool ShowHorizontalScrollbar
+        {
+            get => _showHorizontalScrollbar;
+            set
+            {
+                _showHorizontalScrollbar = value;
+                if (IsHandleCreated)
+                    ApplyScrollbarVisibility();
+            }
+        }
+        private bool _showHorizontalScrollbar;
 
         [StructLayout(LayoutKind.Sequential)]
         private struct SCROLLINFO
@@ -87,13 +116,16 @@ namespace Wally.Forms.Controls
         public ThemedRichTextBox()
         {
             BorderStyle = BorderStyle.FixedSingle;
-            ScrollBars = RichTextBoxScrollBars.None;
+            // Keep Both so the native horizontal bar can appear when needed.
+            // The vertical native bar is hidden in OnHandleCreated via ShowScrollBar.
+            ScrollBars = RichTextBoxScrollBars.Both;
         }
 
         protected override void OnHandleCreated(EventArgs e)
         {
             base.OnHandleCreated(e);
             HideNativeScrollbar();
+            ApplyScrollbarVisibility();
             UpdateFormattingRect();
             Invalidate();
         }
@@ -196,9 +228,11 @@ namespace Wally.Forms.Controls
                 case WM_PAINT:
                 case WM_MOUSEWHEEL:
                 case WM_VSCROLL:
+                case WM_HSCROLL:
                 case WM_NCCALCSIZE:
                 case WM_SIZE:
                     HideNativeScrollbar();
+                    ApplyScrollbarVisibility();
                     DrawOverlay();
                     break;
             }
@@ -213,7 +247,7 @@ namespace Wally.Forms.Controls
                 if (!NeedsScrollbar)
                     return false;
 
-                if (_thumbDragging || Focused)
+                if (AlwaysShowScrollbar || _thumbDragging || Focused)
                     return true;
 
                 var mouse = PointToClient(Cursor.Position);
@@ -275,7 +309,9 @@ namespace Wally.Forms.Controls
                 ? WallyTheme.TextMuted
                 : _thumbHovered
                     ? WallyTheme.Surface4
-                    : WallyTheme.Surface3;
+                    : AlwaysShowScrollbar
+                        ? WallyTheme.Surface2
+                        : WallyTheme.Surface3;
 
             using var path = WallyTheme.RoundedRect(thumb, ThumbRadius);
             using var brush = new SolidBrush(thumbColor);
@@ -358,16 +394,39 @@ namespace Wally.Forms.Controls
                 ShowScrollBar(Handle, SB_VERT, false);
         }
 
+        /// <summary>
+        /// Shows or hides the native horizontal scrollbar according to
+        /// <see cref="ShowHorizontalScrollbar"/>. Called after every message that
+        /// could cause the RTB to re-show a scrollbar.
+        /// </summary>
+        private void ApplyScrollbarVisibility()
+        {
+            if (!IsHandleCreated) return;
+            if (!_showHorizontalScrollbar)
+                ShowScrollBar(Handle, SB_HORZ, false);
+            // When true, we leave whatever the RTB decided — it only appears
+            // when content is actually wider than the viewport.
+        }
+
         private void UpdateFormattingRect()
         {
             if (!IsHandleCreated || ClientSize.Width <= 0 || ClientSize.Height <= 0)
                 return;
 
+            // When word-wrap is off (horizontal scrolling mode) we do NOT clamp
+            // the right edge — doing so would prevent the RTB from tracking line
+            // width and would make the horizontal scrollbar never appear.
+            // When word-wrap is on we reserve the vertical-scrollbar gutter on
+            // the right so text doesn't flow behind the custom thumb.
+            int rightEdge = WordWrap
+                ? Math.Max(2, ClientSize.Width - ScrollGutterWidth)
+                : Math.Max(2, ClientSize.Width - 2);
+
             var rect = new RECT
             {
-                Left = 2,
-                Top = 2,
-                Right = Math.Max(2, ClientSize.Width - ScrollGutterWidth),
+                Left   = 2,
+                Top    = 2,
+                Right  = rightEdge,
                 Bottom = Math.Max(2, ClientSize.Height - 2)
             };
 
