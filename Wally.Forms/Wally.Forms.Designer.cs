@@ -61,13 +61,13 @@ namespace Wally.Forms
             cleanupWorkspaceMenuItem = new ToolStripMenuItem();
             openWorkspaceFolderMenuItem = new ToolStripMenuItem();
             toolbarPanel = new ToolStripPanel();
-            fileToolStrip = new ToolStrip();
+            fileToolStrip = new WallyToolStrip();
             tsbOpen = new ToolStripButton();
             tsbSetup = new ToolStripButton();
             tsbSave = new ToolStripButton();
             tsFileSep1 = new ToolStripSeparator();
             tsbClose = new ToolStripButton();
-            workspaceToolStrip = new ToolStrip();
+            workspaceToolStrip = new WallyToolStrip();
             tsbRefresh = new ToolStripButton();
             tsbReloadActors = new ToolStripButton();
             tsWsSep1 = new ToolStripSeparator();
@@ -75,7 +75,7 @@ namespace Wally.Forms
             tsbVerify = new ToolStripButton();
             tsWsSep2 = new ToolStripSeparator();
             tsbStop = new ToolStripButton();
-            editorsToolStrip = new ToolStrip();
+            editorsToolStrip = new WallyToolStrip();
             tsbEditActors = new ToolStripButton();
             tsbConfig = new ToolStripButton();
             tsbLogs = new ToolStripButton();
@@ -713,7 +713,7 @@ namespace Wally.Forms
         private ToolStripMenuItem  openWorkspaceFolderMenuItem;
 
         // ── File ToolStrip ──
-        private ToolStrip          fileToolStrip;
+        private WallyToolStrip     fileToolStrip;
         private ToolStripButton    tsbOpen;
         private ToolStripButton    tsbSetup;
         private ToolStripButton    tsbSave;
@@ -721,7 +721,7 @@ namespace Wally.Forms
         private ToolStripButton    tsbClose;
 
         // ── Workspace ToolStrip ──
-        private ToolStrip          workspaceToolStrip;
+        private WallyToolStrip     workspaceToolStrip;
         private ToolStripButton    tsbRefresh;
         private ToolStripButton    tsbReloadActors;
         private ToolStripSeparator tsWsSep1;
@@ -731,7 +731,7 @@ namespace Wally.Forms
         private ToolStripButton    tsbStop;
 
         // ── Editors ToolStrip ──
-        private ToolStrip          editorsToolStrip;
+        private WallyToolStrip     editorsToolStrip;
         private ToolStripButton    tsbEditActors;
         private ToolStripButton    tsbConfig;
         private ToolStripButton    tsbLogs;

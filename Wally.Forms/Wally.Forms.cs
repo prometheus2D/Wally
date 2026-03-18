@@ -16,7 +16,7 @@ namespace Wally.Forms
     {
         // -- Panels ----------------------------------------------------------
 
-        private readonly FileExplorerPanel _fileExplorer;
+        private readonly ExplorerTabPanel  _explorerTabPanel;
         private readonly ChatPanel         _chatPanel;
         private readonly CommandPanel      _commandPanel;
         private readonly WelcomePanel      _welcomePanel;
@@ -112,20 +112,21 @@ namespace Wally.Forms
                 _lblWorkspaceStatus, _lblActorCount, _lblSessionId, _progressBar
             });
 
-            // -- File Explorer (left) — created but NOT added to Controls yet --
-            _fileExplorer = new FileExplorerPanel
+            // -- Explorer Tab Panel (left) — created but NOT added to Controls yet --
+            _explorerTabPanel = new ExplorerTabPanel
             {
                 Dock        = DockStyle.Left,
-                Width       = 260,
-                MinimumSize = new Size(180, 0)
+                Width       = 280,
+                MinimumSize = new Size(200, 0)
             };
+            _explorerTabPanel.BindEnvironment(_environment);
 
             _leftSplitter = new ThemedSplitter
             {
                 Dock      = DockStyle.Left,
                 Width     = 3,
                 BackColor = WallyTheme.Splitter,
-                MinSize   = 180
+                MinSize   = 200
             };
 
             // -- Chat Panel (right) — created but NOT added to Controls yet --
@@ -186,8 +187,18 @@ namespace Wally.Forms
             _commandPanel.RunningChanged    += OnRunningChanged;
             _chatPanel.RunningChanged       += OnRunningChanged;
             _chatPanel.CommandIssued        += OnChatCommandIssued;
-            _fileExplorer.FileDoubleClicked += OnFileDoubleClicked;
-            _fileExplorer.FileSelected      += OnFileSelected;
+
+            _explorerTabPanel.FileDoubleClicked += OnFileDoubleClicked;
+            _explorerTabPanel.FileSelected      += OnFileSelected;
+            _explorerTabPanel.ActorActivated    += (_, name) => { var a = _environment.GetActor(name); if (a != null) OpenActorEditor(a); };
+            _explorerTabPanel.LoopActivated     += (_, name) => { var l = _environment.GetLoop(name);  if (l != null) OpenLoopEditor(l);  };
+            _explorerTabPanel.WrapperActivated  += (_, name) =>
+            {
+                var w = _environment.Workspace?.LlmWrappers
+                    .FirstOrDefault(x => string.Equals(x.Name, name, StringComparison.OrdinalIgnoreCase));
+                if (w != null) OpenWrapperEditor(w);
+            };
+            _explorerTabPanel.RunbookActivated  += (_, name) => { var r = _environment.GetRunbook(name); if (r != null) OpenRunbookEditor(r); };
 
             // -- File menu --
             openWorkspaceMenuItem.Click  += OnOpenWorkspace;
@@ -267,10 +278,10 @@ namespace Wally.Forms
                 _content.Controls.Add(_chatPanel);
             }
 
-            if (!_content.Controls.Contains(_fileExplorer))
+            if (!_content.Controls.Contains(_explorerTabPanel))
             {
                 _content.Controls.Add(_leftSplitter);
-                _content.Controls.Add(_fileExplorer);
+                _content.Controls.Add(_explorerTabPanel);
             }
 
             _content.ResumeLayout(true);
@@ -283,7 +294,7 @@ namespace Wally.Forms
         {
             _content.SuspendLayout();
 
-            _content.Controls.Remove(_fileExplorer);
+            _content.Controls.Remove(_explorerTabPanel);
             _content.Controls.Remove(_leftSplitter);
             _content.Controls.Remove(_chatPanel);
             _content.Controls.Remove(_rightSplitter);
@@ -333,13 +344,13 @@ namespace Wally.Forms
             else if (e.KeyCode == Keys.F5 && _environment.HasWorkspace)
             {
                 e.Handled = true;
-                _fileExplorer.Refresh();
+                _explorerTabPanel.Refresh();
             }
             else if (e.Control && e.KeyCode == Keys.D1 && _environment.HasWorkspace)
             {
                 e.Handled = true;
                 if (!showExplorerMenuItem.Checked) showExplorerMenuItem.Checked = true;
-                _fileExplorer.Focus();
+                _explorerTabPanel.FocusFiles();
             }
             else if (e.Control && e.KeyCode == Keys.D2 && _environment.HasWorkspace)
             {
@@ -375,10 +386,10 @@ namespace Wally.Forms
         }
 
         private void OnExit(object? sender, EventArgs e)              => Close();
-        private void OnRefreshExplorer(object? sender, EventArgs e)   => _fileExplorer.Refresh();
+        private void OnRefreshExplorer(object? sender, EventArgs e)   => _explorerTabPanel.Refresh();
 
         private void OnShowExplorerCheckedChanged(object? sender, EventArgs e) =>
-            TogglePanel(_fileExplorer, _leftSplitter, DockStyle.Left, showExplorerMenuItem.Checked);
+            TogglePanel(_explorerTabPanel, _leftSplitter, DockStyle.Left, showExplorerMenuItem.Checked);
 
         private void OnShowChatCheckedChanged(object? sender, EventArgs e) =>
             TogglePanel(_chatPanel, _rightSplitter, DockStyle.Right, showChatMenuItem.Checked);
@@ -446,7 +457,7 @@ namespace Wally.Forms
             string closedPath = _environment.WorkSource ?? "workspace";
             _environment.CloseWorkspace();
 
-            _fileExplorer.ClearTree();
+            _explorerTabPanel.ClearAll();
             _chatPanel.ClearMessages();
             _chatPanel.RefreshActorList();
             _chatPanel.RefreshLoopList();
@@ -485,7 +496,7 @@ namespace Wally.Forms
 
             if (_environment.HasWorkspace)
             {
-                _fileExplorer.ClearTree();
+                _explorerTabPanel.ClearAll();
                 _chatPanel.ClearMessages();
                 _chatPanel.RefreshActorList();
                 _chatPanel.RefreshLoopList();
@@ -529,7 +540,7 @@ namespace Wally.Forms
             if (_environment.HasWorkspace)
             {
                 Text = $"Wally \u2014 {_environment.WorkSource}";
-                _fileExplorer.SetRootPath(_environment.WorkSource!);
+                _explorerTabPanel.SetRootPath(_environment.WorkSource!);
                 _chatPanel.RefreshActorList();
                 _chatPanel.RefreshLoopList();
                 _chatPanel.RefreshModelList();

@@ -1,4 +1,4 @@
-using System.Drawing;
+﻿using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Text;
 using System.Windows.Forms;
@@ -7,25 +7,25 @@ namespace Wally.Forms.Theme
 {
     /// <summary>
     /// Centralized design tokens for the Wally dark theme.
-    /// Simplified neutral gray palette � no colored accents.
+    /// Simplified neutral gray palette — no colored accents.
     /// </summary>
     internal static class WallyTheme
     {
         // ?? Surface hierarchy (darkest ? lightest) ??????????????????????????
 
-        /// <summary>Primary background � deepest panels (chat messages, output).</summary>
+        /// <summary>Primary background — deepest panels (chat messages, output).</summary>
         public static readonly Color Surface0 = Color.FromArgb(24, 24, 27);
 
-        /// <summary>Secondary background � panel bodies (file tree, input areas).</summary>
+        /// <summary>Secondary background — panel bodies (file tree, input areas).</summary>
         public static readonly Color Surface1 = Color.FromArgb(30, 30, 34);
 
-        /// <summary>Tertiary background � toolbars, input rows, raised surfaces.</summary>
+        /// <summary>Tertiary background — toolbars, input rows, raised surfaces.</summary>
         public static readonly Color Surface2 = Color.FromArgb(39, 39, 44);
 
-        /// <summary>Quaternary � elevated elements (hover states, selected items).</summary>
+        /// <summary>Quaternary — elevated elements (hover states, selected items).</summary>
         public static readonly Color Surface3 = Color.FromArgb(50, 50, 56);
 
-        /// <summary>Highest elevation � active highlights, focused borders.</summary>
+        /// <summary>Highest elevation — active highlights, focused borders.</summary>
         public static readonly Color Surface4 = Color.FromArgb(63, 63, 70);
 
         // ?? Borders ?????????????????????????????????????????????????????????
@@ -43,7 +43,7 @@ namespace Wally.Forms.Theme
 
         // ?? Functional colors (kept minimal) ????????????????????????????????
 
-        /// <summary>Accent � used sparingly for the primary interactive element.</summary>
+        /// <summary>Accent — used sparingly for the primary interactive element.</summary>
         public static readonly Color Accent = Color.FromArgb(161, 161, 170);
 
         /// <summary>Lighter accent for hover states.</summary>
@@ -55,25 +55,25 @@ namespace Wally.Forms.Theme
         /// <summary>Very subtle accent wash.</summary>
         public static readonly Color AccentSubtle = Color.FromArgb(35, 35, 40);
 
-        /// <summary>Success / positive � a soft, readable gray-green for light emphasis.</summary>
+        /// <summary>Success / positive — a soft, readable gray-green for light emphasis.</summary>
         public static readonly Color Green = Color.FromArgb(161, 161, 170);
 
         /// <summary>Muted green background.</summary>
         public static readonly Color GreenMuted = Color.FromArgb(39, 39, 44);
 
-        /// <summary>Error / destructive � softened red, still distinguishable.</summary>
+        /// <summary>Error / destructive — softened red, still distinguishable.</summary>
         public static readonly Color Red = Color.FromArgb(200, 150, 150);
 
         /// <summary>Muted error background.</summary>
         public static readonly Color RedMuted = Color.FromArgb(50, 40, 40);
 
-        /// <summary>Warning / running state � maps to TextMuted for simplicity.</summary>
+        /// <summary>Warning / running state — maps to TextMuted for simplicity.</summary>
         public static readonly Color Yellow = Color.FromArgb(161, 161, 170);
 
         /// <summary>Muted warning background.</summary>
         public static readonly Color YellowMuted = Color.FromArgb(45, 45, 50);
 
-        /// <summary>Secondary mode accent � maps to TextSecondary.</summary>
+        /// <summary>Secondary mode accent — maps to TextSecondary.</summary>
         public static readonly Color Purple = Color.FromArgb(161, 161, 170);
 
         // ?? Status bar ??????????????????????????????????????????????????????
@@ -155,7 +155,7 @@ namespace Wally.Forms.Theme
     }
 
     // ????????????????????????????????????????????????????????????????????????
-    //  WallyToolStripRenderer � themed renderer with proper disabled text
+    //  WallyToolStripRenderer — themed renderer with proper disabled text
     // ????????????????????????????????????????????????????????????????????????
 
     internal sealed class WallyToolStripRenderer : ToolStripProfessionalRenderer
@@ -301,6 +301,84 @@ namespace Wally.Forms.Theme
         {
             BackColor = WallyTheme.Splitter;
             base.OnMouseLeave(e);
+        }
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    //  WallyToolStrip – flat ToolStrip with no hover/pressed background
+    // ════════════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// A <see cref="ToolStrip"/> subclass that uses the Wally dark renderer and
+    /// suppresses the default OS button-highlight background so toolbar buttons
+    /// blend seamlessly into the panel surface.
+    /// </summary>
+    internal sealed class WallyToolStrip : ToolStrip
+    {
+        public WallyToolStrip()
+        {
+            Renderer = WallyTheme.CreateRenderer();
+            BackColor = WallyTheme.Surface2;
+            ForeColor = WallyTheme.TextPrimary;
+            GripStyle = ToolStripGripStyle.Hidden;
+            Padding = new Padding(4, 0, 4, 0);
+        }
+
+        protected override void OnRendererChanged(EventArgs e)
+        {
+            base.OnRendererChanged(e);
+            // Keep renderer in sync if someone swaps it externally.
+            if (Renderer is not WallyFlatButtonRenderer)
+                Renderer = new WallyFlatButtonRenderer();
+        }
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    //  WallyFlatButtonRenderer – suppresses highlight painting on buttons
+    // ════════════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// Renderer used by <see cref="WallyToolStrip"/> that fills button backgrounds
+    /// with a flat surface colour instead of the default gradient highlight.
+    /// </summary>
+    internal sealed class WallyFlatButtonRenderer : ToolStripProfessionalRenderer
+    {
+        public WallyFlatButtonRenderer() : base(new DarkColorTable())
+        {
+            RoundedEdges = false;
+        }
+
+        // Suppress ALL button highlight backgrounds (hover, pressed, checked).
+        protected override void OnRenderButtonBackground(ToolStripItemRenderEventArgs e)
+        {
+            var item = e.Item;
+            Color bg;
+
+            if (!item.Enabled)
+                bg = WallyTheme.Surface2;
+            else if (item.Pressed)
+                bg = WallyTheme.Surface4;
+            else if (item.Selected)
+                bg = WallyTheme.Surface3;
+            else
+                bg = WallyTheme.Surface2;
+
+            using var brush = new SolidBrush(bg);
+            e.Graphics.FillRectangle(brush, new Rectangle(Point.Empty, item.Size));
+        }
+
+        // Keep text colouring consistent with the main renderer.
+        protected override void OnRenderItemText(ToolStripItemTextRenderEventArgs e)
+        {
+            if (e.Item is ToolStripButton or ToolStripLabel)
+            {
+                e.TextColor = e.Item.Enabled
+                    ? (e.Item.ForeColor != default && e.Item.ForeColor != Control.DefaultForeColor
+                        ? e.Item.ForeColor
+                        : WallyTheme.TextPrimary)
+                    : WallyTheme.TextDisabled;
+            }
+            base.OnRenderItemText(e);
         }
     }
 }
