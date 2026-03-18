@@ -57,6 +57,7 @@ namespace Wally.Forms
             workspaceSeparator1 = new ToolStripSeparator();
             workspaceInfoMenuItem = new ToolStripMenuItem();
             verifyWorkspaceMenuItem = new ToolStripMenuItem();
+            repairWorkspaceMenuItem = new ToolStripMenuItem();
             workspaceSeparator2 = new ToolStripSeparator();
             cleanupWorkspaceMenuItem = new ToolStripMenuItem();
             openWorkspaceFolderMenuItem = new ToolStripMenuItem();
@@ -73,6 +74,7 @@ namespace Wally.Forms
             tsWsSep1 = new ToolStripSeparator();
             tsbInfo = new ToolStripButton();
             tsbVerify = new ToolStripButton();
+            tsbRepair = new ToolStripButton();
             tsWsSep2 = new ToolStripSeparator();
             tsbStop = new ToolStripButton();
             editorsToolStrip = new WallyToolStrip();
@@ -353,7 +355,7 @@ namespace Wally.Forms
             // 
             // workspaceToolStripMenuItem
             // 
-            workspaceToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { reloadActorsMenuItem, listActorsMenuItem, workspaceSeparator1, workspaceInfoMenuItem, verifyWorkspaceMenuItem, workspaceSeparator2, cleanupWorkspaceMenuItem, openWorkspaceFolderMenuItem });
+            workspaceToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { reloadActorsMenuItem, listActorsMenuItem, workspaceSeparator1, workspaceInfoMenuItem, verifyWorkspaceMenuItem, repairWorkspaceMenuItem, workspaceSeparator2, cleanupWorkspaceMenuItem, openWorkspaceFolderMenuItem });
             workspaceToolStripMenuItem.ForeColor = Color.FromArgb(228, 228, 233);
             workspaceToolStripMenuItem.Name = "workspaceToolStripMenuItem";
             workspaceToolStripMenuItem.Size = new Size(77, 20);
@@ -392,6 +394,15 @@ namespace Wally.Forms
             verifyWorkspaceMenuItem.Name = "verifyWorkspaceMenuItem";
             verifyWorkspaceMenuItem.Size = new Size(188, 22);
             verifyWorkspaceMenuItem.Text = "&Verify Structure";
+            // 
+            // repairWorkspaceMenuItem
+            // 
+            repairWorkspaceMenuItem.ForeColor = Color.FromArgb(228, 228, 233);
+            repairWorkspaceMenuItem.Name = "repairWorkspaceMenuItem";
+            repairWorkspaceMenuItem.ShortcutKeys = Keys.Control | Keys.Shift | Keys.R;
+            repairWorkspaceMenuItem.Size = new Size(188, 22);
+            repairWorkspaceMenuItem.Text = "&Repair Workspace";
+            repairWorkspaceMenuItem.ToolTipText = "Add any missing workspace folders, mailboxes, and actor components";
             // 
             // workspaceSeparator2
             // 
@@ -487,7 +498,7 @@ namespace Wally.Forms
             workspaceToolStrip.BackColor = Color.FromArgb(39, 39, 44);
             workspaceToolStrip.Dock = DockStyle.None;
             workspaceToolStrip.ForeColor = Color.FromArgb(228, 228, 233);
-            workspaceToolStrip.Items.AddRange(new ToolStripItem[] { tsbRefresh, tsbReloadActors, tsWsSep1, tsbInfo, tsbVerify, tsWsSep2, tsbStop });
+            workspaceToolStrip.Items.AddRange(new ToolStripItem[] { tsbRefresh, tsbReloadActors, tsWsSep1, tsbInfo, tsbVerify, tsbRepair, tsWsSep2, tsbStop });
             workspaceToolStrip.Location = new Point(503, 0);
             workspaceToolStrip.Name = "workspaceToolStrip";
             workspaceToolStrip.Padding = new Padding(0, 0, 6, 0);
@@ -538,6 +549,16 @@ namespace Wally.Forms
             tsbVerify.Size = new Size(50, 22);
             tsbVerify.Text = "✓ Verify";
             tsbVerify.ToolTipText = "Verify Workspace Structure";
+            // 
+            // tsbRepair
+            // 
+            tsbRepair.DisplayStyle = ToolStripItemDisplayStyle.Text;
+            tsbRepair.Font = new Font("Segoe UI", 8.25F);
+            tsbRepair.ForeColor = Color.FromArgb(228, 228, 233);
+            tsbRepair.Name = "tsbRepair";
+            tsbRepair.Size = new Size(56, 22);
+            tsbRepair.Text = "🔧 Repair";
+            tsbRepair.ToolTipText = "Repair Workspace — add any missing folders, mailboxes, and actor components (Ctrl+Shift+R)";
             // 
             // tsWsSep2
             // 
@@ -708,6 +729,7 @@ namespace Wally.Forms
         private ToolStripSeparator workspaceSeparator1;
         private ToolStripMenuItem  workspaceInfoMenuItem;
         private ToolStripMenuItem  verifyWorkspaceMenuItem;
+        private ToolStripMenuItem  repairWorkspaceMenuItem;
         private ToolStripSeparator workspaceSeparator2;
         private ToolStripMenuItem  cleanupWorkspaceMenuItem;
         private ToolStripMenuItem  openWorkspaceFolderMenuItem;
@@ -727,6 +749,7 @@ namespace Wally.Forms
         private ToolStripSeparator tsWsSep1;
         private ToolStripButton    tsbInfo;
         private ToolStripButton    tsbVerify;
+        private ToolStripButton    tsbRepair;
         private ToolStripSeparator tsWsSep2;
         private ToolStripButton    tsbStop;
 

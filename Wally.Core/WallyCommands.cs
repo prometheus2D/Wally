@@ -58,6 +58,12 @@ namespace Wally.Core
                     HandleSetup(env, path, verify);
                     return true;
                 }
+                case "repair":
+                {
+                    string? path = GetFirstPositional(args, 1);
+                    HandleRepair(env, path);
+                    return true;
+                }
                 case "load":
                     if (args.Length < 2) { Console.WriteLine("Usage: load <path>"); return false; }
                     HandleLoad(env, args[1]);
@@ -99,7 +105,7 @@ namespace Wally.Core
                 case "commands" or "help": HandleHelp();     return true;
                 case "tutorial":           HandleTutorial(); return true;
 
-                // ?? Actor CRUD ?????????????????????????????????????????
+                // ?? Actor CRUD ???????????????????????????????????????????????
                 case "add-actor":
                 {
                     if (args.Length < 2) { Console.WriteLine("Usage: add-actor <name> [-r \"role\"] [-c \"criteria\"] [-i \"intent\"]"); return false; }
@@ -123,7 +129,7 @@ namespace Wally.Core
                     HandleDeleteActor(env, args[1]);
                     return true;
 
-                // ?? Loop CRUD ??????????????????????????????????????????
+                // ?? Loop CRUD ????????????????????????????????????????????????
                 case "add-loop":
                 {
                     if (args.Length < 2) { Console.WriteLine("Usage: add-loop <name> [-d desc] [-a actor] [-s prompt]"); return false; }
@@ -147,7 +153,7 @@ namespace Wally.Core
                     HandleDeleteLoop(env, args[1]);
                     return true;
 
-                // ?? Wrapper CRUD ???????????????????????????????????????
+                // ?? Wrapper CRUD ?????????????????????????????????????????????
                 case "add-wrapper":
                 {
                     if (args.Length < 2) { Console.WriteLine("Usage: add-wrapper <name> [-d desc] [-e exe] [-t template] [--can-make-changes] [--no-conversation-history]"); return false; }
@@ -175,7 +181,7 @@ namespace Wally.Core
                     HandleDeleteWrapper(env, args[1]);
                     return true;
 
-                // ?? Runbook CRUD ???????????????????????????????????????
+                // ?? Runbook CRUD ?????????????????????????????????????????????
                 case "add-runbook":
                 {
                     if (args.Length < 2) { Console.WriteLine("Usage: add-runbook <name> [-d desc]"); return false; }
@@ -201,7 +207,7 @@ namespace Wally.Core
             }
         }
 
-        // ?? Workspace lifecycle ???????????????????????????????????????????????
+        // ?? Workspace lifecycle ??????????????????????????????????????????????
 
         public static void HandleLoad(WallyEnvironment env, string path)
         {
@@ -235,6 +241,142 @@ namespace Wally.Core
             PrintWorkspaceSummary("Workspace ready.", env);
         }
 
+        /// <summary>
+        /// Repairs a workspace by creating any missing standard folders, mailbox folders,
+        /// and actor mailbox folders — without touching anything already on disk.
+        /// After repair the workspace is reloaded so in-memory state matches.
+        /// </summary>
+        public static void HandleRepair(WallyEnvironment env, string? workSourcePath = null)
+        {
+            string wsFolder;
+            if (!string.IsNullOrWhiteSpace(workSourcePath))
+            {
+                string src = Path.IsPathRooted(workSourcePath)
+                    ? workSourcePath!
+                    : Path.Combine(WallyHelper.GetExeDirectory(), workSourcePath!);
+                wsFolder = Path.Combine(Path.GetFullPath(src), WallyHelper.DefaultWorkspaceFolderName);
+            }
+            else if (env.HasWorkspace)
+            {
+                wsFolder = env.Workspace!.WorkspaceFolder;
+            }
+            else
+            {
+                wsFolder = WallyHelper.GetDefaultWorkspaceFolder();
+            }
+
+            wsFolder = Path.GetFullPath(wsFolder);
+
+            Console.WriteLine($"Repairing workspace at: {wsFolder}");
+            Console.WriteLine();
+
+            if (!Directory.Exists(wsFolder))
+            {
+                Console.WriteLine("Workspace folder does not exist. Use 'setup' to create a new workspace.");
+                env.Logger.LogCommand("repair", $"Workspace not found at {wsFolder}");
+                return;
+            }
+
+            var config = WallyHelper.ResolveConfig(wsFolder);
+            var added  = new List<string>();
+
+            // ?? Standard workspace subfolders ??????????????????????????????
+            EnsureDir(wsFolder, config.ActorsFolderName,    added);
+            EnsureDir(wsFolder, config.DocsFolderName,      added);
+            EnsureDir(wsFolder, config.TemplatesFolderName, added);
+            EnsureDir(wsFolder, config.LoopsFolderName,     added);
+            EnsureDir(wsFolder, config.WrappersFolderName,  added);
+            EnsureDir(wsFolder, config.RunbooksFolderName,  added);
+            EnsureDir(wsFolder, config.LogsFolderName,      added);
+            EnsureDir(wsFolder, Logging.ConversationLogger.DefaultFolderName, added);
+
+            // ?? Workspace shared mailbox ???????????????????????????????????
+            EnsureMailboxDir(wsFolder, "workspace",          added);
+
+            // ?? Per-actor mailboxes ????????????????????????????????????????
+            string actorsDir = Path.Combine(wsFolder, config.ActorsFolderName);
+            if (Directory.Exists(actorsDir))
+            {
+                foreach (string actorDir in Directory.GetDirectories(actorsDir))
+                {
+                    string actorName = Path.GetFileName(actorDir);
+
+                    // Actor-level Docs subfolder
+                    string docsFolder = Path.Combine(actorDir, "Docs");
+                    if (!Directory.Exists(docsFolder))
+                    {
+                        Directory.CreateDirectory(docsFolder);
+                        added.Add($"  Actors/{actorName}/Docs/");
+                    }
+
+                    EnsureMailboxDir(actorDir, $"actor '{actorName}'", added);
+                }
+            }
+
+            // ?? Report ????????????????????????????????????????????????????
+            if (added.Count == 0)
+            {
+                Console.WriteLine("\u2713 Workspace is already complete — nothing to repair.");
+            }
+            else
+            {
+                Console.WriteLine($"Repaired {added.Count} missing component(s):");
+                foreach (var item in added)
+                    Console.WriteLine($"  \u2713 {item}");
+            }
+
+            Console.WriteLine();
+
+            // Reload so the UI/in-memory model picks up any new actors/wrappers.
+            if (env.HasWorkspace && string.Equals(
+                    Path.GetFullPath(env.Workspace!.WorkspaceFolder),
+                    wsFolder, StringComparison.OrdinalIgnoreCase))
+            {
+                env.LoadWorkspace(wsFolder);
+                Console.WriteLine("Workspace reloaded.");
+            }
+
+            env.Logger.LogCommand("repair",
+                added.Count == 0
+                    ? $"Repair: workspace at {wsFolder} was already complete."
+                    : $"Repair: added {added.Count} component(s) to {wsFolder}.");
+        }
+
+        // ?? Repair helpers ????????????????????????????????????????????????????
+
+        private static void EnsureDir(string parent, string subFolder, List<string> added)
+        {
+            string full = Path.Combine(parent, subFolder);
+            if (!Directory.Exists(full))
+            {
+                Directory.CreateDirectory(full);
+                added.Add($"{subFolder}/");
+            }
+        }
+
+        private static void EnsureMailboxDir(string entityDir, string label, List<string> added)
+        {
+            foreach (string folder in new[]
+            {
+                WallyHelper.MailboxInboxFolderName,
+                WallyHelper.MailboxOutboxFolderName,
+                WallyHelper.MailboxPendingFolderName,
+                WallyHelper.MailboxActiveFolderName
+            })
+            {
+                string full = Path.Combine(entityDir, folder);
+                if (!Directory.Exists(full))
+                {
+                    Directory.CreateDirectory(full);
+                    // Make the reported path relative to the workspace
+                    string rel = Path.GetRelativePath(
+                        Path.GetDirectoryName(entityDir.TrimEnd(Path.DirectorySeparatorChar)) ?? entityDir,
+                        full);
+                    added.Add($"{rel}{Path.DirectorySeparatorChar}  [{label} mailbox]");
+                }
+            }
+        }
+
         public static void HandleSave(WallyEnvironment env, string path)
         {
             if (RequireWorkspace(env, "save") == null) return;
@@ -243,7 +385,7 @@ namespace Wally.Core
             Console.WriteLine($"Workspace saved to: {path}");
         }
 
-        // ?? Run ???????????????????????????????????????????????????????????????
+        // ?? Run ??????????????????????????????????????????????????????????????
 
         /// <summary>
         /// Backward-compatible overload — returns raw response strings.
@@ -279,7 +421,7 @@ namespace Wally.Core
         {
             if (RequireWorkspace(env, "run") == null) return new List<WallyRunResult>();
 
-            // ?? Resolve loop definition ????????????????????????????????????
+            // Resolve loop definition
             WallyLoopDefinition? loopDef = null;
             if (!string.IsNullOrWhiteSpace(loopName))
             {
@@ -295,11 +437,11 @@ namespace Wally.Core
 
             string loopLabel = loopDef != null ? $"[run:{loopDef.Name}]" : "[run]";
 
-            // ?? Multi-step pipeline ????????????????????????????????????????
+            // Multi-step pipeline
             if (loopDef?.HasSteps == true)
                 return RunPipeline(env, prompt, loopDef, loopLabel, model, wrapper, noHistory, cancellationToken);
 
-            // ?? Single-actor / direct ??????????????????????????????????????
+            // Single-actor / direct
             if (string.IsNullOrWhiteSpace(actorName) && !string.IsNullOrWhiteSpace(loopDef?.ActorName))
                 actorName = loopDef!.ActorName;
 
@@ -342,7 +484,7 @@ namespace Wally.Core
             };
         }
 
-        // ?? Pipeline execution ????????????????????????????????????????????????
+        // ?? Pipeline execution ???????????????????????????????????????????????
 
         private static List<WallyRunResult> RunPipeline(
             WallyEnvironment env,
@@ -360,7 +502,7 @@ namespace Wally.Core
             Console.WriteLine($"{loopLabel} Pipeline \u2014 {stepDefs.Count} step(s)");
             Console.WriteLine();
 
-            // ?? Resolve actors once ????????????????????????????????????????
+            // Resolve actors once
             var stepActors = new (Actor? actor, bool isDirect, string actorLabel)[stepDefs.Count];
             for (int i = 0; i < stepDefs.Count; i++)
             {
@@ -387,7 +529,7 @@ namespace Wally.Core
             }
             Console.WriteLine();
 
-            // ?? Run steps in order ?????????????????????????????????????????
+            // Run steps in order
             var results = new List<WallyRunResult>(stepDefs.Count);
             string? previousStepResult = null;
 
@@ -429,7 +571,7 @@ namespace Wally.Core
             return results;
         }
 
-        // ?? Runbooks ??????????????????????????????????????????????????????????
+        // ?? Runbooks ?????????????????????????????????????????????????????????
 
         public static bool HandleRunbook(WallyEnvironment env, string runbookName, string? userPrompt = null, int depth = 0)
         {
@@ -476,7 +618,7 @@ namespace Wally.Core
             return true;
         }
 
-        // ?? Workspace inspection ??????????????????????????????????????????????
+        // ?? Workspace inspection ?????????????????????????????????????????????
 
         public static void HandleListRunbooks(WallyEnvironment env)
         {
@@ -511,6 +653,8 @@ namespace Wally.Core
                 {
                     string docsPath = Path.Combine(actor.FolderPath, actor.DocsFolderName);
                     if (Directory.Exists(docsPath)) Console.WriteLine($"    Docs folder: {docsPath}");
+                    if (Directory.Exists(Path.Combine(actor.FolderPath, WallyHelper.MailboxInboxFolderName)))
+                        Console.WriteLine($"    Mailbox: Inbox / Outbox / Pending / Active");
                 }
             }
         }
@@ -533,8 +677,15 @@ namespace Wally.Core
             Console.WriteLine($"Docs folder:      {Path.Combine(ws.WorkspaceFolder, cfg.DocsFolderName)}");
             Console.WriteLine($"Templates folder: {Path.Combine(ws.WorkspaceFolder, cfg.TemplatesFolderName)}");
             Console.WriteLine($"Logs folder:      {Path.Combine(ws.WorkspaceFolder, cfg.LogsFolderName)}");
+            bool hasMailbox = Directory.Exists(Path.Combine(ws.WorkspaceFolder, WallyHelper.MailboxInboxFolderName));
+            Console.WriteLine($"Workspace mailbox:{(hasMailbox ? " Inbox / Outbox / Pending / Active" : " (not initialised — run setup)")}");
             Console.WriteLine($"Actors:           {ws.Actors.Count}");
-            foreach (var a in ws.Actors)      Console.WriteLine($"  {a.Name}");
+            foreach (var a in ws.Actors)
+            {
+                bool actorHasMailbox = !string.IsNullOrEmpty(a.FolderPath) &&
+                    Directory.Exists(Path.Combine(a.FolderPath, WallyHelper.MailboxInboxFolderName));
+                Console.WriteLine($"  {a.Name}{(actorHasMailbox ? "  [mailbox]" : "")}");
+            }
             Console.WriteLine($"Loops:            {ws.Loops.Count}");
             foreach (var l in ws.Loops)       Console.WriteLine($"  {l.Name}{(string.IsNullOrWhiteSpace(l.Description) ? "" : $" \u2014 {l.Description}")}");
             Console.WriteLine($"Wrappers:         {ws.LlmWrappers.Count}");
@@ -602,7 +753,7 @@ namespace Wally.Core
             }
         }
 
-        // ?? Cleanup ???????????????????????????????????????????????????????????
+        // ?? Cleanup ??????????????????????????????????????????????????????????
 
         public static void HandleCleanup(WallyEnvironment env, string? workSourcePath = null)
         {
@@ -642,7 +793,7 @@ namespace Wally.Core
             Console.WriteLine("Conversation history cleared.");
         }
 
-        // ?? Help / Tutorial ???????????????????????????????????????????????????
+        // ?? Help / Tutorial ??????????????????????????????????????????????????
 
         public static void HandleHelp()
         {
@@ -656,6 +807,7 @@ namespace Wally.Core
             Console.WriteLine();
             Console.WriteLine("Commands:");
             Console.WriteLine("  setup [<path>] [--verify]     Set up / verify a workspace.");
+            Console.WriteLine("  repair [<path>]               Add any missing workspace components.");
             Console.WriteLine("  load <path>                   Load an existing .wally/ workspace.");
             Console.WriteLine("  info                          Show workspace info and session details.");
             Console.WriteLine("  tutorial                      Step-by-step guide.");
@@ -677,6 +829,15 @@ namespace Wally.Core
             Console.WriteLine();
             Console.WriteLine("  save <path> | cleanup [<path>] | clear-history");
             Console.WriteLine();
+            Console.WriteLine("Mailbox system:");
+            Console.WriteLine("  Every workspace and each actor gets four folders created on setup:");
+            Console.WriteLine("    Inbox/    — incoming requests and documents");
+            Console.WriteLine("    Outbox/   — completed deliverables ready for handoff");
+            Console.WriteLine("    Pending/  — items awaiting action or approval");
+            Console.WriteLine("    Active/   — work currently in progress");
+            Console.WriteLine("  The workspace mailbox (.wally/Inbox/, etc.) is the shared coordination");
+            Console.WriteLine("  space. Actor mailboxes (<Actor>/Inbox/, etc.) are private to each actor.");
+            Console.WriteLine();
             Console.WriteLine("Pipeline loops:");
             Console.WriteLine("  Define a steps array in the loop JSON. Each step names an actor and a");
             Console.WriteLine("  promptTemplate. Steps run in order; each receives the previous step's");
@@ -687,6 +848,7 @@ namespace Wally.Core
             Console.WriteLine("  .\\wally run \"Review the auth module\" -a Engineer");
             Console.WriteLine("  .\\wally run \"Review the auth module\" -l CodeReview");
             Console.WriteLine("  .\\wally run \"Analyse auth module\" -l AnalyseAndReview");
+            Console.WriteLine("  .\\wally add-actor SecurityAuditor -r \"You are a security auditor\"");
         }
 
         public static void HandleTutorial()
@@ -698,28 +860,37 @@ namespace Wally.Core
             Console.WriteLine("\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500");
             Console.WriteLine("  wally setup C:\\repos\\MyApp");
             Console.WriteLine();
+            Console.WriteLine("  This creates .wally/ inside your codebase root, including:");
+            Console.WriteLine("    Inbox/, Outbox/, Pending/, Active/  — workspace shared mailbox");
+            Console.WriteLine("    Actors/, Docs/, Templates/, Loops/, Wrappers/, Runbooks/, Logs/");
+            Console.WriteLine();
             Console.WriteLine("STEP 2: RUN A PROMPT");
             Console.WriteLine("\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500");
             Console.WriteLine("  wally run \"What does this codebase do?\"");
             Console.WriteLine("  wally run \"Review the auth module\" -a Engineer");
             Console.WriteLine();
-            Console.WriteLine("STEP 3: USE A PIPELINE LOOP");
+            Console.WriteLine("STEP 3: ADD AN ACTOR");
+            Console.WriteLine("\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500");
+            Console.WriteLine("  wally add-actor SecurityAuditor -r \"You are a security auditor\" -c \"Find vulnerabilities\" -i \"Produce a security report\"");
+            Console.WriteLine();
+            Console.WriteLine("  Each actor gets its own mailbox folders automatically:");
+            Console.WriteLine("    .wally/Actors/SecurityAuditor/Inbox/");
+            Console.WriteLine("    .wally/Actors/SecurityAuditor/Outbox/");
+            Console.WriteLine("    .wally/Actors/SecurityAuditor/Pending/");
+            Console.WriteLine("    .wally/Actors/SecurityAuditor/Active/");
+            Console.WriteLine();
+            Console.WriteLine("STEP 4: USE A PIPELINE LOOP");
             Console.WriteLine("\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500");
             Console.WriteLine("  wally run \"Review the auth module\" -l CodeReview");
-            Console.WriteLine("  wally run \"Analyse the auth module\" -l AnalyseAndReview");
             Console.WriteLine();
             Console.WriteLine("Define your own pipeline in .wally/Loops/MyLoop.json:");
             Console.WriteLine("  {");
             Console.WriteLine("    \"name\": \"MyLoop\",");
             Console.WriteLine("    \"steps\": [");
-            Console.WriteLine("      { \"name\": \"Analyse\", \"actorName\": \"BusinessAnalyst\", \"promptTemplate\": \"{userPrompt}\" },");
+            Console.WriteLine("      { \"name\": \"Analyse\", \"actorName\": \"BusinessAnalyst\", \"promptTemplate\": \"{userPrompt}\"},");
             Console.WriteLine("      { \"name\": \"Review\",  \"actorName\": \"Engineer\", \"promptTemplate\": \"{previousStepResult}\\n\\nOriginal: {userPrompt}\" }");
             Console.WriteLine("    ]");
             Console.WriteLine("  }");
-            Console.WriteLine();
-            Console.WriteLine("STEP 4: BUILD YOUR OWN ACTORS");
-            Console.WriteLine("\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500");
-            Console.WriteLine("  wally add-actor SecurityAuditor -r \"You are a security auditor\" -c \"Find vulnerabilities\" -i \"Produce a security report\"");
             Console.WriteLine();
             Console.WriteLine("STEP 5: INSPECT & EXPLORE");
             Console.WriteLine("\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500");
@@ -727,7 +898,7 @@ namespace Wally.Core
             Console.WriteLine("  wally commands");
         }
 
-        // ?? List wrappers ?????????????????????????????????????????????????????
+        // ?? List wrappers ????????????????????????????????????????????????????
 
         public static void HandleListWrappers(WallyEnvironment env)
         {
@@ -747,7 +918,7 @@ namespace Wally.Core
             }
         }
 
-        // ?? Actor CRUD ????????????????????????????????????????????????????????
+        // ?? Actor CRUD ???????????????????????????????????????????????????????
 
         public static void HandleAddActor(WallyEnvironment env, string name, string rolePrompt, string criteriaPrompt, string intentPrompt)
         {
@@ -760,6 +931,7 @@ namespace Wally.Core
             env.ReloadActors();
             env.Logger.LogCommand("add-actor", $"Created actor '{name}'");
             Console.WriteLine($"Actor '{name}' created at: {actorDir}");
+            Console.WriteLine($"  Mailbox: {WallyHelper.MailboxInboxFolderName} / {WallyHelper.MailboxOutboxFolderName} / {WallyHelper.MailboxPendingFolderName} / {WallyHelper.MailboxActiveFolderName}");
         }
 
         public static void HandleEditActor(WallyEnvironment env, string name, string? rolePrompt, string? criteriaPrompt, string? intentPrompt)
@@ -791,7 +963,7 @@ namespace Wally.Core
             else Console.WriteLine($"Actor folder not found: {actorDir}");
         }
 
-        // ?? Loop CRUD ?????????????????????????????????????????????????????????
+        // ?? Loop CRUD ????????????????????????????????????????????????????????
 
         public static void HandleAddLoop(WallyEnvironment env, string name, string description, string actorName, string startPrompt)
         {
@@ -833,7 +1005,7 @@ namespace Wally.Core
             Console.WriteLine($"Loop '{name}' deleted.");
         }
 
-        // ?? Wrapper CRUD ??????????????????????????????????????????????????????
+        // ?? Wrapper CRUD ?????????????????????????????????????????????????????
 
         public static void HandleAddWrapper(WallyEnvironment env, string name, string description, string executable, string argumentTemplate, bool canMakeChanges, bool useConversationHistory = true)
         {
@@ -878,7 +1050,7 @@ namespace Wally.Core
             Console.WriteLine($"Wrapper '{name}' deleted.");
         }
 
-        // ?? Runbook CRUD ??????????????????????????????????????????????????????
+        // ?? Runbook CRUD ?????????????????????????????????????????????????????
 
         public static void HandleAddRunbook(WallyEnvironment env, string name, string description)
         {
@@ -914,7 +1086,7 @@ namespace Wally.Core
             Console.WriteLine($"Runbook '{name}' deleted.");
         }
 
-        // ?? Private helpers ???????????????????????????????????????????????????
+        // ?? Private helpers ??????????????????????????????????????????????????
 
         private static string ResolveWorkspaceFolder(string? workSourcePath)
         {
@@ -931,10 +1103,11 @@ namespace Wally.Core
             Console.WriteLine();
             Console.WriteLine($"WorkSource:       {env.WorkSource}");
             Console.WriteLine($"Workspace folder: {env.WorkspaceFolder}");
-            Console.WriteLine($"Actors folder:    {Path.Combine(env.WorkspaceFolder, env.Workspace!.Config.ActorsFolderName)}");
-            Console.WriteLine($"Docs folder:      {Path.Combine(env.WorkspaceFolder, env.Workspace!.Config.DocsFolderName)}");
-            Console.WriteLine($"Templates folder: {Path.Combine(env.WorkspaceFolder, env.Workspace!.Config.TemplatesFolderName)}");
-            Console.WriteLine($"Logs folder:      {Path.Combine(env.WorkspaceFolder, env.Workspace!.Config.LogsFolderName)}");
+            Console.WriteLine($"Actors folder:    {Path.Combine(env.WorkspaceFolder!, env.Workspace!.Config.ActorsFolderName)}");
+            Console.WriteLine($"Docs folder:      {Path.Combine(env.WorkspaceFolder!, env.Workspace!.Config.DocsFolderName)}");
+            Console.WriteLine($"Templates folder: {Path.Combine(env.WorkspaceFolder!, env.Workspace!.Config.TemplatesFolderName)}");
+            Console.WriteLine($"Logs folder:      {Path.Combine(env.WorkspaceFolder!, env.Workspace!.Config.LogsFolderName)}");
+            Console.WriteLine($"Workspace mailbox:{Path.Combine(env.WorkspaceFolder!, WallyHelper.MailboxInboxFolderName)} / Outbox / Pending / Active");
         }
 
         private static void PrintRbaLine(string label, string value) =>

@@ -17,14 +17,22 @@ namespace Wally.Core
     ///   &lt;WorkSource&gt;/               e.g. C:\repos\MyApp
     ///       .wally/                     workspace folder
     ///           wally-config.json
+    ///           Inbox/                  workspace shared mailbox — incoming requests
+    ///           Outbox/                 workspace shared mailbox — completed deliverables
+    ///           Pending/                workspace shared mailbox — awaiting action
+    ///           Active/                 workspace shared mailbox — work in progress
     ///           Docs/                   workspace-level documentation
     ///           Templates/              document templates
     ///           Actors/
     ///               &lt;ActorName&gt;/
     ///                   actor.json
     ///                   Docs/           actor-private documentation
+    ///                   Inbox/          actor mailbox — incoming requests
+    ///                   Outbox/         actor mailbox — completed deliverables
+    ///                   Pending/        actor mailbox — awaiting action
+    ///                   Active/         actor mailbox — work in progress
     ///           Loops/                  loop definitions (JSON)
-    ///           Wrappers/              LLM wrapper definitions (JSON)
+    ///           Wrappers/               LLM wrapper definitions (JSON)
     ///           Logs/                   session logs
     /// </code>
     /// All files under WorkSource (including <c>.wally/</c>) are accessible to

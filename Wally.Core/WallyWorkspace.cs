@@ -21,21 +21,26 @@ namespace Wally.Core
     ///
     /// <code>
     ///   &lt;WorkSource&gt;/                e.g. C:\repos\MyApp
-    ///       .wally/                      WorkspaceFolder
+    ///       .wally/                      WorkspaceFolder (shared coordination space)
     ///           wally-config.json
+    ///           Inbox/                   workspace shared mailbox
+    ///           Outbox/
+    ///           Pending/
+    ///           Active/
     ///           Actors/
     ///               &lt;ActorName&gt;/       one folder per actor
-    ///                   actor.json       name, rolePrompt, criteriaPrompt, intentPrompt
-    ///                   Docs/            actor-private documentation
-    ///           Docs/                    workspace-level documentation
-    ///           Templates/               document templates
-    ///           Loops/                   loop definition JSON files
-    ///           Wrappers/                LLM wrapper definition JSON files
-    ///           Logs/                    session logs
+    ///                   actor.json
+    ///                   Docs/
+    ///                   Inbox/           actor-private mailbox
+    ///                   Outbox/
+    ///                   Pending/
+    ///                   Active/
+    ///           Docs/
+    ///           Templates/
+    ///           Loops/
+    ///           Wrappers/
+    ///           Logs/
     /// </code>
-    ///
-    /// Pass the workspace folder path directly to <see cref="Load"/> or
-    /// <see cref="LoadFrom"/>. No parent-folder discovery is performed.
     /// </summary>
     public class WallyWorkspace
     {
@@ -124,6 +129,11 @@ namespace Wally.Core
             Loops = WallyHelper.LoadLoops(WorkspaceFolder, Config);
             Runbooks = WallyHelper.LoadRunbooks(WorkspaceFolder, Config);
 
+            // Ensure workspace shared mailbox and all actor mailboxes exist.
+            // Idempotent — covers first-time load, re-load, and workspaces created
+            // by older versions of Wally that pre-date the mailbox system.
+            WallyHelper.EnsureAllMailboxFolders(WorkspaceFolder, Config);
+
             // Resolve selected defaults: first Selected* entry that's
             // actually loaded becomes the active default for each category.
             Config.ResolveSelectedDefaults(
@@ -198,7 +208,7 @@ namespace Wally.Core
             ResolveDefaults();
         }
 
-        // — Guard ———————————————————————————————————————————————————————————­
+        // — Guard ?????????????????????????????????????????????????????????????
 
         public void RequireLoaded()
         {

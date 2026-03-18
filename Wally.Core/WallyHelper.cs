@@ -10,7 +10,7 @@ namespace Wally.Core
 {
     public static class WallyHelper
     {
-        // — Well-known file names ————————————————————————————————————————————
+        // ? Well-known file names ??????????????????????????????????????????????
 
         /// <summary>Name of the config file that lives at the workspace folder root.</summary>
         public const string ConfigFileName = "wally-config.json";
@@ -18,41 +18,52 @@ namespace Wally.Core
         /// <summary>Name of each actor's definition file inside its actor folder.</summary>
         public const string ActorFileName = "actor.json";
 
-        // — Default workspace folder name ———————————————————————————————————
+        // ? Mailbox folder names ???????????????????????????????????????????????
+
+        /// <summary>
+        /// Standard inbox folder name. Created at the workspace root (shared mailbox)
+        /// and inside every actor folder (actor mailbox).
+        /// </summary>
+        public const string MailboxInboxFolderName   = "Inbox";
+
+        /// <summary>Standard outbox folder name for the workspace and each actor.</summary>
+        public const string MailboxOutboxFolderName  = "Outbox";
+
+        /// <summary>Standard pending folder name for the workspace and each actor.</summary>
+        public const string MailboxPendingFolderName = "Pending";
+
+        /// <summary>Standard active folder name for the workspace and each actor.</summary>
+        public const string MailboxActiveFolderName  = "Active";
+
+        // ? Default workspace folder name ?????????????????????????????????????
 
         /// <summary>
         /// The conventional workspace folder name dropped into a project root.
-        /// Callers that want to locate a workspace relative to a project use this.
         /// </summary>
         public const string DefaultWorkspaceFolderName = ".wally";
 
         /// <summary>
         /// The folder that ships alongside the executable and contains the default
         /// workspace template (<c>wally-config.json</c>, <c>Actors/</c>, etc.).
-        /// The Console project copies <c>Default/**</c> to output via
-        /// <c>CopyToOutputDirectory</c>.
         /// </summary>
         public const string DefaultTemplateFolderName = "Default";
 
-        // — Workspace root resolution —————————————————————————————————————
+        // ? Workspace root resolution ??????????????????????????????????????????
 
-        /// <summary>
-        /// Returns the default workspace folder path: <c>&lt;exeDir&gt;/.wally</c>.
-        /// </summary>
+        /// <summary>Returns the default workspace folder path: <c>&lt;exeDir&gt;/.wally</c>.</summary>
         public static string GetDefaultWorkspaceFolder() =>
             Path.Combine(GetExeDirectory(), DefaultWorkspaceFolderName);
 
-        /// <summary>
-        /// Returns the path to the default template folder that ships with the exe:
-        /// <c>&lt;exeDir&gt;/Default</c>.
-        /// </summary>
+        /// <summary>Returns the path to the default template folder shipped with the exe.</summary>
         public static string GetDefaultTemplateFolder() =>
             Path.Combine(GetExeDirectory(), DefaultTemplateFolderName);
 
-        // — Workspace scaffolding ————————————————————————————————————————————
+        // ? Workspace scaffolding ??????????????????????????????????????????????
 
         /// <summary>
-        /// Scaffolds a complete workspace at <paramref name="workspaceFolder"/>.
+        /// Scaffolds a complete workspace at <paramref name="workspaceFolder"/>,
+        /// including the workspace-level mailbox folders (Inbox, Outbox, Pending, Active)
+        /// that serve as the shared coordination space for all actors.
         /// </summary>
         public static void CreateDefaultWorkspace(string workspaceFolder, WallyConfig config = null)
         {
@@ -61,12 +72,10 @@ namespace Wally.Core
             string templateFolder = GetDefaultTemplateFolder();
             if (Directory.Exists(templateFolder))
             {
-                // Mirror the entire template into the workspace (no-overwrite).
                 CopyDirectoryNoOverwrite(templateFolder, workspaceFolder);
             }
             else
             {
-                // No template available — write a minimal config so the workspace is valid.
                 config ??= new WallyConfig();
                 string destConfig = Path.Combine(workspaceFolder, ConfigFileName);
                 if (!File.Exists(destConfig))
@@ -74,23 +83,57 @@ namespace Wally.Core
             }
 
             config ??= new WallyConfig();
-            // Ensure the workspace-level Docs folder exists.
+
             Directory.CreateDirectory(Path.Combine(workspaceFolder, config.DocsFolderName));
-
-            // Ensure the Loops folder exists.
             Directory.CreateDirectory(Path.Combine(workspaceFolder, config.LoopsFolderName));
-
-            // Ensure the Providers folder exists.
             Directory.CreateDirectory(Path.Combine(workspaceFolder, config.WrappersFolderName));
-
-            // Ensure the Runbooks folder exists.
             Directory.CreateDirectory(Path.Combine(workspaceFolder, config.RunbooksFolderName));
-
-            // Ensure the History folder exists (conversation history).
             Directory.CreateDirectory(Path.Combine(workspaceFolder, Logging.ConversationLogger.DefaultFolderName));
+
+            // Workspace-level shared mailbox + any actors already on disk.
+            EnsureAllMailboxFolders(workspaceFolder, config);
         }
 
-        // — Actor loading ———————————————————————————————————————————————————
+        // ? Mailbox helpers ????????????????????????????????????????????????????
+
+        /// <summary>
+        /// Creates the four standard mailbox folders (Inbox, Outbox, Pending, Active)
+        /// inside <paramref name="entityDir"/> if they do not already exist.
+        /// Idempotent — safe to call on every load or setup.
+        /// </summary>
+        public static void CreateMailboxFolders(string entityDir)
+        {
+            Directory.CreateDirectory(Path.Combine(entityDir, MailboxInboxFolderName));
+            Directory.CreateDirectory(Path.Combine(entityDir, MailboxOutboxFolderName));
+            Directory.CreateDirectory(Path.Combine(entityDir, MailboxPendingFolderName));
+            Directory.CreateDirectory(Path.Combine(entityDir, MailboxActiveFolderName));
+        }
+
+        /// <summary>
+        /// Ensures the workspace-level shared mailbox folders exist and creates
+        /// mailbox folders for every actor subfolder currently on disk.
+        /// <para>
+        /// This is called on every workspace load, not just on first-time scaffold,
+        /// so mailboxes are guaranteed to exist even if the workspace was created
+        /// by an older version of Wally or actors were added manually.
+        /// </para>
+        /// </summary>
+        public static void EnsureAllMailboxFolders(string workspaceFolder, WallyConfig config = null)
+        {
+            config ??= ResolveConfig(workspaceFolder);
+
+            // Workspace shared mailbox (.wally/Inbox/, Outbox/, Pending/, Active/)
+            CreateMailboxFolders(workspaceFolder);
+
+            // Per-actor mailboxes (.wally/Actors/<Name>/Inbox/, etc.)
+            string actorsDir = Path.Combine(workspaceFolder, config.ActorsFolderName);
+            if (!Directory.Exists(actorsDir)) return;
+
+            foreach (string actorDir in Directory.GetDirectories(actorsDir))
+                CreateMailboxFolders(actorDir);
+        }
+
+        // ? Actor loading ?????????????????????????????????????????????????????
 
         /// <summary>
         /// Reads every actor subfolder under <c>&lt;workspaceFolder&gt;/Actors/</c> and
@@ -109,7 +152,6 @@ namespace Wally.Core
                     actors.Add(LoadActorFromDirectory(actorDir, workspace));
             }
 
-            // If no actors loaded from disk, load defaults from the template folder.
             if (actors.Count == 0)
                 actors.AddRange(LoadDefaultActors(config, workspace));
 
@@ -118,17 +160,18 @@ namespace Wally.Core
 
         /// <summary>
         /// Writes an actor's definition back to its <c>actor.json</c>, creating the
-        /// folder if needed. Overwrites any existing file. Also creates the
-        /// actor's <c>Docs/</c> subfolder if it does not exist.
+        /// folder if needed. Also creates the actor's <c>Docs/</c> subfolder and
+        /// the four mailbox folders (Inbox, Outbox, Pending, Active).
         /// </summary>
         public static void SaveActor(string workspaceFolder, WallyConfig config, Actor actor)
         {
             string actorDir = Path.Combine(workspaceFolder, config.ActorsFolderName, actor.Name);
             Directory.CreateDirectory(actorDir);
 
-            // Ensure the actor's Docs folder exists on disk.
-            string actorDocsDir = Path.Combine(actorDir, actor.DocsFolderName);
-            Directory.CreateDirectory(actorDocsDir);
+            Directory.CreateDirectory(Path.Combine(actorDir, actor.DocsFolderName));
+
+            // Actor-level mailbox — this actor's private request/work/delivery queue.
+            CreateMailboxFolders(actorDir);
 
             var obj = new
             {
@@ -144,7 +187,7 @@ namespace Wally.Core
                 JsonSerializer.Serialize(obj, new JsonSerializerOptions { WriteIndented = true }));
         }
 
-        // — Config resolution ——————————————————————————————————————————————
+        // ? Config resolution ?????????????????????????????????????????????????
 
         /// <summary>
         /// Loads <c>wally-config.json</c> from <paramref name="workspaceFolder"/> when it
@@ -154,21 +197,18 @@ namespace Wally.Core
         {
             workspaceFolder ??= GetDefaultWorkspaceFolder();
 
-            // 1. Workspace-local config
             string configPath = Path.Combine(workspaceFolder, ConfigFileName);
             if (File.Exists(configPath))
                 return WallyConfig.LoadFromFile(configPath);
 
-            // 2. Template config shipped with the exe
             string templateConfig = Path.Combine(GetDefaultTemplateFolder(), ConfigFileName);
             if (File.Exists(templateConfig))
                 return WallyConfig.LoadFromFile(templateConfig);
 
-            // 3. Hard-coded defaults
             return new WallyConfig();
         }
 
-        // — Default environment loading ———————————————————————————————————————
+        // ? Default environment loading ????????????????????????????????????????
 
         public static WallyEnvironment LoadDefault()
         {
@@ -177,7 +217,7 @@ namespace Wally.Core
             return env;
         }
 
-        // — Workspace verification ——————————————————————————————————————————
+        // ? Workspace verification ?????????????????????????????????????????????
 
         /// <summary>
         /// Checks the structural integrity of a workspace at <paramref name="workspaceFolder"/>
@@ -212,6 +252,10 @@ namespace Wally.Core
             CheckDir(issues, workspaceFolder, config.RunbooksFolderName);
             CheckDir(issues, workspaceFolder, Logging.ConversationLogger.DefaultFolderName);
 
+            // Workspace-level mailbox folders.
+            CheckMailboxFolders(issues, workspaceFolder, "Workspace");
+
+            // Per-actor structure.
             string actorsDir = Path.Combine(workspaceFolder, config.ActorsFolderName);
             if (Directory.Exists(actorsDir))
             {
@@ -222,10 +266,10 @@ namespace Wally.Core
                         issues.Add($"Actor '{actorName}' missing {ActorFileName}");
                     if (!Directory.Exists(Path.Combine(actorDir, "Docs")))
                         issues.Add($"Actor '{actorName}' missing Docs folder");
+                    CheckMailboxFolders(issues, actorDir, $"Actor '{actorName}'");
                 }
             }
 
-            // Check for wally exe in the WorkSource (parent of .wally/).
             string workSource = Path.GetDirectoryName(workspaceFolder)!;
             string exeName = System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(
                 System.Runtime.InteropServices.OSPlatform.Windows) ? "wally.exe" : "wally";
@@ -241,36 +285,33 @@ namespace Wally.Core
                 issues.Add($"{subFolder} folder missing");
         }
 
-        // — Exe deployment ——————————————————————————————————————————————————
+        private static void CheckMailboxFolders(List<string> issues, string entityDir, string entityLabel)
+        {
+            foreach (string folder in new[] { MailboxInboxFolderName, MailboxOutboxFolderName, MailboxPendingFolderName, MailboxActiveFolderName })
+            {
+                if (!Directory.Exists(Path.Combine(entityDir, folder)))
+                    issues.Add($"{entityLabel} missing {folder} mailbox folder");
+            }
+        }
+
+        // ? Exe deployment ?????????????????????????????????????????????????????
 
         /// <summary>
         /// Copies the Wally executable and its runtime dependencies from the
-        /// current exe directory into <paramref name="workSourcePath"/> so the
-        /// user can run <c>.\wally</c> directly from their codebase root.
-        /// <para>
-        /// Skips the <c>Default/</c> template folder (already expanded into
-        /// <c>.wally/</c> during scaffolding) and the <c>.wally/</c> folder itself.
-        /// Files that already exist in the destination are not overwritten.
-        /// </para>
+        /// current exe directory into <paramref name="workSourcePath"/>.
         /// </summary>
-        /// <returns>
-        /// The number of files copied, or <c>0</c> when the exe directory
-        /// and <paramref name="workSourcePath"/> are the same location.
-        /// </returns>
         public static int CopyExeToWorkSource(string workSourcePath)
         {
             string exeDir = GetExeDirectory();
             workSourcePath = Path.GetFullPath(workSourcePath);
 
-            // Nothing to do if we're already running from the WorkSource.
             if (string.Equals(exeDir, workSourcePath, StringComparison.OrdinalIgnoreCase))
                 return 0;
 
-            // Skip these directories — they're workspace-specific, not runtime files.
             var skipDirs = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
             {
-                DefaultTemplateFolderName,  // "Default" — already expanded into .wally/
-                DefaultWorkspaceFolderName  // ".wally"  — workspace data, not runtime
+                DefaultTemplateFolderName,
+                DefaultWorkspaceFolderName
             };
 
             return CopyRuntimeFiles(exeDir, workSourcePath, skipDirs);
@@ -294,15 +335,14 @@ namespace Wally.Core
             foreach (string subDir in Directory.GetDirectories(sourceDir))
             {
                 string dirName = Path.GetFileName(subDir);
-                if (skipDirs.Contains(dirName))
-                    continue;
+                if (skipDirs.Contains(dirName)) continue;
                 count += CopyRuntimeFiles(subDir, Path.Combine(destDir, dirName), skipDirs);
             }
 
             return count;
         }
 
-        // — Directory utilities —————————————————————————————————————————————
+        // ? Directory utilities ????????????????????????????????????????????????
 
         /// <summary>Recursively copies <paramref name="sourceDir"/> into <paramref name="destDir"/>.</summary>
         public static void CopyDirectory(string sourceDir, string destDir)
@@ -314,20 +354,14 @@ namespace Wally.Core
                 CopyDirectory(subDir, Path.Combine(destDir, Path.GetFileName(subDir)));
         }
 
-        // — LLM wrapper loading ——————————————————————————————————————————
+        // ? LLM wrapper loading ????????????????????????????????????????????????
 
-        /// <summary>
-        /// Loads all LLM wrapper JSON files from
-        /// <c>&lt;workspaceFolder&gt;/Wrappers/</c>.
-        /// Falls back to the Default template folder when none are found.
-        /// </summary>
-        public static List<LLMWrapper> LoadLlmWrappers(
-            string workspaceFolder, WallyConfig config)
+        /// <summary>Loads all LLM wrapper JSON files from the workspace Wrappers/ folder.</summary>
+        public static List<LLMWrapper> LoadLlmWrappers(string workspaceFolder, WallyConfig config)
         {
             string wrappersDir = Path.Combine(workspaceFolder, config.WrappersFolderName);
             var wrappers = LLMWrapper.LoadFromFolder(wrappersDir);
 
-            // Fallback: load from shipped Default template if workspace has none.
             if (wrappers.Count == 0)
             {
                 string defaultDir = Path.Combine(GetDefaultTemplateFolder(), config.WrappersFolderName);
@@ -337,31 +371,18 @@ namespace Wally.Core
             return wrappers;
         }
 
-        /// <summary>
-        /// Finds the <see cref="LLMWrapper"/> whose <see cref="LLMWrapper.Name"/>
-        /// matches <paramref name="wrapperName"/> (case-insensitive).
-        /// Returns <see langword="null"/> when not found.
-        /// </summary>
-        public static LLMWrapper? ResolveWrapper(
-            string wrapperName, List<LLMWrapper> wrappers)
-        {
-            return wrappers.FirstOrDefault(w =>
-                string.Equals(w.Name, wrapperName, StringComparison.OrdinalIgnoreCase));
-        }
+        /// <summary>Finds an <see cref="LLMWrapper"/> by name (case-insensitive).</summary>
+        public static LLMWrapper? ResolveWrapper(string wrapperName, List<LLMWrapper> wrappers) =>
+            wrappers.FirstOrDefault(w => string.Equals(w.Name, wrapperName, StringComparison.OrdinalIgnoreCase));
 
-        // — Loop loading ————————————————————————————————————————————————————
+        // ? Loop loading ???????????????????????????????????????????????????????
 
-        /// <summary>
-        /// Loads all loops from <c>&lt;workspaceFolder&gt;/Loops/</c>.
-        /// Falls back to the Default template folder when no loops are found on disk.
-        /// </summary>
-        public static List<WallyLoopDefinition> LoadLoops(
-            string workspaceFolder, WallyConfig config)
+        /// <summary>Loads all loops from the workspace Loops/ folder.</summary>
+        public static List<WallyLoopDefinition> LoadLoops(string workspaceFolder, WallyConfig config)
         {
             string loopsDir = Path.Combine(workspaceFolder, config.LoopsFolderName);
             var loops = WallyLoopDefinition.LoadFromFolder(loopsDir);
 
-            // Fallback: load from shipped Default template if workspace has none.
             if (loops.Count == 0)
             {
                 string defaultLoopsDir = Path.Combine(GetDefaultTemplateFolder(), config.LoopsFolderName);
@@ -371,20 +392,14 @@ namespace Wally.Core
             return loops;
         }
 
-        // — Runbook loading ————————————————————————————————————————
+        // ? Runbook loading / saving ???????????????????????????????????????????
 
-        /// <summary>
-        /// Loads all <c>.wrb</c> runbook files from
-        /// <c>&lt;workspaceFolder&gt;/Runbooks/</c>.
-        /// Falls back to the Default template folder when none are found.
-        /// </summary>
-        public static List<WallyRunbook> LoadRunbooks(
-            string workspaceFolder, WallyConfig config)
+        /// <summary>Loads all .wrb runbook files from the workspace Runbooks/ folder.</summary>
+        public static List<WallyRunbook> LoadRunbooks(string workspaceFolder, WallyConfig config)
         {
             string runbooksDir = Path.Combine(workspaceFolder, config.RunbooksFolderName);
             var runbooks = WallyRunbook.LoadFromFolder(runbooksDir);
 
-            // Fallback: load from shipped Default template if workspace has none.
             if (runbooks.Count == 0)
             {
                 string defaultDir = Path.Combine(GetDefaultTemplateFolder(), config.RunbooksFolderName);
@@ -394,13 +409,7 @@ namespace Wally.Core
             return runbooks;
         }
 
-        // — Runbook saving ————————————————————————————————————————
-
-        /// <summary>
-        /// Writes a runbook to its <c>.wrb</c> file on disk, creating the
-        /// Runbooks directory if needed. The file starts with a <c>#</c>
-        /// comment containing the description, followed by one command per line.
-        /// </summary>
+        /// <summary>Writes a runbook to its .wrb file on disk.</summary>
         public static void SaveRunbook(string workspaceFolder, WallyConfig config, WallyRunbook runbook)
         {
             string runbooksDir = Path.Combine(workspaceFolder, config.RunbooksFolderName);
@@ -419,13 +428,8 @@ namespace Wally.Core
             runbook.FilePath = Path.GetFullPath(filePath);
         }
 
-        // — Private helpers —————————————————————————————————————————————————
+        // ? Private helpers ????????????????????????????????????????????????????
 
-        /// <summary>
-        /// Returns the directory that contains the entry-point executable.
-        /// Falls back to <see cref="Directory.GetCurrentDirectory"/> when the
-        /// entry assembly location cannot be determined.
-        /// </summary>
         public static string GetExeDirectory() =>
             Path.GetDirectoryName(
                 System.Reflection.Assembly.GetEntryAssembly()?.Location
@@ -442,23 +446,16 @@ namespace Wally.Core
                     File.Copy(file, destFile);
             }
             foreach (string subDir in Directory.GetDirectories(sourceDir))
-            {
-                CopyDirectoryNoOverwrite(
-                    subDir,
-                    Path.Combine(destDir, Path.GetFileName(subDir)));
-            }
+                CopyDirectoryNoOverwrite(subDir, Path.Combine(destDir, Path.GetFileName(subDir)));
         }
 
         private static List<Actor> LoadDefaultActors(WallyConfig config, WallyWorkspace workspace)
         {
             var actors = new List<Actor>();
             string defaultActorsDir = Path.Combine(GetDefaultTemplateFolder(), config.ActorsFolderName);
-
             if (!Directory.Exists(defaultActorsDir)) return actors;
-
             foreach (string actorDir in Directory.GetDirectories(defaultActorsDir))
                 actors.Add(LoadActorFromDirectory(actorDir, workspace, isFallback: true));
-
             return actors;
         }
 

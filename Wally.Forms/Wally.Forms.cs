@@ -233,6 +233,7 @@ namespace Wally.Forms
             listActorsMenuItem.Click          += OnListActors;
             workspaceInfoMenuItem.Click       += OnWorkspaceInfo;
             verifyWorkspaceMenuItem.Click     += OnVerifyWorkspace;
+            repairWorkspaceMenuItem.Click     += OnRepairWorkspace;
             cleanupWorkspaceMenuItem.Click    += OnCleanupWorkspace;
             openWorkspaceFolderMenuItem.Click += OnOpenWorkspaceFolder;
 
@@ -247,6 +248,7 @@ namespace Wally.Forms
             tsbReloadActors.Click += OnReloadActors;
             tsbInfo.Click         += OnWorkspaceInfo;
             tsbVerify.Click       += OnVerifyWorkspace;
+            tsbRepair.Click       += OnRepairWorkspace;
             tsbStop.Click         += OnStopClick;
 
             // -- Editors ToolStrip --
@@ -475,6 +477,28 @@ namespace Wally.Forms
             _commandPanel.ExecuteCommand($"setup \"{_environment.WorkSource}\" --verify");
         }
 
+        private void OnRepairWorkspace(object? sender, EventArgs e)
+        {
+            if (!_environment.HasWorkspace) return;
+
+            var result = MessageBox.Show(this,
+                $"This will add any missing folders, mailboxes, and actor components to:\n\n" +
+                $"{_environment.WorkspaceFolder}\n\n" +
+                "Nothing existing will be changed or deleted. Continue?",
+                "Repair Workspace",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Question,
+                MessageBoxDefaultButton.Button1);
+
+            if (result != DialogResult.Yes) return;
+
+            _commandPanel.ExecuteCommand($"repair \"{_environment.WorkSource}\"");
+
+            // Refresh explorer so any newly created folders become visible.
+            _explorerTabPanel.Refresh();
+            RefreshAllPanels();
+        }
+
         private void OnCleanupWorkspace(object? sender, EventArgs e)
         {
             string wsFolder = _environment.HasWorkspace
@@ -594,6 +618,7 @@ namespace Wally.Forms
             tsbReloadActors.Enabled = loaded;
             tsbInfo.Enabled         = loaded;
             tsbVerify.Enabled       = loaded;
+            tsbRepair.Enabled       = loaded;
 
             // Editors toolbar
             tsbEditActors.Enabled = loaded;
