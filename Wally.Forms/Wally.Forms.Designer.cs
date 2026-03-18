@@ -18,8 +18,8 @@ namespace Wally.Forms
         private void InitializeComponent()
         {
             // ── Chrome containers ──
-            headerSplit  = new SplitContainer();
-            toolbarFlow  = new FlowLayoutPanel();
+            menuPanel    = new Panel();
+            toolbarPanel = new ToolStripPanel();
             contentPanel = new Panel();
 
             menuStrip1 = new MenuStrip();
@@ -78,12 +78,12 @@ namespace Wally.Forms
             openWorkspaceFolderMenuItem = new ToolStripMenuItem();
 
             // ── File ToolStrip ──
-            fileToolStrip    = new ToolStrip();
-            tsbOpen          = new ToolStripButton();
-            tsbSetup         = new ToolStripButton();
-            tsbSave          = new ToolStripButton();
-            tsFileSep1       = new ToolStripSeparator();
-            tsbClose         = new ToolStripButton();
+            fileToolStrip  = new ToolStrip();
+            tsbOpen        = new ToolStripButton();
+            tsbSetup       = new ToolStripButton();
+            tsbSave        = new ToolStripButton();
+            tsFileSep1     = new ToolStripSeparator();
+            tsbClose       = new ToolStripButton();
 
             // ── Workspace ToolStrip ──
             workspaceToolStrip = new ToolStrip();
@@ -103,12 +103,10 @@ namespace Wally.Forms
             tsEdSep1         = new ToolStripSeparator();
             tsbClearChat     = new ToolStripButton();
 
-            ((System.ComponentModel.ISupportInitialize)headerSplit).BeginInit();
-            headerSplit.Panel1.SuspendLayout();
-            headerSplit.Panel2.SuspendLayout();
-            headerSplit.SuspendLayout();
+            menuPanel.SuspendLayout();
+            // toolbarPanel must NOT be suspended — Join() needs live layout
+            // state to place strips correctly on the same row.
             menuStrip1.SuspendLayout();
-            toolbarFlow.SuspendLayout();
             fileToolStrip.SuspendLayout();
             workspaceToolStrip.SuspendLayout();
             editorsToolStrip.SuspendLayout();
@@ -118,28 +116,41 @@ namespace Wally.Forms
             var renderer = WallyTheme.CreateRenderer();
 
             // ═══════════════════════════════════════════════════════════════
-            //  headerSplit  — top-docked, fixed splitter dividing menu / toolbars
+            //  menuPanel  — fixed top band that holds only the MenuStrip
             // ═══════════════════════════════════════════════════════════════
 
-            headerSplit.Dock             = DockStyle.Top;
-            headerSplit.Orientation      = Orientation.Horizontal;
-            headerSplit.IsSplitterFixed  = true;
-            headerSplit.SplitterWidth    = 1;
-            headerSplit.SplitterDistance = 24;          // height of menu row
-            headerSplit.Panel1MinSize    = 24;
-            headerSplit.Panel2MinSize    = 26;
-            headerSplit.BackColor        = WallyTheme.Surface2;
-            headerSplit.Name             = "headerSplit";
-            headerSplit.TabStop          = false;
-            // Panel1 — menu strip only
-            headerSplit.Panel1.BackColor = WallyTheme.Surface2;
-            headerSplit.Panel1.Controls.Add(menuStrip1);
-            // Panel2 — toolbar flow only
-            headerSplit.Panel2.BackColor = WallyTheme.Surface2;
-            headerSplit.Panel2.Controls.Add(toolbarFlow);
+            menuPanel.Dock      = DockStyle.Top;
+            menuPanel.Height    = 24;
+            menuPanel.BackColor = WallyTheme.Surface2;
+            menuPanel.Name      = "menuPanel";
+            menuPanel.Controls.Add(menuStrip1);
 
             // ═══════════════════════════════════════════════════════════════
-            //  menuStrip1  (lives exclusively in headerSplit.Panel1)
+            //  toolbarPanel  — ToolStripPanel: auto-sizes to its toolstrips,
+            //                  provides real grip drag-to-reorder, no dead space
+            // ═══════════════════════════════════════════════════════════════
+
+            toolbarPanel.Dock      = DockStyle.Top;
+            toolbarPanel.AutoSize  = true;
+            toolbarPanel.BackColor = WallyTheme.Surface2;
+            toolbarPanel.Name      = "toolbarPanel";
+            // Join with explicit Point(x, y) so all three land on the same
+            // row (y=0) at known x positions. Using the row-index overload
+            // lets WinForms silently bump strips to a new row on collision.
+            toolbarPanel.Join(fileToolStrip,      new Point(0,   0));
+            toolbarPanel.Join(workspaceToolStrip, new Point(200, 0));
+            toolbarPanel.Join(editorsToolStrip,   new Point(520, 0));
+
+            // ═══════════════════════════════════════════════════════════════
+            //  contentPanel  — fills the rest of the form
+            // ═══════════════════════════════════════════════════════════════
+
+            contentPanel.Dock      = DockStyle.Fill;
+            contentPanel.BackColor = WallyTheme.Surface0;
+            contentPanel.Name      = "contentPanel";
+
+            // ═══════════════════════════════════════════════════════════════
+            //  menuStrip1  (lives exclusively in menuPanel)
             // ═══════════════════════════════════════════════════════════════
 
             menuStrip1.Dock      = DockStyle.Fill;
@@ -157,30 +168,6 @@ namespace Wally.Forms
             menuStrip1.Renderer  = renderer;
 
             // ═══════════════════════════════════════════════════════════════
-            //  toolbarFlow  (lives exclusively in headerSplit.Panel2)
-            // ═══════════════════════════════════════════════════════════════
-
-            toolbarFlow.Dock          = DockStyle.Fill;
-            toolbarFlow.FlowDirection = FlowDirection.TopDown;
-            toolbarFlow.WrapContents  = false;
-            toolbarFlow.AutoSize      = true;
-            toolbarFlow.BackColor     = WallyTheme.Surface2;
-            toolbarFlow.Name          = "toolbarFlow";
-            toolbarFlow.Padding       = new Padding(0);
-            toolbarFlow.Margin        = new Padding(0);
-            toolbarFlow.Controls.Add(fileToolStrip);
-            toolbarFlow.Controls.Add(workspaceToolStrip);
-            toolbarFlow.Controls.Add(editorsToolStrip);
-
-            // ═══════════════════════════════════════════════════════════════
-            //  contentPanel  — fills the rest of the form (replaces ToolStripContainer)
-            // ═══════════════════════════════════════════════════════════════
-
-            contentPanel.Dock      = DockStyle.Fill;
-            contentPanel.BackColor = WallyTheme.Surface0;
-            contentPanel.Name      = "contentPanel";
-
-            // ═══════════════════════════════════════════════════════════════
             //  File menu items
             // ═══════════════════════════════════════════════════════════════
 
@@ -192,45 +179,45 @@ namespace Wally.Forms
                 fileSeparator2,
                 exitMenuItem
             });
-            fileToolStripMenuItem.Name     = "fileToolStripMenuItem";
-            fileToolStripMenuItem.Size     = new Size(37, 20);
-            fileToolStripMenuItem.Text     = "&File";
+            fileToolStripMenuItem.Name      = "fileToolStripMenuItem";
+            fileToolStripMenuItem.Size      = new Size(37, 20);
+            fileToolStripMenuItem.Text      = "&File";
             fileToolStripMenuItem.ForeColor = WallyTheme.TextPrimary;
 
-            openWorkspaceMenuItem.Name        = "openWorkspaceMenuItem";
+            openWorkspaceMenuItem.Name         = "openWorkspaceMenuItem";
             openWorkspaceMenuItem.ShortcutKeys = Keys.Control | Keys.O;
-            openWorkspaceMenuItem.Size        = new Size(280, 22);
-            openWorkspaceMenuItem.Text        = "&Open Workspace\u2026";
-            openWorkspaceMenuItem.ForeColor   = WallyTheme.TextPrimary;
+            openWorkspaceMenuItem.Size         = new Size(280, 22);
+            openWorkspaceMenuItem.Text         = "&Open Workspace\u2026";
+            openWorkspaceMenuItem.ForeColor    = WallyTheme.TextPrimary;
 
-            setupWorkspaceMenuItem.Name        = "setupWorkspaceMenuItem";
+            setupWorkspaceMenuItem.Name         = "setupWorkspaceMenuItem";
             setupWorkspaceMenuItem.ShortcutKeys = Keys.Control | Keys.Shift | Keys.N;
-            setupWorkspaceMenuItem.Size        = new Size(280, 22);
-            setupWorkspaceMenuItem.Text        = "&Setup New Workspace\u2026";
-            setupWorkspaceMenuItem.ForeColor   = WallyTheme.TextPrimary;
+            setupWorkspaceMenuItem.Size         = new Size(280, 22);
+            setupWorkspaceMenuItem.Text         = "&Setup New Workspace\u2026";
+            setupWorkspaceMenuItem.ForeColor    = WallyTheme.TextPrimary;
 
             fileSeparator1.Name = "fileSeparator1";
             fileSeparator1.Size = new Size(277, 6);
 
-            saveWorkspaceMenuItem.Name        = "saveWorkspaceMenuItem";
+            saveWorkspaceMenuItem.Name         = "saveWorkspaceMenuItem";
             saveWorkspaceMenuItem.ShortcutKeys = Keys.Control | Keys.S;
-            saveWorkspaceMenuItem.Size        = new Size(280, 22);
-            saveWorkspaceMenuItem.Text        = "&Save Workspace";
-            saveWorkspaceMenuItem.ForeColor   = WallyTheme.TextPrimary;
+            saveWorkspaceMenuItem.Size         = new Size(280, 22);
+            saveWorkspaceMenuItem.Text         = "&Save Workspace";
+            saveWorkspaceMenuItem.ForeColor    = WallyTheme.TextPrimary;
 
-            closeWorkspaceMenuItem.Name     = "closeWorkspaceMenuItem";
-            closeWorkspaceMenuItem.Size     = new Size(280, 22);
-            closeWorkspaceMenuItem.Text     = "&Close Workspace";
+            closeWorkspaceMenuItem.Name      = "closeWorkspaceMenuItem";
+            closeWorkspaceMenuItem.Size      = new Size(280, 22);
+            closeWorkspaceMenuItem.Text      = "&Close Workspace";
             closeWorkspaceMenuItem.ForeColor = WallyTheme.TextPrimary;
 
             fileSeparator2.Name = "fileSeparator2";
             fileSeparator2.Size = new Size(277, 6);
 
-            exitMenuItem.Name        = "exitMenuItem";
+            exitMenuItem.Name         = "exitMenuItem";
             exitMenuItem.ShortcutKeys = Keys.Alt | Keys.F4;
-            exitMenuItem.Size        = new Size(280, 22);
-            exitMenuItem.Text        = "E&xit";
-            exitMenuItem.ForeColor   = WallyTheme.TextPrimary;
+            exitMenuItem.Size         = new Size(280, 22);
+            exitMenuItem.Text         = "E&xit";
+            exitMenuItem.ForeColor    = WallyTheme.TextPrimary;
 
             // ═══════════════════════════════════════════════════════════════
             //  Edit menu items
@@ -240,43 +227,43 @@ namespace Wally.Forms
             {
                 editCopyMenuItem, editSelectAllMenuItem
             });
-            editToolStripMenuItem.Name     = "editToolStripMenuItem";
-            editToolStripMenuItem.Size     = new Size(39, 20);
-            editToolStripMenuItem.Text     = "&Edit";
+            editToolStripMenuItem.Name      = "editToolStripMenuItem";
+            editToolStripMenuItem.Size      = new Size(39, 20);
+            editToolStripMenuItem.Text      = "&Edit";
             editToolStripMenuItem.ForeColor = WallyTheme.TextPrimary;
 
-            editCopyMenuItem.Name        = "editCopyMenuItem";
+            editCopyMenuItem.Name         = "editCopyMenuItem";
             editCopyMenuItem.ShortcutKeys = Keys.Control | Keys.C;
-            editCopyMenuItem.Size        = new Size(200, 22);
-            editCopyMenuItem.Text        = "&Copy";
-            editCopyMenuItem.ForeColor   = WallyTheme.TextPrimary;
-            editCopyMenuItem.Click       += OnEditCopy;
+            editCopyMenuItem.Size         = new Size(200, 22);
+            editCopyMenuItem.Text         = "&Copy";
+            editCopyMenuItem.ForeColor    = WallyTheme.TextPrimary;
+            editCopyMenuItem.Click        += OnEditCopy;
 
-            editSelectAllMenuItem.Name        = "editSelectAllMenuItem";
+            editSelectAllMenuItem.Name         = "editSelectAllMenuItem";
             editSelectAllMenuItem.ShortcutKeys = Keys.Control | Keys.A;
-            editSelectAllMenuItem.Size        = new Size(200, 22);
-            editSelectAllMenuItem.Text        = "Select &All";
-            editSelectAllMenuItem.ForeColor   = WallyTheme.TextPrimary;
-            editSelectAllMenuItem.Click       += OnEditSelectAll;
+            editSelectAllMenuItem.Size         = new Size(200, 22);
+            editSelectAllMenuItem.Text         = "Select &All";
+            editSelectAllMenuItem.ForeColor    = WallyTheme.TextPrimary;
+            editSelectAllMenuItem.Click        += OnEditSelectAll;
 
             // ═══════════════════════════════════════════════════════════════
             //  Options menu items
             // ═══════════════════════════════════════════════════════════════
 
             optionsToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { wordWrapMenuItem });
-            optionsToolStripMenuItem.Name     = "optionsToolStripMenuItem";
-            optionsToolStripMenuItem.Size     = new Size(61, 20);
-            optionsToolStripMenuItem.Text     = "&Options";
+            optionsToolStripMenuItem.Name      = "optionsToolStripMenuItem";
+            optionsToolStripMenuItem.Size      = new Size(61, 20);
+            optionsToolStripMenuItem.Text      = "&Options";
             optionsToolStripMenuItem.ForeColor = WallyTheme.TextPrimary;
 
-            wordWrapMenuItem.Name        = "wordWrapMenuItem";
-            wordWrapMenuItem.Size        = new Size(200, 22);
-            wordWrapMenuItem.Text        = "&Word Wrap";
-            wordWrapMenuItem.Checked     = false;
+            wordWrapMenuItem.Name         = "wordWrapMenuItem";
+            wordWrapMenuItem.Size         = new Size(200, 22);
+            wordWrapMenuItem.Text         = "&Word Wrap";
+            wordWrapMenuItem.Checked      = false;
             wordWrapMenuItem.CheckOnClick = true;
-            wordWrapMenuItem.ForeColor   = WallyTheme.TextPrimary;
+            wordWrapMenuItem.ForeColor    = WallyTheme.TextPrimary;
             wordWrapMenuItem.ShortcutKeys = Keys.Alt | Keys.Z;
-            wordWrapMenuItem.ToolTipText = "Toggle word wrap in editor tabs to avoid horizontal scrollbars";
+            wordWrapMenuItem.ToolTipText  = "Toggle word wrap in editor tabs to avoid horizontal scrollbars";
 
             // ═══════════════════════════════════════════════════════════════
             //  View menu items
@@ -287,40 +274,40 @@ namespace Wally.Forms
                 showExplorerMenuItem, showChatMenuItem, showCommandMenuItem,
                 viewSeparator1, refreshMenuItem
             });
-            viewToolStripMenuItem.Name     = "viewToolStripMenuItem";
-            viewToolStripMenuItem.Size     = new Size(44, 20);
-            viewToolStripMenuItem.Text     = "&View";
+            viewToolStripMenuItem.Name      = "viewToolStripMenuItem";
+            viewToolStripMenuItem.Size      = new Size(44, 20);
+            viewToolStripMenuItem.Text      = "&View";
             viewToolStripMenuItem.ForeColor = WallyTheme.TextPrimary;
 
-            showExplorerMenuItem.Name        = "showExplorerMenuItem";
-            showExplorerMenuItem.Size        = new Size(240, 22);
-            showExplorerMenuItem.Text        = "File &Explorer\tCtrl+1";
-            showExplorerMenuItem.Checked     = true;
+            showExplorerMenuItem.Name         = "showExplorerMenuItem";
+            showExplorerMenuItem.Size         = new Size(240, 22);
+            showExplorerMenuItem.Text         = "File &Explorer\tCtrl+1";
+            showExplorerMenuItem.Checked      = true;
             showExplorerMenuItem.CheckOnClick = true;
-            showExplorerMenuItem.ForeColor   = WallyTheme.TextPrimary;
+            showExplorerMenuItem.ForeColor    = WallyTheme.TextPrimary;
 
-            showChatMenuItem.Name        = "showChatMenuItem";
-            showChatMenuItem.Size        = new Size(240, 22);
-            showChatMenuItem.Text        = "AI &Chat\tCtrl+2";
-            showChatMenuItem.Checked     = true;
+            showChatMenuItem.Name         = "showChatMenuItem";
+            showChatMenuItem.Size         = new Size(240, 22);
+            showChatMenuItem.Text         = "AI &Chat\tCtrl+2";
+            showChatMenuItem.Checked      = true;
             showChatMenuItem.CheckOnClick = true;
-            showChatMenuItem.ForeColor   = WallyTheme.TextPrimary;
+            showChatMenuItem.ForeColor    = WallyTheme.TextPrimary;
 
-            showCommandMenuItem.Name        = "showCommandMenuItem";
-            showCommandMenuItem.Size        = new Size(240, 22);
-            showCommandMenuItem.Text        = "Co&mmand Line\tCtrl+3";
-            showCommandMenuItem.Checked     = true;
+            showCommandMenuItem.Name         = "showCommandMenuItem";
+            showCommandMenuItem.Size         = new Size(240, 22);
+            showCommandMenuItem.Text         = "Co&mmand Line\tCtrl+3";
+            showCommandMenuItem.Checked      = true;
             showCommandMenuItem.CheckOnClick = true;
-            showCommandMenuItem.ForeColor   = WallyTheme.TextPrimary;
+            showCommandMenuItem.ForeColor    = WallyTheme.TextPrimary;
 
             viewSeparator1.Name = "viewSeparator1";
             viewSeparator1.Size = new Size(237, 6);
 
-            refreshMenuItem.Name        = "refreshMenuItem";
+            refreshMenuItem.Name         = "refreshMenuItem";
             refreshMenuItem.ShortcutKeys = Keys.F5;
-            refreshMenuItem.Size        = new Size(240, 22);
-            refreshMenuItem.Text        = "&Refresh Explorer";
-            refreshMenuItem.ForeColor   = WallyTheme.TextPrimary;
+            refreshMenuItem.Size         = new Size(240, 22);
+            refreshMenuItem.Text         = "&Refresh Explorer";
+            refreshMenuItem.ForeColor    = WallyTheme.TextPrimary;
 
             // ═══════════════════════════════════════════════════════════════
             //  Editors menu items
@@ -337,65 +324,65 @@ namespace Wally.Forms
                 editorsSeparator2,
                 closeAllEditorsMenuItem
             });
-            editorsToolStripMenuItem.Name     = "editorsToolStripMenuItem";
-            editorsToolStripMenuItem.Size     = new Size(58, 20);
-            editorsToolStripMenuItem.Text     = "E&ditors";
+            editorsToolStripMenuItem.Name      = "editorsToolStripMenuItem";
+            editorsToolStripMenuItem.Size      = new Size(58, 20);
+            editorsToolStripMenuItem.Text      = "E&ditors";
             editorsToolStripMenuItem.ForeColor = WallyTheme.TextPrimary;
 
-            editActorsMenuItem.Name     = "editActorsMenuItem";
-            editActorsMenuItem.Size     = new Size(260, 22);
-            editActorsMenuItem.Text     = "\U0001F3AD  &Actors\u2026";
+            editActorsMenuItem.Name      = "editActorsMenuItem";
+            editActorsMenuItem.Size      = new Size(260, 22);
+            editActorsMenuItem.Text      = "\U0001F3AD  &Actors\u2026";
             editActorsMenuItem.ForeColor = WallyTheme.TextPrimary;
 
-            editLoopsMenuItem.Name     = "editLoopsMenuItem";
-            editLoopsMenuItem.Size     = new Size(260, 22);
-            editLoopsMenuItem.Text     = "\u267B  &Loops\u2026";
+            editLoopsMenuItem.Name      = "editLoopsMenuItem";
+            editLoopsMenuItem.Size      = new Size(260, 22);
+            editLoopsMenuItem.Text      = "\u267B  &Loops\u2026";
             editLoopsMenuItem.ForeColor = WallyTheme.TextPrimary;
 
-            editWrappersMenuItem.Name     = "editWrappersMenuItem";
-            editWrappersMenuItem.Size     = new Size(260, 22);
-            editWrappersMenuItem.Text     = "\u2699  &Wrappers\u2026";
+            editWrappersMenuItem.Name      = "editWrappersMenuItem";
+            editWrappersMenuItem.Size      = new Size(260, 22);
+            editWrappersMenuItem.Text      = "\u2699  &Wrappers\u2026";
             editWrappersMenuItem.ForeColor = WallyTheme.TextPrimary;
 
-            editRunbooksMenuItem.Name     = "editRunbooksMenuItem";
-            editRunbooksMenuItem.Size     = new Size(260, 22);
-            editRunbooksMenuItem.Text     = "\uD83D\uDCDC  &Runbooks\u2026";
+            editRunbooksMenuItem.Name      = "editRunbooksMenuItem";
+            editRunbooksMenuItem.Size      = new Size(260, 22);
+            editRunbooksMenuItem.Text      = "\uD83D\uDCDC  &Runbooks\u2026";
             editRunbooksMenuItem.ForeColor = WallyTheme.TextPrimary;
 
             editorsSeparator1.Name = "editorsSeparator1";
             editorsSeparator1.Size = new Size(257, 6);
 
-            editConfigMenuItem.Name     = "editConfigMenuItem";
-            editConfigMenuItem.Size     = new Size(260, 22);
-            editConfigMenuItem.Text     = "\u2699  &Configuration";
+            editConfigMenuItem.Name      = "editConfigMenuItem";
+            editConfigMenuItem.Size      = new Size(260, 22);
+            editConfigMenuItem.Text      = "\u2699  &Configuration";
             editConfigMenuItem.ForeColor = WallyTheme.TextPrimary;
 
-            viewLogsMenuItem.Name     = "viewLogsMenuItem";
-            viewLogsMenuItem.Size     = new Size(260, 22);
-            viewLogsMenuItem.Text     = "\uD83D\uDCCB  Session &Logs";
+            viewLogsMenuItem.Name      = "viewLogsMenuItem";
+            viewLogsMenuItem.Size      = new Size(260, 22);
+            viewLogsMenuItem.Text      = "\uD83D\uDCCB  Session &Logs";
             viewLogsMenuItem.ForeColor = WallyTheme.TextPrimary;
 
-            viewChatHistoryMenuItem.Name     = "viewChatHistoryMenuItem";
-            viewChatHistoryMenuItem.Size     = new Size(260, 22);
-            viewChatHistoryMenuItem.Text     = "\uD83D\uDCAC  Chat &History";
+            viewChatHistoryMenuItem.Name      = "viewChatHistoryMenuItem";
+            viewChatHistoryMenuItem.Size      = new Size(260, 22);
+            viewChatHistoryMenuItem.Text      = "\uD83D\uDCAC  Chat &History";
             viewChatHistoryMenuItem.ForeColor = WallyTheme.TextPrimary;
 
-            viewPromptViewerMenuItem.Name     = "viewPromptViewerMenuItem";
-            viewPromptViewerMenuItem.Size     = new Size(260, 22);
-            viewPromptViewerMenuItem.Text     = "\uD83D\uDD0D  &Prompt Viewer";
+            viewPromptViewerMenuItem.Name      = "viewPromptViewerMenuItem";
+            viewPromptViewerMenuItem.Size      = new Size(260, 22);
+            viewPromptViewerMenuItem.Text      = "\uD83D\uDD0D  &Prompt Viewer";
             viewPromptViewerMenuItem.ForeColor = WallyTheme.TextPrimary;
 
-            viewWorkspaceViewerMenuItem.Name     = "viewWorkspaceViewerMenuItem";
-            viewWorkspaceViewerMenuItem.Size     = new Size(260, 22);
-            viewWorkspaceViewerMenuItem.Text     = "\uD83D\uDCCA  &Workspace Viewer";
+            viewWorkspaceViewerMenuItem.Name      = "viewWorkspaceViewerMenuItem";
+            viewWorkspaceViewerMenuItem.Size      = new Size(260, 22);
+            viewWorkspaceViewerMenuItem.Text      = "\uD83D\uDCCA  &Workspace Viewer";
             viewWorkspaceViewerMenuItem.ForeColor = WallyTheme.TextPrimary;
 
             editorsSeparator2.Name = "editorsSeparator2";
             editorsSeparator2.Size = new Size(257, 6);
 
-            closeAllEditorsMenuItem.Name     = "closeAllEditorsMenuItem";
-            closeAllEditorsMenuItem.Size     = new Size(260, 22);
-            closeAllEditorsMenuItem.Text     = "Close All &Editors\tCtrl+W";
+            closeAllEditorsMenuItem.Name      = "closeAllEditorsMenuItem";
+            closeAllEditorsMenuItem.Size      = new Size(260, 22);
+            closeAllEditorsMenuItem.Text      = "Close All &Editors\tCtrl+W";
             closeAllEditorsMenuItem.ForeColor = WallyTheme.TextPrimary;
 
             // ═══════════════════════════════════════════════════════════════
@@ -411,62 +398,59 @@ namespace Wally.Forms
                 cleanupWorkspaceMenuItem,
                 openWorkspaceFolderMenuItem
             });
-            workspaceToolStripMenuItem.Name     = "workspaceToolStripMenuItem";
-            workspaceToolStripMenuItem.Size     = new Size(77, 20);
-            workspaceToolStripMenuItem.Text     = "&Workspace";
+            workspaceToolStripMenuItem.Name      = "workspaceToolStripMenuItem";
+            workspaceToolStripMenuItem.Size      = new Size(77, 20);
+            workspaceToolStripMenuItem.Text      = "&Workspace";
             workspaceToolStripMenuItem.ForeColor = WallyTheme.TextPrimary;
 
-            reloadActorsMenuItem.Name        = "reloadActorsMenuItem";
+            reloadActorsMenuItem.Name         = "reloadActorsMenuItem";
             reloadActorsMenuItem.ShortcutKeys = Keys.Control | Keys.R;
-            reloadActorsMenuItem.Size        = new Size(260, 22);
-            reloadActorsMenuItem.Text        = "&Reload Actors";
-            reloadActorsMenuItem.ForeColor   = WallyTheme.TextPrimary;
+            reloadActorsMenuItem.Size         = new Size(260, 22);
+            reloadActorsMenuItem.Text         = "&Reload Actors";
+            reloadActorsMenuItem.ForeColor    = WallyTheme.TextPrimary;
 
-            listActorsMenuItem.Name     = "listActorsMenuItem";
-            listActorsMenuItem.Size     = new Size(260, 22);
-            listActorsMenuItem.Text     = "&List Actors";
+            listActorsMenuItem.Name      = "listActorsMenuItem";
+            listActorsMenuItem.Size      = new Size(260, 22);
+            listActorsMenuItem.Text      = "&List Actors";
             listActorsMenuItem.ForeColor = WallyTheme.TextPrimary;
 
             workspaceSeparator1.Name = "workspaceSeparator1";
             workspaceSeparator1.Size = new Size(257, 6);
 
-            workspaceInfoMenuItem.Name     = "workspaceInfoMenuItem";
-            workspaceInfoMenuItem.Size     = new Size(260, 22);
-            workspaceInfoMenuItem.Text     = "Workspace &Info";
+            workspaceInfoMenuItem.Name      = "workspaceInfoMenuItem";
+            workspaceInfoMenuItem.Size      = new Size(260, 22);
+            workspaceInfoMenuItem.Text      = "Workspace &Info";
             workspaceInfoMenuItem.ForeColor = WallyTheme.TextPrimary;
 
-            verifyWorkspaceMenuItem.Name     = "verifyWorkspaceMenuItem";
-            verifyWorkspaceMenuItem.Size     = new Size(260, 22);
-            verifyWorkspaceMenuItem.Text     = "&Verify Structure";
+            verifyWorkspaceMenuItem.Name      = "verifyWorkspaceMenuItem";
+            verifyWorkspaceMenuItem.Size      = new Size(260, 22);
+            verifyWorkspaceMenuItem.Text      = "&Verify Structure";
             verifyWorkspaceMenuItem.ForeColor = WallyTheme.TextPrimary;
 
             workspaceSeparator2.Name = "workspaceSeparator2";
             workspaceSeparator2.Size = new Size(257, 6);
 
-            openWorkspaceFolderMenuItem.Name     = "openWorkspaceFolderMenuItem";
-            openWorkspaceFolderMenuItem.Size     = new Size(260, 22);
-            openWorkspaceFolderMenuItem.Text     = "Open in &Explorer";
+            openWorkspaceFolderMenuItem.Name      = "openWorkspaceFolderMenuItem";
+            openWorkspaceFolderMenuItem.Size      = new Size(260, 22);
+            openWorkspaceFolderMenuItem.Text      = "Open in &Explorer";
             openWorkspaceFolderMenuItem.ForeColor = WallyTheme.TextPrimary;
 
-            cleanupWorkspaceMenuItem.Name     = "cleanupWorkspaceMenuItem";
-            cleanupWorkspaceMenuItem.Size     = new Size(260, 22);
-            cleanupWorkspaceMenuItem.Text     = "&Cleanup Workspace\u2026";
+            cleanupWorkspaceMenuItem.Name      = "cleanupWorkspaceMenuItem";
+            cleanupWorkspaceMenuItem.Size      = new Size(260, 22);
+            cleanupWorkspaceMenuItem.Text      = "&Cleanup Workspace\u2026";
             cleanupWorkspaceMenuItem.ForeColor = WallyTheme.TextPrimary;
 
             // ═══════════════════════════════════════════════════════════════
-            //  File ToolStrip  — Open · Setup · Save | Close
+            //  File ToolStrip  — grip visible, joined into toolbarPanel row 0
             // ═══════════════════════════════════════════════════════════════
 
-            fileToolStrip.Dock      = DockStyle.None;
             fileToolStrip.Stretch   = false;
-            fileToolStrip.GripStyle = ToolStripGripStyle.Hidden;
+            fileToolStrip.GripStyle = ToolStripGripStyle.Visible;
             fileToolStrip.Name      = "fileToolStrip";
-            fileToolStrip.TabIndex  = 1;
             fileToolStrip.Renderer  = renderer;
             fileToolStrip.BackColor = WallyTheme.Surface2;
             fileToolStrip.ForeColor = WallyTheme.TextPrimary;
-            fileToolStrip.Padding   = new Padding(6, 0, 6, 0);
-            fileToolStrip.Margin    = new Padding(0);
+            fileToolStrip.Padding   = new Padding(0, 0, 6, 0);
             fileToolStrip.Items.AddRange(new ToolStripItem[]
             {
                 tsbOpen, tsbSetup, tsbSave, tsFileSep1, tsbClose
@@ -503,19 +487,16 @@ namespace Wally.Forms
             tsbClose.Font         = WallyTheme.FontUISmall;
 
             // ═══════════════════════════════════════════════════════════════
-            //  Workspace ToolStrip  — Refresh · Reload Actors | Info · Verify | Stop
+            //  Workspace ToolStrip  — grip visible, joined into toolbarPanel row 0
             // ═══════════════════════════════════════════════════════════════
 
-            workspaceToolStrip.Dock      = DockStyle.None;
             workspaceToolStrip.Stretch   = false;
-            workspaceToolStrip.GripStyle = ToolStripGripStyle.Hidden;
+            workspaceToolStrip.GripStyle = ToolStripGripStyle.Visible;
             workspaceToolStrip.Name      = "workspaceToolStrip";
-            workspaceToolStrip.TabIndex  = 2;
             workspaceToolStrip.Renderer  = renderer;
             workspaceToolStrip.BackColor = WallyTheme.Surface2;
             workspaceToolStrip.ForeColor = WallyTheme.TextPrimary;
-            workspaceToolStrip.Padding   = new Padding(6, 0, 6, 0);
-            workspaceToolStrip.Margin    = new Padding(0);
+            workspaceToolStrip.Padding   = new Padding(0, 0, 6, 0);
             workspaceToolStrip.Items.AddRange(new ToolStripItem[]
             {
                 tsbRefresh, tsbReloadActors, tsWsSep1, tsbInfo, tsbVerify, tsWsSep2, tsbStop
@@ -562,19 +543,16 @@ namespace Wally.Forms
             tsbStop.Enabled      = false;
 
             // ═══════════════════════════════════════════════════════════════
-            //  Editors ToolStrip  — Actors · Config · Logs | Clear Chat
+            //  Editors ToolStrip  — grip visible, joined into toolbarPanel row 0
             // ═══════════════════════════════════════════════════════════════
 
-            editorsToolStrip.Dock      = DockStyle.None;
             editorsToolStrip.Stretch   = false;
-            editorsToolStrip.GripStyle = ToolStripGripStyle.Hidden;
+            editorsToolStrip.GripStyle = ToolStripGripStyle.Visible;
             editorsToolStrip.Name      = "editorsToolStrip";
-            editorsToolStrip.TabIndex  = 3;
             editorsToolStrip.Renderer  = renderer;
             editorsToolStrip.BackColor = WallyTheme.Surface2;
             editorsToolStrip.ForeColor = WallyTheme.TextPrimary;
-            editorsToolStrip.Padding   = new Padding(6, 0, 6, 0);
-            editorsToolStrip.Margin    = new Padding(0);
+            editorsToolStrip.Padding   = new Padding(0, 0, 6, 0);
             editorsToolStrip.Items.AddRange(new ToolStripItem[]
             {
                 tsbEditActors, tsbConfig, tsbLogs, tsEdSep1, tsbClearChat
@@ -617,15 +595,16 @@ namespace Wally.Forms
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode       = AutoScaleMode.Font;
             ClientSize          = new Size(1280, 750);
-            // Order matters: Fill first so it sits beneath the Top-docked header.
+            // Add Fill first, then Top-docked panels last (reverse paint order)
             Controls.Add(contentPanel);
-            Controls.Add(headerSplit);
-            MainMenuStrip       = menuStrip1;
-            Name                = "WallyForms";
-            Text                = "Wally \u2014 AI Actor Environment";
-            StartPosition       = FormStartPosition.CenterScreen;
-            BackColor           = WallyTheme.Surface0;
-            ForeColor           = WallyTheme.TextPrimary;
+            Controls.Add(toolbarPanel);
+            Controls.Add(menuPanel);
+            MainMenuStrip   = menuStrip1;
+            Name            = "WallyForms";
+            Text            = "Wally \u2014 AI Actor Environment";
+            StartPosition   = FormStartPosition.CenterScreen;
+            BackColor       = WallyTheme.Surface0;
+            ForeColor       = WallyTheme.TextPrimary;
 
             editorsToolStrip.ResumeLayout(false);
             editorsToolStrip.PerformLayout();
@@ -633,15 +612,10 @@ namespace Wally.Forms
             workspaceToolStrip.PerformLayout();
             fileToolStrip.ResumeLayout(false);
             fileToolStrip.PerformLayout();
-            toolbarFlow.ResumeLayout(false);
             menuStrip1.ResumeLayout(false);
             menuStrip1.PerformLayout();
-            headerSplit.Panel1.ResumeLayout(false);
-            headerSplit.Panel1.PerformLayout();
-            headerSplit.Panel2.ResumeLayout(false);
-            headerSplit.Panel2.PerformLayout();
-            headerSplit.ResumeLayout(false);
-            ((System.ComponentModel.ISupportInitialize)headerSplit).EndInit();
+            menuPanel.ResumeLayout(false);
+            menuPanel.PerformLayout();
             ResumeLayout(false);
             PerformLayout();
         }
@@ -649,8 +623,8 @@ namespace Wally.Forms
         #endregion
 
         // ── Chrome containers ──
-        private SplitContainer  headerSplit;
-        private FlowLayoutPanel toolbarFlow;
+        private Panel           menuPanel;
+        private ToolStripPanel  toolbarPanel;
         private Panel           contentPanel;
         private MenuStrip       menuStrip1;
 

@@ -17,10 +17,10 @@ namespace Wally.Forms
         // -- Panels ----------------------------------------------------------
 
         private readonly FileExplorerPanel _fileExplorer;
-        private readonly ChatPanel _chatPanel;
-        private readonly CommandPanel _commandPanel;
-        private readonly WelcomePanel _welcomePanel;
-        private readonly DocumentTabHost _tabHost;
+        private readonly ChatPanel         _chatPanel;
+        private readonly CommandPanel      _commandPanel;
+        private readonly WelcomePanel      _welcomePanel;
+        private readonly DocumentTabHost   _tabHost;
 
         // -- Splitters -------------------------------------------------------
 
@@ -30,11 +30,11 @@ namespace Wally.Forms
 
         // -- Status bar ------------------------------------------------------
 
-        private readonly StatusStrip _statusBar;
-        private readonly ToolStripStatusLabel _lblWorkspaceStatus;
-        private readonly ToolStripStatusLabel _lblActorCount;
-        private readonly ToolStripStatusLabel _lblSessionId;
-        private readonly ToolStripProgressBar _progressBar;
+        private readonly StatusStrip            _statusBar;
+        private readonly ToolStripStatusLabel   _lblWorkspaceStatus;
+        private readonly ToolStripStatusLabel   _lblActorCount;
+        private readonly ToolStripStatusLabel   _lblSessionId;
+        private readonly ToolStripProgressBar   _progressBar;
 
         // -- Runtime ---------------------------------------------------------
 
@@ -48,11 +48,11 @@ namespace Wally.Forms
 
         // -- Tab key constants -----------------------------------------------
 
-        private const string TabKeyWelcome = "__welcome__";
-        private const string TabKeyConfig  = "__config__";
-        private const string TabKeyLogs    = "__logs__";
-        private const string TabKeyChatHistory = "__chat_history__";
-        private const string TabKeyPromptViewer = "__prompt_viewer__";
+        private const string TabKeyWelcome         = "__welcome__";
+        private const string TabKeyConfig          = "__config__";
+        private const string TabKeyLogs            = "__logs__";
+        private const string TabKeyChatHistory     = "__chat_history__";
+        private const string TabKeyPromptViewer    = "__prompt_viewer__";
         private const string TabKeyWorkspaceViewer = "__workspace_viewer__";
 
         // -- Constructor -----------------------------------------------------
@@ -67,44 +67,45 @@ namespace Wally.Forms
             _lblWorkspaceStatus = new ToolStripStatusLabel("No workspace")
             {
                 ForeColor = WallyTheme.TextSecondary,
-                Spring = true,
+                Spring    = true,
                 TextAlign = ContentAlignment.MiddleLeft,
-                Padding = new Padding(4, 0, 0, 0)
+                Padding   = new Padding(4, 0, 0, 0)
             };
             _lblActorCount = new ToolStripStatusLabel("Actors: 0")
             {
-                ForeColor = WallyTheme.TextSecondary,
+                ForeColor   = WallyTheme.TextSecondary,
                 BorderSides = ToolStripStatusLabelBorderSides.Left,
                 BorderStyle = Border3DStyle.Etched,
-                Padding = new Padding(6, 0, 6, 0)
+                Padding     = new Padding(6, 0, 6, 0)
             };
-            _lblSessionId = new ToolStripStatusLabel($"\u25CF {_environment.Logger.SessionId.ToString("N")[..8]}")
+            _lblSessionId = new ToolStripStatusLabel(
+                $"\u25CF {_environment.Logger.SessionId.ToString("N")[..8]}")
             {
-                ForeColor = WallyTheme.TextMuted,
+                ForeColor   = WallyTheme.TextMuted,
                 BorderSides = ToolStripStatusLabelBorderSides.Left,
                 BorderStyle = Border3DStyle.Etched,
                 ToolTipText = $"Session ID: {_environment.Logger.SessionId:N}",
-                Padding = new Padding(6, 0, 6, 0)
+                Padding     = new Padding(6, 0, 6, 0)
             };
 
             _progressBar = new ToolStripProgressBar
             {
-                Name = "progressBar",
-                Width = 120,
-                Minimum = 0,
-                Maximum = 100,
-                Style = ProgressBarStyle.Marquee,
+                Name                  = "progressBar",
+                Width                 = 120,
+                Minimum               = 0,
+                Maximum               = 100,
+                Style                 = ProgressBarStyle.Marquee,
                 MarqueeAnimationSpeed = 30,
-                Visible = false,
-                Alignment = ToolStripItemAlignment.Right,
-                ToolTipText = "Operation in progress…"
+                Visible               = false,
+                Alignment             = ToolStripItemAlignment.Right,
+                ToolTipText           = "Operation in progress\u2026"
             };
 
             _statusBar = new StatusStrip
             {
-                BackColor = WallyTheme.StatusBarInactive,
+                BackColor  = WallyTheme.StatusBarInactive,
                 SizingGrip = true,
-                Renderer = WallyTheme.CreateRenderer()
+                Renderer   = WallyTheme.CreateRenderer()
             };
             _statusBar.Items.AddRange(new ToolStripItem[]
             {
@@ -114,82 +115,77 @@ namespace Wally.Forms
             // -- File Explorer (left) — created but NOT added to Controls yet --
             _fileExplorer = new FileExplorerPanel
             {
-                Dock = DockStyle.Left,
-                Width = 260,
+                Dock        = DockStyle.Left,
+                Width       = 260,
                 MinimumSize = new Size(180, 0)
             };
 
             _leftSplitter = new ThemedSplitter
             {
-                Dock = DockStyle.Left,
-                Width = 3,
+                Dock      = DockStyle.Left,
+                Width     = 3,
                 BackColor = WallyTheme.Splitter,
-                MinSize = 180
+                MinSize   = 180
             };
 
             // -- Chat Panel (right) — created but NOT added to Controls yet --
             _chatPanel = new ChatPanel
             {
-                Dock = DockStyle.Right,
-                Width = 420,
+                Dock        = DockStyle.Right,
+                Width       = 420,
                 MinimumSize = new Size(280, 0)
             };
 
             _rightSplitter = new ThemedSplitter
             {
-                Dock = DockStyle.Right,
-                Width = 3,
+                Dock      = DockStyle.Right,
+                Width     = 3,
                 BackColor = WallyTheme.Splitter,
-                MinSize = 280
+                MinSize   = 280
             };
 
             // -- Command Panel (bottom) — always present --
             _commandPanel = new CommandPanel
             {
-                Dock = DockStyle.Bottom,
-                Height = 200,
+                Dock        = DockStyle.Bottom,
+                Height      = 200,
                 MinimumSize = new Size(0, 80)
             };
 
             _bottomSplitter = new ThemedSplitter
             {
-                Dock = DockStyle.Bottom,
-                Height = 3,
+                Dock      = DockStyle.Bottom,
+                Height    = 3,
                 BackColor = WallyTheme.Splitter,
-                MinSize = 80
+                MinSize   = 80
             };
 
-            // -- Welcome Panel (lives as a tab now) --
-            _welcomePanel = new WelcomePanel
-            {
-                Dock = DockStyle.Fill
-            };
+            // -- Welcome Panel (lives as a tab) --
+            _welcomePanel = new WelcomePanel { Dock = DockStyle.Fill };
 
             // -- Document Tab Host (fills remaining centre space) --
-            _tabHost = new DocumentTabHost
-            {
-                Dock = DockStyle.Fill
-            };
+            _tabHost = new DocumentTabHost { Dock = DockStyle.Fill };
             _tabHost.OpenTab(TabKeyWelcome, "Welcome", "\U0001F9E0", _welcomePanel);
 
-            // -- Layout inside content panel --
-            _content = contentPanel;
+            // -- Bind content panel --
+            _content           = contentPanel;
             _content.BackColor = WallyTheme.Surface0;
 
-            _content.Controls.Add(_tabHost);            // Fill (centre)
-            _content.Controls.Add(_bottomSplitter);     // Bottom splitter
-            _content.Controls.Add(_commandPanel);       // Bottom
+            _content.Controls.Add(_tabHost);        // Fill (centre)
+            _content.Controls.Add(_bottomSplitter); // Bottom splitter
+            _content.Controls.Add(_commandPanel);   // Bottom
 
             Controls.Add(_statusBar);
 
-            // -- Wire child events --
+            // -- Bind environments --
             _commandPanel.BindEnvironment(_environment);
             _chatPanel.BindEnvironment(_environment);
 
-            _commandPanel.WorkspaceChanged += OnWorkspaceChanged;
-            _commandPanel.RunningChanged   += OnRunningChanged;
-            _chatPanel.RunningChanged      += OnRunningChanged;
-            _chatPanel.CommandIssued       += OnChatCommandIssued;
+            // -- Wire child events --
+            _commandPanel.WorkspaceChanged  += OnWorkspaceChanged;
+            _commandPanel.RunningChanged    += OnRunningChanged;
+            _chatPanel.RunningChanged       += OnRunningChanged;
+            _chatPanel.CommandIssued        += OnChatCommandIssued;
             _fileExplorer.FileDoubleClicked += OnFileDoubleClicked;
             _fileExplorer.FileSelected      += OnFileSelected;
 
@@ -201,10 +197,10 @@ namespace Wally.Forms
             exitMenuItem.Click           += OnExit;
 
             // -- View menu --
-            refreshMenuItem.Click              += OnRefreshExplorer;
-            showExplorerMenuItem.CheckedChanged += OnShowExplorerCheckedChanged;
-            showChatMenuItem.CheckedChanged     += OnShowChatCheckedChanged;
-            showCommandMenuItem.CheckedChanged  += OnShowCommandCheckedChanged;
+            refreshMenuItem.Click               += OnRefreshExplorer;
+            showExplorerMenuItem.CheckedChanged  += OnShowExplorerCheckedChanged;
+            showChatMenuItem.CheckedChanged      += OnShowChatCheckedChanged;
+            showCommandMenuItem.CheckedChanged   += OnShowCommandCheckedChanged;
 
             // -- Options menu --
             wordWrapMenuItem.CheckedChanged += OnWordWrapCheckedChanged;
@@ -222,11 +218,11 @@ namespace Wally.Forms
             closeAllEditorsMenuItem.Click     += OnCloseAllEditors;
 
             // -- Workspace menu --
-            reloadActorsMenuItem.Click      += OnReloadActors;
-            listActorsMenuItem.Click        += OnListActors;
-            workspaceInfoMenuItem.Click     += OnWorkspaceInfo;
-            verifyWorkspaceMenuItem.Click   += OnVerifyWorkspace;
-            cleanupWorkspaceMenuItem.Click  += OnCleanupWorkspace;
+            reloadActorsMenuItem.Click        += OnReloadActors;
+            listActorsMenuItem.Click          += OnListActors;
+            workspaceInfoMenuItem.Click       += OnWorkspaceInfo;
+            verifyWorkspaceMenuItem.Click     += OnVerifyWorkspace;
+            cleanupWorkspaceMenuItem.Click    += OnCleanupWorkspace;
             openWorkspaceFolderMenuItem.Click += OnOpenWorkspaceFolder;
 
             // -- File ToolStrip --
@@ -250,11 +246,11 @@ namespace Wally.Forms
 
             // -- Global shortcuts --
             KeyPreview = true;
-            KeyDown += OnGlobalKeyDown;
+            KeyDown   += OnGlobalKeyDown;
 
             // -- Initial state --
             showExplorerMenuItem.Checked = false;
-            showChatMenuItem.Checked = false;
+            showChatMenuItem.Checked     = false;
             UpdateWorkspaceGating();
             TryAutoSetup();
         }
@@ -280,7 +276,7 @@ namespace Wally.Forms
             _content.ResumeLayout(true);
 
             showExplorerMenuItem.Checked = true;
-            showChatMenuItem.Checked = true;
+            showChatMenuItem.Checked     = true;
         }
 
         private void HideWorkspacePanels()
@@ -295,14 +291,14 @@ namespace Wally.Forms
             _content.ResumeLayout(true);
 
             showExplorerMenuItem.Checked = false;
-            showChatMenuItem.Checked = false;
+            showChatMenuItem.Checked     = false;
         }
 
         // -- Auto-setup ------------------------------------------------------
 
         private void TryAutoSetup()
         {
-            string defaultWs = WallyHelper.GetDefaultWorkspaceFolder();
+            string defaultWs  = WallyHelper.GetDefaultWorkspaceFolder();
             string configPath = Path.Combine(defaultWs, WallyHelper.ConfigFileName);
             if (!File.Exists(configPath)) return;
 
@@ -359,7 +355,6 @@ namespace Wally.Forms
             }
             else if (e.Control && e.KeyCode == Keys.W)
             {
-                // Close active editor tab
                 e.Handled = true;
                 var key = _tabHost.ActiveTabKey;
                 if (key != null && key != TabKeyWelcome)
@@ -371,19 +366,16 @@ namespace Wally.Forms
 
         private void OnEditCopy(object? sender, EventArgs e)
         {
-            if (ActiveControl is RichTextBox rtb)
-                rtb.Copy();
+            if (ActiveControl is RichTextBox rtb) rtb.Copy();
         }
 
         private void OnEditSelectAll(object? sender, EventArgs e)
         {
-            if (ActiveControl is RichTextBox rtb)
-                rtb.SelectAll();
+            if (ActiveControl is RichTextBox rtb) rtb.SelectAll();
         }
 
-        private void OnExit(object? sender, EventArgs e) => Close();
-
-        private void OnRefreshExplorer(object? sender, EventArgs e) => _fileExplorer.Refresh();
+        private void OnExit(object? sender, EventArgs e)              => Close();
+        private void OnRefreshExplorer(object? sender, EventArgs e)   => _fileExplorer.Refresh();
 
         private void OnShowExplorerCheckedChanged(object? sender, EventArgs e) =>
             TogglePanel(_fileExplorer, _leftSplitter, DockStyle.Left, showExplorerMenuItem.Checked);
@@ -397,35 +389,28 @@ namespace Wally.Forms
         private void OnWordWrapCheckedChanged(object? sender, EventArgs e) =>
             _tabHost.WordWrap = wordWrapMenuItem.Checked;
 
-        private void OnEditActors(object? sender, EventArgs e) => OpenActorPicker();
-        private void OnEditLoops(object? sender, EventArgs e) => OpenLoopPicker();
-        private void OnEditWrappers(object? sender, EventArgs e) => OpenWrapperPicker();
-        private void OnEditRunbooks(object? sender, EventArgs e) => OpenRunbookPicker();
-        private void OnEditConfig(object? sender, EventArgs e) => OpenConfigEditor();
-        private void OnViewLogs(object? sender, EventArgs e) => OpenLogViewer();
-        private void OnViewChatHistory(object? sender, EventArgs e) => OpenChatHistoryViewer();
-        private void OnViewPromptViewer(object? sender, EventArgs e) => OpenPromptViewer();
+        private void OnEditActors(object? sender, EventArgs e)        => OpenActorPicker();
+        private void OnEditLoops(object? sender, EventArgs e)         => OpenLoopPicker();
+        private void OnEditWrappers(object? sender, EventArgs e)      => OpenWrapperPicker();
+        private void OnEditRunbooks(object? sender, EventArgs e)      => OpenRunbookPicker();
+        private void OnEditConfig(object? sender, EventArgs e)        => OpenConfigEditor();
+        private void OnViewLogs(object? sender, EventArgs e)          => OpenLogViewer();
+        private void OnViewChatHistory(object? sender, EventArgs e)   => OpenChatHistoryViewer();
+        private void OnViewPromptViewer(object? sender, EventArgs e)  => OpenPromptViewer();
         private void OnViewWorkspaceViewer(object? sender, EventArgs e) => OpenWorkspaceViewer();
-        private void OnCloseAllEditors(object? sender, EventArgs e) => _tabHost.CloseAllTabs();
-
-        private void OnReloadActors(object? sender, EventArgs e) =>
-            _commandPanel.ExecuteCommand("reload-actors");
-
-        private void OnListActors(object? sender, EventArgs e) =>
-            _commandPanel.ExecuteCommand("list");
-
-        private void OnWorkspaceInfo(object? sender, EventArgs e) =>
-            _commandPanel.ExecuteCommand("info");
-
-        private void OnClearChat(object? sender, EventArgs e) => _chatPanel.ClearMessages();
+        private void OnCloseAllEditors(object? sender, EventArgs e)   => _tabHost.CloseAllTabs();
+        private void OnReloadActors(object? sender, EventArgs e)      => _commandPanel.ExecuteCommand("reload-actors");
+        private void OnListActors(object? sender, EventArgs e)        => _commandPanel.ExecuteCommand("list");
+        private void OnWorkspaceInfo(object? sender, EventArgs e)     => _commandPanel.ExecuteCommand("info");
+        private void OnClearChat(object? sender, EventArgs e)         => _chatPanel.ClearMessages();
 
         private void OnOpenWorkspace(object? sender, EventArgs e)
         {
             using var dlg = new FolderBrowserDialog
             {
-                Description = "Select a .wally workspace folder",
+                Description          = "Select a .wally workspace folder",
                 UseDescriptionForTitle = true,
-                ShowNewFolderButton = false
+                ShowNewFolderButton  = false
             };
             if (dlg.ShowDialog(this) == DialogResult.OK)
                 _commandPanel.ExecuteCommand($"load \"{dlg.SelectedPath}\"");
@@ -441,7 +426,6 @@ namespace Wally.Forms
         private void OnSaveWorkspace(object? sender, EventArgs e)
         {
             if (!_environment.HasWorkspace) return;
-
             try
             {
                 _environment.SaveWorkspace();
@@ -468,14 +452,10 @@ namespace Wally.Forms
             _chatPanel.RefreshLoopList();
             _chatPanel.RefreshModelList();
             HideWorkspacePanels();
-
-            // Close all editor tabs when workspace is closed.
             _tabHost.CloseAllTabs();
-
             RefreshAllPanels();
 
-            _commandPanel.AppendLine(
-                $"Closed workspace: {closedPath}", WallyTheme.TextMuted);
+            _commandPanel.AppendLine($"Closed workspace: {closedPath}", WallyTheme.TextMuted);
         }
 
         private void OnVerifyWorkspace(object? sender, EventArgs e)
@@ -493,8 +473,7 @@ namespace Wally.Forms
             var result = MessageBox.Show(this,
                 $"This will delete the workspace folder:\n\n{wsFolder}\n\n" +
                 "All actors, config, docs, and logs inside it will be removed.\n" +
-                "You can run Setup again afterwards to create a fresh workspace.\n\n" +
-                "Continue?",
+                "You can run Setup again afterwards to create a fresh workspace.\n\nContinue?",
                 "Cleanup Workspace",
                 MessageBoxButtons.YesNo,
                 MessageBoxIcon.Warning,
@@ -530,8 +509,7 @@ namespace Wally.Forms
             }
             catch (Exception ex)
             {
-                _commandPanel.AppendLine(
-                    $"Could not open folder: {ex.Message}", WallyTheme.Red);
+                _commandPanel.AppendLine($"Could not open folder: {ex.Message}", WallyTheme.Red);
             }
         }
 
@@ -563,19 +541,19 @@ namespace Wally.Forms
                 _welcomePanel.SetWorkspaceInfo(true, _environment.WorkSource,
                     _environment.Actors.Count, defaultModel);
 
-                _lblWorkspaceStatus.Text = _environment.WorkSource!;
+                _lblWorkspaceStatus.Text      = _environment.WorkSource!;
                 _lblWorkspaceStatus.ForeColor = WallyTheme.TextPrimary;
-                _lblActorCount.Text = $"Actors: {_environment.Actors.Count}";
-                _statusBar.BackColor = WallyTheme.StatusBarActive;
+                _lblActorCount.Text           = $"Actors: {_environment.Actors.Count}";
+                _statusBar.BackColor          = WallyTheme.StatusBarActive;
             }
             else
             {
                 Text = "Wally \u2014 AI Actor Environment";
                 _welcomePanel.SetWorkspaceInfo(false);
-                _lblWorkspaceStatus.Text = "No workspace loaded \u2014 use File \u2192 Open or Setup";
+                _lblWorkspaceStatus.Text      = "No workspace loaded \u2014 use File \u2192 Open or Setup";
                 _lblWorkspaceStatus.ForeColor = WallyTheme.TextSecondary;
-                _lblActorCount.Text = "Actors: 0";
-                _statusBar.BackColor = WallyTheme.StatusBarInactive;
+                _lblActorCount.Text           = "Actors: 0";
+                _statusBar.BackColor          = WallyTheme.StatusBarInactive;
             }
 
             UpdateWorkspaceGating();
@@ -587,35 +565,33 @@ namespace Wally.Forms
         {
             bool loaded = _environment.HasWorkspace;
 
-            saveWorkspaceMenuItem.Enabled = loaded;
+            saveWorkspaceMenuItem.Enabled  = loaded;
             closeWorkspaceMenuItem.Enabled = loaded;
-
-            showExplorerMenuItem.Enabled = loaded;
-            showChatMenuItem.Enabled = loaded;
-            refreshMenuItem.Enabled = loaded;
+            showExplorerMenuItem.Enabled   = loaded;
+            showChatMenuItem.Enabled       = loaded;
+            refreshMenuItem.Enabled        = loaded;
 
             workspaceToolStripMenuItem.Enabled = loaded;
-            editorsToolStripMenuItem.Enabled = loaded;
+            editorsToolStripMenuItem.Enabled   = loaded;
 
             // File toolbar
-            tsbSave.Enabled = loaded;
+            tsbSave.Enabled  = loaded;
             tsbClose.Enabled = loaded;
 
             // Workspace toolbar
-            tsbRefresh.Enabled = loaded;
+            tsbRefresh.Enabled      = loaded;
             tsbReloadActors.Enabled = loaded;
-            tsbInfo.Enabled = loaded;
-            tsbVerify.Enabled = loaded;
+            tsbInfo.Enabled         = loaded;
+            tsbVerify.Enabled       = loaded;
 
             // Editors toolbar
             tsbEditActors.Enabled = loaded;
-            tsbConfig.Enabled = loaded;
-            tsbLogs.Enabled = loaded;
-            tsbClearChat.Enabled = loaded;
+            tsbConfig.Enabled     = loaded;
+            tsbLogs.Enabled       = loaded;
+            tsbClearChat.Enabled  = loaded;
 
-            // Stop is driven purely by running state, not workspace state.
             bool anyRunning = _chatPanel.IsRunning || _commandPanel.IsRunning;
-            tsbStop.Enabled = anyRunning;
+            tsbStop.Enabled   = anyRunning;
             tsbStop.ForeColor = anyRunning ? WallyTheme.Red : WallyTheme.TextDisabled;
 
             _chatPanel.SetWorkspaceLoaded(loaded);
@@ -625,10 +601,8 @@ namespace Wally.Forms
 
         private void OnFileDoubleClicked(object? sender, FileSelectedEventArgs e)
         {
-            if (_environment.HasWorkspace && TryOpenFileInEditor(e.FilePath))
-                return;
+            if (_environment.HasWorkspace && TryOpenFileInEditor(e.FilePath)) return;
 
-            // Fall back to shell open for unrecognized files.
             try
             {
                 var psi = new System.Diagnostics.ProcessStartInfo(e.FilePath)
@@ -637,54 +611,36 @@ namespace Wally.Forms
             }
             catch (Exception ex)
             {
-                _commandPanel.AppendLine(
-                    $"Could not open file: {ex.Message}", WallyTheme.Red);
+                _commandPanel.AppendLine($"Could not open file: {ex.Message}", WallyTheme.Red);
             }
         }
 
-        /// <summary>
-        /// Attempts to detect what kind of workspace entity a file belongs to
-        /// and opens the appropriate editor tab. Returns true if handled.
-        /// </summary>
         private bool TryOpenFileInEditor(string filePath)
         {
             if (!_environment.HasWorkspace) return false;
 
-            string wsFolder = _environment.WorkspaceFolder!;
-            var config = _environment.Workspace!.Config;
-            string relative = Path.GetRelativePath(wsFolder, filePath);
+            string wsFolder  = _environment.WorkspaceFolder!;
+            var    config    = _environment.Workspace!.Config;
+            string relative  = Path.GetRelativePath(wsFolder, filePath);
 
-            // Actor: .wally/Actors/<Name>/actor.json
             string actorsPrefix = config.ActorsFolderName + Path.DirectorySeparatorChar;
             if (relative.StartsWith(actorsPrefix, StringComparison.OrdinalIgnoreCase) &&
                 Path.GetFileName(filePath).Equals(WallyHelper.ActorFileName, StringComparison.OrdinalIgnoreCase))
             {
-                // Extract actor name from path
                 string afterActors = relative[actorsPrefix.Length..];
-                string actorName = afterActors.Split(Path.DirectorySeparatorChar)[0];
-                var actor = _environment.GetActor(actorName);
-                if (actor != null)
-                {
-                    OpenActorEditor(actor);
-                    return true;
-                }
+                string actorName   = afterActors.Split(Path.DirectorySeparatorChar)[0];
+                var    actor       = _environment.GetActor(actorName);
+                if (actor != null) { OpenActorEditor(actor); return true; }
             }
 
-            // Loop: .wally/Loops/<Name>.json
             string loopsPrefix = config.LoopsFolderName + Path.DirectorySeparatorChar;
             if (relative.StartsWith(loopsPrefix, StringComparison.OrdinalIgnoreCase) &&
                 filePath.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
             {
-                string loopName = Path.GetFileNameWithoutExtension(filePath);
-                var loop = _environment.GetLoop(loopName);
-                if (loop != null)
-                {
-                    OpenLoopEditor(loop);
-                    return true;
-                }
+                var loop = _environment.GetLoop(Path.GetFileNameWithoutExtension(filePath));
+                if (loop != null) { OpenLoopEditor(loop); return true; }
             }
 
-            // Wrapper: .wally/Wrappers/<Name>.json
             string wrappersPrefix = config.WrappersFolderName + Path.DirectorySeparatorChar;
             if (relative.StartsWith(wrappersPrefix, StringComparison.OrdinalIgnoreCase) &&
                 filePath.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
@@ -692,28 +648,17 @@ namespace Wally.Forms
                 string wrapperName = Path.GetFileNameWithoutExtension(filePath);
                 var wrapper = _environment.Workspace.LlmWrappers
                     .FirstOrDefault(w => string.Equals(w.Name, wrapperName, StringComparison.OrdinalIgnoreCase));
-                if (wrapper != null)
-                {
-                    OpenWrapperEditor(wrapper);
-                    return true;
-                }
+                if (wrapper != null) { OpenWrapperEditor(wrapper); return true; }
             }
 
-            // Runbook: .wally/Runbooks/<Name>.wrb
             string runbooksPrefix = config.RunbooksFolderName + Path.DirectorySeparatorChar;
             if (relative.StartsWith(runbooksPrefix, StringComparison.OrdinalIgnoreCase) &&
                 filePath.EndsWith(".wrb", StringComparison.OrdinalIgnoreCase))
             {
-                string rbName = Path.GetFileNameWithoutExtension(filePath);
-                var runbook = _environment.GetRunbook(rbName);
-                if (runbook != null)
-                {
-                    OpenRunbookEditor(runbook);
-                    return true;
-                }
+                var runbook = _environment.GetRunbook(Path.GetFileNameWithoutExtension(filePath));
+                if (runbook != null) { OpenRunbookEditor(runbook); return true; }
             }
 
-            // Config: .wally/wally-config.json
             if (Path.GetFileName(filePath).Equals(WallyHelper.ConfigFileName, StringComparison.OrdinalIgnoreCase))
             {
                 OpenConfigEditor();
@@ -726,10 +671,7 @@ namespace Wally.Forms
         private void OnFileSelected(object? sender, FileSelectedEventArgs e)
         {
             if (_environment.HasWorkspace)
-            {
-                string relative = Path.GetRelativePath(_environment.WorkSource!, e.FilePath);
-                _lblWorkspaceStatus.Text = relative;
-            }
+                _lblWorkspaceStatus.Text = Path.GetRelativePath(_environment.WorkSource!, e.FilePath);
         }
 
         // -- Editor open helpers ---------------------------------------------
@@ -738,12 +680,10 @@ namespace Wally.Forms
         {
             string key = $"actor:{actor.Name}";
             if (_tabHost.SelectTab(key)) return;
-
             var editor = new ActorEditorPanel();
             editor.BindEnvironment(_environment);
             editor.LoadActor(actor);
             editor.DirtyChanged += (_, _) => _tabHost.SetTabDirty(key, editor.IsDirty);
-
             _tabHost.OpenTab(key, actor.Name, "\U0001F3AD", editor);
         }
 
@@ -751,12 +691,10 @@ namespace Wally.Forms
         {
             string key = $"loop:{loop.Name}";
             if (_tabHost.SelectTab(key)) return;
-
             var editor = new LoopEditorPanel();
             editor.BindEnvironment(_environment);
             editor.LoadLoop(loop);
             editor.DirtyChanged += (_, _) => _tabHost.SetTabDirty(key, editor.IsDirty);
-
             _tabHost.OpenTab(key, loop.Name, "\u267B", editor);
         }
 
@@ -764,12 +702,10 @@ namespace Wally.Forms
         {
             string key = $"wrapper:{wrapper.Name}";
             if (_tabHost.SelectTab(key)) return;
-
             var editor = new WrapperEditorPanel();
             editor.BindEnvironment(_environment);
             editor.LoadWrapper(wrapper);
             editor.DirtyChanged += (_, _) => _tabHost.SetTabDirty(key, editor.IsDirty);
-
             _tabHost.OpenTab(key, wrapper.Name, "\u2699", editor);
         }
 
@@ -777,213 +713,125 @@ namespace Wally.Forms
         {
             string key = $"runbook:{runbook.Name}";
             if (_tabHost.SelectTab(key)) return;
-
             var editor = new RunbookEditorPanel();
             editor.LoadRunbook(runbook);
             editor.DirtyChanged += (_, _) => _tabHost.SetTabDirty(key, editor.IsDirty);
-
             _tabHost.OpenTab(key, runbook.Name, "\uD83D\uDCDC", editor);
         }
 
         private void OpenConfigEditor()
         {
-            if (!_environment.HasWorkspace) return;
-
-            if (_tabHost.SelectTab(TabKeyConfig)) return;
-
+            if (!_environment.HasWorkspace || _tabHost.SelectTab(TabKeyConfig)) return;
             var editor = new ConfigEditorPanel();
             editor.BindEnvironment(_environment);
             editor.LoadConfig();
             editor.DirtyChanged += (_, _) => _tabHost.SetTabDirty(TabKeyConfig, editor.IsDirty);
-
             _tabHost.OpenTab(TabKeyConfig, "Config", "\u2699", editor);
         }
 
         private void OpenLogViewer()
         {
-            if (!_environment.HasWorkspace) return;
-
-            if (_tabHost.SelectTab(TabKeyLogs)) return;
-
+            if (!_environment.HasWorkspace || _tabHost.SelectTab(TabKeyLogs)) return;
             var viewer = new LogViewerPanel();
             viewer.BindEnvironment(_environment);
             viewer.RefreshSessions();
-
             _tabHost.OpenTab(TabKeyLogs, "Logs", "\uD83D\uDCCB", viewer);
         }
 
         private void OpenChatHistoryViewer()
         {
-            if (!_environment.HasWorkspace) return;
-
-            if (_tabHost.SelectTab(TabKeyChatHistory)) return;
-
+            if (!_environment.HasWorkspace || _tabHost.SelectTab(TabKeyChatHistory)) return;
             var viewer = new ChatHistoryViewerPanel();
             viewer.BindEnvironment(_environment);
             viewer.RefreshHistory();
-
             _tabHost.OpenTab(TabKeyChatHistory, "Chat History", "\uD83D\uDCAC", viewer);
         }
 
         private void OpenPromptViewer()
         {
-            if (!_environment.HasWorkspace) return;
-
-            if (_tabHost.SelectTab(TabKeyPromptViewer)) return;
-
+            if (!_environment.HasWorkspace || _tabHost.SelectTab(TabKeyPromptViewer)) return;
             var viewer = new ChatPanelPromptViewer();
             viewer.BindEnvironment(_environment);
-
             _tabHost.OpenTab(TabKeyPromptViewer, "Prompt Viewer", "\uD83D\uDD0D", viewer);
         }
 
         private void OpenWorkspaceViewer()
         {
-            if (!_environment.HasWorkspace) return;
-
-            if (_tabHost.SelectTab(TabKeyWorkspaceViewer)) return;
-
+            if (!_environment.HasWorkspace || _tabHost.SelectTab(TabKeyWorkspaceViewer)) return;
             var viewer = new WorkspaceViewerPanel();
             viewer.BindEnvironment(_environment);
             viewer.BuildView();
-
             _tabHost.OpenTab(TabKeyWorkspaceViewer, "Workspace", "\uD83D\uDCCA", viewer);
         }
 
-        // -- Entity pickers (open first or prompt selection) -----------------
+        // -- Entity pickers --------------------------------------------------
 
         private void OpenActorPicker()
         {
             if (!_environment.HasWorkspace) return;
-
             var actors = _environment.Actors;
-            if (actors.Count == 0)
-            {
-                _commandPanel.AppendLine("No actors loaded.", WallyTheme.TextMuted);
-                return;
-            }
-
-            if (actors.Count == 1)
-            {
-                OpenActorEditor(actors[0]);
-                return;
-            }
-
-            // Show a quick picker
-            var names = actors.Select(a => a.Name).ToArray();
-            string? chosen = ShowQuickPicker("Select Actor", names);
-            if (chosen != null)
-            {
-                var actor = _environment.GetActor(chosen);
-                if (actor != null) OpenActorEditor(actor);
-            }
+            if (actors.Count == 0) { _commandPanel.AppendLine("No actors loaded.", WallyTheme.TextMuted); return; }
+            if (actors.Count == 1) { OpenActorEditor(actors[0]); return; }
+            string? chosen = ShowQuickPicker("Select Actor", actors.Select(a => a.Name).ToArray());
+            if (chosen != null) { var a = _environment.GetActor(chosen); if (a != null) OpenActorEditor(a); }
         }
 
         private void OpenLoopPicker()
         {
             if (!_environment.HasWorkspace) return;
-
             var loops = _environment.Loops;
-            if (loops.Count == 0)
-            {
-                _commandPanel.AppendLine("No loops loaded.", WallyTheme.TextMuted);
-                return;
-            }
-
-            if (loops.Count == 1)
-            {
-                OpenLoopEditor(loops[0]);
-                return;
-            }
-
-            var names = loops.Select(l => l.Name).ToArray();
-            string? chosen = ShowQuickPicker("Select Loop", names);
-            if (chosen != null)
-            {
-                var loop = _environment.GetLoop(chosen);
-                if (loop != null) OpenLoopEditor(loop);
-            }
+            if (loops.Count == 0) { _commandPanel.AppendLine("No loops loaded.", WallyTheme.TextMuted); return; }
+            if (loops.Count == 1) { OpenLoopEditor(loops[0]); return; }
+            string? chosen = ShowQuickPicker("Select Loop", loops.Select(l => l.Name).ToArray());
+            if (chosen != null) { var l = _environment.GetLoop(chosen); if (l != null) OpenLoopEditor(l); }
         }
 
         private void OpenWrapperPicker()
         {
             if (!_environment.HasWorkspace) return;
-
             var wrappers = _environment.Workspace!.LlmWrappers;
-            if (wrappers.Count == 0)
-            {
-                _commandPanel.AppendLine("No wrappers loaded.", WallyTheme.TextMuted);
-                return;
-            }
-
-            if (wrappers.Count == 1)
-            {
-                OpenWrapperEditor(wrappers[0]);
-                return;
-            }
-
-            var names = wrappers.Select(w => w.Name).ToArray();
-            string? chosen = ShowQuickPicker("Select Wrapper", names);
+            if (wrappers.Count == 0) { _commandPanel.AppendLine("No wrappers loaded.", WallyTheme.TextMuted); return; }
+            if (wrappers.Count == 1) { OpenWrapperEditor(wrappers[0]); return; }
+            string? chosen = ShowQuickPicker("Select Wrapper", wrappers.Select(w => w.Name).ToArray());
             if (chosen != null)
             {
-                var wrapper = wrappers.FirstOrDefault(w =>
-                    string.Equals(w.Name, chosen, StringComparison.OrdinalIgnoreCase));
-                if (wrapper != null) OpenWrapperEditor(wrapper);
+                var w = wrappers.FirstOrDefault(x => string.Equals(x.Name, chosen, StringComparison.OrdinalIgnoreCase));
+                if (w != null) OpenWrapperEditor(w);
             }
         }
 
         private void OpenRunbookPicker()
         {
             if (!_environment.HasWorkspace) return;
-
             var runbooks = _environment.Runbooks;
-            if (runbooks.Count == 0)
-            {
-                _commandPanel.AppendLine("No runbooks loaded.", WallyTheme.TextMuted);
-                return;
-            }
-
-            if (runbooks.Count == 1)
-            {
-                OpenRunbookEditor(runbooks[0]);
-                return;
-            }
-
-            var names = runbooks.Select(r => r.Name).ToArray();
-            string? chosen = ShowQuickPicker("Select Runbook", names);
-            if (chosen != null)
-            {
-                var runbook = _environment.GetRunbook(chosen);
-                if (runbook != null) OpenRunbookEditor(runbook);
-            }
+            if (runbooks.Count == 0) { _commandPanel.AppendLine("No runbooks loaded.", WallyTheme.TextMuted); return; }
+            if (runbooks.Count == 1) { OpenRunbookEditor(runbooks[0]); return; }
+            string? chosen = ShowQuickPicker("Select Runbook", runbooks.Select(r => r.Name).ToArray());
+            if (chosen != null) { var r = _environment.GetRunbook(chosen); if (r != null) OpenRunbookEditor(r); }
         }
 
-        /// <summary>
-        /// Shows a dark-themed quick-picker dialog with a list of names.
-        /// Returns the selected name, or null if cancelled.
-        /// </summary>
         private string? ShowQuickPicker(string title, string[] items)
         {
             using var dlg = new Form
             {
-                Text = title,
-                Size = new Size(340, 320),
-                StartPosition = FormStartPosition.CenterParent,
+                Text            = title,
+                Size            = new Size(340, 320),
+                StartPosition   = FormStartPosition.CenterParent,
                 FormBorderStyle = FormBorderStyle.FixedDialog,
-                MaximizeBox = false,
-                MinimizeBox = false,
-                BackColor = WallyTheme.Surface1,
-                ForeColor = WallyTheme.TextPrimary,
-                Font = WallyTheme.FontUI
+                MaximizeBox     = false,
+                MinimizeBox     = false,
+                BackColor       = WallyTheme.Surface1,
+                ForeColor       = WallyTheme.TextPrimary,
+                Font            = WallyTheme.FontUI
             };
 
             var list = new ListBox
             {
-                Dock = DockStyle.Fill,
-                Font = WallyTheme.FontUI,
-                BackColor = WallyTheme.Surface1,
-                ForeColor = WallyTheme.TextPrimary,
-                BorderStyle = BorderStyle.None,
+                Dock          = DockStyle.Fill,
+                Font          = WallyTheme.FontUI,
+                BackColor     = WallyTheme.Surface1,
+                ForeColor     = WallyTheme.TextPrimary,
+                BorderStyle   = BorderStyle.None,
                 IntegralHeight = false
             };
             list.Items.AddRange(items);
@@ -991,41 +839,25 @@ namespace Wally.Forms
 
             string? result = null;
 
-            list.DoubleClick += (_, _) =>
+            list.DoubleClick += (_, _) => { result = list.SelectedItem?.ToString(); dlg.DialogResult = DialogResult.OK; };
+            list.KeyDown     += (_, ke) =>
             {
-                result = list.SelectedItem?.ToString();
-                dlg.DialogResult = DialogResult.OK;
-            };
-
-            list.KeyDown += (_, ke) =>
-            {
-                if (ke.KeyCode == Keys.Enter)
-                {
-                    result = list.SelectedItem?.ToString();
-                    dlg.DialogResult = DialogResult.OK;
-                }
-                else if (ke.KeyCode == Keys.Escape)
-                {
-                    dlg.DialogResult = DialogResult.Cancel;
-                }
+                if      (ke.KeyCode == Keys.Enter)  { result = list.SelectedItem?.ToString(); dlg.DialogResult = DialogResult.OK; }
+                else if (ke.KeyCode == Keys.Escape) { dlg.DialogResult = DialogResult.Cancel; }
             };
 
             var btnOk = new Button
             {
-                Text = "Open",
-                Dock = DockStyle.Bottom,
-                Height = 32,
+                Text      = "Open",
+                Dock      = DockStyle.Bottom,
+                Height    = 32,
                 FlatStyle = FlatStyle.Flat,
                 BackColor = WallyTheme.Surface3,
                 ForeColor = WallyTheme.TextPrimary,
-                Font = WallyTheme.FontUIBold
+                Font      = WallyTheme.FontUIBold
             };
             btnOk.FlatAppearance.BorderSize = 0;
-            btnOk.Click += (_, _) =>
-            {
-                result = list.SelectedItem?.ToString();
-                dlg.DialogResult = DialogResult.OK;
-            };
+            btnOk.Click += (_, _) => { result = list.SelectedItem?.ToString(); dlg.DialogResult = DialogResult.OK; };
 
             dlg.Controls.Add(list);
             dlg.Controls.Add(btnOk);
@@ -1063,34 +895,22 @@ namespace Wally.Forms
 
         // -- Stop button -----------------------------------------------------
 
-        /// <summary>
-        /// Raised by either <see cref="_chatPanel"/> or <see cref="_commandPanel"/>
-        /// when their running state changes. Enables/disables the global Stop button.
-        /// </summary>
         private void OnRunningChanged(object? sender, EventArgs e)
         {
             if (InvokeRequired) { Invoke(() => OnRunningChanged(sender, e)); return; }
 
             bool anyRunning = _chatPanel.IsRunning || _commandPanel.IsRunning;
-            tsbStop.Enabled = anyRunning;
+            tsbStop.Enabled   = anyRunning;
             tsbStop.ForeColor = anyRunning ? WallyTheme.Red : WallyTheme.TextDisabled;
 
-            // Progress bar — marquee while anything is running.
             _progressBar.Visible = anyRunning;
-
-            // Lock the terminal input while the chat panel is running so the
-            // user cannot queue a conflicting command or see a misleadingly
-            // active prompt.
             _commandPanel.SetExternallyBusy(_chatPanel.IsRunning);
         }
 
         private void OnStopClick(object? sender, EventArgs e)
         {
-            if (_chatPanel.IsRunning)
-                _chatPanel.Cancel();
-
-            if (_commandPanel.IsRunning)
-                _commandPanel.Cancel();
+            if (_chatPanel.IsRunning)    _chatPanel.Cancel();
+            if (_commandPanel.IsRunning) _commandPanel.Cancel();
         }
     }
 }
