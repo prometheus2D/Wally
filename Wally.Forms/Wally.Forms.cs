@@ -373,6 +373,18 @@ namespace Wally.Forms
 
         // -- Menu handlers ---------------------------------------------------
 
+        private void OnEditCopy(object? sender, EventArgs e)
+        {
+            if (ActiveControl is RichTextBox rtb)
+                rtb.Copy();
+        }
+
+        private void OnEditSelectAll(object? sender, EventArgs e)
+        {
+            if (ActiveControl is RichTextBox rtb)
+                rtb.SelectAll();
+        }
+
         private void OnOpenWorkspace(object? sender, EventArgs e)
         {
             using var dlg = new FolderBrowserDialog

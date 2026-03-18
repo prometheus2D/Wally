@@ -214,14 +214,14 @@ namespace Wally.Forms
             editCopyMenuItem.Size = new Size(200, 22);
             editCopyMenuItem.Text = "&Copy";
             editCopyMenuItem.ForeColor = WallyTheme.TextPrimary;
-            editCopyMenuItem.Click += (s, e) => { if (ActiveControl is RichTextBox rtb) rtb.Copy(); };
+            editCopyMenuItem.Click += OnEditCopy;
 
             editSelectAllMenuItem.Name = "editSelectAllMenuItem";
             editSelectAllMenuItem.ShortcutKeys = Keys.Control | Keys.A;
             editSelectAllMenuItem.Size = new Size(200, 22);
             editSelectAllMenuItem.Text = "Select &All";
             editSelectAllMenuItem.ForeColor = WallyTheme.TextPrimary;
-            editSelectAllMenuItem.Click += (s, e) => { if (ActiveControl is RichTextBox rtb) rtb.SelectAll(); };
+            editSelectAllMenuItem.Click += OnEditSelectAll;
 
             // ═══════════════════════════════════════════════════════════════
             //  Options menu
