@@ -159,6 +159,7 @@ namespace Wally.Forms.Controls
 
         public void ClearTree()
         {
+            if (InvokeRequired) { Invoke(ClearTree); return; }
             _tree.BeginUpdate();
             _tree.Nodes.Clear();
             _tree.EndUpdate();
@@ -166,7 +167,8 @@ namespace Wally.Forms.Controls
 
         public override void Refresh()
         {
-            base.Refresh();
+            // Skip base.Refresh() — BuildTree() calls BeginUpdate/EndUpdate which
+            // handles invalidation. Calling base first causes a redundant repaint.
             BuildTree();
         }
 
@@ -174,6 +176,8 @@ namespace Wally.Forms.Controls
 
         private void BuildTree()
         {
+            if (InvokeRequired) { Invoke(BuildTree); return; }
+
             _tree.BeginUpdate();
             _tree.Nodes.Clear();
 

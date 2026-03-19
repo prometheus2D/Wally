@@ -42,9 +42,9 @@ namespace Wally.Forms.Controls
 
         private static readonly string[] KnownCommands =
         {
-            "setup", "load", "save", "run", "runbook", "list", "list-loops",
-            "list-wrappers", "list-runbooks", "info", "reload-actors", "cleanup",
-            "commands", "help", "tutorial",
+            "setup", "load", "save", "close", "run", "runbook", "list", "list-loops",
+            "list-wrappers", "list-runbooks", "info", "reload-actors", "repair", "verify",
+            "cleanup", "clear-history", "commands", "help", "tutorial",
             "add-actor", "edit-actor", "delete-actor",
             "add-loop", "edit-loop", "delete-loop",
             "add-wrapper", "edit-wrapper", "delete-wrapper",

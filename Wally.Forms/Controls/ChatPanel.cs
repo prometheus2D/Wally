@@ -752,21 +752,6 @@ namespace Wally.Forms.Controls
             UpdateEmptyState();
         }
 
-        // -- Clear history logic ----------------------------------------------
-
-        private void ClearHistory()
-        {
-            if (InvokeRequired) { Invoke(ClearHistory); return; }
-
-            var result = MessageBox.Show("Clear conversation history?", "Confirm",
-                MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
-            if (result != DialogResult.Yes) return;
-
-            // TODO: Implement history clearing logic
-            MessageBox.Show("History cleared (not really, implement me).", "Info",
-                MessageBoxButtons.OK, MessageBoxIcon.Information);
-        }
-
         // -- Send logic ------------------------------------------------------
 
         private void OnInputKeyDown(object? sender, KeyEventArgs e)

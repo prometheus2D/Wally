@@ -192,6 +192,12 @@ namespace Wally.Forms.Controls
             _fileExplorer.Visible    = _activeTab == Tab.Files;
             _projectExplorer.Visible = _activeTab == Tab.Project;
             _objectExplorer.Visible  = _activeTab == Tab.Objects;
+
+            // Bring the active panel to the top of the z-order so it paints
+            // correctly when all three panels share the same parent container.
+            if (_activeTab == Tab.Files)        _fileExplorer.BringToFront();
+            else if (_activeTab == Tab.Project) _projectExplorer.BringToFront();
+            else                                _objectExplorer.BringToFront();
         }
 
         // ?? Tab bar painting ????????????????????????????????????????????????
