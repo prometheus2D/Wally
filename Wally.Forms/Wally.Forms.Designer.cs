@@ -110,6 +110,7 @@ namespace Wally.Forms
             menuStrip1.Items.AddRange(new ToolStripItem[] { fileToolStripMenuItem, editToolStripMenuItem, optionsToolStripMenuItem, viewToolStripMenuItem, editorsToolStripMenuItem, workspaceToolStripMenuItem });
             menuStrip1.Location = new Point(0, 0);
             menuStrip1.Name = "menuStrip1";
+            menuStrip1.Renderer = WallyTheme.CreateRenderer();
             menuStrip1.Size = new Size(1280, 24);
             menuStrip1.TabIndex = 0;
             // 
