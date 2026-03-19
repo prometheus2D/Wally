@@ -39,7 +39,7 @@ namespace Wally.Forms.Controls
         // ?? Node tag types ??????????????????????????????????????????????????
 
         private sealed record NodeTag(string Path, NodeKind Kind);
-        private enum NodeKind { Category, Actor, Loop, Wrapper, Runbook, Config, Doc, File }
+        private enum NodeKind { Category, Actor, Loop, Wrapper, Runbook, Config, Doc, File, MailboxFolder, Project, Epoch, Sprint, Task }
 
         // ?? Constructor ?????????????????????????????????????????????????????
 
@@ -51,14 +51,19 @@ namespace Wally.Forms.Controls
 
             // Image list
             _imageList = new ImageList { ColorDepth = ColorDepth.Depth32Bit, ImageSize = new Size(16, 16) };
-            _imageList.Images.Add("category",  DrawCategoryIcon(Color.FromArgb(113, 113, 122)));
-            _imageList.Images.Add("actor",     DrawCircleIcon(Color.FromArgb(130, 180, 240)));
-            _imageList.Images.Add("loop",      DrawCycleIcon(Color.FromArgb(100, 200, 130)));
-            _imageList.Images.Add("wrapper",   DrawGearIcon(Color.FromArgb(210, 170, 80)));
-            _imageList.Images.Add("runbook",   DrawPageIcon(Color.FromArgb(200, 140, 220)));
-            _imageList.Images.Add("config",    DrawGearIcon(Color.FromArgb(161, 161, 170)));
-            _imageList.Images.Add("doc",       DrawDocIcon(Color.FromArgb(100, 180, 100)));
-            _imageList.Images.Add("file",      DrawFileIcon(Color.FromArgb(160, 160, 170)));
+            _imageList.Images.Add("category",      DrawCategoryIcon(Color.FromArgb(113, 113, 122)));
+            _imageList.Images.Add("actor",         DrawCircleIcon(Color.FromArgb(130, 180, 240)));
+            _imageList.Images.Add("loop",          DrawCycleIcon(Color.FromArgb(100, 200, 130)));
+            _imageList.Images.Add("wrapper",       DrawGearIcon(Color.FromArgb(210, 170, 80)));
+            _imageList.Images.Add("runbook",       DrawPageIcon(Color.FromArgb(200, 140, 220)));
+            _imageList.Images.Add("config",        DrawGearIcon(Color.FromArgb(161, 161, 170)));
+            _imageList.Images.Add("doc",           DrawDocIcon(Color.FromArgb(100, 180, 100)));
+            _imageList.Images.Add("file",          DrawFileIcon(Color.FromArgb(160, 160, 170)));
+            _imageList.Images.Add("mailbox",       DrawFolderIcon(Color.FromArgb(100, 160, 220)));
+            _imageList.Images.Add("project",       DrawFolderIcon(Color.FromArgb(210, 170, 80)));
+            _imageList.Images.Add("epoch",         DrawFolderIcon(Color.FromArgb(180, 140, 200)));
+            _imageList.Images.Add("sprint",        DrawFolderIcon(Color.FromArgb(100, 200, 160)));
+            _imageList.Images.Add("task",          DrawFileIcon(Color.FromArgb(200, 200, 120)));
 
             // Toolbar
             _btnRefresh = new ToolStripButton("\u21BB")
@@ -275,6 +280,126 @@ namespace Wally.Forms.Controls
             }
             _tree.Nodes.Add(runbooksNode);
 
+            // ?? Shared Workspace mailbox ??
+            string sharedMailboxDir = WallyHelper.GetSharedWorkspaceMailboxDir(ws.WorkspaceFolder, ws.Config);
+            var workspaceNode = MakeCategoryNode("Workspace", "\uD83D\uDCEC", -1);
+            workspaceNode.Tag = new NodeTag(sharedMailboxDir, NodeKind.MailboxFolder);
+            if (Directory.Exists(sharedMailboxDir))
+            {
+                foreach (string folder in new[]
+                {
+                    WallyHelper.MailboxInboxFolderName,
+                    WallyHelper.MailboxOutboxFolderName,
+                    WallyHelper.MailboxPendingFolderName,
+                    WallyHelper.MailboxActiveFolderName
+                })
+                {
+                    string dir = Path.Combine(sharedMailboxDir, folder);
+                    if (!Directory.Exists(dir)) continue;
+                    var boxNode = new TreeNode(folder)
+                    {
+                        Tag              = new NodeTag(dir, NodeKind.MailboxFolder),
+                        ImageKey         = "mailbox",
+                        SelectedImageKey = "mailbox",
+                        ToolTipText      = dir
+                    };
+                    int fileCount = Directory.GetFiles(dir).Length;
+                    if (fileCount > 0)
+                    {
+                        boxNode.Text = $"{folder}  [{fileCount}]";
+                        foreach (string f in Directory.GetFiles(dir))
+                            boxNode.Nodes.Add(MakeFileNode(Path.GetFileName(f), f, NodeKind.File, "file"));
+                    }
+                    workspaceNode.Nodes.Add(boxNode);
+                }
+                int totalFiles = Directory.GetFiles(sharedMailboxDir, "*", SearchOption.AllDirectories).Length;
+                workspaceNode.Text = totalFiles > 0
+                    ? $"\uD83D\uDCEC Workspace  [{totalFiles} file(s)]"
+                    : "\uD83D\uDCEC Workspace";
+            }
+            else
+            {
+                workspaceNode.Text = "\uD83D\uDCEC Workspace  (not initialised)";
+                workspaceNode.ForeColor = WallyTheme.TextDisabled;
+            }
+            _tree.Nodes.Add(workspaceNode);
+
+            // ?? Projects ??
+            string projectsDir = Path.Combine(ws.WorkspaceFolder, ws.Config.ProjectsFolderName);
+            var projectsRoot = MakeCategoryNode("Projects", "\uD83D\uDDC2", -1);
+            projectsRoot.Tag = new NodeTag(projectsDir, NodeKind.Category);
+            if (Directory.Exists(projectsDir))
+            {
+                foreach (string projectDir in Directory.GetDirectories(projectsDir))
+                {
+                    string projectName = Path.GetFileName(projectDir);
+                    var projectNode = new TreeNode(projectName)
+                    {
+                        Tag              = new NodeTag(projectDir, NodeKind.Project),
+                        ImageKey         = "project",
+                        SelectedImageKey = "project",
+                        ToolTipText      = projectDir
+                    };
+
+                    string epochsDir = Path.Combine(projectDir, WallyHelper.ProjectEpochsFolderName);
+                    if (Directory.Exists(epochsDir))
+                    {
+                        foreach (string epochDir in Directory.GetDirectories(epochsDir))
+                        {
+                            string epochName = Path.GetFileName(epochDir);
+                            var epochNode = new TreeNode(epochName)
+                            {
+                                Tag              = new NodeTag(epochDir, NodeKind.Epoch),
+                                ImageKey         = "epoch",
+                                SelectedImageKey = "epoch",
+                                ToolTipText      = epochDir
+                            };
+
+                            // Tasks directly under the epoch
+                            string epochTasksDir = Path.Combine(epochDir, WallyHelper.ProjectTasksFolderName);
+                            if (Directory.Exists(epochTasksDir))
+                                AddTaskNodes(epochNode, epochTasksDir);
+
+                            // Sprints under the epoch
+                            string sprintsDir = Path.Combine(epochDir, WallyHelper.ProjectSprintsFolderName);
+                            if (Directory.Exists(sprintsDir))
+                            {
+                                foreach (string sprintDir in Directory.GetDirectories(sprintsDir))
+                                {
+                                    string sprintName = Path.GetFileName(sprintDir);
+                                    var sprintNode = new TreeNode(sprintName)
+                                    {
+                                        Tag              = new NodeTag(sprintDir, NodeKind.Sprint),
+                                        ImageKey         = "sprint",
+                                        SelectedImageKey = "sprint",
+                                        ToolTipText      = sprintDir
+                                    };
+                                    string sprintTasksDir = Path.Combine(sprintDir, WallyHelper.ProjectTasksFolderName);
+                                    if (Directory.Exists(sprintTasksDir))
+                                        AddTaskNodes(sprintNode, sprintTasksDir);
+                                    epochNode.Nodes.Add(sprintNode);
+                                }
+                            }
+
+                            projectNode.Nodes.Add(epochNode);
+                        }
+                    }
+
+                    projectsRoot.Nodes.Add(projectNode);
+                }
+
+                int projectCount = Directory.GetDirectories(projectsDir).Length;
+                projectsRoot.Text = projectCount > 0
+                    ? $"\uD83D\uDDC2 Projects  [{projectCount}]"
+                    : "\uD83D\uDDC2 Projects";
+            }
+            else
+            {
+                projectsRoot.Text     = "\uD83D\uDDC2 Projects  (not initialised)";
+                projectsRoot.ForeColor = WallyTheme.TextDisabled;
+            }
+            _tree.Nodes.Add(projectsRoot);
+
             // ?? Configuration ??
             string configFile = Path.Combine(ws.WorkspaceFolder, "wally-config.json");
             var configNode = new TreeNode("Configuration")
@@ -326,6 +451,33 @@ namespace Wally.Forms.Controls
                 ToolTipText      = path
             };
 
+        private static void AddTaskNodes(TreeNode parent, string tasksDir)
+        {
+            foreach (string f in Directory.GetFiles(tasksDir))
+            {
+                var n = new TreeNode(Path.GetFileName(f))
+                {
+                    Tag              = new NodeTag(f, NodeKind.Task),
+                    ImageKey         = "task",
+                    SelectedImageKey = "task",
+                    ToolTipText      = f
+                };
+                parent.Nodes.Add(n);
+            }
+            foreach (string d in Directory.GetDirectories(tasksDir))
+            {
+                string name = Path.GetFileName(d);
+                var n = new TreeNode(name)
+                {
+                    Tag              = new NodeTag(d, NodeKind.Task),
+                    ImageKey         = "task",
+                    SelectedImageKey = "task",
+                    ToolTipText      = d
+                };
+                parent.Nodes.Add(n);
+            }
+        }
+
         // ?? Events ??????????????????????????????????????????????????????????
 
         private void OnAfterSelect(object? sender, TreeViewEventArgs e)
@@ -373,6 +525,8 @@ namespace Wally.Forms.Controls
 
             _ctxOpen.Visible = File.Exists(t.Path);
             _ctxOpenFolder.Text = File.Exists(t.Path) ? "Open Containing Folder" : "Open in Explorer";
+            // Always allow "Open in Explorer" for folder-backed node kinds
+            _ctxOpenFolder.Enabled = File.Exists(t.Path) || Directory.Exists(t.Path);
         }
 
         private void OpenSelected()
@@ -489,6 +643,19 @@ namespace Wally.Forms.Controls
             using var g = Graphics.FromImage(bmp);
             using var b = new SolidBrush(c);
             g.FillRectangle(b, 3, 1, 10, 14);
+            return bmp;
+        }
+
+        private static Bitmap DrawFolderIcon(Color c)
+        {
+            var bmp = new Bitmap(16, 16);
+            using var g = Graphics.FromImage(bmp);
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+            using var b = new SolidBrush(c);
+            // Tab
+            g.FillRectangle(b, 1, 4, 6, 2);
+            // Body
+            g.FillRectangle(b, 1, 6, 14, 8);
             return bmp;
         }
     }

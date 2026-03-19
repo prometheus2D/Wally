@@ -15,14 +15,23 @@ namespace Wally.Core
     /// the WorkSource:
     /// <code>
     ///   &lt;WorkSource&gt;/               e.g. C:\repos\MyApp
-    ///       .wally/                     workspace folder
+    ///       .wally/                     workspace folder (tooling root)
     ///           wally-config.json
-    ///           Inbox/                  workspace shared mailbox — incoming requests
-    ///           Outbox/                 workspace shared mailbox — completed deliverables
-    ///           Pending/                workspace shared mailbox — awaiting action
-    ///           Active/                 workspace shared mailbox — work in progress
-    ///           Docs/                   workspace-level documentation
-    ///           Templates/              document templates
+    ///           Workspace/              shared working space — mailbox for all actors
+    ///               Inbox/
+    ///               Outbox/
+    ///               Pending/
+    ///               Active/
+    ///           Projects/               shared project store — Epochs ? Sprints ? Tasks
+    ///               &lt;ProjectName&gt;/
+    ///                   Epochs/
+    ///                       &lt;EpochName&gt;/
+    ///                           Tasks/      (tasks directly under an epoch)
+    ///                           Sprints/
+    ///                               &lt;SprintName&gt;/
+    ///                                   Tasks/
+    ///           Docs/                   workspace-level documentation (own space)
+    ///           Templates/              document templates (own space)
     ///           Actors/
     ///               &lt;ActorName&gt;/
     ///                   actor.json
@@ -33,71 +42,73 @@ namespace Wally.Core
     ///                   Active/         actor mailbox — work in progress
     ///           Loops/                  loop definitions (JSON)
     ///           Wrappers/               LLM wrapper definitions (JSON)
+    ///           Runbooks/               runbook files (.wrb)
     ///           Logs/                   session logs
     /// </code>
     /// All files under WorkSource (including <c>.wally/</c>) are accessible to
-    /// the LLM wrapper. Documentation files are listed in the enriched prompt
-    /// so the LLM knows they exist.
+    /// the LLM wrapper.
     /// </summary>
     public class WallyConfig
     {
         // — Folder names ——————————————————————————————————————————————————————
 
         /// <summary>
+        /// Subfolder inside the workspace folder that is the shared working space
+        /// for all actors. Contains the four mailbox folders (Inbox, Outbox,
+        /// Pending, Active) that serve as the inter-actor coordination bus.
+        /// Default: <c>Workspace</c>.
+        /// </summary>
+        public string WorkspaceFolderName { get; set; } = "Workspace";
+
+        /// <summary>
+        /// Subfolder inside the workspace folder that holds all project state.
+        /// Structure inside: <c>&lt;ProjectName&gt;/Epochs/&lt;EpochName&gt;/Sprints/&lt;SprintName&gt;/Tasks/</c>.
+        /// Tasks can also live directly under an epoch without a sprint.
+        /// Created at runtime by actors or the user — not pre-populated on setup.
+        /// Default: <c>Projects</c>.
+        /// </summary>
+        public string ProjectsFolderName { get; set; } = "Projects";
+
+        /// <summary>
         /// Subfolder inside the workspace folder that holds one directory per actor.
-        /// Each actor directory contains a single <c>actor.json</c> file.
         /// Default: <c>Actors</c>.
         /// </summary>
         public string ActorsFolderName { get; set; } = "Actors";
 
         /// <summary>
         /// Subfolder inside the workspace folder that holds session log directories.
-        /// Each session creates a timestamped subfolder (e.g. <c>2025-07-13_143022_a1b2c3d4</c>).
         /// Default: <c>Logs</c>.
         /// </summary>
         public string LogsFolderName { get; set; } = "Logs";
 
         /// <summary>
         /// Subfolder inside the workspace folder that holds workspace-level
-        /// documentation files (e.g. <c>.md</c>, <c>.txt</c>).
-        /// <para>
-        /// These files are accessible to the LLM wrapper (e.g. via
-        /// <c>--add-dir</c> for Copilot). Doc file names are listed in the
-        /// enriched prompt so the LLM knows they exist and can consult them
-        /// when relevant to the task.
-        /// </para>
+        /// documentation files. Separate from the shared Workspace/ working space.
         /// Default: <c>Docs</c>.
         /// </summary>
         public string DocsFolderName { get; set; } = "Docs";
 
         /// <summary>
-        /// Subfolder inside the workspace folder that holds document templates
-        /// (e.g. <c>ProposalTemplate.md</c>, <c>RequirementsTemplate.md</c>).
-        /// Actors reference these templates when producing structured documents.
+        /// Subfolder inside the workspace folder that holds document templates.
+        /// Separate from the shared Workspace/ working space.
         /// Default: <c>Templates</c>.
         /// </summary>
         public string TemplatesFolderName { get; set; } = "Templates";
 
         /// <summary>
-        /// Subfolder inside the workspace folder that holds loop definition
-        /// JSON files. Each <c>.json</c> file defines a reusable
-        /// <see cref="WallyLoop"/> with its actor, prompts, and stop conditions.
+        /// Subfolder inside the workspace folder that holds loop definition JSON files.
         /// Default: <c>Loops</c>.
         /// </summary>
         public string LoopsFolderName { get; set; } = "Loops";
 
         /// <summary>
-        /// Subfolder inside the workspace folder that holds LLM wrapper
-        /// definition JSON files. Each <c>.json</c> file defines a complete
-        /// CLI recipe for calling an LLM backend (executable, argument template,
-        /// placeholders, and behavioural flags).
+        /// Subfolder inside the workspace folder that holds LLM wrapper definition JSON files.
         /// Default: <c>Wrappers</c>.
         /// </summary>
         public string WrappersFolderName { get; set; } = "Wrappers";
 
         /// <summary>
         /// Subfolder inside the workspace folder that holds runbook files (<c>.wrb</c>).
-        /// Each file defines a reusable sequence of Wally commands.
         /// Default: <c>Runbooks</c>.
         /// </summary>
         public string RunbooksFolderName { get; set; } = "Runbooks";

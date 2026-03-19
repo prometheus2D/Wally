@@ -20,20 +20,28 @@ namespace Wally.Core
 
         // ? Mailbox folder names ???????????????????????????????????????????????
 
-        /// <summary>
-        /// Standard inbox folder name. Created at the workspace root (shared mailbox)
-        /// and inside every actor folder (actor mailbox).
-        /// </summary>
+        /// <summary>Standard inbox folder name — created inside Workspace/ and each actor folder.</summary>
         public const string MailboxInboxFolderName   = "Inbox";
 
-        /// <summary>Standard outbox folder name for the workspace and each actor.</summary>
+        /// <summary>Standard outbox folder name.</summary>
         public const string MailboxOutboxFolderName  = "Outbox";
 
-        /// <summary>Standard pending folder name for the workspace and each actor.</summary>
+        /// <summary>Standard pending folder name.</summary>
         public const string MailboxPendingFolderName = "Pending";
 
-        /// <summary>Standard active folder name for the workspace and each actor.</summary>
+        /// <summary>Standard active folder name.</summary>
         public const string MailboxActiveFolderName  = "Active";
+
+        // ? Projects hierarchy folder names ???????????????????????????????????
+
+        /// <summary>Folder name for epoch containers inside a project folder.</summary>
+        public const string ProjectEpochsFolderName  = "Epochs";
+
+        /// <summary>Folder name for sprint containers inside an epoch folder.</summary>
+        public const string ProjectSprintsFolderName = "Sprints";
+
+        /// <summary>Folder name for task containers inside an epoch or sprint folder.</summary>
+        public const string ProjectTasksFolderName   = "Tasks";
 
         // ? Default workspace folder name ?????????????????????????????????????
 
@@ -61,9 +69,9 @@ namespace Wally.Core
         // ? Workspace scaffolding ??????????????????????????????????????????????
 
         /// <summary>
-        /// Scaffolds a complete workspace at <paramref name="workspaceFolder"/>,
-        /// including the workspace-level mailbox folders (Inbox, Outbox, Pending, Active)
-        /// that serve as the shared coordination space for all actors.
+        /// Scaffolds a complete workspace at <paramref name="workspaceFolder"/>.
+        /// Creates the <c>Workspace/</c> shared mailbox container, the <c>Projects/</c>
+        /// folder, standard tooling folders, and per-actor mailboxes.
         /// </summary>
         public static void CreateDefaultWorkspace(string workspaceFolder, WallyConfig config = null)
         {
@@ -85,12 +93,17 @@ namespace Wally.Core
             config ??= new WallyConfig();
 
             Directory.CreateDirectory(Path.Combine(workspaceFolder, config.DocsFolderName));
+            Directory.CreateDirectory(Path.Combine(workspaceFolder, config.TemplatesFolderName));
             Directory.CreateDirectory(Path.Combine(workspaceFolder, config.LoopsFolderName));
             Directory.CreateDirectory(Path.Combine(workspaceFolder, config.WrappersFolderName));
             Directory.CreateDirectory(Path.Combine(workspaceFolder, config.RunbooksFolderName));
             Directory.CreateDirectory(Path.Combine(workspaceFolder, Logging.ConversationLogger.DefaultFolderName));
 
-            // Workspace-level shared mailbox + any actors already on disk.
+            // Projects/ — shared project store (Epochs ? Sprints ? Tasks).
+            // Scaffolded empty; structure is created at runtime by actors/users.
+            Directory.CreateDirectory(Path.Combine(workspaceFolder, config.ProjectsFolderName));
+
+            // Workspace/ shared mailbox + per-actor mailboxes.
             EnsureAllMailboxFolders(workspaceFolder, config);
         }
 
@@ -98,7 +111,7 @@ namespace Wally.Core
 
         /// <summary>
         /// Creates the four standard mailbox folders (Inbox, Outbox, Pending, Active)
-        /// inside <paramref name="entityDir"/> if they do not already exist.
+        /// inside <paramref name="entityDir"/>. Used for actor-private mailboxes.
         /// Idempotent — safe to call on every load or setup.
         /// </summary>
         public static void CreateMailboxFolders(string entityDir)
@@ -110,27 +123,81 @@ namespace Wally.Core
         }
 
         /// <summary>
-        /// Ensures the workspace-level shared mailbox folders exist and creates
-        /// mailbox folders for every actor subfolder currently on disk.
-        /// <para>
-        /// This is called on every workspace load, not just on first-time scaffold,
-        /// so mailboxes are guaranteed to exist even if the workspace was created
-        /// by an older version of Wally or actors were added manually.
-        /// </para>
+        /// Returns the path to the shared <c>Workspace/</c> mailbox container inside
+        /// <paramref name="workspaceFolder"/>, using the folder name from <paramref name="config"/>.
+        /// </summary>
+        public static string GetSharedWorkspaceMailboxDir(string workspaceFolder, WallyConfig config = null)
+        {
+            config ??= ResolveConfig(workspaceFolder);
+            return Path.Combine(workspaceFolder, config.WorkspaceFolderName);
+        }
+
+        /// <summary>
+        /// Ensures the <c>Workspace/</c> shared mailbox container and its four
+        /// mailbox subfolders exist, and creates mailbox folders for every actor
+        /// subfolder currently on disk. Idempotent.
         /// </summary>
         public static void EnsureAllMailboxFolders(string workspaceFolder, WallyConfig config = null)
         {
             config ??= ResolveConfig(workspaceFolder);
 
-            // Workspace shared mailbox (.wally/Inbox/, Outbox/, Pending/, Active/)
-            CreateMailboxFolders(workspaceFolder);
+            // Shared workspace mailbox: .wally/Workspace/Inbox|Outbox|Pending|Active
+            string sharedDir = GetSharedWorkspaceMailboxDir(workspaceFolder, config);
+            Directory.CreateDirectory(sharedDir);
+            CreateMailboxFolders(sharedDir);
 
-            // Per-actor mailboxes (.wally/Actors/<Name>/Inbox/, etc.)
+            // Per-actor mailboxes: .wally/Actors/<Name>/Inbox|Outbox|Pending|Active
             string actorsDir = Path.Combine(workspaceFolder, config.ActorsFolderName);
             if (!Directory.Exists(actorsDir)) return;
 
             foreach (string actorDir in Directory.GetDirectories(actorsDir))
                 CreateMailboxFolders(actorDir);
+        }
+
+        /// <summary>
+        /// Creates a new project folder scaffold under <c>Projects/&lt;projectName&gt;/</c>
+        /// with an <c>Epochs/</c> subfolder. The project folder and epoch/sprint/task
+        /// subfolders are created on demand at runtime.
+        /// Returns the full path to the new project folder.
+        /// </summary>
+        public static string CreateProjectFolder(string workspaceFolder, string projectName, WallyConfig config = null)
+        {
+            config ??= ResolveConfig(workspaceFolder);
+            string projectDir = Path.Combine(workspaceFolder, config.ProjectsFolderName, projectName);
+            Directory.CreateDirectory(Path.Combine(projectDir, ProjectEpochsFolderName));
+            return projectDir;
+        }
+
+        /// <summary>
+        /// Creates an epoch folder under <c>Projects/&lt;projectName&gt;/Epochs/&lt;epochName&gt;/</c>
+        /// with <c>Tasks/</c> and <c>Sprints/</c> subfolders pre-created.
+        /// Returns the full path to the new epoch folder.
+        /// </summary>
+        public static string CreateEpochFolder(string workspaceFolder, string projectName, string epochName, WallyConfig config = null)
+        {
+            config ??= ResolveConfig(workspaceFolder);
+            string epochDir = Path.Combine(
+                workspaceFolder, config.ProjectsFolderName,
+                projectName, ProjectEpochsFolderName, epochName);
+            Directory.CreateDirectory(Path.Combine(epochDir, ProjectTasksFolderName));
+            Directory.CreateDirectory(Path.Combine(epochDir, ProjectSprintsFolderName));
+            return epochDir;
+        }
+
+        /// <summary>
+        /// Creates a sprint folder under <c>Epochs/&lt;epochName&gt;/Sprints/&lt;sprintName&gt;/</c>
+        /// with a <c>Tasks/</c> subfolder pre-created.
+        /// Returns the full path to the new sprint folder.
+        /// </summary>
+        public static string CreateSprintFolder(string workspaceFolder, string projectName, string epochName, string sprintName, WallyConfig config = null)
+        {
+            config ??= ResolveConfig(workspaceFolder);
+            string sprintDir = Path.Combine(
+                workspaceFolder, config.ProjectsFolderName,
+                projectName, ProjectEpochsFolderName, epochName,
+                ProjectSprintsFolderName, sprintName);
+            Directory.CreateDirectory(Path.Combine(sprintDir, ProjectTasksFolderName));
+            return sprintDir;
         }
 
         // ? Actor loading ?????????????????????????????????????????????????????
@@ -243,6 +310,7 @@ namespace Wally.Core
             if (!File.Exists(configPath))
                 issues.Add($"Config file missing: {configPath}");
 
+            // Tooling folders
             CheckDir(issues, workspaceFolder, config.ActorsFolderName);
             CheckDir(issues, workspaceFolder, config.DocsFolderName);
             CheckDir(issues, workspaceFolder, config.TemplatesFolderName);
@@ -252,10 +320,15 @@ namespace Wally.Core
             CheckDir(issues, workspaceFolder, config.RunbooksFolderName);
             CheckDir(issues, workspaceFolder, Logging.ConversationLogger.DefaultFolderName);
 
-            // Workspace-level mailbox folders.
-            CheckMailboxFolders(issues, workspaceFolder, "Workspace");
+            // Shared working space — Workspace/ container + its mailbox subfolders
+            CheckDir(issues, workspaceFolder, config.WorkspaceFolderName);
+            string sharedDir = Path.Combine(workspaceFolder, config.WorkspaceFolderName);
+            CheckMailboxFolders(issues, sharedDir, "Workspace");
 
-            // Per-actor structure.
+            // Projects store
+            CheckDir(issues, workspaceFolder, config.ProjectsFolderName);
+
+            // Per-actor structure
             string actorsDir = Path.Combine(workspaceFolder, config.ActorsFolderName);
             if (Directory.Exists(actorsDir))
             {

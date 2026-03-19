@@ -11,22 +11,25 @@ namespace Wally.Core
     /// <summary>
     /// Represents a Wally workspace bound to a folder on disk.
     ///
-    /// The workspace model is built around two directories:
-    /// <list type="bullet">
-    ///   <item><b>WorkSource</b> — the root of the user's codebase (e.g. <c>C:\repos\MyApp</c>).
-    ///         This is the directory whose files provide context to the LLM wrapper.</item>
-    ///   <item><b>WorkspaceFolder</b> — the <c>.wally/</c> folder inside the WorkSource that
-    ///         holds config, actor definitions, loop definitions, and LLM wrapper definitions.</item>
-    /// </list>
-    ///
     /// <code>
     ///   &lt;WorkSource&gt;/                e.g. C:\repos\MyApp
-    ///       .wally/                      WorkspaceFolder (shared coordination space)
+    ///       .wally/                      WorkspaceFolder (tooling root)
     ///           wally-config.json
-    ///           Inbox/                   workspace shared mailbox
-    ///           Outbox/
-    ///           Pending/
-    ///           Active/
+    ///           Workspace/               shared working space — inter-actor mailbox
+    ///               Inbox/
+    ///               Outbox/
+    ///               Pending/
+    ///               Active/
+    ///           Projects/                shared project store — Epochs ? Sprints ? Tasks
+    ///               &lt;ProjectName&gt;/
+    ///                   Epochs/
+    ///                       &lt;EpochName&gt;/
+    ///                           Tasks/
+    ///                           Sprints/
+    ///                               &lt;SprintName&gt;/
+    ///                                   Tasks/
+    ///           Docs/                    workspace-level documentation (own space)
+    ///           Templates/               document templates (own space)
     ///           Actors/
     ///               &lt;ActorName&gt;/       one folder per actor
     ///                   actor.json
@@ -35,10 +38,9 @@ namespace Wally.Core
     ///                   Outbox/
     ///                   Pending/
     ///                   Active/
-    ///           Docs/
-    ///           Templates/
     ///           Loops/
     ///           Wrappers/
+    ///           Runbooks/
     ///           Logs/
     /// </code>
     /// </summary>

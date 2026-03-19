@@ -20,7 +20,7 @@ namespace Wally.Forms.Controls
 
     /// <summary>
     /// The action mode determines how prompts are executed and what the AI is
-    /// allowed to do. Maps directly to the wrapper's <c>CanMakeChanges</c> flag.
+    /// allowed to do.
     /// </summary>
     internal enum ActionMode
     {
@@ -57,20 +57,22 @@ namespace Wally.Forms.Controls
         private readonly Button _btnModeAgent;
         private readonly Label _lblModeHint;
 
-        // -- Toolbar (Actor, Loop, Model) ------------------------------------
+        // -- Toolbar (Actor, Loop, Runbook, Model) ---------------------------
 
         private readonly ToolStrip _toolbar;
         private readonly ToolStripDropDownButton _ddActor;
         private readonly ToolStripDropDownButton _ddLoop;
+        private readonly ToolStripDropDownButton _ddRunbook;
         private readonly ToolStripDropDownButton _ddModel;
         private readonly ToolStripButton _btnClear;
         private readonly ToolStripButton _btnClearHistory;
 
         // -- Selected values (tracked explicitly) ----------------------------
 
-        private string? _selectedActor;   // null = "None" (direct prompt)
-        private string? _selectedLoop;    // null = no loop (single run)
-        private string? _selectedModel;   // null = workspace default
+        private string? _selectedActor;    // null = "None" (direct prompt)
+        private string? _selectedLoop;     // null = no loop (single run)
+        private string? _selectedRunbook;  // null = no runbook
+        private string? _selectedModel;    // null = workspace default
 
         // -- Conversation area -----------------------------------------------
 
@@ -133,10 +135,10 @@ namespace Wally.Forms.Controls
             _header.Controls.Add(_lblTitle);
 
             // -- Action mode selector bar --
-            _btnModeAsk = CreateModeButton("\uD83D\uDCAC Ask");
+            _btnModeAsk   = CreateModeButton("\uD83D\uDCAC Ask");
             _btnModeAgent = CreateModeButton("\uD83E\uDD16 Agent");
 
-            _btnModeAsk.Click += (_, _) => SetMode(ActionMode.Ask);
+            _btnModeAsk.Click   += (_, _) => SetMode(ActionMode.Ask);
             _btnModeAgent.Click += (_, _) => SetMode(ActionMode.Agent);
 
             _lblModeHint = new Label
@@ -174,9 +176,10 @@ namespace Wally.Forms.Controls
             _modeBar.Controls.Add(modeButtonPanel);
 
             // -- Toolbar dropdown buttons --
-            _ddActor = CreateDropDown("None", "Select actor (None = direct prompt)");
-            _ddLoop = CreateDropDown("(none)", "Select loop (none = single run)");
-            _ddModel = CreateDropDown("(default)", "Select model (default = workspace default)");
+            _ddActor   = CreateDropDown("None",      "Select actor (None = direct prompt)");
+            _ddLoop    = CreateDropDown("(none)",    "Select loop (none = single run)");
+            _ddRunbook = CreateDropDown("(none)",    "Select a runbook to execute in Agent mode");
+            _ddModel   = CreateDropDown("(default)", "Select model (default = workspace default)");
 
             _btnClear = new ToolStripButton("\u2715 Clear")
             {
@@ -207,13 +210,16 @@ namespace Wally.Forms.Controls
             };
             _toolbar.Items.AddRange(new ToolStripItem[]
             {
-                new ToolStripLabel("Actor") { ForeColor = WallyTheme.TextMuted, Font = WallyTheme.FontUISmallBold },
+                new ToolStripLabel("Actor")   { ForeColor = WallyTheme.TextMuted, Font = WallyTheme.FontUISmallBold },
                 _ddActor,
                 new ToolStripSeparator(),
-                new ToolStripLabel("Loop") { ForeColor = WallyTheme.TextMuted, Font = WallyTheme.FontUISmallBold },
+                new ToolStripLabel("Loop")    { ForeColor = WallyTheme.TextMuted, Font = WallyTheme.FontUISmallBold },
                 _ddLoop,
                 new ToolStripSeparator(),
-                new ToolStripLabel("Model") { ForeColor = WallyTheme.TextMuted, Font = WallyTheme.FontUISmallBold },
+                new ToolStripLabel("Runbook") { ForeColor = WallyTheme.TextMuted, Font = WallyTheme.FontUISmallBold },
+                _ddRunbook,
+                new ToolStripSeparator(),
+                new ToolStripLabel("Model")   { ForeColor = WallyTheme.TextMuted, Font = WallyTheme.FontUISmallBold },
                 _ddModel,
                 new ToolStripSeparator(),
                 _btnClear,
@@ -224,9 +230,9 @@ namespace Wally.Forms.Controls
             _lblEmptyState = new Label
             {
                 Text = "\U0001F4AC\n\nType a message to start a conversation.\n\n" +
-                       "Select an actor to add persona context,\nor leave it unselected for direct AI prompts.\n\n" +
-                       "\uD83D\uDCAC Ask \u2014 text response only (read-only)\n" +
-                       "\uD83E\uDD16 Agent \u2014 can make file changes",
+                       "\uD83D\uDCAC Ask \u2014 read-only, text response only\n" +
+                       "\uD83E\uDD16 Agent \u2014 can make file changes; select a Runbook for multi-step pipelines\n\n" +
+                       "Use the Actor, Loop, and Model dropdowns\nto customise each request.",
                 Dock = DockStyle.Fill,
                 ForeColor = WallyTheme.TextDisabled,
                 BackColor = WallyTheme.Surface0,
@@ -435,7 +441,7 @@ namespace Wally.Forms.Controls
         {
             _currentMode = mode;
 
-            // Reset all mode buttons to inactive.
+            // Reset both buttons to inactive style.
             foreach (var btn in new[] { _btnModeAsk, _btnModeAgent })
             {
                 btn.BackColor = WallyTheme.Surface2;
@@ -443,56 +449,55 @@ namespace Wally.Forms.Controls
                 btn.FlatAppearance.BorderColor = WallyTheme.Border;
             }
 
-            // Activate the selected button.
-            Button active = mode switch
-            {
-                ActionMode.Ask => _btnModeAsk,
-                ActionMode.Agent => _btnModeAgent,
-                _ => _btnModeAsk
-            };
+            // Highlight the active button.
+            Button active = mode == ActionMode.Agent ? _btnModeAgent : _btnModeAsk;
             active.BackColor = WallyTheme.Surface4;
             active.ForeColor = WallyTheme.TextPrimary;
             active.FlatAppearance.BorderColor = WallyTheme.TextMuted;
 
-            // Update hint text.
+            // Update hint and header.
             _lblModeHint.Text = mode switch
             {
-                ActionMode.Ask => "Read-only response",
-                ActionMode.Agent => "Can make file changes",
-                _ => ""
+                ActionMode.Ask   => "Read-only \u2014 text response only",
+                ActionMode.Agent => "Agentic \u2014 can make file changes \u00B7 select a Runbook for multi-step pipelines",
+                _                => ""
             };
             _lblModeHint.ForeColor = WallyTheme.TextMuted;
 
-            // Update send button state.
+            _lblTitle.Text = mode switch
+            {
+                ActionMode.Ask   => "AI CHAT \u2014 Ask",
+                ActionMode.Agent => "AI CHAT \u2014 Agent",
+                _                => "AI CHAT"
+            };
+
+            // Runbook is only meaningful in Agent mode — dim it otherwise.
+            _ddRunbook.ForeColor = mode == ActionMode.Agent
+                ? WallyTheme.TextPrimary
+                : WallyTheme.TextDisabled;
+            _ddRunbook.Enabled = mode == ActionMode.Agent && _workspaceLoaded && !_isRunning;
+
+            bool inputEnabled = _workspaceLoaded && !_isRunning;
+            _ddActor.Enabled = inputEnabled;
+            _ddLoop.Enabled  = inputEnabled;
+            _ddRunbook.Enabled   = inputEnabled && _currentMode == ActionMode.Agent;
+            _ddModel.Enabled = inputEnabled;
+
             if (!_isRunning && _workspaceLoaded)
             {
                 _btnSend.BackColor = WallyTheme.Surface3;
-                _btnSend.Enabled = true;
+                _btnSend.Enabled   = true;
                 _txtInput.ReadOnly = false;
             }
-
-            // All controls remain enabled — actor, loop, and model are orthogonal to the action mode.
-            bool inputEnabled = _workspaceLoaded && !_isRunning;
-            _ddActor.Enabled = inputEnabled;
-            _ddLoop.Enabled = inputEnabled;
-            _ddModel.Enabled = inputEnabled;
-
-            // Update header.
-            _lblTitle.Text = mode switch
-            {
-                ActionMode.Ask => "AI CHAT \u2014 Ask",
-                ActionMode.Agent => "AI CHAT \u2014 Agent",
-                _ => "AI CHAT"
-            };
         }
 
         // -- Wrapper resolution ----------------------------------------------
 
         /// <summary>
         /// Resolves the wrapper name for the current action mode.
-        /// Ask mode uses the first read-only wrapper (CanMakeChanges=false).
-        /// Agent mode uses the first agentic wrapper (CanMakeChanges=true).
-        /// Falls back to the workspace default if no match is found.
+        /// Ask uses the first read-only wrapper (CanMakeChanges=false).
+        /// Agent uses the first agentic wrapper (CanMakeChanges=true).
+        /// Falls back to the workspace default if no capability-match is found.
         /// </summary>
         private string? ResolveWrapperForMode()
         {
@@ -500,13 +505,8 @@ namespace Wally.Forms.Controls
 
             var wrappers = _environment.Workspace!.LlmWrappers;
             bool wantAgentic = _currentMode == ActionMode.Agent;
-
-            // Find the first wrapper matching the desired capability.
             var match = wrappers.FirstOrDefault(w => w.CanMakeChanges == wantAgentic);
-            if (match != null) return match.Name;
-
-            // Fallback: any wrapper, or null (let the environment use its default).
-            return wrappers.Count > 0 ? wrappers[0].Name : null;
+            return match?.Name ?? (wrappers.Count > 0 ? wrappers[0].Name : null);
         }
 
         // -- Public API ------------------------------------------------------
@@ -516,6 +516,7 @@ namespace Wally.Forms.Controls
             _environment = environment;
             RefreshActorList();
             RefreshLoopList();
+            RefreshRunbookList();
             RefreshModelList();
         }
 
@@ -543,7 +544,7 @@ namespace Wally.Forms.Controls
             _btnSend.Enabled = inputEnabled;
             _txtInput.ReadOnly = !inputEnabled;
 
-            _btnModeAsk.Enabled = loaded;
+            _btnModeAsk.Enabled   = loaded;
             _btnModeAgent.Enabled = loaded;
 
             // Visually dim the input area when workspace is not loaded.
@@ -566,9 +567,9 @@ namespace Wally.Forms.Controls
             {
                 _lblEmptyState.Text =
                     "\U0001F4AC\n\nType a message to start a conversation.\n\n" +
-                    "\uD83D\uDCAC Ask \u2014 text response only (read-only)\n" +
-                    "\uD83E\uDD16 Agent \u2014 can make file changes on disk\n\n" +
-                    "Select an actor and loop from the toolbar,\nor leave them unselected for a direct prompt.";
+                    "\uD83D\uDCAC Ask \u2014 read-only, text response only\n" +
+                    "\uD83E\uDD16 Agent \u2014 can make file changes; select a Runbook for multi-step pipelines\n\n" +
+                    "Use the Actor, Loop, and Model dropdowns\nto customise each request.";
                 if (!_isRunning)
                 {
                     _lblStatus.Text = "  Ready";
@@ -604,7 +605,6 @@ namespace Wally.Forms.Controls
             if (_environment?.HasWorkspace == true)
                 items.AddRange(_environment.Loops.Select(l => l.Name));
 
-            // Resolve default loop selection.
             string selected = "(none)";
             _selectedLoop = null;
             if (_environment?.HasWorkspace == true)
@@ -621,7 +621,41 @@ namespace Wally.Forms.Controls
             _ddLoop.Text = selected;
             PopulateDropDown(_ddLoop, items, selected, value =>
             {
-                _selectedLoop = string.Equals(value, "(none)", StringComparison.OrdinalIgnoreCase) ? null : value;
+                _selectedLoop = string.Equals(value, "(none)", StringComparison.OrdinalIgnoreCase)
+                    ? null : value;
+                // Selecting a loop clears the runbook (mutually exclusive execution paths).
+                if (_selectedLoop != null)
+                {
+                    _selectedRunbook = null;
+                    _ddRunbook.Text = "(none)";
+                    foreach (ToolStripMenuItem mi in _ddRunbook.DropDownItems)
+                        mi.Checked = string.Equals(mi.Text, "(none)", StringComparison.Ordinal);
+                }
+            });
+        }
+
+        public void RefreshRunbookList()
+        {
+            if (InvokeRequired) { Invoke(RefreshRunbookList); return; }
+
+            var items = new List<string> { "(none)" };
+            if (_environment?.HasWorkspace == true)
+                items.AddRange(_environment.Runbooks.Select(r => r.Name));
+
+            _selectedRunbook = null;
+            _ddRunbook.Text = "(none)";
+            PopulateDropDown(_ddRunbook, items, "(none)", value =>
+            {
+                _selectedRunbook = string.Equals(value, "(none)", StringComparison.OrdinalIgnoreCase)
+                    ? null : value;
+                // Selecting a runbook clears the loop (they are mutually exclusive execution paths).
+                if (_selectedRunbook != null)
+                {
+                    _selectedLoop = null;
+                    _ddLoop.Text = "(none)";
+                    foreach (ToolStripMenuItem mi in _ddLoop.DropDownItems)
+                        mi.Checked = string.Equals(mi.Text, "(none)", StringComparison.Ordinal);
+                }
             });
         }
 
@@ -655,10 +689,7 @@ namespace Wally.Forms.Controls
             });
         }
 
-        /// <summary>
-        /// Clears all chat bubbles, properly disposing each one,
-        /// and resets the empty-state placeholder.
-        /// </summary>
+        /// <summary>Clears all chat bubbles, properly disposing each one, and resets the empty-state placeholder.</summary>
         public void ClearMessages()
         {
             if (InvokeRequired) { Invoke(ClearMessages); return; }
@@ -705,7 +736,7 @@ namespace Wally.Forms.Controls
                 var userBubble = new ChatBubble(userLabel, turn.Prompt, MessageKind.User, bubbleWidth);
                 _messagesFlow.Controls.Add(userBubble);
 
-                // Response bubble (Actor or Error).
+                // Response bubble — Wally-mode turns had a loop name recorded on them.
                 string responseLabel = turn.ActorName ?? "AI";
                 var responseKind = turn.IsError ? MessageKind.Error : MessageKind.Actor;
                 var responseBubble = new ChatBubble(responseLabel, turn.Response, responseKind, bubbleWidth);
@@ -777,76 +808,91 @@ namespace Wally.Forms.Controls
                 return;
             }
 
-            // -- Resolve selections from tracked state --
-            string? actorName = _selectedActor;
+            // -- Resolve selections --
+            string? actorName     = _selectedActor;
+            string? loopName      = _selectedLoop;
+            string? runbookName   = _currentMode == ActionMode.Agent ? _selectedRunbook : null;
+            string? modelOverride = string.IsNullOrWhiteSpace(_selectedModel) ? null : _selectedModel;
+            string? wrapperName   = ResolveWrapperForMode();
+
+            bool hasRunbook = !string.IsNullOrEmpty(runbookName);
             bool directMode = string.IsNullOrEmpty(actorName);
+            bool isLooped   = !string.IsNullOrEmpty(loopName);
+            string label    = directMode ? "AI" : actorName!;
 
-            string? loopName = _selectedLoop;
-            bool isLooped = !string.IsNullOrEmpty(loopName);
-
-            string? modelOverride = _selectedModel;
-            if (string.IsNullOrWhiteSpace(modelOverride))
-                modelOverride = null;
-
-            string? wrapperName = ResolveWrapperForMode();
-
-            // -- Build the equivalent CLI command for logging --
-            string label = directMode ? "AI" : actorName!;
-            var cmdParts = new List<string> { "run", $"\"{prompt}\"" };
-            if (!directMode) cmdParts.Add($"-a {actorName}");
-            if (isLooped)    cmdParts.Add($"-l {loopName}");
-            if (modelOverride != null) cmdParts.Add($"-m {modelOverride}");
-            if (wrapperName   != null) cmdParts.Add($"-w {wrapperName}");
-            string cmdText = string.Join(" ", cmdParts);
+            // Build the equivalent CLI command for the terminal echo.
+            string cmdText = hasRunbook
+                ? $"runbook {runbookName} \"{prompt}\""
+                : string.Join(" ",
+                    new List<string>(new[] { "run", $"\"{prompt}\"" })
+                    .Concat(!directMode         ? new[] { $"-a {actorName}" } : Array.Empty<string>())
+                    .Concat(isLooped            ? new[] { $"-l {loopName}" }  : Array.Empty<string>())
+                    .Concat(modelOverride != null ? new[] { $"-m {modelOverride}" } : Array.Empty<string>())
+                    .Concat(wrapperName   != null ? new[] { $"-w {wrapperName}" }   : Array.Empty<string>()));
             CommandIssued?.Invoke(this, cmdText);
 
             AddMessage("You", prompt, MessageKind.User);
-
             _txtInput.Clear();
             _txtInput.SelectionColor = WallyTheme.TextPrimary;
-            _txtInput.SelectionFont = WallyTheme.FontUI;
+            _txtInput.SelectionFont  = WallyTheme.FontUI;
 
             _cts = new CancellationTokenSource();
 
             string modeLabel = _currentMode == ActionMode.Agent ? "Agent" : "Ask";
-            string runLabel = isLooped
-                ? $"{modeLabel}: {label} [{loopName}]"
-                : $"{modeLabel}: {label}";
+            string runLabel  = hasRunbook
+                ? $"{modeLabel}: runbook [{runbookName}]"
+                : isLooped
+                    ? $"{modeLabel}: {label} [{loopName}]"
+                    : $"{modeLabel}: {label}";
             SetRunning(true, runLabel);
 
             try
             {
                 var token = _cts.Token;
 
-                var results = await Task.Run(() =>
+                if (hasRunbook)
                 {
-                    token.ThrowIfCancellationRequested();
+                    // -- Runbook execution path --
+                    // Runs an entire .wrb command sequence with the prompt substituted in.
+                    await Task.Run(() =>
+                    {
+                        token.ThrowIfCancellationRequested();
+                        WallyCommands.HandleRunbook(_environment!, runbookName!, prompt);
+                    }, token);
 
-                    return WallyCommands.HandleRunTyped(
-                        _environment!,
-                        prompt,
-                        actorName,
-                        modelOverride,
-                        loopName:   loopName,
-                        wrapper:    wrapperName,
-                        noHistory:  false,
-                        cancellationToken: token);
-                }, token);
-
-                if (results.Count == 0)
-                {
-                    AddMessage("System", "No response from AI.", MessageKind.Error);
-                }
-                else if (results.Count == 1)
-                {
-                    AddMessage(results[0].DisplayLabel(), results[0].Response, MessageKind.Actor);
+                    AddMessage("System",
+                        $"\uD83D\uDCDC Runbook '{runbookName}' complete.",
+                        MessageKind.System);
                 }
                 else
                 {
-                    foreach (var r in results)
-                        AddMessage(r.DisplayLabel(), r.Response, MessageKind.Actor);
+                    // -- Standard run path (Ask / Agent with optional loop) --
+                    var results = await Task.Run(() =>
+                    {
+                        token.ThrowIfCancellationRequested();
+                        return WallyCommands.HandleRunTyped(
+                            _environment!,
+                            prompt,
+                            actorName,
+                            modelOverride,
+                            loopName:          loopName,
+                            wrapper:           wrapperName,
+                            noHistory:         false,
+                            cancellationToken: token);
+                    }, token);
 
-                    AddMessage("System", $"Pipeline complete \u2014 {results.Count} step(s).", MessageKind.System);
+                    if (results.Count == 0)
+                        AddMessage("System", "No response from AI.", MessageKind.Error);
+                    else if (results.Count == 1)
+                        AddMessage(results[0].DisplayLabel(), results[0].Response, MessageKind.Actor);
+                    else
+                    {
+                        foreach (var r in results)
+                            AddMessage(r.DisplayLabel(), r.Response, MessageKind.Actor);
+                        AddMessage("System",
+                            $"Pipeline complete \u2014 {results.Count} step(s).",
+                            MessageKind.System);
+                    }
                 }
             }
             catch (OperationCanceledException)
@@ -905,17 +951,18 @@ namespace Wally.Forms.Controls
             if (InvokeRequired) { Invoke(() => SetRunning(running, context)); return; }
 
             _isRunning = running;
-            _btnSend.Visible = !running;
-            _btnSend.Enabled = !running && _workspaceLoaded;
+            _btnSend.Visible   = !running;
+            _btnSend.Enabled   = !running && _workspaceLoaded;
             _btnCancel.Visible = running;
 
             bool inputEnabled = !running && _workspaceLoaded;
-            _txtInput.ReadOnly = !inputEnabled;
-            _ddActor.Enabled = inputEnabled;
-            _ddLoop.Enabled = inputEnabled;
-            _ddModel.Enabled = inputEnabled;
-            _btnModeAsk.Enabled = !running && _workspaceLoaded;
-            _btnModeAgent.Enabled = !running && _workspaceLoaded;
+            _txtInput.ReadOnly   = !inputEnabled;
+            _ddActor.Enabled     = inputEnabled;
+            _ddLoop.Enabled      = inputEnabled;
+            _ddRunbook.Enabled   = inputEnabled && _currentMode == ActionMode.Agent;
+            _ddModel.Enabled     = inputEnabled;
+            _btnModeAsk.Enabled  = inputEnabled;
+            _btnModeAgent.Enabled = inputEnabled;
 
             _lblStatus.Text = running
                 ? $"  \u26A1 {context}\u2026"
@@ -993,10 +1040,10 @@ namespace Wally.Forms.Controls
 
             Color bubbleBg = _kind switch
             {
-                MessageKind.User => WallyTheme.BubbleUser,
-                MessageKind.Error => WallyTheme.BubbleError,
-                MessageKind.System => WallyTheme.TextMuted,
-                _ => WallyTheme.BubbleActor
+                MessageKind.User   => WallyTheme.BubbleUser,
+                MessageKind.Error  => WallyTheme.BubbleError,
+                MessageKind.System => WallyTheme.Surface2,
+                _                  => WallyTheme.BubbleActor
             };
 
             var bubbleRect = new Rectangle(0, 0, Width - 1, Height - 1);
@@ -1023,10 +1070,10 @@ namespace Wally.Forms.Controls
 
             Color senderColor = _kind switch
             {
-                MessageKind.User => WallyTheme.SenderUser,
-                MessageKind.Error => WallyTheme.SenderSystem,
+                MessageKind.User   => WallyTheme.SenderUser,
+                MessageKind.Error  => WallyTheme.SenderSystem,
                 MessageKind.System => WallyTheme.TextMuted,
-                _ => WallyTheme.SenderActor
+                _                  => WallyTheme.SenderActor
             };
             TextRenderer.DrawText(g, _sender, WallyTheme.FontUISmallBold,
                 new Rectangle(PadX, y, Width - PadX * 2 - TimestampWidth, SenderHeight),

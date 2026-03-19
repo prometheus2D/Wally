@@ -99,11 +99,11 @@ namespace Wally.Forms.Theme
 
         // ?? Chat bubble colors ??????????????????????????????????????????????
 
-        public static readonly Color SenderUser = TextPrimary;
-        public static readonly Color SenderActor = TextSecondary;
+        public static readonly Color SenderUser   = TextPrimary;
+        public static readonly Color SenderActor  = TextSecondary;
         public static readonly Color SenderSystem = Red;
 
-        public static readonly Color BubbleUser = Color.FromArgb(35, 35, 40);
+        public static readonly Color BubbleUser  = Color.FromArgb(35, 35, 40);
         public static readonly Color BubbleActor = Color.FromArgb(39, 39, 44);
         public static readonly Color BubbleError = Color.FromArgb(50, 40, 40);
 

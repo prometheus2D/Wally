@@ -257,16 +257,11 @@ namespace Wally.Core
                 wsFolder = Path.Combine(Path.GetFullPath(src), WallyHelper.DefaultWorkspaceFolderName);
             }
             else if (env.HasWorkspace)
-            {
                 wsFolder = env.Workspace!.WorkspaceFolder;
-            }
             else
-            {
                 wsFolder = WallyHelper.GetDefaultWorkspaceFolder();
-            }
 
             wsFolder = Path.GetFullPath(wsFolder);
-
             Console.WriteLine($"Repairing workspace at: {wsFolder}");
             Console.WriteLine();
 
@@ -280,7 +275,7 @@ namespace Wally.Core
             var config = WallyHelper.ResolveConfig(wsFolder);
             var added  = new List<string>();
 
-            // ?? Standard workspace subfolders ??????????????????????????????
+            // ?? Standard tooling subfolders ????????????????????????????????
             EnsureDir(wsFolder, config.ActorsFolderName,    added);
             EnsureDir(wsFolder, config.DocsFolderName,      added);
             EnsureDir(wsFolder, config.TemplatesFolderName, added);
@@ -290,8 +285,13 @@ namespace Wally.Core
             EnsureDir(wsFolder, config.LogsFolderName,      added);
             EnsureDir(wsFolder, Logging.ConversationLogger.DefaultFolderName, added);
 
-            // ?? Workspace shared mailbox ???????????????????????????????????
-            EnsureMailboxDir(wsFolder, "workspace",          added);
+            // ?? Shared Workspace/ mailbox container ????????????????????????
+            EnsureDir(wsFolder, config.WorkspaceFolderName, added);
+            string sharedDir = Path.Combine(wsFolder, config.WorkspaceFolderName);
+            EnsureMailboxDir(sharedDir, "Workspace", added);
+
+            // ?? Projects/ store ????????????????????????????????????????????
+            EnsureDir(wsFolder, config.ProjectsFolderName, added);
 
             // ?? Per-actor mailboxes ????????????????????????????????????????
             string actorsDir = Path.Combine(wsFolder, config.ActorsFolderName);
@@ -301,7 +301,6 @@ namespace Wally.Core
                 {
                     string actorName = Path.GetFileName(actorDir);
 
-                    // Actor-level Docs subfolder
                     string docsFolder = Path.Combine(actorDir, "Docs");
                     if (!Directory.Exists(docsFolder))
                     {
@@ -315,9 +314,7 @@ namespace Wally.Core
 
             // ?? Report ????????????????????????????????????????????????????
             if (added.Count == 0)
-            {
                 Console.WriteLine("\u2713 Workspace is already complete — nothing to repair.");
-            }
             else
             {
                 Console.WriteLine($"Repaired {added.Count} missing component(s):");
@@ -327,7 +324,6 @@ namespace Wally.Core
 
             Console.WriteLine();
 
-            // Reload so the UI/in-memory model picks up any new actors/wrappers.
             if (env.HasWorkspace && string.Equals(
                     Path.GetFullPath(env.Workspace!.WorkspaceFolder),
                     wsFolder, StringComparison.OrdinalIgnoreCase))
@@ -677,8 +673,18 @@ namespace Wally.Core
             Console.WriteLine($"Docs folder:      {Path.Combine(ws.WorkspaceFolder, cfg.DocsFolderName)}");
             Console.WriteLine($"Templates folder: {Path.Combine(ws.WorkspaceFolder, cfg.TemplatesFolderName)}");
             Console.WriteLine($"Logs folder:      {Path.Combine(ws.WorkspaceFolder, cfg.LogsFolderName)}");
-            bool hasMailbox = Directory.Exists(Path.Combine(ws.WorkspaceFolder, WallyHelper.MailboxInboxFolderName));
-            Console.WriteLine($"Workspace mailbox:{(hasMailbox ? " Inbox / Outbox / Pending / Active" : " (not initialised — run setup)")}");
+
+            // Shared Workspace/ mailbox
+            string sharedMailboxDir = WallyHelper.GetSharedWorkspaceMailboxDir(ws.WorkspaceFolder, cfg);
+            bool hasSharedMailbox   = Directory.Exists(Path.Combine(sharedMailboxDir, WallyHelper.MailboxInboxFolderName));
+            Console.WriteLine($"Shared mailbox:   {sharedMailboxDir}{(hasSharedMailbox ? " [Inbox / Outbox / Pending / Active]" : " (not initialised — run setup)")}");
+
+            // Projects store
+            string projectsDir  = Path.Combine(ws.WorkspaceFolder, cfg.ProjectsFolderName);
+            bool hasProjects     = Directory.Exists(projectsDir);
+            int  projectCount    = hasProjects ? Directory.GetDirectories(projectsDir).Length : 0;
+            Console.WriteLine($"Projects folder:  {projectsDir}{(hasProjects ? $" ({projectCount} project(s))" : " (not initialised — run setup)")}");
+
             Console.WriteLine($"Actors:           {ws.Actors.Count}");
             foreach (var a in ws.Actors)
             {
@@ -729,10 +735,9 @@ namespace Wally.Core
                 Console.WriteLine($"  [{loop.Name}]");
                 if (!string.IsNullOrWhiteSpace(loop.Description))
                     Console.WriteLine($"    Description: {loop.Description}");
-
+                Console.WriteLine($"    Mode:        {(loop.HasSteps ? $"pipeline ({loop.Steps.Count} step(s))" : "single-actor")}");
                 if (loop.HasSteps)
                 {
-                    Console.WriteLine($"    Mode:        pipeline ({loop.Steps.Count} step(s))");
                     for (int i = 0; i < loop.Steps.Count; i++)
                     {
                         var s = loop.Steps[i];
@@ -746,7 +751,6 @@ namespace Wally.Core
                 }
                 else
                 {
-                    Console.WriteLine($"    Mode:        single-actor");
                     Console.WriteLine($"    Actor:       {(string.IsNullOrWhiteSpace(loop.ActorName) ? "(caller must specify)" : loop.ActorName)}");
                     PrintRbaLine("    Prompt", loop.StartPrompt);
                 }
@@ -829,14 +833,20 @@ namespace Wally.Core
             Console.WriteLine();
             Console.WriteLine("  save <path> | cleanup [<path>] | clear-history");
             Console.WriteLine();
-            Console.WriteLine("Mailbox system:");
-            Console.WriteLine("  Every workspace and each actor gets four folders created on setup:");
-            Console.WriteLine("    Inbox/    — incoming requests and documents");
-            Console.WriteLine("    Outbox/   — completed deliverables ready for handoff");
-            Console.WriteLine("    Pending/  — items awaiting action or approval");
-            Console.WriteLine("    Active/   — work currently in progress");
-            Console.WriteLine("  The workspace mailbox (.wally/Inbox/, etc.) is the shared coordination");
-            Console.WriteLine("  space. Actor mailboxes (<Actor>/Inbox/, etc.) are private to each actor.");
+            Console.WriteLine("Workspace structure:");
+            Console.WriteLine("  .wally/                       Tooling root");
+            Console.WriteLine("    Workspace/                  Shared working space (all actors)");
+            Console.WriteLine("      Inbox/                    Incoming requests and documents");
+            Console.WriteLine("      Outbox/                   Completed deliverables");
+            Console.WriteLine("      Pending/                  Awaiting action or approval");
+            Console.WriteLine("      Active/                   Work currently in progress");
+            Console.WriteLine("    Projects/                   Shared project store");
+            Console.WriteLine("      <Project>/Epochs/<Epoch>/Tasks/          Tasks under an epoch");
+            Console.WriteLine("      <Project>/Epochs/<Epoch>/Sprints/<Sprint>/Tasks/  Sprint tasks");
+            Console.WriteLine("    Docs/                       Workspace documentation (own space)");
+            Console.WriteLine("    Templates/                  Document templates (own space)");
+            Console.WriteLine("    Actors/<Name>/              Actor-private space");
+            Console.WriteLine("      Inbox|Outbox|Pending|Active/  Actor mailbox");
             Console.WriteLine();
             Console.WriteLine("Pipeline loops:");
             Console.WriteLine("  Define a steps array in the loop JSON. Each step names an actor and a");
@@ -847,7 +857,6 @@ namespace Wally.Core
             Console.WriteLine("  .\\wally run \"What does this codebase do?\"");
             Console.WriteLine("  .\\wally run \"Review the auth module\" -a Engineer");
             Console.WriteLine("  .\\wally run \"Review the auth module\" -l CodeReview");
-            Console.WriteLine("  .\\wally run \"Analyse auth module\" -l AnalyseAndReview");
             Console.WriteLine("  .\\wally add-actor SecurityAuditor -r \"You are a security auditor\"");
         }
 
@@ -861,8 +870,11 @@ namespace Wally.Core
             Console.WriteLine("  wally setup C:\\repos\\MyApp");
             Console.WriteLine();
             Console.WriteLine("  This creates .wally/ inside your codebase root, including:");
-            Console.WriteLine("    Inbox/, Outbox/, Pending/, Active/  — workspace shared mailbox");
-            Console.WriteLine("    Actors/, Docs/, Templates/, Loops/, Wrappers/, Runbooks/, Logs/");
+            Console.WriteLine("    Workspace/                  Shared working space for all actors");
+            Console.WriteLine("      Inbox/ Outbox/ Pending/ Active/");
+            Console.WriteLine("    Projects/                   Shared project store (Epochs > Sprints > Tasks)");
+            Console.WriteLine("    Docs/  Templates/           Workspace documentation (own space)");
+            Console.WriteLine("    Actors/ Loops/ Wrappers/ Runbooks/ Logs/");
             Console.WriteLine();
             Console.WriteLine("STEP 2: RUN A PROMPT");
             Console.WriteLine("\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500");
@@ -873,13 +885,26 @@ namespace Wally.Core
             Console.WriteLine("\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500");
             Console.WriteLine("  wally add-actor SecurityAuditor -r \"You are a security auditor\" -c \"Find vulnerabilities\" -i \"Produce a security report\"");
             Console.WriteLine();
-            Console.WriteLine("  Each actor gets its own mailbox folders automatically:");
+            Console.WriteLine("  Each actor gets its own private mailbox:");
             Console.WriteLine("    .wally/Actors/SecurityAuditor/Inbox/");
             Console.WriteLine("    .wally/Actors/SecurityAuditor/Outbox/");
             Console.WriteLine("    .wally/Actors/SecurityAuditor/Pending/");
             Console.WriteLine("    .wally/Actors/SecurityAuditor/Active/");
             Console.WriteLine();
-            Console.WriteLine("STEP 4: USE A PIPELINE LOOP");
+            Console.WriteLine("  The shared Workspace/ mailbox is accessible to all actors:");
+            Console.WriteLine("    .wally/Workspace/Inbox/  — drop shared inputs here");
+            Console.WriteLine("    .wally/Workspace/Outbox/ — shared deliverables land here");
+            Console.WriteLine();
+            Console.WriteLine("STEP 4: ORGANISE WORK WITH PROJECTS");
+            Console.WriteLine("\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500");
+            Console.WriteLine("  Project state is stored in .wally/Projects/:");
+            Console.WriteLine("    Projects/MyApp/Epochs/v1.0/Tasks/          Tasks directly under an epoch");
+            Console.WriteLine("    Projects/MyApp/Epochs/v1.0/Sprints/S1/Tasks/  Tasks inside a sprint");
+            Console.WriteLine();
+            Console.WriteLine("  Actors create and update project folders at runtime.");
+            Console.WriteLine("  Use runbooks to automate multi-step project workflows.");
+            Console.WriteLine();
+            Console.WriteLine("STEP 5: USE A PIPELINE LOOP");
             Console.WriteLine("\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500");
             Console.WriteLine("  wally run \"Review the auth module\" -l CodeReview");
             Console.WriteLine();
@@ -892,7 +917,7 @@ namespace Wally.Core
             Console.WriteLine("    ]");
             Console.WriteLine("  }");
             Console.WriteLine();
-            Console.WriteLine("STEP 5: INSPECT & EXPLORE");
+            Console.WriteLine("STEP 6: INSPECT & EXPLORE");
             Console.WriteLine("\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500");
             Console.WriteLine("  wally info | wally list | wally list-loops | wally list-wrappers");
             Console.WriteLine("  wally commands");
@@ -1107,7 +1132,9 @@ namespace Wally.Core
             Console.WriteLine($"Docs folder:      {Path.Combine(env.WorkspaceFolder!, env.Workspace!.Config.DocsFolderName)}");
             Console.WriteLine($"Templates folder: {Path.Combine(env.WorkspaceFolder!, env.Workspace!.Config.TemplatesFolderName)}");
             Console.WriteLine($"Logs folder:      {Path.Combine(env.WorkspaceFolder!, env.Workspace!.Config.LogsFolderName)}");
-            Console.WriteLine($"Workspace mailbox:{Path.Combine(env.WorkspaceFolder!, WallyHelper.MailboxInboxFolderName)} / Outbox / Pending / Active");
+            string sharedMailboxDir = WallyHelper.GetSharedWorkspaceMailboxDir(env.WorkspaceFolder!, env.Workspace!.Config);
+            Console.WriteLine($"Shared mailbox:   {sharedMailboxDir} [Inbox / Outbox / Pending / Active]");
+            Console.WriteLine($"Projects folder:  {Path.Combine(env.WorkspaceFolder!, env.Workspace!.Config.ProjectsFolderName)}");
         }
 
         private static void PrintRbaLine(string label, string value) =>
