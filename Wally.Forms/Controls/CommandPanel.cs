@@ -133,11 +133,10 @@ namespace Wally.Forms.Controls
             _header.Controls.Add(_btnHelp);
 
             // ?? Output area ??
-            _output = ThemedEditorFactory.CreateDocumentViewer(wordWrap: false, readOnly: true, backColor: WallyTheme.Surface0);
+            _output = ThemedEditorFactory.CreateDocumentViewer(wordWrap: true, readOnly: true, backColor: WallyTheme.Surface0);
             _output.Font = WallyTheme.FontMonoLarge;
             _output.ShortcutsEnabled = true;            // ensures Ctrl+C works on read-only RTB
             _output.AlwaysShowScrollbar    = true;      // vertical thumb always visible
-            _output.ShowHorizontalScrollbar = true;     // native horizontal bar when lines overflow
 
             // Right-click context menu (standard WinForms terminal pattern).
             var ctxMenu = new ContextMenuStrip();
