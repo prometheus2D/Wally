@@ -24,4 +24,10 @@
     <Folder Include="Default\Logs\" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Update="Default\Projects\Proposals\ScrollbarAndCommandArgParsingProposal.md">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>
