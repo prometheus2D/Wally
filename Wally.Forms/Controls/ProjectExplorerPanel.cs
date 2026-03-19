@@ -9,9 +9,13 @@ using Wally.Forms.Theme;
 namespace Wally.Forms.Controls
 {
     /// <summary>
-    /// Project Explorer — shows the Wally workspace from a project/structural
-    /// perspective: Actors, Loops, Wrappers, Runbooks, Config, and Docs grouped
-    /// into logical tree categories rather than raw filesystem folders.
+    /// Project Explorer — shows the live state of the Wally workspace:
+    /// actors with their mailbox folders (Inbox / Outbox / Pending / Active)
+    /// and private docs, the Projects hierarchy (Epochs ? Sprints ? Tasks),
+    /// and workspace-level documentation.
+    ///
+    /// This is a "what's in flight" view — use the Object Explorer to inspect
+    /// the workspace configuration objects (Loops, Wrappers, Runbooks, etc.).
     /// </summary>
     public sealed class ProjectExplorerPanel : UserControl
     {
@@ -39,7 +43,7 @@ namespace Wally.Forms.Controls
         // ?? Node tag types ??????????????????????????????????????????????????
 
         private sealed record NodeTag(string Path, NodeKind Kind);
-        private enum NodeKind { Category, Actor, Loop, Wrapper, Runbook, Config, Doc, File, Project, Epoch, Sprint, Task }
+        private enum NodeKind { Category, Actor, Mailbox, Doc, File, Project, Epoch, Sprint, Task }
 
         // ?? Constructor ?????????????????????????????????????????????????????
 
@@ -51,35 +55,36 @@ namespace Wally.Forms.Controls
 
             // Image list
             _imageList = new ImageList { ColorDepth = ColorDepth.Depth32Bit, ImageSize = new Size(16, 16) };
-            _imageList.Images.Add("category",      DrawCategoryIcon(Color.FromArgb(113, 113, 122)));
-            _imageList.Images.Add("actor",         DrawCircleIcon(Color.FromArgb(130, 180, 240)));
-            _imageList.Images.Add("loop",          DrawCycleIcon(Color.FromArgb(100, 200, 130)));
-            _imageList.Images.Add("wrapper",       DrawGearIcon(Color.FromArgb(210, 170, 80)));
-            _imageList.Images.Add("runbook",       DrawPageIcon(Color.FromArgb(200, 140, 220)));
-            _imageList.Images.Add("config",        DrawGearIcon(Color.FromArgb(161, 161, 170)));
-            _imageList.Images.Add("doc",           DrawDocIcon(Color.FromArgb(100, 180, 100)));
-            _imageList.Images.Add("file",          DrawFileIcon(Color.FromArgb(160, 160, 170)));
-            _imageList.Images.Add("project",       DrawFolderIcon(Color.FromArgb(210, 170, 80)));
-            _imageList.Images.Add("epoch",         DrawFolderIcon(Color.FromArgb(180, 140, 200)));
-            _imageList.Images.Add("sprint",        DrawFolderIcon(Color.FromArgb(100, 200, 160)));
-            _imageList.Images.Add("task",          DrawFileIcon(Color.FromArgb(200, 200, 120)));
+            _imageList.Images.Add("category", DrawCategoryIcon(Color.FromArgb(113, 113, 122)));
+            _imageList.Images.Add("actor",    DrawCircleIcon(Color.FromArgb(130, 180, 240)));
+            _imageList.Images.Add("inbox",    DrawMailboxIcon(Color.FromArgb(100, 200, 130)));
+            _imageList.Images.Add("outbox",   DrawMailboxIcon(Color.FromArgb(200, 160, 80)));
+            _imageList.Images.Add("pending",  DrawMailboxIcon(Color.FromArgb(200, 120, 120)));
+            _imageList.Images.Add("active",   DrawMailboxIcon(Color.FromArgb(120, 160, 220)));
+            _imageList.Images.Add("mailbox",  DrawMailboxIcon(Color.FromArgb(150, 150, 160)));
+            _imageList.Images.Add("doc",      DrawDocIcon(Color.FromArgb(100, 180, 100)));
+            _imageList.Images.Add("file",     DrawFileIcon(Color.FromArgb(160, 160, 170)));
+            _imageList.Images.Add("project",  DrawFolderIcon(Color.FromArgb(210, 170, 80)));
+            _imageList.Images.Add("epoch",    DrawFolderIcon(Color.FromArgb(180, 140, 200)));
+            _imageList.Images.Add("sprint",   DrawFolderIcon(Color.FromArgb(100, 200, 160)));
+            _imageList.Images.Add("task",     DrawFileIcon(Color.FromArgb(200, 200, 120)));
 
             // Toolbar
             _btnRefresh = new ToolStripButton("\u21BB")
             {
-                ToolTipText = "Refresh",
+                ToolTipText  = "Refresh",
                 DisplayStyle = ToolStripItemDisplayStyle.Text,
-                Font = new Font("Segoe UI", 10f),
-                ForeColor = WallyTheme.TextSecondary
+                Font         = new Font("Segoe UI", 10f),
+                ForeColor    = WallyTheme.TextSecondary
             };
             _btnRefresh.Click += (_, _) => Refresh();
 
             _btnCollapseAll = new ToolStripButton("\u229F")
             {
-                ToolTipText = "Collapse All",
+                ToolTipText  = "Collapse All",
                 DisplayStyle = ToolStripItemDisplayStyle.Text,
-                Font = new Font("Segoe UI", 10f),
-                ForeColor = WallyTheme.TextSecondary
+                Font         = new Font("Segoe UI", 10f),
+                ForeColor    = WallyTheme.TextSecondary
             };
             _btnCollapseAll.Click += (_, _) => _tree.CollapseAll();
 
@@ -106,7 +111,7 @@ namespace Wally.Forms.Controls
             });
             _contextMenu.BackColor = WallyTheme.Surface2;
             _contextMenu.ForeColor = WallyTheme.TextPrimary;
-            _contextMenu.Opening += OnContextMenuOpening;
+            _contextMenu.Opening  += OnContextMenuOpening;
 
             // Tree
             _tree = new TreeView
@@ -127,9 +132,9 @@ namespace Wally.Forms.Controls
                 ForeColor        = WallyTheme.TextPrimary,
                 DrawMode         = TreeViewDrawMode.OwnerDrawText
             };
-            _tree.AfterSelect           += OnAfterSelect;
-            _tree.NodeMouseDoubleClick  += OnNodeDoubleClick;
-            _tree.DrawNode              += OnDrawNode;
+            _tree.AfterSelect          += OnAfterSelect;
+            _tree.NodeMouseDoubleClick += OnNodeDoubleClick;
+            _tree.DrawNode             += OnDrawNode;
 
             Controls.Add(_tree);
             Controls.Add(_toolbar);
@@ -184,12 +189,12 @@ namespace Wally.Forms.Controls
 
             var ws = _environment.Workspace!;
 
-            // ?? Actors ??
-            var actorsNode = MakeCategoryNode("Actors", $"\U0001F3AD", _environment.Actors.Count);
+            // ?? Actors (with mailboxes and docs) ?????????????????????????????
+            var actorsNode = MakeCategoryNode("Actors", "\U0001F3AD", _environment.Actors.Count);
             foreach (var actor in _environment.Actors)
             {
                 string actorFolder = actor.FolderPath;
-                var n = new TreeNode(actor.Name)
+                var actorNode = new TreeNode(actor.Name)
                 {
                     Tag              = new NodeTag(actorFolder, NodeKind.Actor),
                     ImageKey         = "actor",
@@ -197,95 +202,39 @@ namespace Wally.Forms.Controls
                     ToolTipText      = actorFolder
                 };
 
-                // Actor config file
-                string actorJson = Path.Combine(actorFolder, "actor.json");
-                if (File.Exists(actorJson))
-                    n.Nodes.Add(MakeFileNode("actor.json", actorJson, NodeKind.Config, "config"));
+                // Mailbox folders — shown with live item counts
+                AddMailboxNode(actorNode, actorFolder, WallyHelper.MailboxInboxFolderName,   "?? Inbox",   "inbox");
+                AddMailboxNode(actorNode, actorFolder, WallyHelper.MailboxActiveFolderName,  "? Active",  "active");
+                AddMailboxNode(actorNode, actorFolder, WallyHelper.MailboxPendingFolderName, "? Pending", "pending");
+                AddMailboxNode(actorNode, actorFolder, WallyHelper.MailboxOutboxFolderName,  "?? Outbox",  "outbox");
 
-                // Actor Docs folder
+                // Actor Docs
                 string docsDir = Path.Combine(actorFolder, actor.DocsFolderName);
                 if (Directory.Exists(docsDir))
                 {
-                    var docsNode = MakeCategoryNode("Docs", "\U0001F4C4", 0);
-                    docsNode.Tag = new NodeTag(docsDir, NodeKind.Doc);
-                    foreach (string f in Directory.GetFiles(docsDir))
-                        docsNode.Nodes.Add(MakeFileNode(Path.GetFileName(f), f, NodeKind.Doc, "doc"));
-                    if (docsNode.Nodes.Count > 0) docsNode.Text = $"?? Docs  [{docsNode.Nodes.Count}]";
-                    n.Nodes.Add(docsNode);
+                    string[] docFiles = Directory.GetFiles(docsDir);
+                    if (docFiles.Length > 0)
+                    {
+                        var docsNode = MakeFolderNode($"?? Docs  [{docFiles.Length}]", docsDir, NodeKind.Category, "category");
+                        foreach (string f in docFiles)
+                            docsNode.Nodes.Add(MakeFileNode(Path.GetFileName(f), f, NodeKind.Doc, "doc"));
+                        actorNode.Nodes.Add(docsNode);
+                    }
                 }
 
-                actorsNode.Nodes.Add(n);
+                actorsNode.Nodes.Add(actorNode);
             }
             _tree.Nodes.Add(actorsNode);
 
-            // ?? Loops ??
-            var loopsNode = MakeCategoryNode("Loops", "\u267B", _environment.Loops.Count);
-            foreach (var loop in _environment.Loops)
-            {
-                string loopFile = Path.Combine(ws.WorkspaceFolder, ws.Config.LoopsFolderName, loop.Name + ".json");
-                var n = new TreeNode(loop.Name)
-                {
-                    Tag              = new NodeTag(loopFile, NodeKind.Loop),
-                    ImageKey         = "loop",
-                    SelectedImageKey = "loop",
-                    ToolTipText      = string.IsNullOrEmpty(loop.Description) ? loopFile : loop.Description
-                };
-                if (loop.HasSteps)
-                {
-                    foreach (var step in loop.Steps)
-                    {
-                        n.Nodes.Add(new TreeNode($"  {step.Name}  \u2192  {step.ActorName}")
-                        {
-                            ForeColor        = WallyTheme.TextMuted,
-                            ImageKey         = "actor",
-                            SelectedImageKey = "actor",
-                            Tag              = new NodeTag(loopFile, NodeKind.File)
-                        });
-                    }
-                }
-                loopsNode.Nodes.Add(n);
-            }
-            _tree.Nodes.Add(loopsNode);
-
-            // ?? Wrappers ??
-            var wrappersNode = MakeCategoryNode("LLM Wrappers", "\u2699", ws.LlmWrappers.Count);
-            foreach (var wrapper in ws.LlmWrappers)
-            {
-                string wFile = Path.Combine(ws.WorkspaceFolder, ws.Config.WrappersFolderName, wrapper.Name + ".json");
-                var n = new TreeNode(wrapper.Name)
-                {
-                    Tag              = new NodeTag(wFile, NodeKind.Wrapper),
-                    ImageKey         = "wrapper",
-                    SelectedImageKey = "wrapper",
-                    ToolTipText      = wFile
-                };
-                wrappersNode.Nodes.Add(n);
-            }
-            _tree.Nodes.Add(wrappersNode);
-
-            // ?? Runbooks ??
-            var runbooksNode = MakeCategoryNode("Runbooks", "\uD83D\uDCDC", _environment.Runbooks.Count);
-            foreach (var rb in _environment.Runbooks)
-            {
-                string rbFile = Path.Combine(ws.WorkspaceFolder, ws.Config.RunbooksFolderName, rb.Name + ".wrb");
-                var n = new TreeNode(rb.Name)
-                {
-                    Tag              = new NodeTag(rbFile, NodeKind.Runbook),
-                    ImageKey         = "runbook",
-                    SelectedImageKey = "runbook",
-                    ToolTipText      = rbFile
-                };
-                runbooksNode.Nodes.Add(n);
-            }
-            _tree.Nodes.Add(runbooksNode);
-
-            // ?? Projects ??
+            // ?? Projects ?????????????????????????????????????????????????????
             string projectsDir = Path.Combine(ws.WorkspaceFolder, ws.Config.ProjectsFolderName);
             var projectsRoot = MakeCategoryNode("Projects", "\uD83D\uDDC2", -1);
             projectsRoot.Tag = new NodeTag(projectsDir, NodeKind.Category);
+
             if (Directory.Exists(projectsDir))
             {
-                foreach (string projectDir in Directory.GetDirectories(projectsDir))
+                string[] projectDirs = Directory.GetDirectories(projectsDir);
+                foreach (string projectDir in projectDirs)
                 {
                     string projectName = Path.GetFileName(projectDir);
                     var projectNode = new TreeNode(projectName)
@@ -343,9 +292,8 @@ namespace Wally.Forms.Controls
                     projectsRoot.Nodes.Add(projectNode);
                 }
 
-                int projectCount = Directory.GetDirectories(projectsDir).Length;
-                projectsRoot.Text = projectCount > 0
-                    ? $"\uD83D\uDDC2 Projects  [{projectCount}]"
+                projectsRoot.Text = projectDirs.Length > 0
+                    ? $"\uD83D\uDDC2 Projects  [{projectDirs.Length}]"
                     : "\uD83D\uDDC2 Projects";
             }
             else
@@ -355,28 +303,18 @@ namespace Wally.Forms.Controls
             }
             _tree.Nodes.Add(projectsRoot);
 
-            // ?? Configuration ??
-            string configFile = Path.Combine(ws.WorkspaceFolder, "wally-config.json");
-            var configNode = new TreeNode("Configuration")
-            {
-                Tag              = new NodeTag(ws.WorkspaceFolder, NodeKind.Category),
-                ImageKey         = "category",
-                SelectedImageKey = "category",
-                ForeColor        = WallyTheme.TextMuted
-            };
-            if (File.Exists(configFile))
-                configNode.Nodes.Add(MakeFileNode("wally-config.json", configFile, NodeKind.Config, "config"));
-            _tree.Nodes.Add(configNode);
-
-            // ?? Workspace Docs ??
+            // ?? Workspace Docs ???????????????????????????????????????????????
             string wsDocsDir = Path.Combine(ws.WorkspaceFolder, ws.Config.DocsFolderName);
             if (Directory.Exists(wsDocsDir))
             {
-                var wsDocs = MakeCategoryNode("Workspace Docs", "\U0001F4D6", 0);
-                foreach (string f in Directory.GetFiles(wsDocsDir, "*", SearchOption.AllDirectories))
-                    wsDocs.Nodes.Add(MakeFileNode(Path.GetFileName(f), f, NodeKind.Doc, "doc"));
-                if (wsDocs.Nodes.Count > 0) wsDocs.Text = $"?? Workspace Docs  [{wsDocs.Nodes.Count}]";
-                _tree.Nodes.Add(wsDocs);
+                string[] wsDocFiles = Directory.GetFiles(wsDocsDir, "*", SearchOption.AllDirectories);
+                if (wsDocFiles.Length > 0)
+                {
+                    var wsDocs = MakeCategoryNode("Workspace Docs", "\U0001F4D6", wsDocFiles.Length);
+                    foreach (string f in wsDocFiles)
+                        wsDocs.Nodes.Add(MakeFileNode(Path.GetFileName(f), f, NodeKind.Doc, "doc"));
+                    _tree.Nodes.Add(wsDocs);
+                }
             }
 
             // Expand first level
@@ -384,6 +322,37 @@ namespace Wally.Forms.Controls
                 n.Expand();
 
             _tree.EndUpdate();
+        }
+
+        // ?? Helpers ?????????????????????????????????????????????????????????
+
+        /// <summary>
+        /// Adds a mailbox folder node under <paramref name="actorNode"/>.
+        /// The node shows the item count and lists all files inside the folder.
+        /// If the folder does not exist or is empty, still shows the folder
+        /// so the user can see the mailbox at a glance (empty = clear).
+        /// </summary>
+        private static void AddMailboxNode(TreeNode actorNode, string actorFolder,
+            string folderName, string label, string imageKey)
+        {
+            string dir = Path.Combine(actorFolder, folderName);
+            string[] files = Directory.Exists(dir) ? Directory.GetFiles(dir) : Array.Empty<string>();
+
+            string nodeText = files.Length > 0 ? $"{label}  [{files.Length}]" : label;
+            var mailboxNode = new TreeNode(nodeText)
+            {
+                Tag              = new NodeTag(dir, NodeKind.Mailbox),
+                ImageKey         = imageKey,
+                SelectedImageKey = imageKey,
+                ToolTipText      = dir,
+                // Dim empty mailboxes so attention naturally falls on busy ones
+                ForeColor        = files.Length > 0 ? WallyTheme.TextSecondary : WallyTheme.TextDisabled
+            };
+
+            foreach (string f in files)
+                mailboxNode.Nodes.Add(MakeFileNode(Path.GetFileName(f), f, NodeKind.File, "file"));
+
+            actorNode.Nodes.Add(mailboxNode);
         }
 
         private static TreeNode MakeCategoryNode(string label, string emoji, int count)
@@ -397,6 +366,16 @@ namespace Wally.Forms.Controls
             };
         }
 
+        private static TreeNode MakeFolderNode(string label, string path, NodeKind kind, string imageKey) =>
+            new TreeNode(label)
+            {
+                Tag              = new NodeTag(path, kind),
+                ImageKey         = imageKey,
+                SelectedImageKey = imageKey,
+                ToolTipText      = path,
+                ForeColor        = WallyTheme.TextMuted
+            };
+
         private static TreeNode MakeFileNode(string label, string path, NodeKind kind, string imageKey) =>
             new TreeNode(label)
             {
@@ -409,16 +388,7 @@ namespace Wally.Forms.Controls
         private static void AddTaskNodes(TreeNode parent, string tasksDir)
         {
             foreach (string f in Directory.GetFiles(tasksDir))
-            {
-                var n = new TreeNode(Path.GetFileName(f))
-                {
-                    Tag              = new NodeTag(f, NodeKind.Task),
-                    ImageKey         = "task",
-                    SelectedImageKey = "task",
-                    ToolTipText      = f
-                };
-                parent.Nodes.Add(n);
-            }
+                parent.Nodes.Add(MakeFileNode(Path.GetFileName(f), f, NodeKind.Task, "task"));
             foreach (string d in Directory.GetDirectories(tasksDir))
             {
                 string name = Path.GetFileName(d);
@@ -478,9 +448,8 @@ namespace Wally.Forms.Controls
             if (_tree.SelectedNode?.Tag is not NodeTag t || t.Kind == NodeKind.Category)
             { e.Cancel = true; return; }
 
-            _ctxOpen.Visible = File.Exists(t.Path);
-            _ctxOpenFolder.Text = File.Exists(t.Path) ? "Open Containing Folder" : "Open in Explorer";
-            // Always allow "Open in Explorer" for folder-backed node kinds
+            _ctxOpen.Visible       = File.Exists(t.Path);
+            _ctxOpenFolder.Text    = File.Exists(t.Path) ? "Open Containing Folder" : "Open in Explorer";
             _ctxOpenFolder.Enabled = File.Exists(t.Path) || Directory.Exists(t.Path);
         }
 
@@ -535,49 +504,18 @@ namespace Wally.Forms.Controls
             return bmp;
         }
 
-        private static Bitmap DrawCycleIcon(Color c)
-        {
-            var bmp = new Bitmap(16, 16);
-            using var g = Graphics.FromImage(bmp);
-            g.SmoothingMode = SmoothingMode.AntiAlias;
-            using var p = new System.Drawing.Pen(c, 2f);
-            g.DrawArc(p, 2, 2, 12, 12, -30, 270);
-            // Arrowhead
-            using var b = new SolidBrush(c);
-            g.FillPolygon(b, new[] { new Point(13, 4), new Point(9, 2), new Point(11, 7) });
-            return bmp;
-        }
-
-        private static Bitmap DrawGearIcon(Color c)
+        private static Bitmap DrawMailboxIcon(Color c)
         {
             var bmp = new Bitmap(16, 16);
             using var g = Graphics.FromImage(bmp);
             g.SmoothingMode = SmoothingMode.AntiAlias;
             using var b = new SolidBrush(c);
-            g.FillEllipse(b, 3, 3, 10, 10);
-            using var inner = new SolidBrush(WallyTheme.Surface1);
-            g.FillEllipse(inner, 5, 5, 6, 6);
-            // Teeth
-            for (int i = 0; i < 4; i++)
-            {
-                float angle = i * 45f * (float)(Math.PI / 180.0);
-                int cx = 8 + (int)(6.5f * (float)Math.Cos(angle)) - 1;
-                int cy = 8 + (int)(6.5f * (float)Math.Sin(angle)) - 1;
-                g.FillRectangle(b, cx, cy, 3, 3);
-            }
-            return bmp;
-        }
-
-        private static Bitmap DrawPageIcon(Color c)
-        {
-            var bmp = new Bitmap(16, 16);
-            using var g = Graphics.FromImage(bmp);
-            g.SmoothingMode = SmoothingMode.AntiAlias;
-            using var b = new SolidBrush(c);
-            g.FillRectangle(b, 3, 1, 10, 14);
-            using var line = new SolidBrush(WallyTheme.Surface1);
-            for (int y = 4; y <= 10; y += 3)
-                g.FillRectangle(line, 5, y, 6, 1);
+            // Envelope body
+            g.FillRectangle(b, 2, 5, 12, 8);
+            // Envelope flap (triangle)
+            using var dark = new SolidBrush(Color.FromArgb(
+                Math.Max(0, c.R - 40), Math.Max(0, c.G - 40), Math.Max(0, c.B - 40)));
+            g.FillPolygon(dark, new[] { new Point(2, 5), new Point(8, 10), new Point(14, 5) });
             return bmp;
         }
 
@@ -607,9 +545,7 @@ namespace Wally.Forms.Controls
             using var g = Graphics.FromImage(bmp);
             g.SmoothingMode = SmoothingMode.AntiAlias;
             using var b = new SolidBrush(c);
-            // Tab
             g.FillRectangle(b, 1, 4, 6, 2);
-            // Body
             g.FillRectangle(b, 1, 6, 14, 8);
             return bmp;
         }

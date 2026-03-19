@@ -14,8 +14,11 @@ namespace Wally.Forms.Controls
     /// Tabbed left-panel host that presents three explorer views:
     /// <list type="bullet">
     ///   <item><b>Files</b>   — raw filesystem tree rooted at the workspace WorkSource.</item>
-    ///   <item><b>Project</b> — workspace items grouped by type (Actors, Loops, Wrappers…).</item>
-    ///   <item><b>Objects</b> — live runtime objects with inspectable properties.</item>
+    ///   <item><b>Project</b> — live project state: actor mailboxes (Inbox / Outbox / Pending / Active),
+    ///                          actor docs, the Projects hierarchy (Epochs ? Sprints ? Tasks),
+    ///                          and workspace-level documentation.</item>
+    ///   <item><b>Objects</b> — workspace configuration objects (Actors, Loops, Wrappers, Runbooks)
+    ///                          with their runtime properties for inspection.</item>
     /// </list>
     /// The tab strip is custom-drawn to match the flat dark theme and suppresses
     /// all default OS selection highlights.
