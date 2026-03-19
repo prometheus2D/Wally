@@ -15,11 +15,6 @@ namespace Wally.Core
     ///   &lt;WorkSource&gt;/                e.g. C:\repos\MyApp
     ///       .wally/                      WorkspaceFolder (tooling root)
     ///           wally-config.json
-    ///           Workspace/               shared working space — inter-actor mailbox
-    ///               Inbox/
-    ///               Outbox/
-    ///               Pending/
-    ///               Active/
     ///           Projects/                shared project store — Epochs ? Sprints ? Tasks
     ///               &lt;ProjectName&gt;/
     ///                   Epochs/
@@ -28,8 +23,8 @@ namespace Wally.Core
     ///                           Sprints/
     ///                               &lt;SprintName&gt;/
     ///                                   Tasks/
-    ///           Docs/                    workspace-level documentation (own space)
-    ///           Templates/               document templates (own space)
+    ///           Docs/                    workspace-level documentation
+    ///           Templates/               document templates
     ///           Actors/
     ///               &lt;ActorName&gt;/       one folder per actor
     ///                   actor.json

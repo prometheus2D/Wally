@@ -17,11 +17,6 @@ namespace Wally.Core
     ///   &lt;WorkSource&gt;/               e.g. C:\repos\MyApp
     ///       .wally/                     workspace folder (tooling root)
     ///           wally-config.json
-    ///           Workspace/              shared working space — mailbox for all actors
-    ///               Inbox/
-    ///               Outbox/
-    ///               Pending/
-    ///               Active/
     ///           Projects/               shared project store — Epochs ? Sprints ? Tasks
     ///               &lt;ProjectName&gt;/
     ///                   Epochs/
@@ -30,8 +25,8 @@ namespace Wally.Core
     ///                           Sprints/
     ///                               &lt;SprintName&gt;/
     ///                                   Tasks/
-    ///           Docs/                   workspace-level documentation (own space)
-    ///           Templates/              document templates (own space)
+    ///           Docs/                   workspace-level documentation
+    ///           Templates/              document templates
     ///           Actors/
     ///               &lt;ActorName&gt;/
     ///                   actor.json
@@ -51,14 +46,6 @@ namespace Wally.Core
     public class WallyConfig
     {
         // — Folder names ——————————————————————————————————————————————————————
-
-        /// <summary>
-        /// Subfolder inside the workspace folder that is the shared working space
-        /// for all actors. Contains the four mailbox folders (Inbox, Outbox,
-        /// Pending, Active) that serve as the inter-actor coordination bus.
-        /// Default: <c>Workspace</c>.
-        /// </summary>
-        public string WorkspaceFolderName { get; set; } = "Workspace";
 
         /// <summary>
         /// Subfolder inside the workspace folder that holds all project state.
@@ -83,14 +70,13 @@ namespace Wally.Core
 
         /// <summary>
         /// Subfolder inside the workspace folder that holds workspace-level
-        /// documentation files. Separate from the shared Workspace/ working space.
+        /// documentation files.
         /// Default: <c>Docs</c>.
         /// </summary>
         public string DocsFolderName { get; set; } = "Docs";
 
         /// <summary>
         /// Subfolder inside the workspace folder that holds document templates.
-        /// Separate from the shared Workspace/ working space.
         /// Default: <c>Templates</c>.
         /// </summary>
         public string TemplatesFolderName { get; set; } = "Templates";

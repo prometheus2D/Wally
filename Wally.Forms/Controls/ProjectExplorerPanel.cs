@@ -39,7 +39,7 @@ namespace Wally.Forms.Controls
         // ?? Node tag types ??????????????????????????????????????????????????
 
         private sealed record NodeTag(string Path, NodeKind Kind);
-        private enum NodeKind { Category, Actor, Loop, Wrapper, Runbook, Config, Doc, File, MailboxFolder, Project, Epoch, Sprint, Task }
+        private enum NodeKind { Category, Actor, Loop, Wrapper, Runbook, Config, Doc, File, Project, Epoch, Sprint, Task }
 
         // ?? Constructor ?????????????????????????????????????????????????????
 
@@ -59,7 +59,6 @@ namespace Wally.Forms.Controls
             _imageList.Images.Add("config",        DrawGearIcon(Color.FromArgb(161, 161, 170)));
             _imageList.Images.Add("doc",           DrawDocIcon(Color.FromArgb(100, 180, 100)));
             _imageList.Images.Add("file",          DrawFileIcon(Color.FromArgb(160, 160, 170)));
-            _imageList.Images.Add("mailbox",       DrawFolderIcon(Color.FromArgb(100, 160, 220)));
             _imageList.Images.Add("project",       DrawFolderIcon(Color.FromArgb(210, 170, 80)));
             _imageList.Images.Add("epoch",         DrawFolderIcon(Color.FromArgb(180, 140, 200)));
             _imageList.Images.Add("sprint",        DrawFolderIcon(Color.FromArgb(100, 200, 160)));
@@ -192,10 +191,10 @@ namespace Wally.Forms.Controls
                 string actorFolder = actor.FolderPath;
                 var n = new TreeNode(actor.Name)
                 {
-                    Tag            = new NodeTag(actorFolder, NodeKind.Actor),
-                    ImageKey       = "actor",
+                    Tag              = new NodeTag(actorFolder, NodeKind.Actor),
+                    ImageKey         = "actor",
                     SelectedImageKey = "actor",
-                    ToolTipText    = actorFolder
+                    ToolTipText      = actorFolder
                 };
 
                 // Actor config file
@@ -226,10 +225,10 @@ namespace Wally.Forms.Controls
                 string loopFile = Path.Combine(ws.WorkspaceFolder, ws.Config.LoopsFolderName, loop.Name + ".json");
                 var n = new TreeNode(loop.Name)
                 {
-                    Tag            = new NodeTag(loopFile, NodeKind.Loop),
-                    ImageKey       = "loop",
+                    Tag              = new NodeTag(loopFile, NodeKind.Loop),
+                    ImageKey         = "loop",
                     SelectedImageKey = "loop",
-                    ToolTipText    = string.IsNullOrEmpty(loop.Description) ? loopFile : loop.Description
+                    ToolTipText      = string.IsNullOrEmpty(loop.Description) ? loopFile : loop.Description
                 };
                 if (loop.HasSteps)
                 {
@@ -255,10 +254,10 @@ namespace Wally.Forms.Controls
                 string wFile = Path.Combine(ws.WorkspaceFolder, ws.Config.WrappersFolderName, wrapper.Name + ".json");
                 var n = new TreeNode(wrapper.Name)
                 {
-                    Tag            = new NodeTag(wFile, NodeKind.Wrapper),
-                    ImageKey       = "wrapper",
+                    Tag              = new NodeTag(wFile, NodeKind.Wrapper),
+                    ImageKey         = "wrapper",
                     SelectedImageKey = "wrapper",
-                    ToolTipText    = wFile
+                    ToolTipText      = wFile
                 };
                 wrappersNode.Nodes.Add(n);
             }
@@ -271,58 +270,14 @@ namespace Wally.Forms.Controls
                 string rbFile = Path.Combine(ws.WorkspaceFolder, ws.Config.RunbooksFolderName, rb.Name + ".wrb");
                 var n = new TreeNode(rb.Name)
                 {
-                    Tag            = new NodeTag(rbFile, NodeKind.Runbook),
-                    ImageKey       = "runbook",
+                    Tag              = new NodeTag(rbFile, NodeKind.Runbook),
+                    ImageKey         = "runbook",
                     SelectedImageKey = "runbook",
-                    ToolTipText    = rbFile
+                    ToolTipText      = rbFile
                 };
                 runbooksNode.Nodes.Add(n);
             }
             _tree.Nodes.Add(runbooksNode);
-
-            // ?? Shared Workspace mailbox ??
-            string sharedMailboxDir = WallyHelper.GetSharedWorkspaceMailboxDir(ws.WorkspaceFolder, ws.Config);
-            var workspaceNode = MakeCategoryNode("Workspace", "\uD83D\uDCEC", -1);
-            workspaceNode.Tag = new NodeTag(sharedMailboxDir, NodeKind.MailboxFolder);
-            if (Directory.Exists(sharedMailboxDir))
-            {
-                foreach (string folder in new[]
-                {
-                    WallyHelper.MailboxInboxFolderName,
-                    WallyHelper.MailboxOutboxFolderName,
-                    WallyHelper.MailboxPendingFolderName,
-                    WallyHelper.MailboxActiveFolderName
-                })
-                {
-                    string dir = Path.Combine(sharedMailboxDir, folder);
-                    if (!Directory.Exists(dir)) continue;
-                    var boxNode = new TreeNode(folder)
-                    {
-                        Tag              = new NodeTag(dir, NodeKind.MailboxFolder),
-                        ImageKey         = "mailbox",
-                        SelectedImageKey = "mailbox",
-                        ToolTipText      = dir
-                    };
-                    int fileCount = Directory.GetFiles(dir).Length;
-                    if (fileCount > 0)
-                    {
-                        boxNode.Text = $"{folder}  [{fileCount}]";
-                        foreach (string f in Directory.GetFiles(dir))
-                            boxNode.Nodes.Add(MakeFileNode(Path.GetFileName(f), f, NodeKind.File, "file"));
-                    }
-                    workspaceNode.Nodes.Add(boxNode);
-                }
-                int totalFiles = Directory.GetFiles(sharedMailboxDir, "*", SearchOption.AllDirectories).Length;
-                workspaceNode.Text = totalFiles > 0
-                    ? $"\uD83D\uDCEC Workspace  [{totalFiles} file(s)]"
-                    : "\uD83D\uDCEC Workspace";
-            }
-            else
-            {
-                workspaceNode.Text = "\uD83D\uDCEC Workspace  (not initialised)";
-                workspaceNode.ForeColor = WallyTheme.TextDisabled;
-            }
-            _tree.Nodes.Add(workspaceNode);
 
             // ?? Projects ??
             string projectsDir = Path.Combine(ws.WorkspaceFolder, ws.Config.ProjectsFolderName);
@@ -395,7 +350,7 @@ namespace Wally.Forms.Controls
             }
             else
             {
-                projectsRoot.Text     = "\uD83D\uDDC2 Projects  (not initialised)";
+                projectsRoot.Text      = "\uD83D\uDDC2 Projects  (not initialised)";
                 projectsRoot.ForeColor = WallyTheme.TextDisabled;
             }
             _tree.Nodes.Add(projectsRoot);
@@ -404,10 +359,10 @@ namespace Wally.Forms.Controls
             string configFile = Path.Combine(ws.WorkspaceFolder, "wally-config.json");
             var configNode = new TreeNode("Configuration")
             {
-                Tag            = new NodeTag(ws.WorkspaceFolder, NodeKind.Category),
-                ImageKey       = "category",
+                Tag              = new NodeTag(ws.WorkspaceFolder, NodeKind.Category),
+                ImageKey         = "category",
                 SelectedImageKey = "category",
-                ForeColor      = WallyTheme.TextMuted
+                ForeColor        = WallyTheme.TextMuted
             };
             if (File.Exists(configFile))
                 configNode.Nodes.Add(MakeFileNode("wally-config.json", configFile, NodeKind.Config, "config"));
