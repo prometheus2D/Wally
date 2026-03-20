@@ -1,5 +1,6 @@
 {
   "Name": "RequirementsDeepDive",
+  "Enabled": true,
   "Description": "Three-step requirements elaboration: BusinessAnalyst refines requirements, Stakeholder validates business alignment, then Engineer assesses technical feasibility.",
   "Steps": [
     {

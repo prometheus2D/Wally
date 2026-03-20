@@ -17,7 +17,7 @@ namespace Wally.Core
         /// <summary>Name derived from filename without extension (e.g. "setup-and-review").</summary>
         public string Name { get; set; } = string.Empty;
 
-        /// <summary>Description extracted from the first comment line, or empty.</summary>
+        /// <summary>Description extracted from the first non-directive comment line, or empty.</summary>
         public string Description { get; set; } = string.Empty;
 
         /// <summary>Absolute path to the <c>.wrb</c> file on disk.</summary>
@@ -26,14 +26,25 @@ namespace Wally.Core
         /// <summary>Parsed command lines (non-comment, non-blank, trimmed).</summary>
         public List<string> Commands { get; set; } = new();
 
-        // — Loading ——————————————————————————————————————————————————————
+        /// <summary>
+        /// When <see langword="false"/> this runbook is skipped during workspace
+        /// load and will not appear in any dropdown or be selectable by name.
+        /// <para>
+        /// Set via a comment directive in the <c>.wrb</c> file:
+        /// <code># enabled: false</code>
+        /// Any other value or the absence of the directive is treated as enabled.
+        /// </para>
+        /// </summary>
+        public bool Enabled { get; set; } = true;
+
+        // ?? Loading ???????????????????????????????????????????????????????????
 
         /// <summary>Parses a single <c>.wrb</c> file.</summary>
         public static WallyRunbook LoadFromFile(string filePath)
         {
             var rb = new WallyRunbook
             {
-                Name = Path.GetFileNameWithoutExtension(filePath),
+                Name     = Path.GetFileNameWithoutExtension(filePath),
                 FilePath = Path.GetFullPath(filePath)
             };
 
@@ -47,9 +58,19 @@ namespace Wally.Core
 
                 if (line.StartsWith('#'))
                 {
+                    // Parse directives: lines of the form  "# key: value"
+                    string directive = line.TrimStart('#').Trim();
+
+                    if (directive.StartsWith("enabled:", StringComparison.OrdinalIgnoreCase))
+                    {
+                        string val = directive["enabled:".Length..].Trim();
+                        rb.Enabled = !string.Equals(val, "false", StringComparison.OrdinalIgnoreCase);
+                        continue;
+                    }
+
                     if (!descriptionSet)
                     {
-                        rb.Description = line.TrimStart('#').Trim();
+                        rb.Description = directive;
                         descriptionSet = true;
                     }
                     continue;
@@ -63,7 +84,8 @@ namespace Wally.Core
 
         /// <summary>
         /// Loads all <c>*.wrb</c> files from <paramref name="folder"/>.
-        /// Skips files that fail to parse.
+        /// Skips files that fail to parse and runbooks whose
+        /// <see cref="Enabled"/> flag is <see langword="false"/>.
         /// </summary>
         public static List<WallyRunbook> LoadFromFolder(string folder)
         {
@@ -74,7 +96,9 @@ namespace Wally.Core
             {
                 try
                 {
-                    runbooks.Add(LoadFromFile(file));
+                    var rb = LoadFromFile(file);
+                    if (rb.Enabled)
+                        runbooks.Add(rb);
                 }
                 catch (Exception ex)
                 {

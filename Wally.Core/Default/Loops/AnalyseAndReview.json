@@ -1,5 +1,6 @@
 {
   "Name": "AnalyseAndReview",
+  "Enabled": true,
   "Description": "Two-step loop: BusinessAnalyst analyses the area, then Engineer reviews and validates.",
   "Steps": [
     {

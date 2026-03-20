@@ -1,5 +1,6 @@
 {
   "Name": "Refactor",
+  "Enabled": true,
   "Description": "Two-step refactoring: Engineer identifies and applies refactoring improvements, then BusinessAnalyst verifies scope hasn't drifted from original requirements.",
   "Steps": [
     {

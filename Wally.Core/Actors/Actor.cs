@@ -50,6 +50,14 @@ namespace Wally.Core.Actors
         // ?? Capability constraints ????????????????????????????????????????????
 
         /// <summary>
+        /// When <see langword="false"/> this actor is skipped during workspace load
+        /// and will not appear in any dropdown or be selectable by name.
+        /// Defaults to <see langword="true"/> so existing actor.json files without
+        /// the field continue to load normally.
+        /// </summary>
+        public bool Enabled { get; set; } = true;
+
+        /// <summary>
         /// Priority-ordered list of wrapper names this actor is permitted to run
         /// through. When empty, any loaded wrapper may be used (no restriction).
         /// <para>

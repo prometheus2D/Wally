@@ -1,6 +1,7 @@
 {
   "Name": "Claude",
-  "Description": "Read-only — runs the Anthropic Claude CLI (claude -p). Requires the 'claude' CLI to be installed and authenticated.",
+  "Enabled": true,
+  "Description": "Read-only - runs the Anthropic Claude CLI (claude -p). Requires the 'claude' CLI to be installed and authenticated.",
   "Executable": "claude",
   "ArgumentTemplate": "{model} {sourcePath} -p {prompt}",
   "ModelArgFormat": "--model {model}",

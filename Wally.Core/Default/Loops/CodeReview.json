@@ -1,5 +1,6 @@
 {
   "Name": "CodeReview",
+  "Enabled": true,
   "Description": "Two-step code review: Engineer performs a deep technical review, then BusinessAnalyst triages findings by business priority and impact.",
   "Steps": [
     {

@@ -202,7 +202,10 @@ namespace Wally.Core
             if (Directory.Exists(actorsDir))
             {
                 foreach (string actorDir in Directory.GetDirectories(actorsDir))
-                    actors.Add(LoadActorFromDirectory(actorDir, workspace));
+                {
+                    var actor = LoadActorFromDirectory(actorDir, workspace);
+                    if (actor != null) actors.Add(actor);
+                }
             }
 
             if (actors.Count == 0)
@@ -247,6 +250,7 @@ namespace Wally.Core
             var obj = new
             {
                 name             = actor.Name,
+                enabled          = actor.Enabled,
                 rolePrompt       = actor.RolePrompt,
                 criteriaPrompt   = actor.CriteriaPrompt,
                 intentPrompt     = actor.IntentPrompt,
@@ -497,8 +501,15 @@ namespace Wally.Core
                 filePath = Path.Combine(runbooksDir, $"{runbook.Name}.wrb");
 
             var lines = new List<string>();
+
+            // Persist the enabled directive first so it is easy to spot at the
+            // top of the file. Only write "false" explicitly — absence means true.
+            if (!runbook.Enabled)
+                lines.Add("# enabled: false");
+
             if (!string.IsNullOrWhiteSpace(runbook.Description))
                 lines.Add($"# {runbook.Description}");
+
             lines.AddRange(runbook.Commands);
 
             File.WriteAllLines(filePath, lines);
@@ -532,7 +543,10 @@ namespace Wally.Core
             string defaultActorsDir = Path.Combine(GetDefaultTemplateFolder(), config.ActorsFolderName);
             if (!Directory.Exists(defaultActorsDir)) return actors;
             foreach (string actorDir in Directory.GetDirectories(defaultActorsDir))
-                actors.Add(LoadActorFromDirectory(actorDir, workspace, isFallback: true));
+            {
+                var actor = LoadActorFromDirectory(actorDir, workspace, isFallback: true);
+                if (actor != null) actors.Add(actor);
+            }
             return actors;
         }
 
@@ -547,6 +561,7 @@ namespace Wally.Core
             string criteriaPrompt = string.Empty;
             string intentPrompt   = string.Empty;
             string docsFolderName = "Docs";
+            bool   enabled        = true;
 
             var allowedWrappers  = new List<string>();
             var allowedLoops     = new List<string>();
@@ -568,13 +583,11 @@ namespace Wally.Core
                     docsFolderName = TryGetString(root, "docsFolderName") ?? "Docs";
                     preferredWrapper = TryGetString(root, "preferredWrapper");
                     preferredLoop    = TryGetString(root, "preferredLoop");
+                    enabled          = TryGetBool(root, "enabled") ?? true;
 
-                    // allowedWrappers / allowedLoops — string arrays
                     allowedWrappers = TryGetStringList(root, "allowedWrappers");
                     allowedLoops    = TryGetStringList(root, "allowedLoops");
-
-                    // actions — array of action objects
-                    actions = TryGetActions(root);
+                    actions         = TryGetActions(root);
                 }
                 catch (JsonException ex)
                 {
@@ -584,6 +597,10 @@ namespace Wally.Core
                 }
             }
 
+            // Return null sentinel so the caller can filter without constructing
+            // a partially initialised actor object.
+            if (!enabled) return null!;
+
             var actor = new Actor(
                 name,
                 isFallback ? string.Empty : actorDir,
@@ -592,12 +609,13 @@ namespace Wally.Core
                 intentPrompt,
                 workspace);
 
-            actor.DocsFolderName  = docsFolderName;
-            actor.AllowedWrappers = allowedWrappers;
-            actor.AllowedLoops    = allowedLoops;
+            actor.Enabled          = enabled;
+            actor.DocsFolderName   = docsFolderName;
+            actor.AllowedWrappers  = allowedWrappers;
+            actor.AllowedLoops     = allowedLoops;
             actor.PreferredWrapper = preferredWrapper;
             actor.PreferredLoop    = preferredLoop;
-            actor.Actions         = actions;
+            actor.Actions          = actions;
 
             return actor;
         }

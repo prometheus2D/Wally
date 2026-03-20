@@ -1,5 +1,6 @@
 {
   "Name": "AutoCopilot",
+  "Enabled": true,
   "Description": "Agentic - runs gh copilot --autopilot -p (can edit files and run tools).",
   "Executable": "gh",
   "ArgumentTemplate": "copilot {model} {sourcePath} --yolo -s --autopilot -p {prompt}",

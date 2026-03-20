@@ -114,6 +114,14 @@ namespace Wally.Core.Providers
         // — Behavioural flags (from JSON) ———————————————————————————————
 
         /// <summary>
+        /// When <see langword="false"/> this wrapper is skipped during workspace
+        /// load and will not appear in any dropdown or be selectable by name.
+        /// Defaults to <see langword="true"/> so existing JSON files without
+        /// the field continue to load normally.
+        /// </summary>
+        public bool Enabled { get; set; } = true;
+
+        /// <summary>
         /// When <see langword="true"/>, this wrapper can make changes to files
         /// on disk (e.g. agentic mode). Read-only wrappers set this to
         /// <see langword="false"/>.
@@ -351,7 +359,7 @@ namespace Wally.Core.Providers
                 try
                 {
                     var wrapper = LoadFromFile(file);
-                    if (wrapper != null && !string.IsNullOrWhiteSpace(wrapper.Name))
+                    if (wrapper != null && !string.IsNullOrWhiteSpace(wrapper.Name) && wrapper.Enabled)
                         wrappers.Add(wrapper);
                 }
                 catch (Exception ex)
