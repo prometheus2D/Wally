@@ -9,12 +9,31 @@
 | Constraint | Rule |
 |------------|------|
 | **Audience** | Senior engineers + AI agents; domain expertise assumed |
-| **Density** | Max info/line; zero redundancy with Implementation Plans |
-| **References** | Link to Impl Plans; never duplicate phase content |
-| **Diagrams** | Mermaid only; no ASCII |
-| **Scope** | Orchestration, deps, file targets, AI prompts |
+| **Scope** | Orchestration of one or more implementation plans: dependencies, schedule, assignments, risk |
+| **Out of Scope** | Phase-level implementation steps; design rationale; test procedures |
 | **Maintenance** | Weekly update; changelog required |
+| **Density** | Max info/line; zero redundancy with Implementation Plans |
+| **References** | Link to Implementation Plans; never duplicate phase content |
+| **Diagrams** | Mermaid only; no ASCII |
 | **Length** | Target <150 lines |
+
+---
+
+## Objectives
+
+- Provide a single orchestration view across all in-flight implementation plans.
+- Make the critical path, blockers, and weekly schedule visible without reading individual plans.
+- Supply AI agents with executable prompts for each phase of each implementation plan.
+
+---
+
+## Document Relationships
+
+| Relates To | Relationship | Notes |
+|------------|--------------|-------|
+| ImplementationPlanTemplate | Follows | Execution plans orchestrate implementation plans; never duplicate their content |
+| ProposalTemplate | Follows | Proposals are approved before an execution plan is created |
+| RequirementsTemplate | Informs | Requirements may constrain schedule or assignment decisions |
 
 ---
 
@@ -35,17 +54,10 @@ Link to Implementation Plans. No phase details.
 ### Dependency Graph
 Mermaid `flowchart LR`. Show critical path.
 
-```mermaid
-flowchart LR
-    A[System A] --> B[System B]
-    A --> C[System C]
-    B --> D[System D]
-```
-
 ### Weekly Schedule
 | Week | Systems | Phases | Devs | Milestone |
 
-Reference phases by number; details live in Impl Plans.
+Reference phases by number; details live in Implementation Plans.
 
 ### Key Files
 ```
@@ -54,10 +66,7 @@ Reference phases by number; details live in Impl Plans.
 Actions: `CREATE`, `MODIFY`, `DELETE`
 
 ### AI Iteration Protocol
-- Phase Start prompt
-- Code Change prompt
-- Validation prompt
-- Cross-System Query table
+Prompt templates for: Phase Start, Code Change, Validation, Cross-System Query.
 
 ### Dev Assignments
 | Pool | Systems | Escalation |
@@ -68,43 +77,33 @@ Actions: `CREATE`, `MODIFY`, `DELETE`
 P = Probability (L/M/H), I = Impact (L/M/H)
 
 ### Done Criteria
-Checkboxes for gates.
+Checkboxes for release gates.
 
 ### Changelog
 | Date | Change | Author |
 
 ---
 
-## Mermaid Diagrams
+## Optional Sections
 
-**Required for**: Dependency graphs, parallel execution visualization.
+### Cross-System Query Table
+Include when: multiple systems interact and AI agents need a reference for cross-cutting questions.
 
-**Rules**:
-- `flowchart LR` for dependencies
-- Max 10 nodes
-- No styling/colors
-- Critical path highlighted via node naming
+| Query | ? | Source |
+|-------|---|--------|
 
 ---
 
-## AI Prompt Templates
+## Formatting Rules
 
-### Execute Phase
-```
-Execute [System] Phase [N] per ../Implementations/[System]ImplementationPlan.md.
-Files: [from Key Files]. Validate: [test].
-```
-
-### Code Modification
-```
-[ACTION] path/File.cs:Method — Description.
-Test: [assertion]. Constraint: [risk mitigation].
-```
-
-### Cross-Reference
-| Query | ? | Source |
-|-------|---|--------|
-| "What does X return?" | ? | [System] Impl Phase N |
+| Element | Format |
+|---------|--------|
+| Code / identifiers | Backtick inline code |
+| Diagrams | Mermaid only |
+| Structured data | Tables preferred over prose |
+| Lists | Numbered for ordered items; bullets for unordered |
+| Key file actions | `CREATE / MODIFY / DELETE` prefix |
+| Risk probability/impact | L / M / H abbreviations |
 
 ---
 
@@ -112,14 +111,15 @@ Test: [assertion]. Constraint: [risk mitigation].
 
 | ? Avoid | ? Instead |
 |----------|-----------|
-| Copy phase steps from Impl Plans | Reference: "See [Impl] Phase N" |
+| Copying phase steps from Implementation Plans | Reference: "See [Plan] Phase N" |
 | ASCII diagrams | Mermaid |
-| Prose | Tables, bullets |
-| Vague milestones | Concrete: "Brain uses net values" |
-| Generic risks | Specific + owner |
+| Prose | Tables and bullets |
+| Vague milestones | Concrete: "LLMWrapper.ExecuteAsync compiles" |
+| Generic risks | Specific risk + owner |
+| Missing changelog entry | Every weekly update must log a change |
 
 ---
 
 ## File Naming
 
-`ExecutionPlan.md` — Single file per project or workstream.
+`ExecutionPlan.md` — single file per project or workstream.

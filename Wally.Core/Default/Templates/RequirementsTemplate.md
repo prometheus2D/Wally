@@ -9,10 +9,30 @@
 | Constraint | Rule |
 |------------|------|
 | **Audience** | Stakeholders, BAs, engineers |
+| **Scope** | What the system must do; business context; acceptance criteria |
+| **Out of Scope** | How to build it; implementation details; test procedures |
+| **Maintenance** | Update on scope change; status field must stay current |
 | **Density** | One requirement per row; no bundling |
 | **Testability** | Every requirement has at least one acceptance criterion |
-| **Scope** | What the system must do, not how to build it |
-| **Maintenance** | Update on scope change |
+
+---
+
+## Objectives
+
+- Define the agreed scope of a feature or system change in testable, unambiguous terms.
+- Provide traceability from business need through to acceptance criteria.
+- Serve as the input contract for proposals, implementation plans, and test plans.
+
+---
+
+## Document Relationships
+
+| Relates To | Relationship | Notes |
+|------------|--------------|-------|
+| ProposalTemplate | Follows | Requirements may originate from or follow a proposal |
+| ImplementationPlanTemplate | Precedes | Implementation plans must satisfy requirements |
+| TestPlanTemplate | Precedes | Test plans verify requirements; every FR/NFR needs test coverage |
+| ArchitectureTemplate | Informs | Architecture constraints may limit or shape requirements |
 
 ---
 
@@ -22,71 +42,91 @@
 ```markdown
 # [Feature/Epic] Requirements
 
-**Status**: [Draft | In Review | Approved | Superseded]  
-**Owner**: [Author]  
-**Created**: [Date]  
+**Status**: [Draft | In Review | Approved | Superseded]
+**Owner**: [Author]
+**Created**: [Date]
 **Last Updated**: [Date]
 
-*Template: RequirementsTemplate.md*
+*Template: [../Templates/RequirementsTemplate.md](../Templates/RequirementsTemplate.md)*
 ```
 
 ### Business Context
 
 | Field | Value |
 |-------|-------|
-| **Business Need** | [Why this exists — the business driver] |
-| **Current State** | [How things work today] |
-| **Future State** | [How things should work after delivery] |
-| **Success Metrics** | [Measurable outcomes] |
-| **Out of Scope** | [What this does NOT cover] |
+| **Business Need** | Why this exists — the business driver |
+| **Current State** | How things work today |
+| **Future State** | How things should work after delivery |
+| **Success Metrics** | Measurable outcomes |
+| **Out of Scope** | What this does NOT cover |
 
 ### Functional Requirements
 
 | ID | Requirement | Priority | Acceptance Criteria | Status |
 |----|------------|----------|--------------------|---------| 
-| FR-001 | [The system shall...] | [Must/Should/Could] | [Testable condition] | [Draft/Approved/Done] |
-| FR-002 | [The system shall...] | [Must/Should/Could] | [Testable condition] | [Draft/Approved/Done] |
+
+Priority values: `Must / Should / Could`. Status values: `Draft / Approved / Done`.
 
 ### Non-Functional Requirements
 
 | ID | Category | Requirement | Acceptance Criteria | Status |
 |----|----------|------------|--------------------|---------| 
-| NFR-001 | Performance | [The system shall...] | [Measurable target] | [Status] |
-| NFR-002 | Security | [The system shall...] | [Verifiable condition] | [Status] |
 
-**Categories**: Performance, Security, Scalability, Reliability, Usability, Maintainability
+Categories: Performance, Security, Scalability, Reliability, Usability, Maintainability.
 
 ### Dependencies
 
 | Dependency | Owner | Impact if Blocked |
 |-----------|-------|-------------------|
-| [System/API/Team] | [Who] | [What happens] |
 
-### Assumptions & Constraints
+### Assumptions and Constraints
 
-**Assumptions** (if wrong, requirements change):
-- [Assumption]
-
-**Constraints** (non-negotiable):
-- [Constraint]
+**Assumptions** (if wrong, requirements change): bullet list.
+**Constraints** (non-negotiable): bullet list.
 
 ### References
 
 | Document | Relationship |
 |----------|-------------|
-| [Document name] | [Originated from / Constrained by / Verified by / Implemented by] |
+
+Use relationship vocabulary from TemplateTemplate: `Precedes / Follows / Implements / Verifies / Spawns / Supersedes / Informs`.
+
+---
+
+## Optional Sections
+
+### Open Questions
+Include when: assumptions are unresolved or stakeholder sign-off is pending.
+
+---
+
+## Formatting Rules
+
+| Element | Format |
+|---------|--------|
+| Code / identifiers | Backtick inline code |
+| Diagrams | Mermaid only |
+| Structured data | Tables preferred over prose |
+| Lists | Numbered for ordered items; bullets for assumptions/constraints |
+| Requirement statements | "The system shall…" — active, present tense |
+| Priority | Must / Should / Could — never High/Med/Low |
 
 ---
 
 ## Anti-Patterns
 
-- ? Implementation details ("use SQL Server", "create a REST endpoint")
-- ? Requirements without acceptance criteria
-- ? Bundled requirements (one ID = one testable thing)
-- ? Vague language ("the system should be fast")
+| ? Avoid | ? Instead |
+|----------|-----------|
+| Implementation details ("use SQL Server") | Behavioural outcome only |
+| Requirements without acceptance criteria | Every row must have a testable condition |
+| Bundled requirements (multiple things in one ID) | One ID = one testable thing |
+| Vague language ("the system should be fast") | Measurable target ("response ? 200 ms") |
+| Mixing functional and non-functional in one table | Separate FR and NFR tables |
 
 ---
 
 ## File Naming
 
 `[FeatureName]Requirements.md` — PascalCase, suffix `Requirements`.
+
+Examples: `AsyncExecutionRequirements.md`, `MailboxProtocolRequirements.md`

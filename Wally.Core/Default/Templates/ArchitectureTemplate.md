@@ -6,18 +6,34 @@
 
 ## Document Constraints
 
-All architecture documents enforce:
-
 | Constraint | Rule |
 |------------|------|
 | **Audience** | Senior engineers; assumes domain expertise |
+| **Scope** | Current design decisions and patterns |
+| **Out of Scope** | Future plans, new ideas, tutorials, implementation steps |
+| **Maintenance** | Update on architectural change only |
 | **Density** | Maximum information per line; no filler |
 | **Code** | Inline signatures only (≤1 line); source is implementation |
 | **Diagrams** | Mermaid only; no ASCII art |
-| **Scope** | Decisions and patterns, not tutorials |
-| **Maintenance** | Update on architectural change only |
 | **Length** | Target <150 lines; split if exceeds |
-| **Future Plans** | Architecture documents reflect current architecture only; no references to future plans or new ideas |
+
+---
+
+## Objectives
+
+- Provide a single authoritative reference for how a system is currently designed.
+- Capture non-obvious design decisions and the tradeoffs that drove them.
+- Enable engineers and AI agents to reason about the system without reading source code.
+
+---
+
+## Document Relationships
+
+| Relates To | Relationship | Notes |
+|------------|--------------|-------|
+| ProposalTemplate | Follows | Architecture docs are updated after proposals are implemented |
+| ImplementationPlanTemplate | Follows | Implementation plans change the architecture; docs must reflect the result |
+| RequirementsTemplate | Informs | Requirements may reference architecture constraints |
 
 ---
 
@@ -39,7 +55,7 @@ One paragraph + benefits table. State the fundamental invariant that drives all 
 Table of responsibilities. Who owns what state? Who mutates? Who reads?
 
 ### Data Flow
-How data moves through the system. Use inline notation `A → B → C` or Mermaid diagrams for complex flows.
+How data moves through the system. Use inline notation `A → B → C` or Mermaid for complex flows.
 
 ### Protocol/Interface
 Tables for message types, method signatures, or API contracts. Include IDs where applicable.
@@ -55,9 +71,10 @@ Numbered list, one line each. Maximum 7 items. Each principle captures a decisio
 
 ---
 
-## Documenting Decisions
+## Optional Sections
 
-Architecture docs capture **decisions**, not just structure. For significant choices:
+### Documenting Decisions
+Include when: a significant non-obvious tradeoff was made.
 
 | Element | Format |
 |---------|--------|
@@ -66,61 +83,40 @@ Architecture docs capture **decisions**, not just structure. For significant cho
 | Components | Table of types/roles if multiple |
 | Benefits | Bullet list of concrete gains |
 
-Avoid justifying obvious choices. Document non-obvious tradeoffs.
-
----
-
-## Mermaid Diagrams
-
-Use Mermaid for complex flows where inline notation is insufficient. Keep diagrams minimal.
-
-**Allowed types**: `flowchart`, `sequenceDiagram`, `stateDiagram-v2`, `classDiagram`
-
-**Example** (data flow):
-```mermaid
-flowchart LR
-    A[Decision Layer] --> B[IEntityAction]
-    B --> C[Action Queue]
-    C --> D[Execute]
-    D --> E[State Broadcast]
-```
-
-**Rules**:
-- Maximum 10 nodes per diagram
-- No styling/colors (keep portable)
-- Prefer `flowchart LR` (left-right) for data flow
-- Prefer `sequenceDiagram` for request/response patterns
-
 ---
 
 ## Formatting Rules
 
 | Element | Format |
 |---------|--------|
-| Class/Method names | `BacktickCode` |
+| Code / identifiers | Backtick inline code |
+| Diagrams | Mermaid only |
+| Structured data | Tables preferred over prose |
+| Lists | Numbered for ordered items; bullets for unordered |
 | Inline flows | `A → B → C` |
 | Patterns | **Bold label**: description |
-| Tables | Prefer over prose for structured data |
-| Lists | Numbered for ordered items, bullets for unordered |
-| Emphasis | Bold for terms, italic for quotes only |
+| Emphasis | Bold for terms; italic for quotes only |
 
 ---
 
 ## Anti-Patterns
 
-- ❌ Multi-line code blocks (>1 line)
-- ❌ ASCII box diagrams
-- ❌ Tutorial-style explanations
-- ❌ Implementation details that change frequently
-- ❌ Duplicate information from source code
-- ❌ Version history (use git)
-- ❌ Justifying obvious choices
-- ❌ Mermaid diagrams with >10 nodes
+| ✗ Avoid | ✓ Instead |
+|----------|-----------|
+| Multi-line code blocks (>1 line) | Inline signatures only |
+| ASCII box diagrams | Mermaid |
+| Tutorial-style explanations | Decision + tradeoff |
+| Implementation details that change frequently | Stable interfaces and invariants |
+| Duplicate information from source code | Reference source; document intent |
+| Version history | Use git |
+| Justifying obvious choices | Document non-obvious tradeoffs only |
+| Mermaid diagrams with >10 nodes | Split diagram or summarise |
+| Future plans or proposals | Link to a Proposal document |
 
 ---
 
 ## File Naming
 
-`[SystemName]Architecture.md` — PascalCase, no spaces, suffix `Architecture`.
+`[SystemName]Architecture.md` — PascalCase, suffix `Architecture`.
 
 Examples: `NetworkingArchitecture.md`, `ChunkingArchitecture.md`, `AIArchitecture.md`
