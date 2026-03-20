@@ -431,7 +431,11 @@ namespace Wally.Core
                     actor,
                     ws.WorkSource,
                     canMakeChanges: wrapper.CanMakeChanges,
-                    logWarning: msg => Logger.LogInfo($"[ActionDispatcher] {msg}"));
+                    logWarning: msg => Logger.LogInfo($"[ActionDispatcher] {msg}"))
+                {
+                    // Provide the loaded actor list so send_message can validate targets.
+                    LoadedActors = ws.Actors
+                };
 
                 string? actionSummary = dispatcher.Dispatch(response);
 

@@ -285,11 +285,17 @@ namespace Wally.Core.Actors
             AllowedLoops.Count == 0 ||
             AllowedLoops.Any(l => string.Equals(l, loopName, StringComparison.OrdinalIgnoreCase));
 
-        // ?? Documentation helpers ?????????????????????????????????????????????
+        // ?? Documentation helpers ????????????????????????????????????????????
 
         /// <summary>
-        /// Enumerates documentation files from the actor's <c>Docs/</c> folder
-        /// and the workspace-level <c>Docs/</c> folder.
+        /// Enumerates documentation files from three locations, in priority order:
+        /// <list type="number">
+        ///   <item>The actor's own <c>Docs/</c> subfolder (actor-private docs).</item>
+        ///   <item>The shared <c>Actors/</c> parent folder — one level above this
+        ///         actor's directory — so a single README placed there is visible
+        ///         to every actor without being duplicated per-actor.</item>
+        ///   <item>The workspace-level <c>Docs/</c> folder (workspace-wide docs).</item>
+        /// </list>
         /// </summary>
         protected virtual List<(string RelativePath, string Source)> GetDocumentationFiles()
         {
@@ -299,7 +305,7 @@ namespace Wally.Core.Actors
                 ".md", ".txt", ".rst", ".adoc"
             };
 
-            // Actor-level docs
+            // 1. Actor-level docs  (.wally/Actors/<Name>/Docs/)
             if (!string.IsNullOrEmpty(FolderPath) && Directory.Exists(FolderPath))
             {
                 string actorDocsDir = Path.Combine(FolderPath, DocsFolderName);
@@ -316,9 +322,27 @@ namespace Wally.Core.Actors
                         }
                     }
                 }
+
+                // 2. Shared actors folder  (.wally/Actors/)
+                // Files placed directly in the Actors/ parent directory (not in any
+                // actor subfolder) are shared across all actors — e.g. README.md.
+                string actorsParentDir = Path.GetDirectoryName(FolderPath)!;
+                if (!string.IsNullOrEmpty(actorsParentDir) && Directory.Exists(actorsParentDir))
+                {
+                    foreach (string file in Directory.GetFiles(actorsParentDir, "*", SearchOption.TopDirectoryOnly))
+                    {
+                        if (docExtensions.Contains(Path.GetExtension(file)))
+                        {
+                            string relativePath = Workspace != null
+                                ? Path.GetRelativePath(Workspace.WorkSource, file)
+                                : Path.GetFileName(file);
+                            results.Add((relativePath, "actors shared docs"));
+                        }
+                    }
+                }
             }
 
-            // Workspace-level docs
+            // 3. Workspace-level docs  (.wally/Docs/)
             if (Workspace != null && !string.IsNullOrEmpty(Workspace.WorkspaceFolder))
             {
                 string wsDocsDir = Path.Combine(Workspace.WorkspaceFolder, Workspace.Config.DocsFolderName);

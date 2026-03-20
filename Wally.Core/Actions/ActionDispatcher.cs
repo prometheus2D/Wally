@@ -16,40 +16,42 @@ namespace Wally.Core.Actions
     /// Mutating actions are additionally rejected when the active wrapper is
     /// read-only (<c>CanMakeChanges = false</c>).
     /// </para>
-    /// <h3>Block format in LLM response:</h3>
-    /// <code>
-    /// ```action
-    /// name: write_file
-    /// path: Projects/MyProject/Requirements/auth.md
-    /// content: |
-    ///   # Auth Requirements
-    ///   ...
-    /// ```
-    /// </code>
-    /// <h3>Supported built-in action names:</h3>
+    /// <h3>Supported action names (semantic + legacy aliases):</h3>
     /// <list type="bullet">
-    ///   <item><c>write_file</c> — write <c>content</c> to <c>path</c> (relative to WorkSource).</item>
-    ///   <item><c>read_file</c>  — read <c>path</c> and return its content (inserted into next prompt).</item>
-    ///   <item><c>append_file</c> — append <c>content</c> to <c>path</c>.</item>
-    ///   <item><c>list_files</c> — list files in <c>directory</c> (relative to WorkSource).</item>
-    ///   <item><c>delete_file</c> — delete <c>path</c> (mutating).</item>
+    ///   <item><c>change_code</c>       — write any file (Engineer exclusive). Alias: <c>write_file</c>.</item>
+    ///   <item><c>write_document</c>    — write a Markdown document (BA, Engineer). Alias: <c>write_file</c>.</item>
+    ///   <item><c>write_requirements</c>— write a Markdown requirements doc (RequirementsExtractor exclusive). Alias: <c>write_file</c>.</item>
+    ///   <item><c>read_context</c>      — read any file for inspection (all actors). Alias: <c>read_file</c>.</item>
+    ///   <item><c>browse_workspace</c>  — list files in a directory (all actors). Alias: <c>list_files</c>.</item>
+    ///   <item><c>send_message</c>      — write a message to a target actor's Inbox/ (all actors).</item>
+    ///   <item><c>write_file</c>        — legacy alias for change_code / write_document.</item>
+    ///   <item><c>read_file</c>         — legacy alias for read_context.</item>
+    ///   <item><c>append_file</c>       — append content to a file.</item>
+    ///   <item><c>list_files</c>        — legacy alias for browse_workspace.</item>
+    ///   <item><c>delete_file</c>       — delete a file (mutating).</item>
     /// </list>
     /// </summary>
     public sealed class ActionDispatcher
     {
         // ?? Regex: matches ```action ... ``` blocks ???????????????????????????
-        // The block starts with ``` followed immediately by "action" (case-insensitive)
-        // and ends with a ``` on its own line.
         private static readonly Regex _blockRx = new Regex(
             @"```action\s*\r?\n(?<body>.*?)```",
             RegexOptions.Singleline | RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
-        // ?? Dependencies ?????????????????????????????????????????????????????
+        // ?? Dependencies ??????????????????????????????????????????????????????
 
-        private readonly Actor   _actor;
-        private readonly string  _workSource;
-        private readonly bool    _canMakeChanges;
-        private readonly Action<string>? _logWarning;
+        private readonly Actor            _actor;
+        private readonly string           _workSource;
+        private readonly bool             _canMakeChanges;
+        private readonly Action<string>?  _logWarning;
+
+        /// <summary>
+        /// The workspace's loaded actors, injected so <c>send_message</c> can
+        /// validate the target actor exists before writing to its Inbox/.
+        /// When <see langword="null"/> the target-validation step is skipped
+        /// (permissive mode — used in unit tests without a full workspace).
+        /// </summary>
+        public IReadOnlyList<Actor>? LoadedActors { get; set; }
 
         /// <summary>
         /// Collected read-results that can be prepended to the next prompt so
@@ -124,7 +126,7 @@ namespace Wally.Core.Actions
                     continue;
                 }
 
-                // ?? Allow-list check ????????????????????????????????????????
+                // ?? Allow-list check ?????????????????????????????????????????
                 var declared = FindDeclaredAction(actionName!);
                 if (declared == null)
                 {
@@ -134,7 +136,7 @@ namespace Wally.Core.Actions
                     continue;
                 }
 
-                // ?? Mutability check ????????????????????????????????????????
+                // ?? Mutability check ?????????????????????????????????????????
                 if (declared.IsMutating && !_canMakeChanges)
                 {
                     Warn($"Action '{actionName}' is mutating but wrapper is read-only — skipped.");
@@ -143,7 +145,7 @@ namespace Wally.Core.Actions
                     continue;
                 }
 
-                // ?? Path-pattern check ??????????????????????????????????????
+                // ?? Path-pattern check ???????????????????????????????????????
                 if (!string.IsNullOrWhiteSpace(declared.PathPattern) &&
                     fields.TryGetValue("path", out string? path) &&
                     !string.IsNullOrWhiteSpace(path))
@@ -172,7 +174,7 @@ namespace Wally.Core.Actions
                 }
                 if (!valid) continue;
 
-                // ?? Dispatch ?????????????????????????????????????????????????
+                // ?? Dispatch ??????????????????????????????????????????????????
                 string result = DispatchBuiltIn(actionName!, fields);
                 DispatchedCount++;
                 sb.AppendLine($"- **{actionName}**: {result}");
@@ -187,21 +189,120 @@ namespace Wally.Core.Actions
         {
             return actionName.ToLowerInvariant() switch
             {
+                // ?? Semantic names (role-scoped) ??????????????????????????????
+                "change_code"        => ActionWriteFile(fields),      // Engineer: write any file
+                "write_document"     => ActionWriteFile(fields),      // Engineer / BA: write .md doc
+                "write_requirements" => ActionWriteFile(fields),      // RequirementsExtractor: write .md req
+                "read_context"       => ActionReadFile(fields),       // All actors: read for inspection
+                "browse_workspace"   => ActionListFiles(fields),      // All actors: list directory
+                "send_message"       => ActionSendMessage(fields),    // All actors: mailbox handoff
+
+                // ?? Legacy primitive names (kept for back-compat) ?????????????
                 "write_file"  => ActionWriteFile(fields),
                 "append_file" => ActionAppendFile(fields),
                 "read_file"   => ActionReadFile(fields),
                 "list_files"  => ActionListFiles(fields),
                 "delete_file" => ActionDeleteFile(fields),
+
                 _             => $"WARNING: No built-in handler for '{actionName}'."
             };
         }
+
+        // ?? send_message ??????????????????????????????????????????????????????
+
+        /// <summary>
+        /// Writes a WallyMessage file into the target actor's <c>Inbox/</c> folder.
+        /// <para>
+        /// The message file uses YAML front-matter followed by a free-text Markdown body:
+        /// <code>
+        /// ---
+        /// from: Engineer
+        /// to:   BusinessAnalyst
+        /// subject: FeasibilityCheck
+        /// replyTo: Engineer
+        /// correlationId: &lt;guid&gt;
+        /// ***
+        /// [body]
+        /// </code>
+        /// The file is named <c>{timestamp}-{from}-{subject}.md</c> and written to
+        /// <c>.wally/Actors/{to}/Inbox/</c> relative to the workspace folder
+        /// (one level below WorkSource).
+        /// </para>
+        /// </summary>
+        private string ActionSendMessage(Dictionary<string, string> fields)
+        {
+            string to      = fields.GetValueOrDefault("to",      "").Trim();
+            string subject = fields.GetValueOrDefault("subject", "").Trim();
+            string body    = fields.GetValueOrDefault("body",    "").Trim();
+            string replyTo = fields.GetValueOrDefault("replyTo", _actor.Name).Trim();
+
+            if (string.IsNullOrWhiteSpace(to))
+                return "ERROR: send_message missing required parameter 'to'.";
+            if (string.IsNullOrWhiteSpace(subject))
+                return "ERROR: send_message missing required parameter 'subject'.";
+
+            // ?? Validate target actor exists ?????????????????????????????????
+            if (LoadedActors != null)
+            {
+                bool targetExists = false;
+                foreach (var a in LoadedActors)
+                {
+                    if (string.Equals(a.Name, to, StringComparison.OrdinalIgnoreCase))
+                    {
+                        targetExists = true;
+                        break;
+                    }
+                }
+                if (!targetExists)
+                    return $"ERROR: send_message target actor '{to}' is not loaded in this workspace — message not written.";
+            }
+
+            // ?? Resolve target Inbox path ????????????????????????????????????
+            // WorkSource is the repo root; workspace folder is WorkSource/.wally
+            string workspaceFolder = Path.Combine(_workSource, ".wally");
+            string inboxDir = Path.Combine(workspaceFolder, "Actors", to, "Inbox");
+
+            if (!Directory.Exists(inboxDir))
+                return $"ERROR: Inbox folder for actor '{to}' not found at '{inboxDir}' — run 'wally setup' to initialise mailbox folders.";
+
+            // ?? Build file name ??????????????????????????????????????????????
+            string correlationId = Guid.NewGuid().ToString("N")[..8]; // short 8-char prefix
+            string timestamp     = DateTimeOffset.UtcNow.ToString("yyyy-MM-ddTHH-mm-ssZ");
+            string safeSubject   = Regex.Replace(subject, @"[^\w\-]", "-");
+            string fileName      = $"{timestamp}-{_actor.Name}-{safeSubject}.md";
+            string filePath      = Path.Combine(inboxDir, fileName);
+
+            // ?? Write message file ???????????????????????????????????????????
+            var content = new StringBuilder();
+            content.AppendLine("---");
+            content.AppendLine($"from: {_actor.Name}");
+            content.AppendLine($"to: {to}");
+            content.AppendLine($"subject: {subject}");
+            content.AppendLine($"replyTo: {replyTo}");
+            content.AppendLine($"correlationId: {correlationId}");
+            content.AppendLine("---");
+            content.AppendLine();
+            content.Append(body);
+
+            File.WriteAllText(filePath, content.ToString(), Encoding.UTF8);
+
+            ReadResults.Add(
+                $"### Message queued for `{to}`\n" +
+                $"- File: `{Path.GetRelativePath(_workSource, filePath)}`\n" +
+                $"- correlationId: `{correlationId}`\n" +
+                $"- Subject: `{subject}`");
+
+            return $"OK — message queued for '{to}' (correlationId: {correlationId}, file: {fileName})";
+        }
+
+        // ?? File I/O primitives ???????????????????????????????????????????????
 
         private string ActionWriteFile(Dictionary<string, string> fields)
         {
             string path    = fields.GetValueOrDefault("path", "");
             string content = fields.GetValueOrDefault("content", "");
-            string full    = ResolveSafe(path);
-            if (full == null!) return $"ERROR: path '{path}' escapes WorkSource — rejected.";
+            string? full   = ResolveSafe(path);
+            if (full == null) return $"ERROR: path '{path}' escapes WorkSource — rejected.";
             Directory.CreateDirectory(Path.GetDirectoryName(full)!);
             File.WriteAllText(full, content, Encoding.UTF8);
             return $"OK — wrote {content.Length} chars to `{path}`";
@@ -211,8 +312,8 @@ namespace Wally.Core.Actions
         {
             string path    = fields.GetValueOrDefault("path", "");
             string content = fields.GetValueOrDefault("content", "");
-            string full    = ResolveSafe(path);
-            if (full == null!) return $"ERROR: path '{path}' escapes WorkSource — rejected.";
+            string? full   = ResolveSafe(path);
+            if (full == null) return $"ERROR: path '{path}' escapes WorkSource — rejected.";
             Directory.CreateDirectory(Path.GetDirectoryName(full)!);
             File.AppendAllText(full, content, Encoding.UTF8);
             return $"OK — appended {content.Length} chars to `{path}`";
@@ -220,9 +321,9 @@ namespace Wally.Core.Actions
 
         private string ActionReadFile(Dictionary<string, string> fields)
         {
-            string path = fields.GetValueOrDefault("path", "");
-            string full = ResolveSafe(path);
-            if (full == null!) return $"ERROR: path '{path}' escapes WorkSource — rejected.";
+            string path  = fields.GetValueOrDefault("path", "");
+            string? full = ResolveSafe(path);
+            if (full == null) return $"ERROR: path '{path}' escapes WorkSource — rejected.";
             if (!File.Exists(full)) return $"ERROR: file not found — `{path}`";
             string content = File.ReadAllText(full, Encoding.UTF8);
             ReadResults.Add($"### File: `{path}`\n```\n{content}\n```");
@@ -231,9 +332,9 @@ namespace Wally.Core.Actions
 
         private string ActionListFiles(Dictionary<string, string> fields)
         {
-            string dir  = fields.GetValueOrDefault("directory", ".");
-            string full = ResolveSafe(dir);
-            if (full == null!) return $"ERROR: directory '{dir}' escapes WorkSource — rejected.";
+            string dir   = fields.GetValueOrDefault("directory", ".");
+            string? full = ResolveSafe(dir);
+            if (full == null) return $"ERROR: directory '{dir}' escapes WorkSource — rejected.";
             if (!Directory.Exists(full)) return $"ERROR: directory not found — `{dir}`";
             var files = Directory.GetFiles(full, "*", SearchOption.AllDirectories);
             var lines = new StringBuilder();
@@ -246,21 +347,16 @@ namespace Wally.Core.Actions
 
         private string ActionDeleteFile(Dictionary<string, string> fields)
         {
-            string path = fields.GetValueOrDefault("path", "");
-            string full = ResolveSafe(path);
-            if (full == null!) return $"ERROR: path '{path}' escapes WorkSource — rejected.";
+            string path  = fields.GetValueOrDefault("path", "");
+            string? full = ResolveSafe(path);
+            if (full == null) return $"ERROR: path '{path}' escapes WorkSource — rejected.";
             if (!File.Exists(full)) return $"WARNING: file not found — `{path}` (nothing deleted)";
             File.Delete(full);
             return $"OK — deleted `{path}`";
         }
 
-        // ?? Private: helpers ?????????????????????????????????????????????????
+        // ?? Private: helpers ??????????????????????????????????????????????????
 
-        /// <summary>
-        /// Resolves <paramref name="relativePath"/> against WorkSource and validates
-        /// the result stays inside WorkSource (path-traversal guard).
-        /// Returns <see langword="null"/> when the path escapes.
-        /// </summary>
         private string? ResolveSafe(string relativePath)
         {
             if (string.IsNullOrWhiteSpace(relativePath)) return null;
@@ -269,14 +365,9 @@ namespace Wally.Core.Actions
             return full.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)
                 || string.Equals(full, root, StringComparison.OrdinalIgnoreCase)
                 ? full
-                : null!;
+                : null;
         }
 
-        /// <summary>
-        /// Parses a YAML-lite action block body into a string?string dictionary.
-        /// Multi-line values use the YAML block-scalar syntax: <c>key: |</c> followed
-        /// by indented lines. All other values are single-line.
-        /// </summary>
         private static Dictionary<string, string> ParseBlock(string body)
         {
             var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -294,7 +385,6 @@ namespace Wally.Core.Actions
 
                 if (value == "|")
                 {
-                    // Block scalar — collect indented lines until de-indent or EOF
                     var blockLines = new List<string>();
                     i++;
                     int indent = -1;
@@ -308,7 +398,6 @@ namespace Wally.Core.Actions
                         blockLines.Add(bl.Length >= indent ? bl[indent..] : bl);
                         i++;
                     }
-                    // Remove trailing blank lines
                     while (blockLines.Count > 0 && string.IsNullOrWhiteSpace(blockLines[^1]))
                         blockLines.RemoveAt(blockLines.Count - 1);
                     result[key] = string.Join("\n", blockLines);
@@ -332,7 +421,6 @@ namespace Wally.Core.Actions
         /// <summary>
         /// Minimal glob matcher supporting <c>*</c> (within a segment) and
         /// <c>**</c> (across any number of segments).
-        /// Path separators are normalised to <c>/</c> before matching.
         /// </summary>
         internal static bool GlobMatch(string pattern, string input)
         {

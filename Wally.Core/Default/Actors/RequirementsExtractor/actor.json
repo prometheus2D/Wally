@@ -11,8 +11,8 @@
   "preferredLoop": "SingleRun",
   "actions": [
     {
-      "name": "write_file",
-      "description": "Write the extracted requirements document to the Projects folder. Path must be under Projects/ and end in .md. This is the only output action available - use it to materialise the requirements document immediately.",
+      "name": "write_requirements",
+      "description": "Write a structured requirements document to the workspace. Restricted to Markdown files only. This is the RequirementsExtractor's primary and exclusive write ability - used to materialise extracted requirements immediately. May NOT write proposals, implementation plans, architecture docs, or source code.",
       "pathPattern": "**/*.md",
       "isMutating": true,
       "parameters": [
@@ -31,8 +31,8 @@
       ]
     },
     {
-      "name": "read_file",
-      "description": "Read an existing file for context - e.g. read RequirementsTemplate.md before writing, or read an existing requirements document to understand what has already been captured.",
+      "name": "read_context",
+      "description": "Read an existing file for context before writing requirements: e.g. read RequirementsTemplate.md to ensure conformance, or read an existing requirements document to avoid duplication. Cannot read or modify source code.",
       "pathPattern": "**",
       "isMutating": false,
       "parameters": [
@@ -45,8 +45,8 @@
       ]
     },
     {
-      "name": "list_files",
-      "description": "List files in a directory. Use to discover existing requirements documents before writing a new one, to avoid duplication.",
+      "name": "browse_workspace",
+      "description": "List files in a directory to discover existing requirements documents and avoid duplication before writing a new one.",
       "pathPattern": null,
       "isMutating": false,
       "parameters": [
@@ -56,6 +56,18 @@
           "description": "Relative path from WorkSource root (e.g. '.wally/Projects' or '.')",
           "required": false
         }
+      ]
+    },
+    {
+      "name": "send_message",
+      "description": "Send a message to another actor's Inbox after completing requirements extraction, or to request clarification. See Docs/MailboxSystemArchitecture.md for the full protocol. Typical recipients: BusinessAnalyst (to report completion and hand off the requirements document) or Engineer (if technical context is needed to write a complete requirement).",
+      "pathPattern": null,
+      "isMutating": true,
+      "parameters": [
+        { "name": "to",      "type": "string", "description": "Target actor name - must be a loaded actor (e.g. BusinessAnalyst, Engineer)", "required": true },
+        { "name": "subject", "type": "string", "description": "Short topic identifier, PascalCase or hyphenated, e.g. RequirementsComplete or ClarificationNeeded", "required": true },
+        { "name": "body",    "type": "string", "description": "Message body as free-text Markdown - the full prompt the target actor will receive", "required": true },
+        { "name": "replyTo", "type": "string", "description": "Actor name to receive the response. Defaults to RequirementsExtractor if omitted.", "required": false }
       ]
     }
   ]
