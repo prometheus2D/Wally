@@ -1,4 +1,4 @@
-# RequirementsExtractor — Actor Docs
+# RequirementsExtractor - Actor Docs
 
 This folder contains actor-private reference material for the RequirementsExtractor.
 
