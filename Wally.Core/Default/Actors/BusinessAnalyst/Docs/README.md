@@ -1,22 +1,31 @@
 # BusinessAnalyst — Actor Reference
 
-> Shared cross-actor conventions (action vocabulary, mailbox system, workspace layout,
+> Shared cross-actor conventions (ability system, mailbox protocol, workspace layout,
 > templates) are in `Actors/README.md`. This file covers BusinessAnalyst-specific details only.
 
 ---
 
-## Abilities
+## Role-Exclusive Actions
 
-| Ability | Action Name | Scope | Mutating |
-|---------|-------------|-------|----------|
-| Write a business document (Requirements, Execution Plan) | `write_document` | `**/*.md` | Yes |
-| Read any file for context | `read_context` | `**` | No |
-| List files in a directory | `browse_workspace` | — | No |
-| Send a message to another actor's Inbox | `send_message` | — | Yes |
+| Action | Scope | What It Does |
+|--------|-------|-------------|
+| `write_document` | `**/*.md` | Write or overwrite a business document: Requirements, Execution Plan, project status, or coordination artefact. **Markdown files only** — the BusinessAnalyst may never write source code or configuration files. Must conform to the matching template. |
 
-> The BusinessAnalyst writes **Markdown documents only** — no source code, no config files.
-> As the coordination hub, route: requirements work ? `RequirementsExtractor`,
-> technical work ? `Engineer`, business decisions ? `Stakeholder`.
+> **The BusinessAnalyst is the coordination hub.** Route: requirements work ?
+> `RequirementsExtractor`, technical work ? `Engineer`, business decisions ? `Stakeholder`.
+> Always use `read_context` before `write_document` to check what already exists.
+
+---
+
+## Shared Abilities
+
+Resolved from `AbilityRegistry` — identical schema across all actors.
+
+| Ability | What It Does |
+|---------|-------------|
+| `read_context` | Read any file for context before making changes |
+| `browse_workspace` | List files in a directory to discover structure |
+| `send_message` | Send a message to another actor's Inbox |
 
 ---
 

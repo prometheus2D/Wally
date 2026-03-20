@@ -1,23 +1,33 @@
 # Engineer — Actor Reference
 
-> Shared cross-actor conventions (action vocabulary, mailbox system, workspace layout,
+> Shared cross-actor conventions (ability system, mailbox protocol, workspace layout,
 > templates) are in `Actors/README.md`. This file covers Engineer-specific details only.
 
 ---
 
-## Abilities
+## Role-Exclusive Actions
 
-| Ability | Action Name | Scope | Mutating |
-|---------|-------------|-------|----------|
-| Write source code, config, or any project file | `change_code` | `**` (any path) | Yes |
-| Write a technical document | `write_document` | `**/*.md` | Yes |
-| Read any file for context | `read_context` | `**` | No |
-| List files in a directory | `browse_workspace` | — | No |
-| Send a message to another actor's Inbox | `send_message` | — | Yes |
+These actions are unique to the Engineer — no other actor has them.
 
-> **`change_code` is the Engineer's exclusive ability.** No other actor may write source
-> code or non-Markdown files. Always use `read_context` before `change_code` or
-> `write_document` to avoid overwriting work.
+| Action | Scope | What It Does |
+|--------|-------|-------------|
+| `change_code` | `**` (any file) | Write or overwrite **any** file: source code, configuration, project files. This is the Engineer's defining ability — the only actor that can touch non-Markdown files. |
+| `write_document` | `**/*.md` | Write or overwrite a technical document: Proposal, Implementation Plan, Architecture doc, Bug Report, or Test Plan. Must conform to the matching template. |
+
+> **Always use `read_context` before `change_code` or `write_document`** to understand
+> what already exists and avoid overwriting work.
+
+---
+
+## Shared Abilities
+
+Resolved from `AbilityRegistry` — identical schema across all actors.
+
+| Ability | What It Does |
+|---------|-------------|
+| `read_context` | Read any file for context before making changes |
+| `browse_workspace` | List files in a directory to discover structure |
+| `send_message` | Send a message to another actor's Inbox |
 
 ---
 

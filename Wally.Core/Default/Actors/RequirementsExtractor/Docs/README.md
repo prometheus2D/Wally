@@ -1,24 +1,32 @@
 # RequirementsExtractor — Actor Reference
 
-> Shared cross-actor conventions (action vocabulary, mailbox system, workspace layout,
+> Shared cross-actor conventions (ability system, mailbox protocol, workspace layout,
 > templates) are in `Actors/README.md`. This file covers RequirementsExtractor-specific details only.
 
 ---
 
-## Abilities
+## Role-Exclusive Actions
 
-| Ability | Action Name | Scope | Mutating |
-|---------|-------------|-------|----------|
-| Write a structured requirements document | `write_requirements` | `**/*.md` | Yes |
-| Read any file for context | `read_context` | `**` | No |
-| List files in a directory | `browse_workspace` | — | No |
-| Send a message to another actor's Inbox | `send_message` | — | Yes |
+| Action | Scope | What It Does |
+|--------|-------|-------------|
+| `write_requirements` | `**/*.md` | Write a structured requirements document to the workspace. **This is the only write action** for this actor — no proposals, no implementation plans, no architecture docs, no source code. Output must conform exactly to `Templates/RequirementsTemplate.md`. |
 
-> `write_requirements` is the **only write ability** for this actor — no proposals,
-> no implementation plans, no architecture docs, no source code.
-> Output path convention: `.wally/Projects/<ProjectName>/Requirements/<FeatureName>.md`
-> Read `Templates/RequirementsTemplate.md` before writing to ensure conformance.
-> If the input is too vague, ask a clarifying question or use `send_message` rather than guessing.
+> **Output path convention**: `.wally/Projects/<ProjectName>/Requirements/<FeatureName>.md`
+> Always use `read_context` to read `Templates/RequirementsTemplate.md` before writing.
+> If the input is too vague to produce a well-formed requirement, ask a clarifying question
+> or use `send_message` to request more detail — do not guess.
+
+---
+
+## Shared Abilities
+
+Resolved from `AbilityRegistry` — identical schema across all actors.
+
+| Ability | What It Does |
+|---------|-------------|
+| `read_context` | Read any file for context before making changes |
+| `browse_workspace` | List files in a directory to discover structure |
+| `send_message` | Send a message to another actor's Inbox |
 
 ---
 

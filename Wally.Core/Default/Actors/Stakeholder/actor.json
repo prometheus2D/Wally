@@ -9,27 +9,6 @@
   "allowedLoops": ["SingleRun", "RequirementsDeepDive"],
   "preferredWrapper": "Copilot",
   "preferredLoop": "SingleRun",
-  "actions": [
-    {
-      "name": "read_context",
-      "description": "Read a document to review it for business alignment. The Stakeholder is strictly read-only: they may inspect any document but may never write files, change code, or modify any workspace artefact directly.",
-      "pathPattern": "**",
-      "isMutating": false,
-      "parameters": [
-        { "name": "path", "type": "string", "description": "Relative path from WorkSource root", "required": true }
-      ]
-    },
-    {
-      "name": "send_message",
-      "description": "Send a message to the BusinessAnalyst's Inbox to communicate business needs, priorities, feedback, or decisions. See Docs/MailboxSystemArchitecture.md for the full protocol. The Stakeholder communicates exclusively through the BusinessAnalyst — do not address Engineer or RequirementsExtractor directly.",
-      "pathPattern": null,
-      "isMutating": true,
-      "parameters": [
-        { "name": "to",      "type": "string", "description": "Must be 'BusinessAnalyst' — the Stakeholder communicates exclusively through the BA", "required": true },
-        { "name": "subject", "type": "string", "description": "Short topic identifier, PascalCase or hyphenated, e.g. BusinessNeed or ScopeChallenge", "required": true },
-        { "name": "body",    "type": "string", "description": "Message body as free-text Markdown — business-language description of needs, priorities, or feedback. No technical implementation details.", "required": true },
-        { "name": "replyTo", "type": "string", "description": "Actor name to receive the response. Defaults to Stakeholder if omitted.", "required": false }
-      ]
-    }
-  ]
+  "abilities": ["read_context", "browse_workspace", "send_message"],
+  "actions": []
 }

@@ -91,16 +91,29 @@ namespace Wally.Core.Actors
 
         // ?? Actions (Option C: actor-declared capabilities) ???????????????????
 
+        // ?? Abilities (registry-resolved shared capabilities) ?????????????????
+
         /// <summary>
-        /// The set of actions this actor is permitted to invoke via structured
-        /// response blocks.  An empty list means the actor produces text-only
-        /// responses — no file writes, reads, or other side-effects.
+        /// Names of shared abilities this actor opts into, declared in
+        /// <c>actor.json</c> as <c>"abilities": [...]</c>.
         /// <para>
-        /// <see cref="Actions"/> are declared in <c>actor.json</c> and loaded
-        /// at workspace startup. At execution time <see cref="WallyEnvironment"/>
-        /// passes this list to <see cref="ActionDispatcher"/> which enforces
-        /// the allow-list against every LLM response.
+        /// At load time <see cref="WallyHelper"/> resolves each name through
+        /// <see cref="AbilityRegistry"/> and appends the resulting
+        /// <see cref="ActorAction"/> entries to <see cref="Actions"/>.
+        /// This list is persisted on save so the round-trip is lossless.
         /// </para>
+        /// </summary>
+        public List<string> Abilities { get; set; } = new();
+
+        // ?? Actions (role-exclusive capabilities + resolved abilities) ?????????
+
+        /// <summary>
+        /// The complete set of actions this actor may invoke, comprising:
+        /// <list type="bullet">
+        ///   <item>Role-exclusive actions declared inline in <c>"actions"</c> in <c>actor.json</c>.</item>
+        ///   <item>Shared abilities resolved from <see cref="Abilities"/> via <see cref="AbilityRegistry"/>.</item>
+        /// </list>
+        /// An empty list means the actor produces text-only responses — no side-effects.
         /// </summary>
         public List<ActorAction> Actions { get; set; } = new();
 

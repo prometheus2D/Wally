@@ -9,45 +9,16 @@
   "allowedLoops": ["RequirementsDeepDive", "AnalyseAndReview", "CodeReview", "SingleRun"],
   "preferredWrapper": "Copilot",
   "preferredLoop": "RequirementsDeepDive",
+  "abilities": ["read_context", "browse_workspace", "send_message"],
   "actions": [
     {
       "name": "write_document",
-      "description": "Write or overwrite a business document: Requirements, Execution Plan, or project management artefact. Restricted to Markdown files only. The BusinessAnalyst may not write source code or configuration files - only documents.",
+      "description": "Write or overwrite a business document: Requirements, Execution Plan, project status, or coordination artefact. Restricted to Markdown files only — the BusinessAnalyst may never write source code or configuration files. Always use the matching template from Templates/. Always use read_context first to check whether the document already exists.",
       "pathPattern": "**/*.md",
       "isMutating": true,
       "parameters": [
-        { "name": "path",    "type": "string", "description": "Relative path from WorkSource root - must end in .md", "required": true },
+        { "name": "path",    "type": "string", "description": "Relative path from WorkSource root — must end in .md", "required": true },
         { "name": "content", "type": "string", "description": "Full Markdown document content conforming to the appropriate template", "required": true }
-      ]
-    },
-    {
-      "name": "read_context",
-      "description": "Read an existing document to understand context before writing: requirements docs, proposals, plans, templates, or any other reference file. Cannot read or modify source code.",
-      "pathPattern": "**",
-      "isMutating": false,
-      "parameters": [
-        { "name": "path", "type": "string", "description": "Relative path from WorkSource root", "required": true }
-      ]
-    },
-    {
-      "name": "browse_workspace",
-      "description": "List files in a project directory to discover existing documents, track what has been produced, or audit project status.",
-      "pathPattern": null,
-      "isMutating": false,
-      "parameters": [
-        { "name": "directory", "type": "string", "description": "Relative path from WorkSource root (e.g. '.wally/Projects' or '.')", "required": false }
-      ]
-    },
-    {
-      "name": "send_message",
-      "description": "Send a message to another actor's Inbox to delegate work, request clarification, or coordinate a handoff. See Docs/MailboxSystemArchitecture.md for the full protocol. The BusinessAnalyst is the coordination hub - route requirements work to RequirementsExtractor, technical work to Engineer, and business decisions to Stakeholder.",
-      "pathPattern": null,
-      "isMutating": true,
-      "parameters": [
-        { "name": "to",      "type": "string", "description": "Target actor name - must be a loaded actor (e.g. Engineer, Stakeholder, RequirementsExtractor)", "required": true },
-        { "name": "subject", "type": "string", "description": "Short topic identifier, PascalCase or hyphenated, e.g. RequirementsReview or SprintPlanningInput", "required": true },
-        { "name": "body",    "type": "string", "description": "Message body as free-text Markdown - the full prompt the target actor will receive", "required": true },
-        { "name": "replyTo", "type": "string", "description": "Actor name to receive the response. Defaults to BusinessAnalyst if omitted.", "required": false }
       ]
     }
   ]

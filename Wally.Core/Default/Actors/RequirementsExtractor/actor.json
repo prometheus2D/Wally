@@ -9,65 +9,16 @@
   "allowedLoops": ["SingleRun"],
   "preferredWrapper": "Copilot",
   "preferredLoop": "SingleRun",
+  "abilities": ["read_context", "browse_workspace", "send_message"],
   "actions": [
     {
       "name": "write_requirements",
-      "description": "Write a structured requirements document to the workspace. Restricted to Markdown files only. This is the RequirementsExtractor's primary and exclusive write ability - used to materialise extracted requirements immediately. May NOT write proposals, implementation plans, architecture docs, or source code.",
+      "description": "Write a structured requirements document to the workspace. Restricted to Markdown files only. This is the RequirementsExtractor's primary and exclusive write ability — used to materialise extracted requirements immediately to disk. May NOT write proposals, implementation plans, architecture docs, or source code. Path must follow: .wally/Projects/<ProjectName>/Requirements/<FeatureName>.md",
       "pathPattern": "**/*.md",
       "isMutating": true,
       "parameters": [
-        {
-          "name": "path",
-          "type": "string",
-          "description": "Relative path from WorkSource root. Must follow the pattern: .wally/Projects/<ProjectName>/Requirements/<FeatureName>.md or similar. Must end in .md.",
-          "required": true
-        },
-        {
-          "name": "content",
-          "type": "string",
-          "description": "Full Markdown content of the requirements document. Must conform to the RequirementsTemplate.md structure.",
-          "required": true
-        }
-      ]
-    },
-    {
-      "name": "read_context",
-      "description": "Read an existing file for context before writing requirements: e.g. read RequirementsTemplate.md to ensure conformance, or read an existing requirements document to avoid duplication. Cannot read or modify source code.",
-      "pathPattern": "**",
-      "isMutating": false,
-      "parameters": [
-        {
-          "name": "path",
-          "type": "string",
-          "description": "Relative path from WorkSource root",
-          "required": true
-        }
-      ]
-    },
-    {
-      "name": "browse_workspace",
-      "description": "List files in a directory to discover existing requirements documents and avoid duplication before writing a new one.",
-      "pathPattern": null,
-      "isMutating": false,
-      "parameters": [
-        {
-          "name": "directory",
-          "type": "string",
-          "description": "Relative path from WorkSource root (e.g. '.wally/Projects' or '.')",
-          "required": false
-        }
-      ]
-    },
-    {
-      "name": "send_message",
-      "description": "Send a message to another actor's Inbox after completing requirements extraction, or to request clarification. See Docs/MailboxSystemArchitecture.md for the full protocol. Typical recipients: BusinessAnalyst (to report completion and hand off the requirements document) or Engineer (if technical context is needed to write a complete requirement).",
-      "pathPattern": null,
-      "isMutating": true,
-      "parameters": [
-        { "name": "to",      "type": "string", "description": "Target actor name - must be a loaded actor (e.g. BusinessAnalyst, Engineer)", "required": true },
-        { "name": "subject", "type": "string", "description": "Short topic identifier, PascalCase or hyphenated, e.g. RequirementsComplete or ClarificationNeeded", "required": true },
-        { "name": "body",    "type": "string", "description": "Message body as free-text Markdown - the full prompt the target actor will receive", "required": true },
-        { "name": "replyTo", "type": "string", "description": "Actor name to receive the response. Defaults to RequirementsExtractor if omitted.", "required": false }
+        { "name": "path",    "type": "string", "description": "Relative path from WorkSource root — must follow .wally/Projects/<ProjectName>/Requirements/<FeatureName>.md and end in .md", "required": true },
+        { "name": "content", "type": "string", "description": "Full Markdown content of the requirements document — must conform exactly to RequirementsTemplate.md", "required": true }
       ]
     }
   ]

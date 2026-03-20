@@ -9,55 +9,26 @@
   "allowedLoops": ["CodeReview", "Refactor", "AnalyseAndReview", "SingleRun", "RequirementsDeepDive"],
   "preferredWrapper": "AutoCopilot",
   "preferredLoop": "SingleRun",
+  "abilities": ["read_context", "browse_workspace", "send_message"],
   "actions": [
     {
       "name": "change_code",
-      "description": "Write or overwrite any source code, configuration, or project file. This is the Engineer's exclusive ability - no other actor may change code or binary project files. Use for all implementation work: creating new files, modifying existing source, updating configs.",
+      "description": "Write or overwrite any source code, configuration, or project file. This is the Engineer's exclusive ability — no other actor may change code or project files. Use for all implementation work: creating new files, modifying existing source, updating configs. Always use read_context first to understand what already exists.",
       "pathPattern": "**",
       "isMutating": true,
       "parameters": [
-        { "name": "path", "type": "string", "description": "Relative path from WorkSource root, e.g. Wally.Core/Actions/ActionDispatcher.cs", "required": true },
-        { "name": "content", "type": "string", "description": "Full file content to write (replaces existing content)", "required": true }
+        { "name": "path",    "type": "string", "description": "Relative path from WorkSource root, e.g. Wally.Core/Actions/ActionDispatcher.cs", "required": true },
+        { "name": "content", "type": "string", "description": "Full file content to write — replaces existing content entirely", "required": true }
       ]
     },
     {
       "name": "write_document",
-      "description": "Write or overwrite a technical document: Proposal, Implementation Plan, Architecture doc, Bug Report, or Test Plan. Restricted to Markdown files only. Use Templates/ as the authoring reference.",
+      "description": "Write or overwrite a technical document: Proposal, Implementation Plan, Architecture doc, Bug Report, or Test Plan. Restricted to Markdown files only. Always use the matching template from Templates/ as the authoring reference. Always use read_context first to check whether the document already exists.",
       "pathPattern": "**/*.md",
       "isMutating": true,
       "parameters": [
-        { "name": "path", "type": "string", "description": "Relative path from WorkSource root - must end in .md", "required": true },
-        { "name": "content", "type": "string", "description": "Full Markdown document content", "required": true }
-      ]
-    },
-    {
-      "name": "read_context",
-      "description": "Read any file in the workspace to understand the existing system before making changes. Use before write_document or change_code to avoid overwriting work or duplicating effort.",
-      "pathPattern": "**",
-      "isMutating": false,
-      "parameters": [
-        { "name": "path", "type": "string", "description": "Relative path from WorkSource root", "required": true }
-      ]
-    },
-    {
-      "name": "browse_workspace",
-      "description": "List all files in a directory to discover the project structure, locate existing documents, or verify what has been written.",
-      "pathPattern": null,
-      "isMutating": false,
-      "parameters": [
-        { "name": "directory", "type": "string", "description": "Relative path from WorkSource root (use '.' for root)", "required": false }
-      ]
-    },
-    {
-      "name": "send_message",
-      "description": "Send a message to another actor's Inbox to request a handoff, review, or collaboration. See Docs/MailboxSystemArchitecture.md for the full protocol. Use when the task requires input from a different role - e.g. send requirements clarification requests to BusinessAnalyst or RequirementsExtractor.",
-      "pathPattern": null,
-      "isMutating": true,
-      "parameters": [
-        { "name": "to", "type": "string", "description": "Target actor name - must be a loaded actor (e.g. BusinessAnalyst, RequirementsExtractor)", "required": true },
-        { "name": "subject", "type": "string", "description": "Short topic identifier, PascalCase or hyphenated, e.g. FeasibilityCheck or CodeReview-AuthModule", "required": true },
-        { "name": "body", "type": "string", "description": "Message body as free-text Markdown - the full prompt the target actor will receive", "required": true },
-        { "name": "replyTo", "type": "string", "description": "Actor name to receive the response. Defaults to Engineer if omitted.", "required": false }
+        { "name": "path",    "type": "string", "description": "Relative path from WorkSource root — must end in .md", "required": true },
+        { "name": "content", "type": "string", "description": "Full Markdown document content conforming to the appropriate template", "required": true }
       ]
     }
   ]

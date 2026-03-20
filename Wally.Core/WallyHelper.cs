@@ -225,27 +225,27 @@ namespace Wally.Core
         {
             string actorDir = Path.Combine(workspaceFolder, config.ActorsFolderName, actor.Name);
             Directory.CreateDirectory(actorDir);
-
             Directory.CreateDirectory(Path.Combine(actorDir, actor.DocsFolderName));
-
-            // Actor-level mailbox
             CreateMailboxFolders(actorDir);
 
-            // Serialise actions as plain anonymous objects (no C# type info in JSON)
-            var actionsData = actor.Actions.Select(a => new
-            {
-                name         = a.Name,
-                description  = a.Description,
-                pathPattern  = a.PathPattern,
-                isMutating   = a.IsMutating,
-                parameters   = a.Parameters.Select(p => new
+            // Only serialise role-exclusive actions (those not in the AbilityRegistry).
+            // Shared abilities are persisted separately as the "abilities" string array.
+            var exclusiveActions = actor.Actions
+                .Where(a => !AbilityRegistry.IsRegistered(a.Name))
+                .Select(a => new
                 {
-                    name        = p.Name,
-                    type        = p.Type,
-                    description = p.Description,
-                    required    = p.Required
-                }).ToList()
-            }).ToList();
+                    name        = a.Name,
+                    description = a.Description,
+                    pathPattern = a.PathPattern,
+                    isMutating  = a.IsMutating,
+                    parameters  = a.Parameters.Select(p => new
+                    {
+                        name        = p.Name,
+                        type        = p.Type,
+                        description = p.Description,
+                        required    = p.Required
+                    }).ToList()
+                }).ToList();
 
             var obj = new
             {
@@ -259,7 +259,8 @@ namespace Wally.Core
                 allowedLoops     = actor.AllowedLoops,
                 preferredWrapper = actor.PreferredWrapper,
                 preferredLoop    = actor.PreferredLoop,
-                actions          = actionsData
+                abilities        = actor.Abilities,         // shared ability names
+                actions          = exclusiveActions         // role-exclusive only
             };
 
             File.WriteAllText(
@@ -567,7 +568,8 @@ namespace Wally.Core
             var allowedLoops     = new List<string>();
             string? preferredWrapper = null;
             string? preferredLoop    = null;
-            var actions          = new List<ActorAction>();
+            var abilities        = new List<string>();
+            var exclusiveActions = new List<ActorAction>();      // role-exclusive actions only
 
             if (File.Exists(jsonPath))
             {
@@ -587,7 +589,8 @@ namespace Wally.Core
 
                     allowedWrappers = TryGetStringList(root, "allowedWrappers");
                     allowedLoops    = TryGetStringList(root, "allowedLoops");
-                    actions         = TryGetActions(root);
+                    abilities       = TryGetStringList(root, "abilities");
+                    exclusiveActions = TryGetActions(root);
                 }
                 catch (JsonException ex)
                 {
@@ -597,9 +600,71 @@ namespace Wally.Core
                 }
             }
 
-            // Return null sentinel so the caller can filter without constructing
-            // a partially initialised actor object.
             if (!enabled) return null!;
+
+            // ?? Resolve abilities from registry ??????????????????????????????
+            // Build a description-override map from any "actions" entry whose name
+            // matches a registered ability (actor wants custom wording only).
+            var descriptionOverrides = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            var trueExclusiveActions = new List<ActorAction>();
+
+            foreach (var action in exclusiveActions)
+            {
+                if (AbilityRegistry.IsRegistered(action.Name))
+                    // This entry is a description override for a shared ability — capture it.
+                    descriptionOverrides[action.Name] = action.Description;
+                else
+                    // Not in the registry — it is a genuine role-exclusive action.
+                    trueExclusiveActions.Add(action);
+            }
+
+            // Resolved abilities come first so role-exclusive actions appear last in the manifest.
+            var resolvedAbilities = AbilityRegistry.Resolve(
+                abilities,
+                descriptionOverrides,
+                onUnknown: n => Console.Error.WriteLine(
+                    $"Warning: Actor '{name}' references unknown ability '{n}' — skipped."));
+
+            // ?? Back-compat: legacy actors with no "abilities" field ??????????
+            // If the actor declared shared abilities inline in "actions" (old format),
+            // detect and promote them rather than treating them as exclusive actions.
+            if (abilities.Count == 0)
+            {
+                var promoted = new List<ActorAction>();
+                foreach (var action in trueExclusiveActions)
+                {
+                    var registered = AbilityRegistry.TryGet(action.Name);
+                    if (registered != null)
+                    {
+                        // Promote to ability, applying any description override.
+                        var clone = registered;
+                        if (!string.IsNullOrWhiteSpace(action.Description))
+                        {
+                            clone = AbilityRegistry.Resolve(
+                                [action.Name],
+                                new Dictionary<string, string> { [action.Name] = action.Description }
+                            ).FirstOrDefault() ?? registered;
+                        }
+                        promoted.Add(clone);
+                        abilities.Add(action.Name);
+                    }
+                    else
+                    {
+                        promoted.Add(action);
+                    }
+                }
+                trueExclusiveActions = promoted
+                    .Where(a => !AbilityRegistry.IsRegistered(a.Name))
+                    .ToList();
+                resolvedAbilities = promoted
+                    .Where(a => AbilityRegistry.IsRegistered(a.Name))
+                    .ToList();
+            }
+
+            // Final resolved action list: role-exclusive first, shared abilities after.
+            var allActions = new List<ActorAction>(trueExclusiveActions.Count + resolvedAbilities.Count);
+            allActions.AddRange(trueExclusiveActions);
+            allActions.AddRange(resolvedAbilities);
 
             var actor = new Actor(
                 name,
@@ -615,7 +680,8 @@ namespace Wally.Core
             actor.AllowedLoops     = allowedLoops;
             actor.PreferredWrapper = preferredWrapper;
             actor.PreferredLoop    = preferredLoop;
-            actor.Actions          = actions;
+            actor.Abilities        = abilities;
+            actor.Actions          = allActions;
 
             return actor;
         }
