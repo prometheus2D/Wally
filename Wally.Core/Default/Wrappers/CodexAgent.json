@@ -1,0 +1,11 @@
+{
+  "Name": "CodexAgent",
+  "Description": "Agentic — runs OpenAI Codex CLI in full-auto mode (codex --approval-mode full-auto -p). Requires the 'codex' CLI v0.1+ with OPENAI_API_KEY. Can edit files and run shell commands.",
+  "Executable": "codex",
+  "ArgumentTemplate": "{model} {sourcePath} --approval-mode full-auto -p {prompt}",
+  "ModelArgFormat": "--model {model}",
+  "SourcePathArgFormat": "--cwd {sourcePath}",
+  "UseSourcePathAsWorkingDirectory": true,
+  "CanMakeChanges": true,
+  "UseConversationHistory": false
+}

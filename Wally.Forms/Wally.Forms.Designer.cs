@@ -84,6 +84,8 @@ namespace Wally.Forms
             tsEdSep1 = new ToolStripSeparator();
             tsbClearChat = new ToolStripButton();
             contentPanel = new Panel();
+            settingsToolStripMenuItem = new ToolStripMenuItem();
+            chatDefaultsMenuItem = new ToolStripMenuItem();
             menuPanel.SuspendLayout();
             menuStrip1.SuspendLayout();
             toolbarPanel.SuspendLayout();
@@ -107,7 +109,7 @@ namespace Wally.Forms
             menuStrip1.BackColor = Color.FromArgb(39, 39, 44);
             menuStrip1.Dock = DockStyle.Fill;
             menuStrip1.ForeColor = Color.FromArgb(228, 228, 233);
-            menuStrip1.Items.AddRange(new ToolStripItem[] { fileToolStripMenuItem, editToolStripMenuItem, optionsToolStripMenuItem, viewToolStripMenuItem, editorsToolStripMenuItem, workspaceToolStripMenuItem });
+            menuStrip1.Items.AddRange(new ToolStripItem[] { fileToolStripMenuItem, editToolStripMenuItem, optionsToolStripMenuItem, viewToolStripMenuItem, editorsToolStripMenuItem, workspaceToolStripMenuItem, settingsToolStripMenuItem });
             menuStrip1.Location = new Point(0, 0);
             menuStrip1.Name = "menuStrip1";
             menuStrip1.Renderer = WallyTheme.CreateRenderer();
@@ -643,6 +645,22 @@ namespace Wally.Forms
             contentPanel.Size = new Size(1280, 701);
             contentPanel.TabIndex = 0;
             // 
+            // settingsToolStripMenuItem
+            // 
+            settingsToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { chatDefaultsMenuItem });
+            settingsToolStripMenuItem.ForeColor = Color.FromArgb(228, 228, 233);
+            settingsToolStripMenuItem.Name = "settingsToolStripMenuItem";
+            settingsToolStripMenuItem.Size = new Size(61, 20);
+            settingsToolStripMenuItem.Text = "&Settings";
+            // 
+            // chatDefaultsMenuItem
+            // 
+            chatDefaultsMenuItem.ForeColor = Color.FromArgb(228, 228, 233);
+            chatDefaultsMenuItem.Name = "chatDefaultsMenuItem";
+            chatDefaultsMenuItem.Size = new Size(180, 22);
+            chatDefaultsMenuItem.Text = "⚙  Chat &Defaults…";
+            chatDefaultsMenuItem.ToolTipText = "Configure default actor, loop, model, and wrapper for the Chat panel";
+            // 
             // WallyForms
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
@@ -761,5 +779,9 @@ namespace Wally.Forms
         private ToolStripButton    tsbLogs;
         private ToolStripSeparator tsEdSep1;
         private ToolStripButton    tsbClearChat;
+
+        // ── Settings menu ──
+        private ToolStripMenuItem settingsToolStripMenuItem;
+        private ToolStripMenuItem chatDefaultsMenuItem;
     }
 }

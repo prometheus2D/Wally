@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Text.Json.Serialization;
 using System.Threading;
+using Wally.Core.Actions;
 using Wally.Core.Actors;
 using Wally.Core.Logging;
 using Wally.Core.Providers;
@@ -209,7 +210,7 @@ namespace Wally.Core
             Runbooks.FirstOrDefault(r =>
                 string.Equals(r.Name, name, StringComparison.OrdinalIgnoreCase));
 
-        // — LLM wrapper resolution ———————————————————————————————————————————
+        // ?? LLM wrapper resolution ????????????????????????????????????????????
 
         /// <summary>
         /// Returns the active <see cref="LLMWrapper"/> for this workspace,
@@ -238,22 +239,82 @@ namespace Wally.Core
             return wrapper;
         }
 
-        // — Running actors ————————————————————————————————————————————————————
+        /// <summary>
+        /// Resolves the best wrapper for an actor, respecting the actor's
+        /// <see cref="Actor.PreferredWrapper"/> and <see cref="Actor.AllowedWrappers"/>
+        /// constraints before falling back to the workspace default.
+        /// </summary>
+        /// <param name="actor">The actor being executed.</param>
+        /// <param name="wrapperOverride">Explicit caller override, or null.</param>
+        /// <returns>The resolved wrapper name to use.</returns>
+        public string? ResolveWrapperForActor(Actor actor, string? wrapperOverride)
+        {
+            var ws = RequireWorkspace();
+
+            // 1 — Explicit caller override always wins, but still enforce allow-list.
+            if (!string.IsNullOrWhiteSpace(wrapperOverride))
+            {
+                if (!actor.IsWrapperAllowed(wrapperOverride!))
+                    throw new InvalidOperationException(
+                        $"Actor '{actor.Name}' does not permit wrapper '{wrapperOverride}'. " +
+                        $"Allowed: [{string.Join(", ", actor.AllowedWrappers)}]");
+                return wrapperOverride;
+            }
+
+            // 2 — Actor's own preferred wrapper (must pass allow-list if set).
+            if (!string.IsNullOrWhiteSpace(actor.PreferredWrapper))
+            {
+                string preferred = actor.PreferredWrapper!;
+                if (actor.IsWrapperAllowed(preferred) &&
+                    ws.LlmWrappers.Any(w => string.Equals(w.Name, preferred, StringComparison.OrdinalIgnoreCase)))
+                    return preferred;
+            }
+
+            // 3 — First entry in AllowedWrappers that is actually loaded.
+            if (actor.AllowedWrappers.Count > 0)
+            {
+                foreach (string name in actor.AllowedWrappers)
+                {
+                    if (ws.LlmWrappers.Any(w => string.Equals(w.Name, name, StringComparison.OrdinalIgnoreCase)))
+                        return name;
+                }
+            }
+
+            // 4 — Workspace default (allow-list check when non-empty).
+            string wsDefault = ws.Config.DefaultWrapper;
+            if (!string.IsNullOrWhiteSpace(wsDefault))
+            {
+                if (!actor.IsWrapperAllowed(wsDefault))
+                    throw new InvalidOperationException(
+                        $"Actor '{actor.Name}' does not permit the workspace default wrapper '{wsDefault}'. " +
+                        $"Allowed: [{string.Join(", ", actor.AllowedWrappers)}]");
+                return wsDefault;
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Validates that a loop name is permitted for the given actor.
+        /// Throws when the actor has a non-empty <see cref="Actor.AllowedLoops"/>
+        /// list and the requested loop is not in it.
+        /// </summary>
+        public void EnforceLoopPolicy(Actor actor, string? loopName)
+        {
+            if (string.IsNullOrWhiteSpace(loopName)) return;
+            if (!actor.IsLoopAllowed(loopName!))
+                throw new InvalidOperationException(
+                    $"Actor '{actor.Name}' does not permit loop '{loopName}'. " +
+                    $"Allowed: [{string.Join(", ", actor.AllowedLoops)}]");
+        }
+
+        // ?? Running actors ?????????????????????????????????????????????????????
 
         /// <summary>
         /// Executes a prompt directly through the LLM wrapper without any actor
         /// enrichment. Use this when no actor is specified — the user's prompt is
         /// sent as-is.
         /// </summary>
-        /// <param name="prompt">The raw user prompt.</param>
-        /// <param name="modelOverride">Model override, or <see langword="null"/> for config default.</param>
-        /// <param name="wrapperOverride">Wrapper override, or <see langword="null"/> for config default.</param>
-        /// <param name="loopName">Loop name for history metadata, or <see langword="null"/>.</param>
-        /// <param name="iteration">0-based iteration index for history metadata.</param>
-        /// <param name="skipHistory">
-        /// When <see langword="true"/>, suppresses history injection into the prompt
-        /// but still records the turn. Used for loop iterations &gt; 1 and <c>--no-history</c>.
-        /// </param>
         public string ExecutePrompt(
             string prompt,
             string? modelOverride = null,
@@ -266,13 +327,11 @@ namespace Wally.Core
             var wrapper = ResolveWrapper(wrapperOverride);
             var ws = Workspace!;
 
-            // Resolve model: explicit override ? config default.
             bool isDefaultKeyword = string.Equals(modelOverride, "default", StringComparison.OrdinalIgnoreCase);
             string? model = !string.IsNullOrWhiteSpace(modelOverride) && !isDefaultKeyword
                 ? modelOverride
                 : ws.Config.DefaultModel;
 
-            // — History injection (direct mode: prepend to prompt) ————————
             string effectivePrompt = prompt;
             if (!skipHistory && wrapper.UseConversationHistory)
             {
@@ -284,12 +343,10 @@ namespace Wally.Core
 
             Logger.LogProcessedPrompt("(no actor)", effectivePrompt, model);
 
-            // — Execute ———————————————————————————————————————————————————
             var sw = Stopwatch.StartNew();
             string response = wrapper.Execute(effectivePrompt, ws.SourcePath, model, Logger, cancellationToken);
             sw.Stop();
 
-            // — Record turn ——————————————————————————————————————————————
             bool isError = IsWrapperError(response, wrapper.Name);
             History.RecordTurn(new ConversationTurn
             {
@@ -311,6 +368,15 @@ namespace Wally.Core
 
         /// <summary>
         /// Executes a single actor: Setup ? ProcessPrompt ? LlmWrapper.Execute.
+        /// <para>
+        /// Enforces actor capability constraints:
+        /// <list type="bullet">
+        ///   <item>Wrapper allow-list (<see cref="Actor.AllowedWrappers"/>)</item>
+        ///   <item>Loop allow-list (<see cref="Actor.AllowedLoops"/>)</item>
+        ///   <item>After the LLM responds, scans for action blocks and dispatches
+        ///         only declared <see cref="Actor.Actions"/>.</item>
+        /// </list>
+        /// </para>
         /// </summary>
         public string ExecuteActor(
             Actor actor,
@@ -322,12 +388,20 @@ namespace Wally.Core
             bool skipHistory = false,
             CancellationToken cancellationToken = default)
         {
-            var wrapper = ResolveWrapper(wrapperOverride);
+            // ?? Capability enforcement ????????????????????????????????????????
+            string? resolvedWrapperName = ResolveWrapperForActor(actor, wrapperOverride);
+            if (!string.IsNullOrWhiteSpace(loopName))
+                EnforceLoopPolicy(actor, loopName);
+
+            var wrapper = resolvedWrapperName != null
+                ? (WallyHelper.ResolveWrapper(resolvedWrapperName, Workspace!.LlmWrappers)
+                   ?? throw new InvalidOperationException($"Wrapper '{resolvedWrapperName}' not found."))
+                : ResolveWrapper(null);
+
             var ws = Workspace!;
 
             actor.Setup();
 
-            // — History injection (actor mode: pass to ProcessPrompt) —————
             string? historyBlock = null;
             if (!skipHistory && wrapper.UseConversationHistory)
             {
@@ -337,7 +411,6 @@ namespace Wally.Core
 
             string processed = actor.ProcessPrompt(prompt, historyBlock);
 
-            // Resolve model: explicit override ? config default.
             bool isDefaultKeyword = string.Equals(modelOverride, "default", StringComparison.OrdinalIgnoreCase);
             string? model = !string.IsNullOrWhiteSpace(modelOverride) && !isDefaultKeyword
                 ? modelOverride
@@ -345,12 +418,43 @@ namespace Wally.Core
 
             Logger.LogProcessedPrompt(actor.Name, processed, model);
 
-            // — Execute ———————————————————————————————————————————————————
             var sw = Stopwatch.StartNew();
             string response = wrapper.Execute(processed, ws.SourcePath, model, Logger, cancellationToken);
             sw.Stop();
 
-            // — Record turn ——————————————————————————————————————————————
+            // ?? Action dispatch ???????????????????????????????????????????????
+            // Only run the dispatcher when the actor has declared actions.
+            // This keeps the zero-action path free of any overhead.
+            if (actor.Actions.Count > 0 && !string.IsNullOrWhiteSpace(response))
+            {
+                var dispatcher = new ActionDispatcher(
+                    actor,
+                    ws.WorkSource,
+                    canMakeChanges: wrapper.CanMakeChanges,
+                    logWarning: msg => Logger.LogInfo($"[ActionDispatcher] {msg}"));
+
+                string? actionSummary = dispatcher.Dispatch(response);
+
+                if (dispatcher.DispatchedCount > 0 || dispatcher.SkippedCount > 0)
+                    Logger.LogInfo(
+                        $"[ActionDispatcher] actor='{actor.Name}' " +
+                        $"dispatched={dispatcher.DispatchedCount} skipped={dispatcher.SkippedCount}");
+
+                // Append read results to the response so the caller can see
+                // what files were read (useful for debugging / history).
+                if (dispatcher.ReadResults.Count > 0 || actionSummary != null)
+                {
+                    var augmented = new System.Text.StringBuilder(response);
+                    if (actionSummary != null)
+                    {
+                        augmented.AppendLine();
+                        augmented.AppendLine();
+                        augmented.Append(actionSummary);
+                    }
+                    response = augmented.ToString().TrimEnd();
+                }
+            }
+
             bool isError = IsWrapperError(response, wrapper.Name);
             History.RecordTurn(new ConversationTurn
             {

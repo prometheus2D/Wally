@@ -3,13 +3,15 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using Wally.Core.Actions;
 using Wally.Core.Logging;
 
 namespace Wally.Core.Actors
 {
     /// <summary>
     /// Represents a Wally Actor — a personality defined by RBA prompts
-    /// (Role, AcceptanceCriteria, Intent).
+    /// (Role, AcceptanceCriteria, Intent) plus an optional set of declared
+    /// <see cref="ActorAction"/>s that constrain what the actor may do at runtime.
     /// <para>
     /// The actor owns the personality and prompt enrichment pipeline.
     /// It knows nothing about LLM wrappers or execution — that is the
@@ -18,7 +20,7 @@ namespace Wally.Core.Actors
     /// </summary>
     public class Actor
     {
-        // — Identity ——————————————————————————————————————————————————————————
+        // ?? Identity ?????????????????????????????????????????????????????????
 
         /// <summary>The actor name — taken from the folder name on disk.</summary>
         public string Name { get; set; }
@@ -26,7 +28,7 @@ namespace Wally.Core.Actors
         /// <summary>The absolute path to this actor's folder inside the workspace.</summary>
         public string FolderPath { get; set; }
 
-        // — RBA prompts ———————————————————————————————————————————————————————
+        // ?? RBA prompts ???????????????????????????????????????????????????????
 
         /// <summary>The role prompt for this actor (the "R" in RBA).</summary>
         public string RolePrompt { get; set; } = string.Empty;
@@ -37,7 +39,7 @@ namespace Wally.Core.Actors
         /// <summary>The intent prompt for this actor (the "A" in RBA).</summary>
         public string IntentPrompt { get; set; } = string.Empty;
 
-        // — Documentation ————————————————————————————————————————————————————
+        // ?? Documentation ????????????????????????????????????????????????????
 
         /// <summary>
         /// The name of the subfolder inside this actor's directory that holds
@@ -45,7 +47,56 @@ namespace Wally.Core.Actors
         /// </summary>
         public string DocsFolderName { get; set; } = "Docs";
 
-        // — Workspace context —————————————————————————————————————————————
+        // ?? Capability constraints ????????????????????????????????????????????
+
+        /// <summary>
+        /// Priority-ordered list of wrapper names this actor is permitted to run
+        /// through. When empty, any loaded wrapper may be used (no restriction).
+        /// <para>
+        /// The first entry in the list is treated as this actor's preferred
+        /// wrapper when no explicit <see cref="PreferredWrapper"/> override is set.
+        /// </para>
+        /// </summary>
+        public List<string> AllowedWrappers { get; set; } = new();
+
+        /// <summary>
+        /// List of loop names this actor is permitted to run.
+        /// When empty, any loaded loop may be used (no restriction).
+        /// </summary>
+        public List<string> AllowedLoops { get; set; } = new();
+
+        /// <summary>
+        /// The wrapper this actor prefers by default.
+        /// When non-null, overrides the workspace-level <c>DefaultWrapper</c> for
+        /// this actor. Must be a name present in <see cref="AllowedWrappers"/>
+        /// (when that list is non-empty) to take effect.
+        /// </summary>
+        public string? PreferredWrapper { get; set; }
+
+        /// <summary>
+        /// The loop this actor prefers by default.
+        /// When non-null, overrides the workspace-level <c>ResolvedDefaultLoop</c>
+        /// for this actor. Must be a name present in <see cref="AllowedLoops"/>
+        /// (when that list is non-empty) to take effect.
+        /// </summary>
+        public string? PreferredLoop { get; set; }
+
+        // ?? Actions (Option C: actor-declared capabilities) ???????????????????
+
+        /// <summary>
+        /// The set of actions this actor is permitted to invoke via structured
+        /// response blocks.  An empty list means the actor produces text-only
+        /// responses — no file writes, reads, or other side-effects.
+        /// <para>
+        /// <see cref="Actions"/> are declared in <c>actor.json</c> and loaded
+        /// at workspace startup. At execution time <see cref="WallyEnvironment"/>
+        /// passes this list to <see cref="ActionDispatcher"/> which enforces
+        /// the allow-list against every LLM response.
+        /// </para>
+        /// </summary>
+        public List<ActorAction> Actions { get; set; } = new();
+
+        // ?? Workspace context ?????????????????????????????????????????????????
 
         /// <summary>
         /// The workspace this Actor operates in. Provides access to
@@ -60,7 +111,7 @@ namespace Wally.Core.Actors
         /// </summary>
         public SessionLogger? Logger { get; set; }
 
-        // — Constructor ———————————————————————————————————————————————————————
+        // ?? Constructor ???????????????????????????????????????????????????????
 
         /// <summary>
         /// Initializes an Actor with RBA prompts and an optional workspace.
@@ -77,7 +128,7 @@ namespace Wally.Core.Actors
             Workspace      = workspace;
         }
 
-        // — Prompt generation ——————————————————————————————————————————————
+        // ?? Prompt generation ?????????????????????????????????????????????????
 
         /// <summary>
         /// Generates a standard prompt from this actor's RBA components
@@ -117,35 +168,28 @@ namespace Wally.Core.Actors
             return sb.ToString().TrimEnd();
         }
 
-        // — Pipeline ——————————————————————————————————————————————————————————
+        // ?? Pipeline ??????????????????????????????????????????????????????????
 
         /// <summary>Called once before prompt processing to perform any setup.</summary>
         public virtual void Setup() { }
 
         /// <summary>
-        /// Enriches <paramref name="prompt"/> with the actor's RBA context.
-        /// <para>
-        /// When the actor has a <c>Docs/</c> folder on disk, the files it contains
-        /// are listed in a <c>## Documentation Context</c> section so the LLM knows
-        /// they exist and can reference them. Workspace-level docs are included too.
-        /// </para>
-        /// <para>
-        /// When <paramref name="conversationHistory"/> is non-null and non-empty,
-        /// it is inserted between the Documentation Context section and the
-        /// <c>## Prompt</c> section to give the LLM awareness of prior exchanges.
-        /// </para>
+        /// Enriches <paramref name="prompt"/> with the actor's RBA context,
+        /// documentation context, optional conversation history, and — when
+        /// this actor has declared actions — an action manifest section that
+        /// instructs the LLM on which actions it may invoke and the required
+        /// fenced-block format.
         /// </summary>
         /// <param name="prompt">The raw user prompt.</param>
         /// <param name="conversationHistory">
         /// A pre-formatted markdown block of recent conversation turns, or
-        /// <see langword="null"/> to skip history injection. Generated by
-        /// <see cref="Logging.ConversationLogger.FormatHistoryBlock"/>.
+        /// <see langword="null"/> to skip history injection.
         /// </param>
         public virtual string ProcessPrompt(string prompt, string? conversationHistory = null)
         {
             var sb = new StringBuilder();
 
-            // Actor system context
+            // ?? Actor system context ?????????????????????????????????????????
             sb.AppendLine($"# Actor: {Name}");
             if (!string.IsNullOrWhiteSpace(RolePrompt))
                 sb.AppendLine($"## Role\n{RolePrompt}");
@@ -154,8 +198,36 @@ namespace Wally.Core.Actors
             if (!string.IsNullOrWhiteSpace(IntentPrompt))
                 sb.AppendLine($"## Intent\n{IntentPrompt}");
 
-            // Documentation context — list available doc files so the LLM
-            // knows they exist and can consult them for additional context.
+            // ?? Action manifest ??????????????????????????????????????????????
+            // Injected only when the actor has declared at least one action.
+            // Tells the LLM which actions are available, their signatures, and
+            // the exact fenced-block format it must use to invoke them.
+            if (Actions.Count > 0)
+            {
+                sb.AppendLine();
+                sb.AppendLine("## Available Actions");
+                sb.AppendLine(
+                    "You may invoke the following actions by emitting one or more fenced " +
+                    "`action` blocks in your response. **Only use actions from this list.** " +
+                    "Actions not listed here are not available to you and will be rejected.");
+                sb.AppendLine();
+                sb.AppendLine("**Block format:**");
+                sb.AppendLine("````");
+                sb.AppendLine("```action");
+                sb.AppendLine("name: <action_name>");
+                sb.AppendLine("<param1>: <value1>");
+                sb.AppendLine("<param2>: |");
+                sb.AppendLine("  Multi-line value");
+                sb.AppendLine("  indented by two spaces");
+                sb.AppendLine("```");
+                sb.AppendLine("````");
+                sb.AppendLine();
+                sb.AppendLine("**Declared actions:**");
+                foreach (var action in Actions)
+                    sb.AppendLine(action.ToManifestLine());
+            }
+
+            // ?? Documentation context ????????????????????????????????????????
             var docFiles = GetDocumentationFiles();
             if (docFiles.Count > 0)
             {
@@ -164,12 +236,10 @@ namespace Wally.Core.Actors
                 sb.AppendLine("The following documentation files are available for reference. " +
                               "Consult them when they are relevant to the task:");
                 foreach (var (relativePath, source) in docFiles)
-                {
                     sb.AppendLine($"- `{relativePath}` ({source})");
-                }
             }
 
-            // Conversation history — recent same-actor exchanges for context.
+            // ?? Conversation history ?????????????????????????????????????????
             if (!string.IsNullOrWhiteSpace(conversationHistory))
             {
                 sb.AppendLine();
@@ -178,20 +248,40 @@ namespace Wally.Core.Actors
 
             sb.AppendLine();
 
-            // User prompt
+            // ?? User prompt ??????????????????????????????????????????????????
             sb.AppendLine("## Prompt");
             sb.AppendLine(prompt);
 
             return sb.ToString().TrimEnd();
         }
 
-        // — Documentation helpers ——————————————————————————————————————————
+        // ?? Capability helpers ????????????????????????????????????????????????
+
+        /// <summary>
+        /// Returns <see langword="true"/> when the given wrapper name is
+        /// permitted for this actor (either the allow-list is empty, meaning
+        /// unrestricted, or the name appears in <see cref="AllowedWrappers"/>).
+        /// Comparison is case-insensitive.
+        /// </summary>
+        public bool IsWrapperAllowed(string wrapperName) =>
+            AllowedWrappers.Count == 0 ||
+            AllowedWrappers.Any(w => string.Equals(w, wrapperName, StringComparison.OrdinalIgnoreCase));
+
+        /// <summary>
+        /// Returns <see langword="true"/> when the given loop name is
+        /// permitted for this actor (either the allow-list is empty, meaning
+        /// unrestricted, or the name appears in <see cref="AllowedLoops"/>).
+        /// Comparison is case-insensitive.
+        /// </summary>
+        public bool IsLoopAllowed(string loopName) =>
+            AllowedLoops.Count == 0 ||
+            AllowedLoops.Any(l => string.Equals(l, loopName, StringComparison.OrdinalIgnoreCase));
+
+        // ?? Documentation helpers ?????????????????????????????????????????????
 
         /// <summary>
         /// Enumerates documentation files from the actor's <c>Docs/</c> folder
-        /// and the workspace-level <c>Docs/</c> folder. Returns a list of
-        /// (relativePath, source) tuples where <c>source</c> is "actor docs" or "workspace docs".
-        /// Only includes common documentation file types (.md, .txt, .rst, .adoc).
+        /// and the workspace-level <c>Docs/</c> folder.
         /// </summary>
         protected virtual List<(string RelativePath, string Source)> GetDocumentationFiles()
         {

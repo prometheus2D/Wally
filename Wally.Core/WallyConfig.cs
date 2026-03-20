@@ -180,6 +180,14 @@ namespace Wally.Core
         /// </summary>
         public List<string> SelectedRunbooks { get; set; } = new();
 
+        /// <summary>
+        /// Priority-ordered list of preferred actor names.
+        /// At load time the first entry that matches a loaded actor becomes
+        /// <see cref="DefaultActorName"/>. Used to pre-select the Actor
+        /// dropdown in <c>ChatPanel</c> on workspace load.
+        /// </summary>
+        public List<string> SelectedActors { get; set; } = new();
+
         // — Runtime settings ——————————————————————————————————————————————————
 
         /// <summary>Maximum number of iterations in iterative actor runs.</summary>
@@ -229,23 +237,31 @@ namespace Wally.Core
         [JsonIgnore]
         public string? ResolvedDefaultRunbook { get; private set; }
 
+        /// <summary>Resolved actor — first <see cref="SelectedActors"/> entry that matches a loaded actor name.</summary>
+        [JsonIgnore]
+        public string? DefaultActorName { get; private set; }
+
         // — Resolve selected defaults ————————————————————————————————————
 
         /// <summary>
         /// Resolves the active default for each category by picking the first
         /// <c>Selected*</c> entry that actually exists (in the available list
-        /// for models, or loaded from disk for wrappers/loops/runbooks).
+        /// for models, or loaded from disk for wrappers/loops/runbooks/actors).
         /// Call after loading all workspace entities.
         /// </summary>
         public void ResolveSelectedDefaults(
             IEnumerable<string> loadedWrapperNames,
             IEnumerable<string> loadedLoopNames,
-            IEnumerable<string> loadedRunbookNames)
+            IEnumerable<string> loadedRunbookNames,
+            IEnumerable<string>? loadedActorNames = null)
         {
-            DefaultModel = FirstMatch(SelectedModels, DefaultModels);
-            DefaultWrapper = FirstMatch(SelectedWrappers, loadedWrapperNames);
-            ResolvedDefaultLoop = FirstMatch(SelectedLoops, loadedLoopNames);
+            DefaultModel        = FirstMatch(SelectedModels,  DefaultModels);
+            DefaultWrapper      = FirstMatch(SelectedWrappers, loadedWrapperNames);
+            ResolvedDefaultLoop    = FirstMatch(SelectedLoops,   loadedLoopNames);
             ResolvedDefaultRunbook = FirstMatch(SelectedRunbooks, loadedRunbookNames);
+            DefaultActorName    = loadedActorNames != null
+                ? FirstMatch(SelectedActors, loadedActorNames)
+                : null;
         }
 
         /// <summary>

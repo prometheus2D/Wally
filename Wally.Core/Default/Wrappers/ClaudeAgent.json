@@ -1,0 +1,11 @@
+{
+  "Name": "ClaudeAgent",
+  "Description": "Agentic — runs the Anthropic Claude CLI with computer-use/tool-use enabled (claude --allowedTools 'Edit,Write,Bash' -p). Requires the 'claude' CLI v1.x with tool permissions.",
+  "Executable": "claude",
+  "ArgumentTemplate": "{model} {sourcePath} --allowedTools Edit,Write,Bash --output-format stream-json --verbose -p {prompt}",
+  "ModelArgFormat": "--model {model}",
+  "SourcePathArgFormat": "--add-dir {sourcePath}",
+  "UseSourcePathAsWorkingDirectory": true,
+  "CanMakeChanges": true,
+  "UseConversationHistory": true
+}

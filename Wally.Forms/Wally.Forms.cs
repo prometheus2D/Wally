@@ -237,6 +237,9 @@ namespace Wally.Forms
             cleanupWorkspaceMenuItem.Click    += OnCleanupWorkspace;
             openWorkspaceFolderMenuItem.Click += OnOpenWorkspaceFolder;
 
+            // -- Settings menu --
+            chatDefaultsMenuItem.Click += OnChatDefaults;
+
             // -- File ToolStrip --
             tsbOpen.Click  += OnOpenWorkspace;
             tsbSetup.Click += OnSetupWorkspace;
@@ -376,6 +379,19 @@ namespace Wally.Forms
         }
 
         // -- Menu handlers ---------------------------------------------------
+
+        private void OnChatDefaults(object? sender, EventArgs e)
+        {
+            if (!_environment.HasWorkspace) return;
+            using var form = new ChatDefaultsForm(_environment, () =>
+            {
+                _chatPanel.RefreshActorList();
+                _chatPanel.RefreshLoopList();
+                _chatPanel.RefreshModelList();
+                _chatPanel.RefreshRunbookList();
+            });
+            form.ShowDialog(this);
+        }
 
         private void OnEditCopy(object? sender, EventArgs e)
         {
@@ -608,6 +624,7 @@ namespace Wally.Forms
 
             workspaceToolStripMenuItem.Enabled = loaded;
             editorsToolStripMenuItem.Enabled   = loaded;
+            chatDefaultsMenuItem.Enabled       = loaded;
 
             // File toolbar
             tsbSave.Enabled  = loaded;

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using Wally.Core.Actions;
 using Wally.Core.Actors;
 using Wally.Core.Providers;
 
@@ -214,6 +215,8 @@ namespace Wally.Core
         /// Writes an actor's definition back to its <c>actor.json</c>, creating the
         /// folder if needed. Also creates the actor's <c>Docs/</c> subfolder and
         /// the four mailbox folders (Inbox, Outbox, Pending, Active).
+        /// Now persists AllowedWrappers, AllowedLoops, PreferredWrapper,
+        /// PreferredLoop, and Actions.
         /// </summary>
         public static void SaveActor(string workspaceFolder, WallyConfig config, Actor actor)
         {
@@ -222,16 +225,37 @@ namespace Wally.Core
 
             Directory.CreateDirectory(Path.Combine(actorDir, actor.DocsFolderName));
 
-            // Actor-level mailbox — this actor's private request/work/delivery queue.
+            // Actor-level mailbox
             CreateMailboxFolders(actorDir);
+
+            // Serialise actions as plain anonymous objects (no C# type info in JSON)
+            var actionsData = actor.Actions.Select(a => new
+            {
+                name         = a.Name,
+                description  = a.Description,
+                pathPattern  = a.PathPattern,
+                isMutating   = a.IsMutating,
+                parameters   = a.Parameters.Select(p => new
+                {
+                    name        = p.Name,
+                    type        = p.Type,
+                    description = p.Description,
+                    required    = p.Required
+                }).ToList()
+            }).ToList();
 
             var obj = new
             {
-                name           = actor.Name,
-                rolePrompt     = actor.RolePrompt,
-                criteriaPrompt = actor.CriteriaPrompt,
-                intentPrompt   = actor.IntentPrompt,
-                docsFolderName = actor.DocsFolderName
+                name             = actor.Name,
+                rolePrompt       = actor.RolePrompt,
+                criteriaPrompt   = actor.CriteriaPrompt,
+                intentPrompt     = actor.IntentPrompt,
+                docsFolderName   = actor.DocsFolderName,
+                allowedWrappers  = actor.AllowedWrappers,
+                allowedLoops     = actor.AllowedLoops,
+                preferredWrapper = actor.PreferredWrapper,
+                preferredLoop    = actor.PreferredLoop,
+                actions          = actionsData
             };
 
             File.WriteAllText(
@@ -524,6 +548,12 @@ namespace Wally.Core
             string intentPrompt   = string.Empty;
             string docsFolderName = "Docs";
 
+            var allowedWrappers  = new List<string>();
+            var allowedLoops     = new List<string>();
+            string? preferredWrapper = null;
+            string? preferredLoop    = null;
+            var actions          = new List<ActorAction>();
+
             if (File.Exists(jsonPath))
             {
                 try
@@ -536,6 +566,15 @@ namespace Wally.Core
                     criteriaPrompt = TryGetString(root, "criteriaPrompt") ?? string.Empty;
                     intentPrompt   = TryGetString(root, "intentPrompt")   ?? string.Empty;
                     docsFolderName = TryGetString(root, "docsFolderName") ?? "Docs";
+                    preferredWrapper = TryGetString(root, "preferredWrapper");
+                    preferredLoop    = TryGetString(root, "preferredLoop");
+
+                    // allowedWrappers / allowedLoops — string arrays
+                    allowedWrappers = TryGetStringList(root, "allowedWrappers");
+                    allowedLoops    = TryGetStringList(root, "allowedLoops");
+
+                    // actions — array of action objects
+                    actions = TryGetActions(root);
                 }
                 catch (JsonException ex)
                 {
@@ -553,14 +592,91 @@ namespace Wally.Core
                 intentPrompt,
                 workspace);
 
-            actor.DocsFolderName = docsFolderName;
+            actor.DocsFolderName  = docsFolderName;
+            actor.AllowedWrappers = allowedWrappers;
+            actor.AllowedLoops    = allowedLoops;
+            actor.PreferredWrapper = preferredWrapper;
+            actor.PreferredLoop    = preferredLoop;
+            actor.Actions         = actions;
+
             return actor;
         }
+
+        // ? JSON helpers ???????????????????????????????????????????????????????
 
         private static string? TryGetString(JsonElement element, string propertyName) =>
             element.TryGetProperty(propertyName, out var prop) &&
             prop.ValueKind == JsonValueKind.String
                 ? prop.GetString()
                 : null;
+
+        private static List<string> TryGetStringList(JsonElement element, string propertyName)
+        {
+            var result = new List<string>();
+            if (!element.TryGetProperty(propertyName, out var prop) ||
+                prop.ValueKind != JsonValueKind.Array)
+                return result;
+
+            foreach (var item in prop.EnumerateArray())
+            {
+                if (item.ValueKind == JsonValueKind.String)
+                {
+                    string? s = item.GetString();
+                    if (!string.IsNullOrWhiteSpace(s)) result.Add(s!);
+                }
+            }
+            return result;
+        }
+
+        private static List<ActorAction> TryGetActions(JsonElement root)
+        {
+            var result = new List<ActorAction>();
+            if (!root.TryGetProperty("actions", out var actionsEl) ||
+                actionsEl.ValueKind != JsonValueKind.Array)
+                return result;
+
+            foreach (var actionEl in actionsEl.EnumerateArray())
+            {
+                if (actionEl.ValueKind != JsonValueKind.Object) continue;
+
+                var action = new ActorAction
+                {
+                    Name        = TryGetString(actionEl, "name")        ?? string.Empty,
+                    Description = TryGetString(actionEl, "description") ?? string.Empty,
+                    PathPattern = TryGetString(actionEl, "pathPattern"),
+                    IsMutating  = TryGetBool(actionEl, "isMutating") ?? false,
+                    Parameters  = new List<ActionParameter>()
+                };
+
+                if (string.IsNullOrWhiteSpace(action.Name)) continue;
+
+                if (actionEl.TryGetProperty("parameters", out var paramsEl) &&
+                    paramsEl.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (var paramEl in paramsEl.EnumerateArray())
+                    {
+                        if (paramEl.ValueKind != JsonValueKind.Object) continue;
+                        action.Parameters.Add(new ActionParameter
+                        {
+                            Name        = TryGetString(paramEl, "name")        ?? string.Empty,
+                            Type        = TryGetString(paramEl, "type")        ?? "string",
+                            Description = TryGetString(paramEl, "description") ?? string.Empty,
+                            Required    = TryGetBool(paramEl, "required")      ?? true
+                        });
+                    }
+                }
+
+                result.Add(action);
+            }
+            return result;
+        }
+
+        private static bool? TryGetBool(JsonElement element, string propertyName)
+        {
+            if (!element.TryGetProperty(propertyName, out var prop)) return null;
+            if (prop.ValueKind == JsonValueKind.True)  return true;
+            if (prop.ValueKind == JsonValueKind.False) return false;
+            return null;
+        }
     }
 }

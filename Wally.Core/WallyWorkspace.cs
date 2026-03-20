@@ -136,7 +136,8 @@ namespace Wally.Core
             Config.ResolveSelectedDefaults(
                 LlmWrappers.Select(w => w.Name),
                 Loops.Select(l => l.Name),
-                Runbooks.Select(r => r.Name));
+                Runbooks.Select(r => r.Name),
+                Actors.Select(a => a.Name));
         }
 
         // — Saving ———————————————————————————————————————————————————————————
@@ -225,7 +226,8 @@ namespace Wally.Core
             Config.ResolveSelectedDefaults(
                 LlmWrappers.Select(w => w.Name),
                 Loops.Select(l => l.Name),
-                Runbooks.Select(r => r.Name));
+                Runbooks.Select(r => r.Name),
+                Actors.Select(a => a.Name));
         }
     }
 }

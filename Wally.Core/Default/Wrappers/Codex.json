@@ -1,0 +1,11 @@
+{
+  "Name": "Codex",
+  "Description": "Read-only — runs OpenAI Codex CLI (codex -p). Requires the 'codex' CLI to be installed and authenticated with OPENAI_API_KEY.",
+  "Executable": "codex",
+  "ArgumentTemplate": "{model} {sourcePath} -p {prompt}",
+  "ModelArgFormat": "--model {model}",
+  "SourcePathArgFormat": "--cwd {sourcePath}",
+  "UseSourcePathAsWorkingDirectory": true,
+  "CanMakeChanges": false,
+  "UseConversationHistory": true
+}

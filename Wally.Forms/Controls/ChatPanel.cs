@@ -68,6 +68,7 @@ namespace Wally.Forms.Controls
         private string? _selectedModel;
 
         // Resolved defaults — used to apply / restore the " (default)" label.
+        private string? _defaultActor;
         private string? _defaultLoop;
         private string? _defaultModel;
 
@@ -476,12 +477,70 @@ namespace Wally.Forms.Controls
         // Wrapper resolution
         // =====================================================================
 
+        /// <summary>
+        /// Resolves the wrapper for the current mode, respecting in order:
+        /// 1. The selected actor's <c>PreferredWrapper</c> and <c>AllowedWrappers</c>
+        ///    constraint (actor-level capability policy).
+        /// 2. <c>WallyConfig.DefaultWrapper</c> when it exists and its
+        ///    <c>CanMakeChanges</c> matches the active mode.
+        /// 3. The first loaded wrapper whose <c>CanMakeChanges</c> matches the mode
+        ///    (original behaviour — unchanged when no config override is present).
+        /// </summary>
         private string? ResolveWrapperForMode()
         {
             if (_environment?.HasWorkspace != true) return null;
+
             var wrappers   = _environment.Workspace!.LlmWrappers;
             bool wantAgent = _currentMode == ActionMode.Agent;
-            var match      = wrappers.FirstOrDefault(w => w.CanMakeChanges == wantAgent);
+
+            // 1 — Actor-level preference / allow-list
+            if (!string.IsNullOrEmpty(_selectedActor))
+            {
+                var actor = _environment.GetActor(_selectedActor!);
+                if (actor != null)
+                {
+                    // Try actor's preferred wrapper first
+                    if (!string.IsNullOrWhiteSpace(actor.PreferredWrapper))
+                    {
+                        var preferred = wrappers.FirstOrDefault(w =>
+                            string.Equals(w.Name, actor.PreferredWrapper, StringComparison.OrdinalIgnoreCase));
+                        if (preferred != null && preferred.CanMakeChanges == wantAgent && actor.IsWrapperAllowed(preferred.Name))
+                            return preferred.Name;
+                    }
+
+                    // Try first entry in AllowedWrappers that matches the mode
+                    if (actor.AllowedWrappers.Count > 0)
+                    {
+                        foreach (string name in actor.AllowedWrappers)
+                        {
+                            var w = wrappers.FirstOrDefault(x =>
+                                string.Equals(x.Name, name, StringComparison.OrdinalIgnoreCase));
+                            if (w != null && w.CanMakeChanges == wantAgent)
+                                return w.Name;
+                        }
+                        // If no mode-matching allowed wrapper, use any allowed wrapper
+                        foreach (string name in actor.AllowedWrappers)
+                        {
+                            if (wrappers.Any(x => string.Equals(x.Name, name, StringComparison.OrdinalIgnoreCase)))
+                                return name;
+                        }
+                    }
+                }
+            }
+
+            // 2 — WallyConfig.DefaultWrapper when its CanMakeChanges matches the mode
+            string? configDefault = _environment.Workspace!.Config.DefaultWrapper;
+            if (!string.IsNullOrWhiteSpace(configDefault))
+            {
+                var defWrapper = wrappers.FirstOrDefault(w =>
+                    string.Equals(w.Name, configDefault, StringComparison.OrdinalIgnoreCase));
+                if (defWrapper != null && defWrapper.CanMakeChanges == wantAgent)
+                    return defWrapper.Name;
+                // DefaultWrapper set but wrong mode — fall through to capability search
+            }
+
+            // 3 — Capability search (original behaviour)
+            var match = wrappers.FirstOrDefault(w => w.CanMakeChanges == wantAgent);
             return match?.Name ?? (wrappers.Count > 0 ? wrappers[0].Name : null);
         }
 
@@ -558,13 +617,31 @@ namespace Wally.Forms.Controls
             if (_environment?.HasWorkspace == true)
                 items.AddRange(_environment.Actors.Select(a => a.Name));
 
-            _selectedActor   = null;
-            _btnActorDd.Text = "None";
-            PopulateSelector(_btnActorDd, _mnuActor, items, "None", value =>
+            _selectedActor = null;
+            _defaultActor  = null;
+            string buttonText = "None";
+
+            if (_environment?.HasWorkspace == true)
+            {
+                var cfg = _environment.Workspace!.Config;
+                if (!string.IsNullOrEmpty(cfg.DefaultActorName) &&
+                    _environment.Actors.Any(a => a.Name == cfg.DefaultActorName))
+                {
+                    _selectedActor = cfg.DefaultActorName;
+                    _defaultActor  = cfg.DefaultActorName;
+                    buttonText     = $"{_selectedActor} (default)";
+                }
+            }
+
+            _btnActorDd.Text = buttonText;
+            PopulateSelector(_btnActorDd, _mnuActor, items, _selectedActor ?? "None", value =>
             {
                 _selectedActor = string.Equals(value, "None", StringComparison.OrdinalIgnoreCase)
                     ? null : value;
-            });
+                // When actor changes, also update the loop dropdown to reflect
+                // the newly selected actor's preferred loop (if any).
+                RefreshLoopList();
+            }, defaultValue: _defaultActor);
         }
 
         public void RefreshLoopList()
@@ -581,12 +658,31 @@ namespace Wally.Forms.Controls
 
             if (_environment?.HasWorkspace == true)
             {
-                var cfg = _environment.Workspace!.Config;
-                if (!string.IsNullOrEmpty(cfg.ResolvedDefaultLoop) &&
-                    _environment.Loops.Any(l => l.Name == cfg.ResolvedDefaultLoop))
+                // Prefer the selected actor's own preferred loop (if it is loaded
+                // and on the actor's allow-list).
+                string? actorPreferred = null;
+                if (!string.IsNullOrEmpty(_selectedActor))
                 {
-                    _selectedLoop = cfg.ResolvedDefaultLoop;
-                    _defaultLoop  = cfg.ResolvedDefaultLoop;
+                    var actor = _environment.GetActor(_selectedActor!);
+                    if (actor != null && !string.IsNullOrWhiteSpace(actor.PreferredLoop))
+                    {
+                        string p = actor.PreferredLoop!;
+                        if (actor.IsLoopAllowed(p) &&
+                            _environment.Loops.Any(l => l.Name == p))
+                            actorPreferred = p;
+                    }
+                }
+
+                // Fall back to workspace resolved default loop.
+                var cfg = _environment.Workspace!.Config;
+                string? resolved = actorPreferred
+                    ?? (string.IsNullOrEmpty(cfg.ResolvedDefaultLoop) ? null : cfg.ResolvedDefaultLoop);
+
+                if (!string.IsNullOrEmpty(resolved) &&
+                    _environment.Loops.Any(l => l.Name == resolved))
+                {
+                    _selectedLoop = resolved;
+                    _defaultLoop  = resolved;
                     buttonText    = $"{_selectedLoop} (default)";
                 }
             }
