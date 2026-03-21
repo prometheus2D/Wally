@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text;
@@ -40,10 +41,108 @@ namespace Wally.Console
             }
         }
 
-        private static int RunOneTimeMode(string[] args) => HandleArguments(args);
+        // ── One-shot mode ────────────────────────────────────────────────────
+
+        private static int RunOneTimeMode(string[] args)
+        {
+            string[] remaining = ExtractWorkspaceArg(args, out string? explicitWorkspacePath);
+
+            if (explicitWorkspacePath != null)
+            {
+                // --workspace flag supplied: load it before dispatching the verb.
+                try
+                {
+                    WallyCommands.HandleLoad(_environment, explicitWorkspacePath);
+                    WallyPreferencesStore.RecordWorkspaceLoaded(_environment.WorkspaceFolder!);
+                }
+                catch (Exception ex)
+                {
+                    System.Console.Error.WriteLine(
+                        $"Error: could not load workspace '{explicitWorkspacePath}': {ex.Message}");
+                    return 1;
+                }
+            }
+            else
+            {
+                // No explicit flag: silently attempt to auto-load the last used workspace.
+                var prefs = WallyPreferencesStore.Load();
+                if (prefs.AutoLoadLast
+                    && !string.IsNullOrWhiteSpace(prefs.LastWorkspacePath)
+                    && Directory.Exists(prefs.LastWorkspacePath))
+                {
+                    try
+                    {
+                        WallyCommands.HandleLoad(_environment, prefs.LastWorkspacePath);
+                    }
+                    catch
+                    {
+                        // Non-fatal — the verb may not need a workspace.
+                    }
+                }
+            }
+
+            return HandleArguments(remaining);
+        }
+
+        /// <summary>
+        /// Scans <paramref name="args"/> for a <c>--workspace &lt;path&gt;</c>
+        /// or <c>-ws &lt;path&gt;</c> pair, removes it, and returns the path via
+        /// <paramref name="workspacePath"/>.  Returns the remaining args array.
+        /// Does not mutate <paramref name="args"/>.
+        /// </summary>
+        private static string[] ExtractWorkspaceArg(string[] args, out string? workspacePath)
+        {
+            workspacePath = null;
+            var result = new List<string>(args.Length);
+
+            for (int i = 0; i < args.Length; i++)
+            {
+                if ((args[i].Equals("--workspace", StringComparison.OrdinalIgnoreCase) ||
+                     args[i].Equals("-ws", StringComparison.OrdinalIgnoreCase))
+                    && i + 1 < args.Length)
+                {
+                    workspacePath = args[i + 1];
+                    i++; // skip the path token
+                    continue;
+                }
+                result.Add(args[i]);
+            }
+
+            return result.ToArray();
+        }
+
+        // ── Interactive mode ─────────────────────────────────────────────────
 
         private static int RunInteractiveMode()
         {
+            // ── Auto-load the last used workspace ────────────────────────────
+            var prefs = WallyPreferencesStore.Load();
+            if (prefs.AutoLoadLast
+                && !string.IsNullOrWhiteSpace(prefs.LastWorkspacePath)
+                && Directory.Exists(prefs.LastWorkspacePath))
+            {
+                try
+                {
+                    WallyCommands.HandleLoad(_environment, prefs.LastWorkspacePath);
+                    WallyPreferencesStore.RecordWorkspaceLoaded(prefs.LastWorkspacePath);
+                    System.Console.WriteLine(
+                        $"Auto-loaded workspace: {_environment.WorkspaceFolder}");
+                }
+                catch (Exception ex)
+                {
+                    System.Console.WriteLine(
+                        $"Warning: could not auto-load last workspace: {ex.Message}");
+                    WallyPreferencesStore.RemoveFromRecent(prefs.LastWorkspacePath);
+                }
+            }
+            else
+            {
+                System.Console.WriteLine(
+                    string.IsNullOrWhiteSpace(prefs.LastWorkspacePath)
+                        ? "(no previous workspace \u2014 use 'setup <path>' or 'load <path>')"
+                        : $"(last workspace not found: {prefs.LastWorkspacePath})");
+            }
+
             System.Console.WriteLine("Wally Interactive Mode. Type 'help' for commands, 'exit' to quit.");
             while (true)
             {
@@ -53,11 +152,26 @@ namespace Wally.Console
                 if (input.Trim().Equals("exit", StringComparison.OrdinalIgnoreCase)) break;
 
                 string[] interactiveArgs = WallyCommands.SplitArgs(input);
-                if (interactiveArgs.Length > 0)
-                    WallyCommands.DispatchCommand(_environment, interactiveArgs);
+                if (interactiveArgs.Length == 0) continue;
+
+                string verb = interactiveArgs[0].ToLowerInvariant();
+
+                bool success = WallyCommands.DispatchCommand(_environment, interactiveArgs);
+
+                // Update prefs after workspace-mutating commands.
+                if (success)
+                {
+                    if ((verb == "load" || verb == "setup") && _environment.HasWorkspace)
+                        WallyPreferencesStore.RecordWorkspaceLoaded(_environment.WorkspaceFolder!);
+                    else if (verb == "cleanup" && interactiveArgs.Length >= 2)
+                        WallyPreferencesStore.RemoveFromRecent(
+                            Path.GetFullPath(interactiveArgs[1]));
+                }
             }
             return 0;
         }
+
+        // ── Argument dispatch ────────────────────────────────────────────────
 
         private static int HandleArguments(string[] args)
         {
@@ -72,10 +186,32 @@ namespace Wally.Console
                 (opts) =>
                 {
                     // ── Workspace lifecycle ───────────────────────────────────
-                    if (opts is LoadOptions lo)        { WallyCommands.HandleLoad(_environment, lo.Path); return 0; }
-                    if (opts is SaveOptions so)        { WallyCommands.HandleSave(_environment, so.Path); return 0; }
-                    if (opts is SetupOptions seto)     { WallyCommands.HandleSetup(_environment, seto.ResolvedPath, seto.Verify); return 0; }
-                    if (opts is CleanupOptions co)     { WallyCommands.HandleCleanup(_environment, co.Path); return 0; }
+                    if (opts is LoadOptions lo)
+                    {
+                        WallyCommands.HandleLoad(_environment, lo.Path);
+                        if (_environment.HasWorkspace)
+                            WallyPreferencesStore.RecordWorkspaceLoaded(_environment.WorkspaceFolder!);
+                        return 0;
+                    }
+                    if (opts is SaveOptions so)    { WallyCommands.HandleSave(_environment, so.Path); return 0; }
+                    if (opts is SetupOptions seto)
+                    {
+                        WallyCommands.HandleSetup(_environment, seto.ResolvedPath, seto.Verify);
+                        if (_environment.HasWorkspace)
+                            WallyPreferencesStore.RecordWorkspaceLoaded(_environment.WorkspaceFolder!);
+                        return 0;
+                    }
+                    if (opts is CleanupOptions co)
+                    {
+                        string cleanupPath = co.Path != null
+                            ? Path.GetFullPath(co.Path)
+                            : (_environment.HasWorkspace
+                                ? _environment.WorkspaceFolder!
+                                : WallyHelper.GetDefaultWorkspaceFolder());
+                        WallyCommands.HandleCleanup(_environment, co.Path);
+                        WallyPreferencesStore.RemoveFromRecent(cleanupPath);
+                        return 0;
+                    }
 
                     // ── Running ───────────────────────────────────────────────
                     if (opts is RunOptions ro)

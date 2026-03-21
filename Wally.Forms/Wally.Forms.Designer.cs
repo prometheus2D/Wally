@@ -22,6 +22,8 @@ namespace Wally.Forms
             fileToolStripMenuItem = new ToolStripMenuItem();
             openWorkspaceMenuItem = new ToolStripMenuItem();
             setupWorkspaceMenuItem = new ToolStripMenuItem();
+            fileRecentSeparator = new ToolStripSeparator();
+            recentWorkspacesMenuItem = new ToolStripMenuItem();
             fileSeparator1 = new ToolStripSeparator();
             saveWorkspaceMenuItem = new ToolStripMenuItem();
             closeWorkspaceMenuItem = new ToolStripMenuItem();
@@ -63,7 +65,7 @@ namespace Wally.Forms
             openWorkspaceFolderMenuItem = new ToolStripMenuItem();
             toolbarPanel = new ToolStripPanel();
             fileToolStrip = new WallyToolStrip();
-            tsbOpen = new ToolStripButton();
+            tsbOpen = new ToolStripDropDownButton();
             tsbSetup = new ToolStripButton();
             tsbSave = new ToolStripButton();
             tsFileSep1 = new ToolStripSeparator();
@@ -123,7 +125,7 @@ namespace Wally.Forms
             // 
             // fileToolStripMenuItem
             // 
-            fileToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { openWorkspaceMenuItem, setupWorkspaceMenuItem, fileSeparator1, saveWorkspaceMenuItem, closeWorkspaceMenuItem, fileSeparator2, exitMenuItem });
+            fileToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { openWorkspaceMenuItem, setupWorkspaceMenuItem, fileRecentSeparator, recentWorkspacesMenuItem, fileSeparator1, saveWorkspaceMenuItem, closeWorkspaceMenuItem, fileSeparator2, exitMenuItem });
             fileToolStripMenuItem.ForeColor = Color.FromArgb(228, 228, 233);
             fileToolStripMenuItem.Name = "fileToolStripMenuItem";
             fileToolStripMenuItem.Size = new Size(37, 20);
@@ -144,6 +146,18 @@ namespace Wally.Forms
             setupWorkspaceMenuItem.ShortcutKeys = Keys.Control | Keys.Shift | Keys.N;
             setupWorkspaceMenuItem.Size = new Size(276, 22);
             setupWorkspaceMenuItem.Text = "&Setup New Workspace…";
+            // 
+            // fileRecentSeparator
+            // 
+            fileRecentSeparator.Name = "fileRecentSeparator";
+            fileRecentSeparator.Size = new Size(273, 6);
+            // 
+            // recentWorkspacesMenuItem
+            // 
+            recentWorkspacesMenuItem.ForeColor = Color.FromArgb(228, 228, 233);
+            recentWorkspacesMenuItem.Name = "recentWorkspacesMenuItem";
+            recentWorkspacesMenuItem.Size = new Size(276, 22);
+            recentWorkspacesMenuItem.Text = "&Recent Workspaces";
             // 
             // fileSeparator1
             // 
@@ -463,9 +477,10 @@ namespace Wally.Forms
             tsbOpen.Font = new Font("Segoe UI", 8.25F);
             tsbOpen.ForeColor = Color.FromArgb(228, 228, 233);
             tsbOpen.Name = "tsbOpen";
-            tsbOpen.Size = new Size(55, 22);
+            tsbOpen.Size = new Size(66, 22);
             tsbOpen.Text = "📂 Open";
-            tsbOpen.ToolTipText = "Open Workspace (Ctrl+O)";
+            tsbOpen.ToolTipText = "Open Workspace (Ctrl+O)  ▾ Recent workspaces";
+            tsbOpen.ShowDropDownArrow = true;
             // 
             // tsbSetup
             // 
@@ -754,6 +769,8 @@ namespace Wally.Forms
         private ToolStripMenuItem  fileToolStripMenuItem;
         private ToolStripMenuItem  openWorkspaceMenuItem;
         private ToolStripMenuItem  setupWorkspaceMenuItem;
+        private ToolStripSeparator fileRecentSeparator;
+        private ToolStripMenuItem  recentWorkspacesMenuItem;
         private ToolStripSeparator fileSeparator1;
         private ToolStripMenuItem  saveWorkspaceMenuItem;
         private ToolStripMenuItem  closeWorkspaceMenuItem;
@@ -805,8 +822,8 @@ namespace Wally.Forms
         private ToolStripMenuItem  openWorkspaceFolderMenuItem;
 
         // ── File ToolStrip ──
-        private WallyToolStrip     fileToolStrip;
-        private ToolStripButton    tsbOpen;
+        private WallyToolStrip          fileToolStrip;
+        private ToolStripDropDownButton tsbOpen;
         private ToolStripButton    tsbSetup;
         private ToolStripButton    tsbSave;
         private ToolStripSeparator tsFileSep1;

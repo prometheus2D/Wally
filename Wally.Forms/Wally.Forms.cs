@@ -212,6 +212,34 @@ namespace Wally.Forms
             closeWorkspaceMenuItem.Click += OnCloseWorkspace;
             exitMenuItem.Click           += OnExit;
 
+            recentWorkspacesMenuItem.DropDownOpening += OnRecentWorkspacesOpening;
+
+            // -- File ToolStrip --
+            tsbOpen.Click              += OnOpenWorkspace;
+            tsbOpen.DropDownOpening    += OnRecentWorkspacesOpening;
+            tsbSetup.Click             += OnSetupWorkspace;
+            tsbSave.Click              += OnSaveWorkspace;
+            tsbClose.Click             += OnCloseWorkspace;
+
+            // -- Workspace ToolStrip --
+            tsbRefresh.Click      += OnRefreshExplorer;
+            tsbReloadActors.Click += OnReloadActors;
+            tsbInfo.Click         += OnWorkspaceInfo;
+            tsbVerify.Click       += OnVerifyWorkspace;
+            tsbRepair.Click       += OnRepairWorkspace;
+            tsbStop.Click         += OnStopClick;
+
+            // -- Runbook ToolStrip --
+            tsbRunbookDropdown.DropDownOpening += OnRunbookDropdownOpening;
+            tsbRunStart.Click += OnRunStart;
+            tsbRunStop.Click += OnRunStop;
+
+            // -- Editors ToolStrip --
+            tsbEditActors.Click += OnEditActors;
+            tsbConfig.Click     += OnEditConfig;
+            tsbLogs.Click       += OnViewLogs;
+            tsbClearChat.Click  += OnClearChat;
+
             // -- View menu --
             refreshMenuItem.Click               += OnRefreshExplorer;
             showExplorerMenuItem.CheckedChanged  += OnShowExplorerCheckedChanged;
@@ -244,31 +272,6 @@ namespace Wally.Forms
 
             // -- Settings menu --
             chatDefaultsMenuItem.Click += OnChatDefaults;
-
-            // -- File ToolStrip --
-            tsbOpen.Click  += OnOpenWorkspace;
-            tsbSetup.Click += OnSetupWorkspace;
-            tsbSave.Click  += OnSaveWorkspace;
-            tsbClose.Click += OnCloseWorkspace;
-
-            // -- Workspace ToolStrip --
-            tsbRefresh.Click      += OnRefreshExplorer;
-            tsbReloadActors.Click += OnReloadActors;
-            tsbInfo.Click         += OnWorkspaceInfo;
-            tsbVerify.Click       += OnVerifyWorkspace;
-            tsbRepair.Click       += OnRepairWorkspace;
-            tsbStop.Click         += OnStopClick;
-
-            // -- Runbook ToolStrip --
-            tsbRunbookDropdown.DropDownOpening += OnRunbookDropdownOpening;
-            tsbRunStart.Click += OnRunStart;
-            tsbRunStop.Click += OnRunStop;
-
-            // -- Editors ToolStrip --
-            tsbEditActors.Click += OnEditActors;
-            tsbConfig.Click     += OnEditConfig;
-            tsbLogs.Click       += OnViewLogs;
-            tsbClearChat.Click  += OnClearChat;
 
             // -- Global shortcuts --
             KeyPreview = true;
@@ -399,7 +402,34 @@ namespace Wally.Forms
 
         private void TryAutoSetup()
         {
-            // First, try to look for a workspace in the current working directory
+            // ?? Probe 1: last workspace remembered in user prefs ?????????????
+            var prefs = WallyPreferencesStore.Load();
+            if (prefs.AutoLoadLast && !string.IsNullOrWhiteSpace(prefs.LastWorkspacePath))
+            {
+                string lastConfigPath = Path.Combine(
+                    prefs.LastWorkspacePath, WallyHelper.ConfigFileName);
+                if (File.Exists(lastConfigPath))
+                {
+                    try
+                    {
+                        _environment.LoadWorkspace(prefs.LastWorkspacePath);
+                        OnWorkspaceChanged(this, EventArgs.Empty);
+                        _commandPanel.AppendLine(
+                            $"Auto-loaded workspace (last used): {_environment.WorkspaceFolder}",
+                            WallyTheme.TextSecondary);
+                        return;
+                    }
+                    catch (Exception ex)
+                    {
+                        _commandPanel.AppendLine(
+                            $"Warning: could not auto-load last workspace: {ex.Message}",
+                            WallyTheme.TextMuted);
+                        WallyPreferencesStore.RemoveFromRecent(prefs.LastWorkspacePath);
+                    }
+                }
+            }
+
+            // ?? Probe 2: workspace in the current working directory ??????????
             string currentDir = Directory.GetCurrentDirectory();
             string currentWs = Path.Combine(currentDir, WallyHelper.DefaultWorkspaceFolderName);
             string currentConfigPath = Path.Combine(currentWs, WallyHelper.ConfigFileName);
@@ -409,7 +439,6 @@ namespace Wally.Forms
                 try
                 {
                     _environment.LoadWorkspace(currentWs);
-                    // Manually trigger the workspace changed event since LoadWorkspace doesn't fire it
                     OnWorkspaceChanged(this, EventArgs.Empty);
                     _commandPanel.AppendLine(
                         $"Auto-loaded workspace from current directory: {_environment.WorkspaceFolder}",
@@ -422,16 +451,15 @@ namespace Wally.Forms
                 }
             }
 
-            // Fallback: try the default workspace folder next to the executable
+            // ?? Probe 3: default workspace folder next to the executable ?????
             string defaultWs = WallyHelper.GetDefaultWorkspaceFolder();
             string defaultConfigPath = Path.Combine(defaultWs, WallyHelper.ConfigFileName);
-            
+
             if (File.Exists(defaultConfigPath))
             {
                 try
                 {
                     _environment.LoadWorkspace(defaultWs);
-                    // Manually trigger the workspace changed event since LoadWorkspace doesn't fire it
                     OnWorkspaceChanged(this, EventArgs.Empty);
                     _commandPanel.AppendLine(
                         $"Auto-loaded workspace from exe directory: {_environment.WorkspaceFolder}",
@@ -450,21 +478,24 @@ namespace Wally.Forms
         {
             UpdateWorkspaceGating();
             RefreshAllPanels();
-            
+
             if (_environment.HasWorkspace)
             {
                 ShowWorkspacePanels();
                 _chatPanel.SetWorkspaceLoaded(true);
                 _lblWorkspaceStatus.Text = _environment.WorkspaceFolder!;
                 _lblActorCount.Text = $"Actors: {_environment.Actors.Count}";
-                
+
+                // Persist the newly loaded workspace path in user prefs.
+                WallyPreferencesStore.RecordWorkspaceLoaded(_environment.WorkspaceFolder!);
+
                 // Set the root path for the explorer panel
                 _explorerTabPanel.SetRootPath(_environment.WorkSource!);
-                
+
                 // Update the welcome panel to show workspace info
                 _welcomePanel.SetWorkspaceInfo(
-                    loaded: true, 
-                    workSource: _environment.WorkSource, 
+                    loaded: true,
+                    workSource: _environment.WorkSource,
                     actorCount: _environment.Actors.Count,
                     defaultModel: _environment.Workspace?.Config?.DefaultModel);
             }
@@ -474,10 +505,10 @@ namespace Wally.Forms
                 _chatPanel.SetWorkspaceLoaded(false);
                 _lblWorkspaceStatus.Text = "No workspace";
                 _lblActorCount.Text = "Actors: 0";
-                
+
                 // Clear the explorer when no workspace is loaded
                 _explorerTabPanel.ClearAll();
-                
+
                 // Update the welcome panel to show the "get started" view
                 _welcomePanel.SetWorkspaceInfo(loaded: false);
             }
@@ -665,9 +696,9 @@ namespace Wally.Forms
         {
             using var dlg = new FolderBrowserDialog
             {
-                Description          = "Select a .wally workspace folder",
+                Description            = "Select a .wally workspace folder",
                 UseDescriptionForTitle = true,
-                ShowNewFolderButton  = false
+                ShowNewFolderButton    = false
             };
             if (dlg.ShowDialog(this) == DialogResult.OK)
                 _commandPanel.ExecuteCommand($"load \"{dlg.SelectedPath}\"");
@@ -703,7 +734,6 @@ namespace Wally.Forms
             string closedPath = _environment.WorkSource ?? "workspace";
             _environment.CloseWorkspace();
 
-            // Manually trigger the workspace changed event since CloseWorkspace doesn't fire it
             OnWorkspaceChanged(this, EventArgs.Empty);
 
             _commandPanel.AppendLine($"Closed workspace: {closedPath}", WallyTheme.TextMuted);
@@ -732,7 +762,6 @@ namespace Wally.Forms
 
             _commandPanel.ExecuteCommand($"repair \"{_environment.WorkSource}\"");
 
-            // Refresh explorer so any newly created folders become visible.
             _explorerTabPanel.Refresh();
             RefreshAllPanels();
         }
@@ -767,6 +796,9 @@ namespace Wally.Forms
                 _tabHost.CloseAllTabs();
             }
 
+            // Remove from prefs before the folder is deleted.
+            WallyPreferencesStore.RemoveFromRecent(wsFolder);
+
             _commandPanel.ExecuteCommand(workSource != null
                 ? $"cleanup \"{workSource}\""
                 : "cleanup");
@@ -784,6 +816,77 @@ namespace Wally.Forms
             {
                 _commandPanel.AppendLine($"Could not open folder: {ex.Message}", WallyTheme.Red);
             }
+        }
+
+        // -- Recent workspaces -----------------------------------------------
+        private void OnRecentWorkspacesOpening(object? sender, EventArgs e)
+        {
+            ToolStripMenuItem targetMenu;
+            if (sender is ToolStripDropDownButton btn)
+            {
+                btn.DropDownItems.Clear();
+                targetMenu = null!; // we add directly to btn below
+                PopulateRecentItems(btn.DropDownItems);
+                return;
+            }
+            // sender is recentWorkspacesMenuItem
+            recentWorkspacesMenuItem.DropDownItems.Clear();
+            PopulateRecentItems(recentWorkspacesMenuItem.DropDownItems);
+        }
+
+        private void PopulateRecentItems(ToolStripItemCollection items)
+        {
+            var prefs = WallyPreferencesStore.Load();
+            if (prefs.RecentWorkspaces.Count == 0)
+            {
+                var empty = new ToolStripMenuItem("(no recent workspaces)")
+                {
+                    Enabled   = false,
+                    ForeColor = WallyTheme.TextMuted
+                };
+                items.Add(empty);
+                return;
+            }
+
+            foreach (var entry in prefs.RecentWorkspaces)
+            {
+                bool exists = System.IO.Directory.Exists(entry.Path);
+                string label = entry.DisplayName.Length > 60
+                    ? entry.DisplayName[..60] + "…"
+                    : entry.DisplayName;
+
+                var item = new ToolStripMenuItem(label)
+                {
+                    ForeColor   = exists ? WallyTheme.TextPrimary : WallyTheme.TextMuted,
+                    Enabled     = exists,
+                    ToolTipText = entry.Path,
+                    Tag         = entry.Path
+                };
+                item.Click += OnRecentWorkspaceClicked;
+                items.Add(item);
+            }
+
+            items.Add(new ToolStripSeparator());
+
+            var clearItem = new ToolStripMenuItem("Clear Recent…")
+            {
+                ForeColor = WallyTheme.TextSecondary
+            };
+            clearItem.Click += OnClearRecentWorkspaces;
+            items.Add(clearItem);
+        }
+
+        private void OnRecentWorkspaceClicked(object? sender, EventArgs e)
+        {
+            if (sender is ToolStripMenuItem item && item.Tag is string path)
+                _commandPanel.ExecuteCommand($"load \"{path}\"");
+        }
+
+        private void OnClearRecentWorkspaces(object? sender, EventArgs e)
+        {
+            var prefs = WallyPreferencesStore.Load();
+            prefs.RecentWorkspaces.Clear();
+            WallyPreferencesStore.Save(prefs);
         }
 
         // -- File events / intelligent open ----------------------------------
