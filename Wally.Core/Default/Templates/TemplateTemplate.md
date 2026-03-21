@@ -10,9 +10,11 @@
 | Constraint | Rule |
 |------------|------|
 | **Audience** | Template authors — engineers or AI agents creating or updating a template |
-| **Scope** | The mandatory and optional sections every template must contain; section ordering; naming conventions |
+| **Scope** | The mandatory and optional sections every template must contain; section ordering; naming conventions; todo tracking; acceptance criteria |
 | **Out of Scope** | The content of any individual template's sections; instance-level documents; project-specific conventions |
 | **Maintenance** | Update only when a structural rule must change across all templates; changes here require all templates to be audited |
+| **Todo Tracking** | Every template instance must include a Todo Tracker section for task management |
+| **Acceptance Criteria** | Every template must define clear, testable acceptance criteria for completion |
 
 ---
 
@@ -21,6 +23,8 @@
 - Define the section structure every template must follow so all document types are consistent.
 - Give template authors an unambiguous checklist: what to include, in what order, and to what standard.
 - Establish a shared relationship vocabulary so cross-document links are unambiguous regardless of document type.
+- Ensure every template instance has built-in todo tracking and acceptance criteria for systematic completion tracking.
+- Enable AI agents and human users to systematically track progress toward document completion.
 
 ---
 
@@ -60,8 +64,10 @@ Required rows (all templates):
 | **Scope** | What is in scope for this document type |
 | **Out of Scope** | What must not appear in instances of this document type |
 | **Maintenance** | When instances must be updated |
+| **Todo Tracking** | Every template instance must include a Todo Tracker section for task management |
+| **Acceptance Criteria** | Every template must define clear, testable acceptance criteria for completion |
 
-Additional rows are allowed; the four required rows must not be removed.
+Additional rows are encouraged; the six required rows must not be removed.
 
 ### 3. Objectives
 
@@ -105,6 +111,8 @@ For each required section, specify:
 - One sentence: what this section contains
 - Format constraint: `table | bullet list | prose | Mermaid | code block | header block`
 
+**Note**: All templates must include both "Todo Tracker" and "Acceptance Criteria" as required sections in their instance documents.
+
 ### 6. Optional Sections
 
 A list of sections that may appear in instances but are not required.
@@ -117,7 +125,27 @@ Include when: [condition].
 [One sentence: what this section contains.]
 ```
 
-### 7. Formatting Rules
+### 7. Acceptance Criteria Definition
+
+Every template must define the completion criteria for instances of that document type.
+This section specifies what constitutes "done" for documents created from this template.
+
+Required subsections:
+- **Completion Checklist**: Bulleted list of must-have items
+- **Quality Gates**: Measurable criteria for acceptance
+- **Sign-off Requirements**: Who must approve the document
+
+### 8. Todo Tracker Specification
+
+Every template must specify the format and requirements for the todo tracker that will appear in instance documents.
+
+Required elements to specify:
+- **Task Categories**: What types of tasks should be tracked
+- **Priority Levels**: How to categorize task importance
+- **Status Values**: Valid status states (e.g., `Not Started | In Progress | Blocked | Complete`)
+- **Assignment Rules**: How tasks should be assigned and tracked
+
+### 9. Formatting Rules
 
 A table mapping document elements to their required format.
 
@@ -129,15 +157,17 @@ Required rows (all templates):
 | Diagrams | Mermaid only |
 | Structured data | Tables preferred over prose |
 | Lists | Numbered for ordered/sequential; bullets for unordered |
+| Todo items | `- [ ]` unchecked or `- [x]` checked checkbox format |
+| Status indicators | Emoji prefixes: ?? Blocked, ?? In Progress, ? Complete |
 
-Additional rows are encouraged; the four required rows must not be removed.
+Additional rows are encouraged; the six required rows must not be removed.
 
-### 8. Anti-Patterns
+### 10. Anti-Patterns
 
 A two-column table of practices to avoid and what to do instead.
 Minimum four rows. Column headers: `? Avoid` / `? Instead`.
 
-### 9. File Naming
+### 11. File Naming
 
 One paragraph and/or table specifying:
 - The naming convention (pattern, case style, suffix).
@@ -150,6 +180,14 @@ One paragraph and/or table specifying:
 ### Status and Metadata Header
 Include when: instances have a lifecycle (e.g. Draft ? Approved ? Superseded) or require attribution.
 Defines the structured header block — status, owner, dates.
+
+### Todo Tracker Template
+Include when: the document type requires complex task management beyond basic checklists.
+Provides the exact table format and column specifications for todo tracking in instances.
+
+### Acceptance Criteria Template
+Include when: the document type has complex or domain-specific completion criteria.
+Provides the exact format for acceptance criteria tables in instances.
 
 ### Mermaid Diagram Guidance
 Include when: instances of this document type frequently use diagrams.
@@ -165,6 +203,44 @@ Defines update triggers and changelog format.
 
 ---
 
+## Mandatory Instance Sections
+
+Every document created from any template **must** include these sections (in addition to template-specific required sections):
+
+### Todo Tracker
+```markdown
+## Todo Tracker
+
+| Task | Priority | Status | Owner | Due Date | Notes |
+|------|----------|--------|-------|----------|-------|
+| Example task | High | ?? In Progress | @username | 2024-01-15 | Waiting on approval |
+
+**Legend**: 
+- Priority: `High | Medium | Low`
+- Status: `?? Blocked | ?? In Progress | ? Complete | ?? Paused`
+```
+
+### Acceptance Criteria
+```markdown
+## Acceptance Criteria
+
+### Must Have (Required for Completion)
+- [ ] Criterion 1: [Specific, measurable requirement]
+- [ ] Criterion 2: [Specific, measurable requirement]
+
+### Should Have (Preferred for Quality)
+- [ ] Criterion 3: [Quality enhancement]
+- [ ] Criterion 4: [Quality enhancement]
+
+### Completion Checklist
+- [ ] All "Must Have" criteria completed
+- [ ] Document reviewed by required stakeholders
+- [ ] Status updated to final state
+- [ ] All todo items resolved or transferred
+```
+
+---
+
 ## Formatting Rules
 
 | Element | Format |
@@ -175,6 +251,9 @@ Defines update triggers and changelog format.
 | Lists | Numbered for ordered/sequential; bullets for unordered |
 | Section numbers | `### N. Title Case` for Required Sections entries |
 | Required vs optional | Always labelled in section headings |
+| Todo items | `- [ ]` unchecked or `- [x]` checked checkbox format |
+| Status indicators | Emoji prefixes: ?? Blocked, ?? In Progress, ? Complete |
+| Priority levels | `High | Medium | Low` — never Critical/P0/etc. |
 
 ---
 
@@ -187,9 +266,12 @@ Defines update triggers and changelog format.
 | Skipping Document Relationships | Every template must declare how it fits into the document ecosystem |
 | Omitting Out of Scope from constraints | Ambiguous scope causes scope creep in instance documents |
 | Mixing type-level and instance-level relationships | Document Relationships = type-level; instance links go in Optional Sections |
-| Placing sections out of the mandatory order | Follow the 9-step sequence defined in Required Sections |
+| Placing sections out of the mandatory order | Follow the 11-step sequence defined in Required Sections |
 | Implicit formatting rules | Every format decision must appear in the Formatting Rules table |
 | A template that does not conform to this document | TemplateTemplate is the first rule it enforces |
+| Templates without todo trackers | Every template instance must include systematic todo tracking |
+| Vague acceptance criteria | Every criterion must be specific and measurable |
+| Todos without owners or due dates | Every todo must have clear ownership and timeline |
 
 ---
 
