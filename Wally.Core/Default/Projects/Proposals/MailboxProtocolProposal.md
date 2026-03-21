@@ -1,18 +1,23 @@
 # Mailbox Protocol — Proposal
 
+**Status**: Draft
+**Author**: System Architecture Team
+**Created**: 2024-01-10
+**Last Updated**: 2024-01-10
+
 *Template: [../../Templates/ProposalTemplate.md](../../Templates/ProposalTemplate.md)*
 
 ---
 
 ## Problem Statement
 
-`Inbox/Outbox/Pending/Active` folders are scaffolded for every actor but no code reads, writes, or routes them. Multi-agent handoff is structurally defined but behaviourally unimplemented. Actors cannot trigger each other without tight pipeline coupling. **Additionally, concurrent message processing leads to race conditions where actors see inconsistent mailbox state.**
+`Inbox/Outbox/Pending/Active` folders are scaffolded for every actor but no code reads, writes, or routes them. Multi-agent handoff is structurally defined but behaviourally unimplemented. Actors cannot trigger each other without tight pipeline coupling.
 
 ---
 
 ## Resolution
 
-Implement a file-based inter-actor message protocol with **batch processing for stable concurrency**: `WallyMessage` (the envelope), `MailboxRouter` (the dispatcher), `BatchContext` (concurrency coordinator), and `MailboxWatcher` (the trigger). Add a `send_message` built-in action so actors can initiate handoffs. Add a `watch` CLI verb for daemon mode. **All actors process their current inbox contents as a stable batch, then commit outputs atomically.**
+Implement a simple file-based inter-actor message protocol that works like email. Messages are processed as single-action Wally loops that trigger all actors to process their inboxes. Use standard email formatting for easy metadata parsing. Outbox messages are stored as "emails waiting to be sent" for future delivery implementation.
 
 ---
 
@@ -21,250 +26,301 @@ Implement a file-based inter-actor message protocol with **batch processing for 
 | Proposal | Relationship | Notes |
 |----------|--------------|-------|
 | [AutonomousBotGapsProposal](./AutonomousBotGapsProposal.md) | Parent | Extracted from parent as Phase 3 |
-| [AsyncExecutionProposal](./AsyncExecutionProposal.md) | Depends on | `MailboxRouter` dispatches via `ExecuteActorAsync` with batch coordination |
-| [AutonomyLoopProposal](./AutonomyLoopProposal.md) | Sibling | Independent; agents inside a loop can emit `send_message` actions within batch context |
+| [AsyncExecutionProposal](./AsyncExecutionProposal.md) | Depends on | Message processing uses `ExecuteActorAsync` |
+| [AutonomyLoopProposal](./AutonomyLoopProposal.md) | Sibling | Message processing triggers through loop system |
 
 ---
 
-## Phase 3 — Mailbox Protocol with Batch Concurrency (Effort: M)
+## Phases
 
-### Core Concepts
+| Phase | Description | Effort | Dependencies |
+|-------|-------------|--------|-------------|
+| 1 | Email-like mailbox processing with unified loops | 3-5 days | Async execution complete |
 
-- **`WallyMessage`**: file in actor `Inbox/` — filename `{timestamp}-{fromActor}-{subject}.md`; YAML front-matter (`from`, `to`, `subject`, `replyTo`, `correlationId`, `batchId`); markdown body is the prompt payload.
-- **`MailboxRouter`**: new class in `Wally.Core/Mailbox/` — orchestrates batch iterations; moves files through lifecycle states; ensures atomic output commitment.
-- **`BatchContext`**: new class — manages stable inbox snapshots and staged outputs during concurrent processing.
-- **`MailboxWatcher`**: wraps `FileSystemWatcher` on inbox folders — triggers batch iterations on message arrival.
-- **`send_message`**: enhanced built-in `ActionDispatcher` action — stages messages for atomic batch commit rather than immediate write.
+---
 
-### **Batch Processing Architecture**
+## Concepts
 
-```
-BATCH ITERATION CYCLE:
+- **Message processing as Wally loop**: Single-action loop that triggers all actors to process their inboxes
+- **Actions are loops**: No distinction — actions are just loops that do one thing and don't continue
+- **Email-like format**: Standard email headers (To, From, Subject) for easy metadata parsing
+- **Outbox as "unsent email"**: Messages stored in standard email format, ready for future delivery
+- **Unified trigger**: One message processing action triggers all actors simultaneously
 
-Phase 1: SNAPSHOT (Stable Inbox View)
-  ? All actors: freeze current Inbox/ contents
-  ? Create BatchContext with immutable message lists
-  ? BatchId assigned for traceability
+---
 
-Phase 2: CONCURRENT PROCESSING
-  ? All actors process their batch simultaneously:
-    - Move batch messages: Inbox/ ? Active/
-    - Execute: ExecuteActorAsync(actor, messages...)
-    - Stage outputs in memory (not written to disk)
-  ? No actor sees changes from other actors during processing
+## Email-Like Message Format
 
-Phase 3: ATOMIC COMMIT
-  ? All actors finished ? commit all outputs simultaneously:
-    - Write all Outbox/ responses
-    - Write all reply messages to target Inbox/
-    - Update Active/ ? cleanup
-  ? Next iteration can begin
+### Standard Email Headers
+```markdown
+To: BusinessAnalyst
+From: Engineer  
+Subject: Requirements Review Request
+Reply-To: Engineer
+Message-ID: a1b2c3d4-e5f6-7890-abcd-ef1234567890
+Date: 2024-01-15T14:30:00Z
 
-Phase 4: CLEANUP & NEXT ITERATION
-  ? New messages may have arrived during processing
-  ? Repeat with fresh snapshots
+Please review the attached requirements document and provide feedback on business alignment...
 ```
 
-### **Stable Concurrency Benefits**
+### File Structure (Same as Email)
+```
+{timestamp}-{fromActor}-{subject}.md
 
-| Benefit | Traditional Model | Batch Model |
-|---------|-------------------|-------------|
-| **Inbox consistency** | Actor A sees different state than Actor B | All actors see identical inbox state during iteration |
-| **Output coordination** | Messages appear immediately, mid-processing | All outputs committed simultaneously at batch end |
-| **Race condition prevention** | Actors interfere with each other's message flow | Clean separation between processing and I/O phases |
-| **Failure isolation** | Failed actor can corrupt other actors' state | Failed actor isolated; others complete normally |
-
-### **Enhanced `send_message` Action Schema**
-
-```action
-name: send_message
-to: Engineer
-subject: FeasibilityCheck
-body: |
-  Please review the following requirements for technical feasibility...
+Example: 2024-01-15T14-30-00Z-Engineer-RequirementsReview.md
 ```
 
-**Enhanced ActionDispatcher Behavior**:
-1. Validates `to` actor exists in loaded workspace — error result if not
-2. Generates `correlationId` (UUID) and inherits `batchId` from current batch context
-3. **STAGES** message in `BatchContext.StagedOutboxMessages` (not written immediately)
-4. Returns `OK — message staged for {to}` on success
-5. Message written to target `Inbox/` during atomic batch commit phase
+**Email-Style Metadata in File**:
+- **To**: Target actor (required)
+- **From**: Sending actor (required)  
+- **Subject**: Brief description (required)
+- **Reply-To**: Who should receive reply (optional, defaults to From)
+- **Message-ID**: Correlation UUID (auto-generated)
+- **Date**: ISO-8601 timestamp (auto-generated)
 
-### **Batch-Aware Message Lifecycle**
+---
 
-```
-BATCH N STARTS:
-Actor A emits send_message block
-  ? ActionDispatcher stages message in BatchContext
-  ? (Message not yet written to disk)
-  
-OTHER ACTORS IN BATCH:
-Actor B, C continue processing with stable inbox view
-  ? No interference from Actor A's pending message
-  
-BATCH N COMMIT:
-All actors finished
-  ? MailboxRouter writes ALL staged messages atomically:
-    - Actor A's message ? Inbox/Engineer/{timestamp}-A-subject.md
-    - Actor B's messages ? various target Inbox/ folders  
-    - Actor C's responses ? Outbox/C/ folder
-  ? Clean up Active/ files from current batch
-  
-BATCH N+1 STARTS:
-MailboxWatcher detects new messages (including Actor A's from previous batch)
-  ? Fresh snapshot includes Actor A's message in Engineer's batch
-  ? Engineer processes message with stable view of all current inputs
-```
+## Message Processing Loop Architecture
 
-### **BatchContext Implementation**
-
-```csharp
-public class BatchContext
+### Single Message Processing Action/Loop
+```json
 {
-    public string BatchId { get; }
-    public DateTime StartTime { get; }
-    
-    // Immutable snapshots for stable processing
-    public Dictionary<string, List<WallyMessage>> ActorBatches { get; }
-    
-    // Staged outputs for atomic commit
-    public List<WallyMessage> StagedOutboxMessages { get; }
-    public List<WallyMessage> StagedReplyMessages { get; }
-    
-    // Concurrency coordination
-    public ConcurrentDictionary<string, TaskCompletionSource> ActorCompletions { get; }
-    
-    // Failure tracking
-    public ConcurrentBag<(string actorName, Exception error, WallyMessage message)> FailedMessages { get; }
+  "name": "ProcessMailboxes", 
+  "description": "Trigger all actors to process their inbox messages",
+  "actorName": "System",
+  "maxIterations": 1,
+  "startPrompt": "Process all pending mailbox messages",
+  "actions": ["process_all_mailboxes"]
 }
 ```
 
-### **Failure Handling with Batch Context**
+### How It Works
+1. **Trigger**: `wally run --loop ProcessMailboxes` OR daemon detects new messages
+2. **Single action**: `process_all_mailboxes` action executes
+3. **All actors process**: Each actor with inbox messages gets executed
+4. **Email-like flow**: Inbox ? Active ? Outbox (like email client)
 
-- **Per-actor isolation**: If Engineer fails during batch processing, BusinessAnalyst and RequirementsExtractor continue normally
-- **Partial commit**: Successfully processed messages are committed; only failed actor's messages move to `Pending/`
-- **Batch traceability**: `batchId` links all messages processed in the same iteration for debugging
-- **Error context**: Failed messages include batch context for better error analysis
+### No Distinction Between Actions and Loops
+- `send_message` = single-action loop that sends one message
+- `process_mailboxes` = single-action loop that processes all inboxes  
+- `analyze_requirements` = single-action loop that analyzes requirements
+- All use same infrastructure, just different `maxIterations` and continuation logic
 
-### **Wally.Console Daemon Mode with Batching**
+---
 
-Enhanced CLI verb `watch` supports batch configuration:
+## Implementation Approach
 
-```bash
-wally watch --batch-interval 5000    # Wait 5 seconds between batch iterations
-wally watch --batch-size-limit 50    # Max 50 messages per batch per actor  
-wally watch --concurrent-actors 4    # Max 4 actors processing simultaneously
+### Enhanced `send_message` Action (Single-Action Loop)
+```csharp
+// In ActionDispatcher.cs - creates email-like messages
+case "send_message":
+    var to = GetRequiredParameter("to");
+    var subject = GetRequiredParameter("subject");
+    var body = GetRequiredParameter("body");
+    var from = currentActor.Name;
+    var replyTo = GetOptionalParameter("replyTo") ?? from;
+    
+    var messageId = Guid.NewGuid().ToString();
+    var timestamp = DateTime.UtcNow.ToString("yyyy-MM-ddTHH-mm-ssZ");
+    var filename = $"{timestamp}-{from}-{subject.Replace(" ", "")}.md";
+    
+    var emailMessage = CreateEmailLikeMessage(to, from, subject, body, replyTo, messageId);
+    WriteToActorInbox(to, filename, emailMessage);
+    return $"Message sent to {to}: {subject}";
+
+private string CreateEmailLikeMessage(string to, string from, string subject, string body, string replyTo, string messageId)
+{
+    return $@"To: {to}
+From: {from}
+Subject: {subject}
+Reply-To: {replyTo}
+Message-ID: {messageId}
+Date: {DateTime.UtcNow:yyyy-MM-ddTHH:mm:ssZ}
+
+{body}";
+}
 ```
 
-**Daemon behavior**:
-1. `MailboxRouter.StartBatchProcessing(env, options)`
-2. Continuous batch iteration loop until `Ctrl+C`
-3. Each iteration processes current inbox state atomically
-4. Configurable delays between iterations for system stability
+### `process_all_mailboxes` Action (Single-Action Loop)
+```csharp
+case "process_all_mailboxes":
+    var results = new List<string>();
+    
+    foreach (var actor in workspace.Actors)
+    {
+        var inboxPath = Path.Combine(actor.DirectoryPath, "Inbox");
+        if (!Directory.Exists(inboxPath)) continue;
+        
+        var messages = Directory.GetFiles(inboxPath, "*.md");
+        foreach (var messagePath in messages)
+        {
+            var result = ProcessSingleMessage(actor, messagePath);
+            results.Add(result);
+        }
+    }
+    
+    return $"Processed {results.Count} messages across all actors";
+```
+
+### Runbooks Stay Simple
+Runbooks just run Wally commands:
+```json
+{
+  "name": "DailyMailboxCheck",
+  "steps": [
+    {"command": "wally run --loop ProcessMailboxes"},
+    {"command": "wally run --actor Monitor \"Report mailbox status\""}
+  ]
+}
+```
+
+---
+
+## Email-Like File Lifecycle
+
+```
+Actor A: wally run --action send_message
+  ? Creates email-like message file
+Actor B's Inbox/{timestamp}-A-{subject}.md (email format)
+  ? wally run --loop ProcessMailboxes OR daemon trigger  
+Move Inbox/ ? Active/ (like email client moving to "processing")
+  ? Parse email headers, execute actor with message body
+Actor B processes message, may send replies via send_message
+  ? Response written to Outbox/ (email ready to be sent)
+Active/ cleaned up (email processing complete)
+```
+
+### Outbox Messages (Unsent Emails)
+- **Same format**: To, From, Subject, Message-ID, Date headers
+- **Same structure**: Ready to be moved directly to target actor's Inbox/
+- **Future delivery**: Code will eventually move Outbox/ messages to target Inbox/ folders
+- **Audit trail**: Shows what each actor has "sent" but not yet delivered
+
+---
+
+## Unified Command Structure
+
+### Single `run` Command for Everything
+```bash
+# Current behavior - actor execution
+wally run "analyze user requirements"
+wally run --actor Engineer "review this code"
+
+# Loop execution (actions are just single-iteration loops)  
+wally run --loop ProcessMailboxes        # Message processing loop
+wally run --loop AnalyzeRequirements     # Analysis loop
+wally run --action send_message          # Single-action loop
+
+# Runbook execution
+wally run --runbook DailyWorkflow        # Runs sequence of wally commands
+```
+
+### Message Processing Integration
+```bash
+# Manual message processing
+wally run --loop ProcessMailboxes
+
+# Daemon mode (future)
+wally watch --loop ProcessMailboxes --interval 30s
+
+# Single actor mailbox
+wally run --actor Engineer --loop ProcessMailboxes
+```
 
 ---
 
 ## Impact
 
-| File / System | Change | Batch Integration |
-|---|---|---|
-| `Wally.Core/ActionDispatcher.cs` | Enhanced `send_message` handler with staging | **Messages staged, not written immediately** |
-| `Wally.Core/Mailbox/WallyMessage.cs` | New — message envelope model with `batchId` | **Batch traceability** |
-| `Wally.Core/Mailbox/MailboxRouter.cs` | New — batch iteration orchestrator | **Core batch processing engine** |
-| `Wally.Core/Mailbox/BatchContext.cs` | **New — stable concurrency coordinator** | **New component** |
-| `Wally.Core/Mailbox/MailboxWatcher.cs` | New — `FileSystemWatcher` wrapper with batch triggering | **Batch-aware event handling** |
-| `Wally.Console/Program.cs` | Add `watch` verb with batch options | **Batch configuration** |
-| `Wally.Console/Options/Run/WatchOptions.cs` | New — verb options class with batch settings | **New options** |
+| File | Change | Risk Level |
+|------|--------|------------|
+| `Wally.Core/ActionDispatcher.cs` | Add `send_message` and `process_all_mailboxes` actions | Low |
+| `Wally.Core/WallyCommands.cs` | Enhance unified `run` command routing | Low |  
+| `Wally.Core/WallyLoop.cs` | Clarify that actions are single-iteration loops | Low |
+| `Wally.Console/Program.cs` | Update `run` command option parsing | Low |
 
 ---
 
 ## Benefits
 
-- **Stable concurrency**: All actors see consistent mailbox state during processing — no race conditions
-- **Atomic outputs**: Messages appear simultaneously at batch commit — clean handoff between iterations  
-- **Failure isolation**: One failed actor doesn't corrupt others' processing or state
-- **True independence**: Actors become genuinely autonomous agents with coordinated communication
-- **Batch traceability**: `batchId` and correlation IDs enable debugging across multi-actor workflows
-- **Scalable processing**: Configurable batch sizes and intervals optimize for system capacity
+- **Email-familiar format**: Everyone understands To, From, Subject headers
+- **Easy metadata parsing**: Standard email headers make code parsing simple
+- **Unified architecture**: Actions and loops use same infrastructure  
+- **Simple runbooks**: Just sequences of `wally run` commands
+- **Future-ready outbox**: Messages stored as "unsent emails" for delivery
+- **Single trigger**: One action processes all actor mailboxes simultaneously
 
 ---
 
 ## Risks
 
-- **`FileSystemWatcher` reliability** — not reliable on network drives or some Docker volumes. **Mitigation**: Add polling fallback with configurable interval; batch processing makes polling more efficient.
-- **Batch processing latency** — messages experience slight delay for batch coordination. **Mitigation**: Configurable batch intervals; real-time mode for development.
-- **Memory usage during large batches** — staged outputs held in memory during processing. **Mitigation**: Configurable batch size limits; streaming for large message bodies.
-- **Complex failure scenarios** — partial batch failures require careful state management. **Mitigation**: Comprehensive logging; `repair` command enhanced for batch context.
+- **File parsing complexity**: Email header parsing needs to be robust
+- **Message ordering**: Multiple messages may process simultaneously
+- **Outbox accumulation**: Undelivered messages may accumulate over time
 
 ---
 
-## Open Questions with Batch Context
+## Todo Tracker
 
-1. **Batch iteration timing**: Should batches be triggered by message arrival, time intervals, or manual triggers? **Recommendation**: Hybrid — message arrival triggers with minimum interval throttling (e.g., 1 second) to balance responsiveness and stability.
-
-2. **Cross-batch message ordering**: If Actor A sends message M1 in batch N, and Actor B sends M2 in batch N+1, what guarantees do we provide about processing order? **Recommendation**: Within-batch ordering by timestamp; cross-batch ordering by batch sequence number.
-
-3. **Batch size limits**: Should we limit messages per batch per actor, or total messages per batch iteration? **Recommendation**: Per-actor limits with configurable total batch limits; prevents one noisy actor from dominating processing.
-
-4. **Failed batch recovery**: Should a failed batch be retried as a unit, or should individual failed messages be retried independently? **Recommendation**: Individual message retry via `Pending/` folder; batch context preserved for debugging but not re-executed as a unit.
-
-5. **Interactive vs. daemon mode batching**: Should `ChatPanel` use the same batch processing as daemon mode, or immediate processing for better UI responsiveness? **Recommendation**: Immediate processing for single-user UI interactions; batch processing for daemon/multi-user scenarios.
+| Task | Priority | Status | Owner | Due Date | Notes |
+|------|----------|--------|-------|----------|-------|
+| Implement email-like message format creation | High | ?? Not Started | @developer | 2024-01-16 | Standard email headers |
+| Add `send_message` action with email formatting | High | ?? Not Started | @developer | 2024-01-17 | Single-action loop |
+| Create `process_all_mailboxes` action | High | ?? Not Started | @developer | 2024-01-18 | Trigger all actors |
+| Enhance `run` command for unified routing | Medium | ?? Not Started | @developer | 2024-01-19 | --loop, --action options |
+| Add email header parsing utilities | Medium | ?? Not Started | @developer | 2024-01-20 | To, From, Subject extraction |
+| Test email-like message flow end-to-end | Low | ?? Not Started | @qa | 2024-01-21 | Inbox ? Active ? Outbox |
 
 ---
 
-## Mermaid Diagrams
+## Acceptance Criteria
 
-```mermaid
-sequenceDiagram
-    participant BR as BatchRouter
-    participant A as Actor A
-    participant B as Actor B  
-    participant BC as BatchContext
-    participant Inbox as Inboxes
+#### Must Have (Required for Approval)
+- [ ] `send_message` creates email-formatted messages with standard headers
+- [ ] `process_all_mailboxes` triggers all actors to process their inboxes
+- [ ] Email headers (To, From, Subject, Message-ID, Date) easily parseable by code
+- [ ] Outbox messages stored in same email format for future delivery
+- [ ] `wally run --loop` and `wally run --action` work identically (actions are single-iteration loops)
 
-    Note over BR: BATCH ITERATION START
-    BR->>BC: Create BatchContext with current inbox snapshots
-    
-    par Concurrent Processing
-        BR->>A: ProcessBatchAsync(batch_messages_A)
-        A->>BC: Stage outbox messages
-    and
-        BR->>B: ProcessBatchAsync(batch_messages_B)  
-        B->>BC: Stage outbox messages
-    end
-    
-    Note over BR: ALL ACTORS COMPLETED
-    BR->>BC: CommitStagedMessages()
-    BC->>Inbox: Write all staged messages atomically
-    BR->>BC: Cleanup Active/ files
-    
-    Note over BR: NEXT ITERATION READY
-```
+#### Should Have (Preferred for Quality)  
+- [ ] Unified `run` command routes correctly to loops, actions, and runbooks
+- [ ] Email header parsing robust and error-tolerant
+- [ ] File naming prevents conflicts and maintains chronological order
+- [ ] Message processing integrates seamlessly with existing execution infrastructure
 
-```mermaid
-flowchart TD
-    Start([Batch Iteration Start]) --> Snapshot[Snapshot All Inboxes]
-    Snapshot --> Concurrent{Concurrent Actor Processing}
-    
-    Concurrent --> A[Actor A: Process Batch]
-    Concurrent --> B[Actor B: Process Batch] 
-    Concurrent --> C[Actor C: Process Batch]
-    
-    A --> StageA[Stage A's Outputs]
-    B --> StageB[Stage B's Outputs]
-    C --> StageC[Stage C's Outputs]
-    
-    StageA --> Wait{All Actors Done?}
-    StageB --> Wait
-    StageC --> Wait
-    
-    Wait --> Commit[Atomic Commit All Outputs]
-    Commit --> Cleanup[Cleanup Active Files]
-    Cleanup --> Next[Next Iteration]
-    Next --> Start
-    
-    Wait --> Failure{Actor Failed?}
-    Failure --> Partial[Partial Commit + Move to Pending/]
-    Partial --> Cleanup
-```
+#### Completion Checklist
+- [ ] All message functionality works through standard Wally loop infrastructure
+- [ ] Email format consistent and easily readable by both humans and code
+- [ ] Outbox messages ready for future automatic delivery implementation
+- [ ] Actions and loops unified under same architectural pattern
+
+---
+
+## Open Questions & Recommendations
+
+### 1. **Email Header Standards**
+**Question**: Should we follow RFC 5322 email standards exactly or simplified version?
+**Recommendation**: Simplified but compatible — use standard header names (To, From, Subject) but don't require all RFC fields.
+
+### 2. **Message-ID Format**
+**Question**: Use GUID, timestamp-based, or RFC-compliant Message-ID?
+**Recommendation**: GUID for simplicity, with format like `{guid}@wally.local` for email compatibility.
+
+### 3. **Reply Threading**
+**Question**: Should replies include In-Reply-To header for threading?
+**Recommendation**: Yes, add `In-Reply-To: {original-message-id}` for conversation threading.
+
+### 4. **Outbox Delivery Timing**
+**Question**: When should future outbox delivery be implemented?
+**Recommendation**: Separate proposal after this phase — outbox provides audit trail and staging area for now.
+
+**Email Header Template**:
+```markdown
+To: {targetActor}
+From: {sourceActor}
+Subject: {subject}
+Reply-To: {replyToActor}
+Message-ID: {guid}@wally.local
+Date: {iso8601timestamp}
+In-Reply-To: {originalMessageId}  // Only for replies
+
+{messageBody}
