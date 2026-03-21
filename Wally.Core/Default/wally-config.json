@@ -33,13 +33,13 @@
   ],
   "DefaultLoops": [
     "SingleRun",
-    "CodeReview",
-    "Refactor",
-    "RequirementsDeepDive"
+    "ProposalToImplementationPlan"
   ],
   "DefaultRunbooks": [
     "hello-world",
-    "full-analysis"
+    "full-analysis",
+    "proposal-to-implementation",
+    "create-execution-plan"
   ],
   "SelectedModels": [
     "gpt-5.3-codex",
@@ -51,11 +51,10 @@
     "Copilot"
   ],
   "SelectedLoops": [
-    "CodeReview",
     "SingleRun"
   ],
   "SelectedRunbooks": [
-    "full-analysis"
+    "proposal-to-implementation"
   ],
   "MaxIterations": 10
 }

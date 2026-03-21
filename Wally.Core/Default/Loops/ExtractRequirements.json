@@ -1,8 +1,0 @@
-{
-  "Name": "ExtractRequirements",
-  "Enabled": true,
-  "Description": "Single-step requirements extraction: RequirementsExtractor converts a plain-language description into a structured requirements document written to the workspace. Use this loop when a user describes a feature, problem, or design discussion and you want it materialised as a requirements file.",
-  "ActorName": "RequirementsExtractor",
-  "StartPrompt": "Extract structured requirements from the following input and write them as a requirements document to the workspace.\n\nIMPORTANT: Before writing, use read_file to read .wally/Templates/RequirementsTemplate.md so your output exactly follows the project template. Then use list_files on .wally/Projects to discover the correct project folder. Then use write_file to create the requirements document at the appropriate path.\n\nInput:\n{userPrompt}",
-  "Steps": []
-}

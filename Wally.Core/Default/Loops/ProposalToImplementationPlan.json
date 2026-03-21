@@ -1,0 +1,37 @@
+{
+  "name": "ProposalToImplementationPlan",
+  "description": "Automatically transforms approved proposals into detailed implementation plans following ImplementationPlanTemplate.md",
+  "enabled": true,
+  "maxIterations": 3,
+  "convergeCondition": {
+    "noNewTasksForRounds": 2,
+    "maxTasksPerActor": 5,
+    "priorityFilter": "High"
+  },
+  "steps": [
+    {
+      "name": "AnalyzeProposals",
+      "actorName": "BusinessAnalyst",
+      "description": "Review all proposals and identify implementation scope, dependencies, and deliverables",
+      "promptTemplate": "Review all proposal documents in the workspace:\n\n{browse_workspace --path=Projects/Proposals/}\n\nAnalyze the approved proposals and:\n1. Extract key deliverables and phases from each proposal\n2. Identify cross-proposal dependencies and relationships\n3. Estimate effort and timeline for each phase\n4. Create a master implementation roadmap showing phase relationships\n\nCreate tasks for:\n- Writing detailed implementation plans for complex proposals\n- Coordinating dependencies between related proposals\n- Establishing timeline and resource allocation\n\nUse send_message to coordinate with Engineer for technical implementation details."
+    },
+    {
+      "name": "CreateImplementationPlans", 
+      "actorName": "Engineer",
+      "description": "Transform proposals into detailed implementation plans following ImplementationPlanTemplate.md",
+      "promptTemplate": "Review the BusinessAnalyst's analysis and all proposal documents:\n\n{browse_workspace --path=Projects/Proposals/}\n{read_context --path=Templates/ImplementationPlanTemplate.md}\n\nFor each approved proposal:\n1. Break down into specific implementation phases (?3 days each)\n2. Define concrete deliverables per phase with file-level specificity\n3. Identify technical dependencies and risks\n4. Create detailed step-by-step actions (CREATE/MODIFY/DELETE/TEST)\n5. Establish acceptance criteria and validation steps\n\nWrite implementation plans following ImplementationPlanTemplate.md structure:\n- Exact file paths and method signatures\n- Todo tracker with specific tasks and owners\n- Phase dependencies with Mermaid diagrams\n- Technical risks with specific mitigations\n\nCreate tasks for:\n- Writing individual implementation plans for each major proposal\n- Technical architecture reviews for complex changes\n- Integration planning for multi-component features"
+    },
+    {
+      "name": "ValidateAndCoordinate",
+      "actorName": "BusinessAnalyst", 
+      "description": "Review implementation plans for completeness, validate against requirements, coordinate execution",
+      "promptTemplate": "Review all created implementation plans:\n\n{browse_workspace --path=Projects/ImplementationPlans/}\n\nValidate that each implementation plan:\n1. Follows ImplementationPlanTemplate.md structure correctly\n2. Has measurable acceptance criteria for each phase\n3. Contains concrete, executable steps with specific file targets\n4. Properly tracks dependencies and risks\n5. Aligns with original proposal requirements and timeline\n\nIdentify gaps:\n- Missing implementation plans for approved proposals\n- Incomplete phase breakdowns or vague deliverables  \n- Untracked dependencies between implementation plans\n- Missing resources or timeline conflicts\n\nCreate coordination tasks:\n- Schedule implementation plan reviews\n- Coordinate resource allocation across plans\n- Establish progress tracking and status reporting\n\nUse send_message to request clarifications or additional detail from Engineer."
+    },
+    {
+      "name": "ProcessCoordination",
+      "actorName": "BusinessAnalyst",
+      "description": "Process inbox messages and coordinate final implementation planning",
+      "promptTemplate": "Process all messages from this planning cycle:\n\n{browse_workspace --path=Actors/*/Inbox/}\n\nReview coordination messages and:\n1. Address implementation plan clarification requests\n2. Resolve timeline or resource conflicts\n3. Finalize phase dependencies and execution order\n4. Create final implementation roadmap with all plans integrated\n\nEnsure all implementation plans are:\n- Complete and following template structure\n- Properly integrated with dependency coordination\n- Ready for engineering team execution\n- Tracked in todo systems with clear ownership\n\nCreate final summary of:\n- All implementation plans created\n- Execution timeline and phase coordination\n- Resource requirements and assignments\n- Next steps for implementation kickoff"
+    }
+  ]
+}

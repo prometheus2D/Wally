@@ -1,0 +1,4 @@
+# Create Execution Plan
+# Core workflow: Transform implementation plans into specific execution plans for engineering
+
+run "Create execution plan from implementation plan: {userPrompt}" -a BusinessAnalyst

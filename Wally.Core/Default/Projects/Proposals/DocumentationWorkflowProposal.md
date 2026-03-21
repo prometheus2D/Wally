@@ -300,25 +300,244 @@ Actors reflect on new state including completed tasks and processed messages, cr
 
 ## Open Questions
 
-1. **Loop Termination**: How should the loop determine when documentation is "complete enough" to stop iterating? *Recommendation: Include convergence detection when actors create no new tasks for two consecutive rounds.*
+### 1. **Loop Termination**: How should the loop determine when documentation is "complete enough" to stop iterating?
 
-2. **Actor Sequence**: Should actors reflect simultaneously or in a specific order? Current proposal uses sequential steps - is this optimal? *Recommendation: Start with sequential to avoid conflicts, evaluate parallel execution later.*
+**RECOMMENDATION**: Implement convergence detection with a maximum iteration limit.
 
-3. **Loop Frequency**: How often should DocumentationReflection run - daily, weekly, on-demand? *Recommendation: Start with manual on-demand execution, add scheduling later based on usage patterns.*
+**Implementation Approach**:
+```json
+{
+  "Name": "DocumentationReflection",
+  "Enabled": true,
+  "MaxIterations": 5,
+  "ConvergenceCriteria": {
+    "NoNewTasksForRounds": 2,
+    "MaxTasksPerActor": 3,
+    "HighPriorityTasksOnly": true
+  },
+  "Steps": [...]
+}
+```
 
-4. **Task Persistence**: Should todo tasks created during reflection persist across loop runs, or reset each time? *Recommendation: Persist tasks but allow actors to mark completed tasks as done in subsequent reflections.*
+**Termination Logic**:
+- **Convergence Detection**: Stop when actors create no new tasks for 2 consecutive rounds
+- **Maximum Iterations**: Hard stop at 5 rounds to prevent runaway execution  
+- **Task Threshold**: Stop if any actor creates more than 3 tasks in one round (indicates overwhelming scope)
+- **Priority Filter**: Only count High priority tasks towards convergence (allows cleanup tasks to continue without blocking termination)
 
-5. **Mailbox Integration**: Should mailbox processing be a separate loop step or integrated into each actor's reflection? *Recommendation: Separate step allows better coordination, but could experiment with both approaches.*
-
-6. **State Tracking**: How should the loop track progress across iterations to avoid redundant work? *Recommendation: Use document timestamps and todo task status to identify what's changed since last reflection.*
+**Status**: ? **RESOLVED** - Use convergence detection with safety limits
 
 ---
 
-## Related Documents
+### 2. **Actor Sequence**: Should actors reflect simultaneously or in a specific order? Current proposal uses sequential steps - is this optimal?
 
-| Document | Relationship | Notes |
-|----------|--------------|-------|
-| [MailboxProtocolProposal](./MailboxProtocolProposal.md) | Depends on | Loop uses send_message actions for actor coordination |
-| Existing Loop Definitions | Informs | DocumentationReflection follows same JSON structure pattern |
-| Actor Definitions | Informs | Reflection prompts must align with actor capabilities and roles |
-| Template Documents | Implements | Loop ensures all templates are used appropriately for document creation |
+**RECOMMENDATION**: Use sequential execution in dependency order for coordination effectiveness.
+
+**Rationale from Existing Architecture**:
+- Current `WallyPipeline` executes steps sequentially, threading results between steps
+- Sequential execution allows actors to build on each other's work within the same round
+- Prevents message conflicts and ensures coordinated decision-making
+
+**Optimal Sequence**:
+1. **RequirementsExtractor** ? Reviews stakeholder input and requirements completeness
+2. **BusinessAnalyst** ? Reviews requirements, creates execution plans, coordinates project status  
+3. **Engineer** ? Reviews technical proposals, implementation plans, architecture
+4. **MailboxProcessing** ? All actors process messages from this round
+
+**Coordination Benefits**:
+- RequirementsExtractor identifies what needs clarification before BusinessAnalyst plans execution
+- BusinessAnalyst creates technical requests before Engineer reviews implementation needs  
+- MailboxProcessing as separate step ensures all messages are processed before next round
+
+**Status**: ? **RESOLVED** - Sequential execution in dependency order
+
+---
+
+### 3. **Loop Frequency**: How often should DocumentationReflection run - daily, weekly, on-demand?
+
+**RECOMMENDATION**: Start with manual on-demand execution, add scheduling based on usage patterns.
+
+**Implementation Phases**:
+```bash
+# Phase 1: Manual execution (immediate implementation)  
+wally run --loop=DocumentationReflection
+
+# Phase 2: Triggered execution (after initial testing)
+wally run --loop=DocumentationReflection --trigger="on-stakeholder-input"
+wally run --loop=DocumentationReflection --trigger="weekly"
+
+# Phase 3: Smart scheduling (future enhancement)
+wally schedule --loop=DocumentationReflection --condition="requirements-updated OR proposal-approved"
+```
+
+**Usage Patterns by Project Phase**:
+- **Active Development**: On-demand after stakeholder sessions or major requirement changes
+- **Maintenance Phase**: Weekly reflection to catch documentation debt
+- **Project Review**: Before milestone reviews to ensure documentation completeness
+
+**Integration Points**: 
+- After `wally run --loop=ExtractRequirements` sessions
+- Before major proposal approvals  
+- As part of project milestone workflows
+
+**Status**: ? **RESOLVED** - Manual on-demand with future scheduling enhancements
+
+---
+
+### 4. **Task Persistence**: Should todo tasks created during reflection persist across loop runs, or reset each time?
+
+**RECOMMENDATION**: Persist tasks with status tracking and completion marking.
+
+**Task Lifecycle Architecture**:
+```markdown
+## Actor Todo Lists (Persistent Files)
+- Actors/BusinessAnalyst/todo.md
+- Actors/Engineer/todo.md  
+- Actors/RequirementsExtractor/todo.md
+
+## Task Status Tracking
+- ? Complete - Done, remove from list
+- ?? In Progress - Currently working on
+- ?? Not Started - Identified but not begun
+- ?? Blocked - Cannot proceed, needs external action
+- ?? Recurring - Repeat task (like status updates)
+```
+
+**Task Management Actions**:
+```action
+name: update_todo
+path: Actors/{ActorName}/todo.md
+content: |
+  # {ActorName} Todo List
+  
+  ## High Priority 
+  - [ ] Write execution plan for Project X (Due: 2024-01-20)
+  - [x] ~~Review requirements document Y~~ ? Complete  
+  
+  ## Medium Priority
+  - [ ] Update architecture documentation for Feature Z
+  
+  ## Completed This Week
+  - [x] ~~Created technical proposal for Feature A~~ ? 2024-01-15
+```
+
+**Cross-Loop Persistence**:
+- Tasks persist between DocumentationReflection runs
+- Actors can review todo.md during reflection to avoid duplicate task creation
+- Completed tasks moved to "Completed" section with timestamps for progress tracking
+- Loop prompts include: "Review your current todo list before creating new tasks"
+
+**Status**: ? **RESOLVED** - Persistent todo lists with completion tracking
+
+---
+
+### 5. **Mailbox Integration**: Should mailbox processing be a separate loop step or integrated into each actor's reflection?
+
+**RECOMMENDATION**: Separate mailbox processing step for better coordination and conflict prevention.
+
+**Architecture Rationale**:
+```json
+{
+  "Steps": [
+    {
+      "Name": "BusinessReflection",
+      "ActorName": "BusinessAnalyst", 
+      "PromptTemplate": "Review documentation and create tasks + send coordination messages..."
+    },
+    {
+      "Name": "TechnicalReflection", 
+      "ActorName": "Engineer",
+      "PromptTemplate": "Review technical docs and create tasks + send coordination messages..."
+    },
+    {
+      "Name": "RequirementsReflection",
+      "ActorName": "RequirementsExtractor", 
+      "PromptTemplate": "Review requirements and create tasks + send coordination messages..."
+    },
+    {
+      "Name": "MailboxCoordination",
+      "ActorName": "BusinessAnalyst",
+      "PromptTemplate": "Process all new messages from this reflection round and coordinate responses..."
+    }
+  ]
+}
+```
+
+**Benefits of Separation**:
+- **Message Batching**: All messages from reflection round processed together
+- **Coordination Role**: BusinessAnalyst naturally handles cross-actor coordination as project manager
+- **Clean Separation**: Reflection focuses on documentation analysis, mailbox processing focuses on actor coordination
+- **Conflict Prevention**: Avoids actors processing messages while other actors are still creating them
+
+**Message Processing Strategy**:
+- Round 1-3: Actors reflect and send `send_message` actions
+- Round 4: BusinessAnalyst processes all new messages, creates responses, coordinates follow-up
+- Next iteration: Fresh reflection cycle with updated state
+
+**Status**: ? **RESOLVED** - Separate mailbox processing step handled by BusinessAnalyst
+
+---
+
+### 6. **State Tracking**: How should the loop track progress across iterations to avoid redundant work?
+
+**RECOMMENDATION**: Use document timestamps, todo task status, and iteration metadata for state tracking.
+
+**State Tracking Implementation**:
+```json
+{
+  "Name": "DocumentationReflection",
+  "StateTracking": {
+    "LastRun": "2024-01-15T14:30:00Z",
+    "Iteration": 3,
+    "ConvergenceRounds": 1,
+    "TasksCreatedThisRound": {
+      "BusinessAnalyst": 2,
+      "Engineer": 1, 
+      "RequirementsExtractor": 0
+    }
+  }
+}
+```
+
+**Redundancy Prevention Strategy**:
+1. **Document Change Detection**: 
+   - Actors use `{browse_workspace}` to see file modification times
+   - Prompt includes: "Focus on documents modified since last reflection or with outstanding tasks"
+
+2. **Todo List Integration**:
+   - Actors check existing todo.md before creating new tasks
+   - Prompt includes: "Review your todo list - only create new tasks for newly identified work"
+
+3. **Iteration Context**:  
+   - Prompt includes iteration number and previous round summary
+   - "This is iteration 3 of DocumentationReflection. Last round created 2 coordination messages."
+
+4. **Message History**:
+   - Actors can `browse_workspace --path=Actors/*/Inbox/` to see recent communications
+   - Avoid duplicate messages for same coordination needs
+
+**Efficiency Optimizations**:
+```markdown
+## Reflection Prompt Additions
+- "Review documents modified in the last 7 days"
+- "Check your todo.md for existing tasks before creating new ones"  
+- "Review recent inbox messages (last 3 days) to avoid duplicate coordination"
+- "Focus on High priority gaps - defer Low priority documentation improvements"
+```
+
+**Status**: ? **RESOLVED** - Multi-layered state tracking with redundancy prevention
+
+---
+
+## Implementation Status Summary
+
+| Question | Status | Implementation Priority | Next Action |
+|----------|--------|------------------------|-------------|
+| Loop Termination | ? **RESOLVED** | High | Implement convergence detection in loop JSON |
+| Actor Sequence | ? **RESOLVED** | High | Use sequential execution in dependency order |  
+| Loop Frequency | ? **RESOLVED** | Medium | Start manual, add scheduling later |
+| Task Persistence | ? **RESOLVED** | High | Create persistent todo.md files for actors |
+| Mailbox Integration | ? **RESOLVED** | High | Separate coordination step with BusinessAnalyst |
+| State Tracking | ? **RESOLVED** | Medium | Add state tracking to loop definition and prompts |
+
+**Ready for Implementation**: All architectural questions resolved with concrete technical specifications.

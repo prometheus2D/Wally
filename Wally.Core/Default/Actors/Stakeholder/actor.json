@@ -6,7 +6,7 @@
   "intentPrompt": "Define what the project must achieve from a business perspective. Provide clear priorities and success criteria that downstream actors can build against. Review proposals and plans to ensure they stay aligned with business goals. Represent the voice of the end user and the business.",
   "docsFolderName": "Docs",
   "allowedWrappers": ["Copilot", "Claude"],
-  "allowedLoops": ["SingleRun", "RequirementsDeepDive"],
+  "allowedLoops": ["SingleRun"],
   "preferredWrapper": "Copilot",
   "preferredLoop": "SingleRun",
   "abilities": ["read_context", "browse_workspace", "send_message"],

@@ -1,0 +1,4 @@
+# Create Implementation Plan
+# Core workflow: Transform approved proposals into detailed implementation plans for execution
+
+run "Transform approved proposals into concrete implementation plans with phases, deliverables, and todo tracking" -a BusinessAnalyst -l ProposalToImplementationPlan
