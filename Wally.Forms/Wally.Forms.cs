@@ -59,6 +59,7 @@ namespace Wally.Forms
         private const string TabKeyChatHistory     = "__chat_history__";
         private const string TabKeyPromptViewer    = "__prompt_viewer__";
         private const string TabKeyWorkspaceViewer = "__workspace_viewer__";
+        private const string TabKeySettings        = "__settings__";
 
         // -- Constructor -----------------------------------------------------
 
@@ -272,6 +273,7 @@ namespace Wally.Forms
 
             // -- Settings menu --
             chatDefaultsMenuItem.Click += OnChatDefaults;
+            settingsToolStripMenuItem.Click += OnSettings;
 
             // -- Global shortcuts --
             KeyPreview = true;
@@ -553,7 +555,6 @@ namespace Wally.Forms
                 _chatPanel.RefreshActorList();
                 _chatPanel.RefreshLoopList();
                 _chatPanel.RefreshModelList();
-                _chatPanel.RefreshRunbookList();
             }
         }
 
@@ -647,9 +648,15 @@ namespace Wally.Forms
                 _chatPanel.RefreshActorList();
                 _chatPanel.RefreshLoopList();
                 _chatPanel.RefreshModelList();
-                _chatPanel.RefreshRunbookList();
             });
             form.ShowDialog(this);
+        }
+
+        private void OnSettings(object? sender, EventArgs e)
+        {
+            if (_tabHost.SelectTab(TabKeySettings)) return;
+            var panel = new SettingsPanel(_environment);
+            _tabHost.OpenTab(TabKeySettings, "Settings", "\u2699", panel);
         }
 
         private void OnEditCopy(object? sender, EventArgs e)
