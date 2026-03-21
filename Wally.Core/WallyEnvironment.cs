@@ -373,7 +373,7 @@ namespace Wally.Core
         ///   <item>Wrapper allow-list (<see cref="Actor.AllowedWrappers"/>)</item>
         ///   <item>Loop allow-list (<see cref="Actor.AllowedLoops"/>)</item>
         ///   <item>After the LLM responds, scans for action blocks and dispatches
-        ///         only declared <see cref="Actor.Actions"/>.</item>
+        ///         only declared <see cref="Actor.Abilities"/>.</item>
         /// </list>
         /// </para>
         /// </summary>
@@ -419,6 +419,12 @@ namespace Wally.Core
             var sw = Stopwatch.StartNew();
             string response = wrapper.Execute(processed, ws.SourcePath, model, Logger, cancellationToken);
             sw.Stop();
+
+            // Process any action blocks in the LLM response
+            if (wrapper.CanMakeChanges && !string.IsNullOrEmpty(response))
+            {
+                response = actor.PerformActions(response, ws);
+            }
 
             bool isError = IsWrapperError(response, wrapper.Name);
             History.RecordTurn(new ConversationTurn

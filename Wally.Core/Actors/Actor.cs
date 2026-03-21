@@ -116,6 +116,18 @@ namespace Wally.Core.Actors
             AllowedLoops.Count == 0 ||
             AllowedLoops.Any(l => string.Equals(l, loopName, StringComparison.OrdinalIgnoreCase));
 
+        /// <summary>
+        /// Executes any action blocks found in the given LLM response.
+        /// This is the main entry point for actors to "do" their abilities.
+        /// </summary>
+        /// <param name="llmResponse">The response from the LLM that may contain action blocks.</param>
+        /// <param name="workspace">The workspace context for executing actions.</param>
+        /// <returns>The original response with action execution results appended.</returns>
+        public virtual string PerformActions(string llmResponse, WallyWorkspace workspace)
+        {
+            return ActionDispatcher.ProcessActionBlocks(this, llmResponse, workspace, Logger);
+        }
+
         protected virtual List<(string RelativePath, string Source)> GetDocumentationFiles()
         {
             var results = new List<(string, string)>();
