@@ -68,7 +68,7 @@ namespace Wally.Forms.Controls
                 BorderStyle = BorderStyle.None,
                 ReadOnly = readOnly,
                 WordWrap = wordWrap,
-                ScrollBars = wordWrap ? RichTextBoxScrollBars.Vertical : RichTextBoxScrollBars.Both,
+                ShowHorizontalScrollbar = !wordWrap,
                 DetectUrls = false
             };
         }
