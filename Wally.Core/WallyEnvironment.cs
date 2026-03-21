@@ -5,7 +5,6 @@ using System.IO;
 using System.Linq;
 using System.Text.Json.Serialization;
 using System.Threading;
-using Wally.Core.Actions;
 using Wally.Core.Actors;
 using Wally.Core.Logging;
 using Wally.Core.Providers;
@@ -388,7 +387,6 @@ namespace Wally.Core
             bool skipHistory = false,
             CancellationToken cancellationToken = default)
         {
-            // ?? Capability enforcement ????????????????????????????????????????
             string? resolvedWrapperName = ResolveWrapperForActor(actor, wrapperOverride);
             if (!string.IsNullOrWhiteSpace(loopName))
                 EnforceLoopPolicy(actor, loopName);
@@ -421,43 +419,6 @@ namespace Wally.Core
             var sw = Stopwatch.StartNew();
             string response = wrapper.Execute(processed, ws.SourcePath, model, Logger, cancellationToken);
             sw.Stop();
-
-            // ?? Action dispatch ???????????????????????????????????????????????
-            // Only run the dispatcher when the actor has declared actions.
-            // This keeps the zero-action path free of any overhead.
-            if (actor.Actions.Count > 0 && !string.IsNullOrWhiteSpace(response))
-            {
-                var dispatcher = new ActionDispatcher(
-                    actor,
-                    ws.WorkSource,
-                    canMakeChanges: wrapper.CanMakeChanges,
-                    logWarning: msg => Logger.LogInfo($"[ActionDispatcher] {msg}"))
-                {
-                    // Provide the loaded actor list so send_message can validate targets.
-                    LoadedActors = ws.Actors
-                };
-
-                string? actionSummary = dispatcher.Dispatch(response);
-
-                if (dispatcher.DispatchedCount > 0 || dispatcher.SkippedCount > 0)
-                    Logger.LogInfo(
-                        $"[ActionDispatcher] actor='{actor.Name}' " +
-                        $"dispatched={dispatcher.DispatchedCount} skipped={dispatcher.SkippedCount}");
-
-                // Append read results to the response so the caller can see
-                // what files were read (useful for debugging / history).
-                if (dispatcher.ReadResults.Count > 0 || actionSummary != null)
-                {
-                    var augmented = new System.Text.StringBuilder(response);
-                    if (actionSummary != null)
-                    {
-                        augmented.AppendLine();
-                        augmented.AppendLine();
-                        augmented.Append(actionSummary);
-                    }
-                    response = augmented.ToString().TrimEnd();
-                }
-            }
 
             bool isError = IsWrapperError(response, wrapper.Name);
             History.RecordTurn(new ConversationTurn

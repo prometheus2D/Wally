@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
-using Wally.Core.Actions;
 using Wally.Core.Actors;
 using Wally.Core.Providers;
 
@@ -228,25 +227,6 @@ namespace Wally.Core
             Directory.CreateDirectory(Path.Combine(actorDir, actor.DocsFolderName));
             CreateMailboxFolders(actorDir);
 
-            // Only serialise role-exclusive actions (those not in the AbilityRegistry).
-            // Shared abilities are persisted separately as the "abilities" string array.
-            var exclusiveActions = actor.Actions
-                .Where(a => !AbilityRegistry.IsRegistered(a.Name))
-                .Select(a => new
-                {
-                    name        = a.Name,
-                    description = a.Description,
-                    pathPattern = a.PathPattern,
-                    isMutating  = a.IsMutating,
-                    parameters  = a.Parameters.Select(p => new
-                    {
-                        name        = p.Name,
-                        type        = p.Type,
-                        description = p.Description,
-                        required    = p.Required
-                    }).ToList()
-                }).ToList();
-
             var obj = new
             {
                 name             = actor.Name,
@@ -259,8 +239,7 @@ namespace Wally.Core
                 allowedLoops     = actor.AllowedLoops,
                 preferredWrapper = actor.PreferredWrapper,
                 preferredLoop    = actor.PreferredLoop,
-                abilities        = actor.Abilities,         // shared ability names
-                actions          = exclusiveActions         // role-exclusive only
+                abilities        = actor.Abilities
             };
 
             File.WriteAllText(
@@ -569,7 +548,6 @@ namespace Wally.Core
             string? preferredWrapper = null;
             string? preferredLoop    = null;
             var abilities        = new List<string>();
-            var exclusiveActions = new List<ActorAction>();      // role-exclusive actions only
 
             if (File.Exists(jsonPath))
             {
@@ -590,7 +568,6 @@ namespace Wally.Core
                     allowedWrappers = TryGetStringList(root, "allowedWrappers");
                     allowedLoops    = TryGetStringList(root, "allowedLoops");
                     abilities       = TryGetStringList(root, "abilities");
-                    exclusiveActions = TryGetActions(root);
                 }
                 catch (JsonException ex)
                 {
@@ -601,70 +578,6 @@ namespace Wally.Core
             }
 
             if (!enabled) return null!;
-
-            // ?? Resolve abilities from registry ??????????????????????????????
-            // Build a description-override map from any "actions" entry whose name
-            // matches a registered ability (actor wants custom wording only).
-            var descriptionOverrides = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            var trueExclusiveActions = new List<ActorAction>();
-
-            foreach (var action in exclusiveActions)
-            {
-                if (AbilityRegistry.IsRegistered(action.Name))
-                    // This entry is a description override for a shared ability — capture it.
-                    descriptionOverrides[action.Name] = action.Description;
-                else
-                    // Not in the registry — it is a genuine role-exclusive action.
-                    trueExclusiveActions.Add(action);
-            }
-
-            // Resolved abilities come first so role-exclusive actions appear last in the manifest.
-            var resolvedAbilities = AbilityRegistry.Resolve(
-                abilities,
-                descriptionOverrides,
-                onUnknown: n => Console.Error.WriteLine(
-                    $"Warning: Actor '{name}' references unknown ability '{n}' — skipped."));
-
-            // ?? Back-compat: legacy actors with no "abilities" field ??????????
-            // If the actor declared shared abilities inline in "actions" (old format),
-            // detect and promote them rather than treating them as exclusive actions.
-            if (abilities.Count == 0)
-            {
-                var promoted = new List<ActorAction>();
-                foreach (var action in trueExclusiveActions)
-                {
-                    var registered = AbilityRegistry.TryGet(action.Name);
-                    if (registered != null)
-                    {
-                        // Promote to ability, applying any description override.
-                        var clone = registered;
-                        if (!string.IsNullOrWhiteSpace(action.Description))
-                        {
-                            clone = AbilityRegistry.Resolve(
-                                [action.Name],
-                                new Dictionary<string, string> { [action.Name] = action.Description }
-                            ).FirstOrDefault() ?? registered;
-                        }
-                        promoted.Add(clone);
-                        abilities.Add(action.Name);
-                    }
-                    else
-                    {
-                        promoted.Add(action);
-                    }
-                }
-                trueExclusiveActions = promoted
-                    .Where(a => !AbilityRegistry.IsRegistered(a.Name))
-                    .ToList();
-                resolvedAbilities = promoted
-                    .Where(a => AbilityRegistry.IsRegistered(a.Name))
-                    .ToList();
-            }
-
-            // Final resolved action list: role-exclusive first, shared abilities after.
-            var allActions = new List<ActorAction>(trueExclusiveActions.Count + resolvedAbilities.Count);
-            allActions.AddRange(trueExclusiveActions);
-            allActions.AddRange(resolvedAbilities);
 
             var actor = new Actor(
                 name,
@@ -681,12 +594,11 @@ namespace Wally.Core
             actor.PreferredWrapper = preferredWrapper;
             actor.PreferredLoop    = preferredLoop;
             actor.Abilities        = abilities;
-            actor.Actions          = allActions;
 
             return actor;
         }
 
-        // ? JSON helpers ???????????????????????????????????????????????????????
+        // JSON helpers
 
         private static string? TryGetString(JsonElement element, string propertyName) =>
             element.TryGetProperty(propertyName, out var prop) &&
@@ -708,49 +620,6 @@ namespace Wally.Core
                     string? s = item.GetString();
                     if (!string.IsNullOrWhiteSpace(s)) result.Add(s!);
                 }
-            }
-            return result;
-        }
-
-        private static List<ActorAction> TryGetActions(JsonElement root)
-        {
-            var result = new List<ActorAction>();
-            if (!root.TryGetProperty("actions", out var actionsEl) ||
-                actionsEl.ValueKind != JsonValueKind.Array)
-                return result;
-
-            foreach (var actionEl in actionsEl.EnumerateArray())
-            {
-                if (actionEl.ValueKind != JsonValueKind.Object) continue;
-
-                var action = new ActorAction
-                {
-                    Name        = TryGetString(actionEl, "name")        ?? string.Empty,
-                    Description = TryGetString(actionEl, "description") ?? string.Empty,
-                    PathPattern = TryGetString(actionEl, "pathPattern"),
-                    IsMutating  = TryGetBool(actionEl, "isMutating") ?? false,
-                    Parameters  = new List<ActionParameter>()
-                };
-
-                if (string.IsNullOrWhiteSpace(action.Name)) continue;
-
-                if (actionEl.TryGetProperty("parameters", out var paramsEl) &&
-                    paramsEl.ValueKind == JsonValueKind.Array)
-                {
-                    foreach (var paramEl in paramsEl.EnumerateArray())
-                    {
-                        if (paramEl.ValueKind != JsonValueKind.Object) continue;
-                        action.Parameters.Add(new ActionParameter
-                        {
-                            Name        = TryGetString(paramEl, "name")        ?? string.Empty,
-                            Type        = TryGetString(paramEl, "type")        ?? "string",
-                            Description = TryGetString(paramEl, "description") ?? string.Empty,
-                            Required    = TryGetBool(paramEl, "required")      ?? true
-                        });
-                    }
-                }
-
-                result.Add(action);
             }
             return result;
         }
