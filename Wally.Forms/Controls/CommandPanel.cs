@@ -40,18 +40,6 @@ namespace Wally.Forms.Controls
         private bool _isExternallyBusy;   // true while the chat panel is running
         private CancellationTokenSource? _cts;
 
-        private static readonly string[] KnownCommands =
-        {
-            "setup", "load", "save", "close", "run", "runbook", "list", "list-loops",
-            "list-wrappers", "list-runbooks", "info", "reload-actors", "repair", "verify",
-            "cleanup", "clear-history", "commands", "help", "tutorial",
-            "add-actor", "edit-actor", "delete-actor",
-            "add-loop", "edit-loop", "delete-loop",
-            "add-wrapper", "edit-wrapper", "delete-wrapper",
-            "add-runbook", "edit-runbook", "delete-runbook",
-            "clear", "cls"
-        };
-
         // ?? Events ??????????????????????????????????????????????????????????
 
         public event EventHandler? WorkspaceChanged;
@@ -411,7 +399,9 @@ namespace Wally.Forms.Controls
 
             if (!text.Contains(' '))
             {
-                var matches = KnownCommands
+                // Complete command verbs
+                var knownCommands = WallyCommands.GetVerbs();
+                var matches = knownCommands
                     .Where(c => c.StartsWith(text, StringComparison.OrdinalIgnoreCase))
                     .ToArray();
                 if (matches.Length == 1)
@@ -426,12 +416,17 @@ namespace Wally.Forms.Controls
                 return;
             }
 
-            string[] parts = text.Split(' ', 2);
-            string verb = parts[0].ToLowerInvariant();
-            string partial = parts.Length > 1 ? parts[1] : "";
+            // Parse arguments using shared parser
+            string[] args = WallyArgParser.Tokenise(text);
+            if (args.Length == 0) return;
 
+            string verb = args[0].ToLowerInvariant();
+            string partial = args.Length > 1 ? args[^1] : "";
+
+            // Handle specific command completions
             if (verb is "run" && !partial.Contains(' ') && _environment?.HasWorkspace == true)
             {
+                // Complete actor names for 'run' command
                 var actorMatches = _environment.Actors
                     .Select(a => a.Name)
                     .Where(n => n.StartsWith(partial, StringComparison.OrdinalIgnoreCase))
@@ -439,7 +434,9 @@ namespace Wally.Forms.Controls
 
                 if (actorMatches.Length == 1)
                 {
-                    _txtInput.Text = $"{verb} {actorMatches[0]} ";
+                    // Replace the partial with the complete match
+                    var completedArgs = args.Take(args.Length - 1).Append(actorMatches[0]).ToArray();
+                    _txtInput.Text = string.Join(" ", completedArgs) + " ";
                     _txtInput.SelectionStart = _txtInput.Text.Length;
                 }
                 else if (actorMatches.Length > 1)
@@ -449,6 +446,7 @@ namespace Wally.Forms.Controls
             }
             else if (verb is "runbook" && !partial.Contains(' ') && _environment?.HasWorkspace == true)
             {
+                // Complete runbook names
                 var rbMatches = _environment.Runbooks
                     .Select(r => r.Name)
                     .Where(n => n.StartsWith(partial, StringComparison.OrdinalIgnoreCase))
@@ -456,7 +454,8 @@ namespace Wally.Forms.Controls
 
                 if (rbMatches.Length == 1)
                 {
-                    _txtInput.Text = $"{verb} {rbMatches[0]} ";
+                    var completedArgs = args.Take(args.Length - 1).Append(rbMatches[0]).ToArray();
+                    _txtInput.Text = string.Join(" ", completedArgs) + " ";
                     _txtInput.SelectionStart = _txtInput.Text.Length;
                 }
                 else if (rbMatches.Length > 1)
@@ -466,39 +465,75 @@ namespace Wally.Forms.Controls
             }
             else if (verb is "edit-actor" or "delete-actor" && !partial.Contains(' ') && _environment?.HasWorkspace == true)
             {
+                // Complete actor names for edit/delete commands
                 var matches = _environment.Actors
                     .Select(a => a.Name)
                     .Where(n => n.StartsWith(partial, StringComparison.OrdinalIgnoreCase))
                     .ToArray();
-                if (matches.Length == 1) { _txtInput.Text = $"{verb} {matches[0]} "; _txtInput.SelectionStart = _txtInput.Text.Length; }
-                else if (matches.Length > 1) AppendStyledLine($"  {string.Join("  ", matches)}", WallyTheme.TextMuted);
+                if (matches.Length == 1)
+                {
+                    var completedArgs = args.Take(args.Length - 1).Append(matches[0]).ToArray();
+                    _txtInput.Text = string.Join(" ", completedArgs) + " ";
+                    _txtInput.SelectionStart = _txtInput.Text.Length;
+                }
+                else if (matches.Length > 1)
+                {
+                    AppendStyledLine($"  {string.Join("  ", matches)}", WallyTheme.TextMuted);
+                }
             }
             else if (verb is "edit-loop" or "delete-loop" && !partial.Contains(' ') && _environment?.HasWorkspace == true)
             {
+                // Complete loop names
                 var matches = _environment.Loops
                     .Select(l => l.Name)
                     .Where(n => n.StartsWith(partial, StringComparison.OrdinalIgnoreCase))
                     .ToArray();
-                if (matches.Length == 1) { _txtInput.Text = $"{verb} {matches[0]} "; _txtInput.SelectionStart = _txtInput.Text.Length; }
-                else if (matches.Length > 1) AppendStyledLine($"  {string.Join("  ", matches)}", WallyTheme.TextMuted);
+                if (matches.Length == 1)
+                {
+                    var completedArgs = args.Take(args.Length - 1).Append(matches[0]).ToArray();
+                    _txtInput.Text = string.Join(" ", completedArgs) + " ";
+                    _txtInput.SelectionStart = _txtInput.Text.Length;
+                }
+                else if (matches.Length > 1)
+                {
+                    AppendStyledLine($"  {string.Join("  ", matches)}", WallyTheme.TextMuted);
+                }
             }
             else if (verb is "edit-wrapper" or "delete-wrapper" && !partial.Contains(' ') && _environment?.HasWorkspace == true)
             {
+                // Complete wrapper names
                 var matches = _environment.Workspace!.LlmWrappers
                     .Select(w => w.Name)
                     .Where(n => n.StartsWith(partial, StringComparison.OrdinalIgnoreCase))
                     .ToArray();
-                if (matches.Length == 1) { _txtInput.Text = $"{verb} {matches[0]} "; _txtInput.SelectionStart = _txtInput.Text.Length; }
-                else if (matches.Length > 1) AppendStyledLine($"  {string.Join("  ", matches)}", WallyTheme.TextMuted);
+                if (matches.Length == 1)
+                {
+                    var completedArgs = args.Take(args.Length - 1).Append(matches[0]).ToArray();
+                    _txtInput.Text = string.Join(" ", completedArgs) + " ";
+                    _txtInput.SelectionStart = _txtInput.Text.Length;
+                }
+                else if (matches.Length > 1)
+                {
+                    AppendStyledLine($"  {string.Join("  ", matches)}", WallyTheme.TextMuted);
+                }
             }
             else if (verb is "edit-runbook" or "delete-runbook" && !partial.Contains(' ') && _environment?.HasWorkspace == true)
             {
+                // Complete runbook names
                 var matches = _environment.Runbooks
                     .Select(r => r.Name)
                     .Where(n => n.StartsWith(partial, StringComparison.OrdinalIgnoreCase))
                     .ToArray();
-                if (matches.Length == 1) { _txtInput.Text = $"{verb} {matches[0]} "; _txtInput.SelectionStart = _txtInput.Text.Length; }
-                else if (matches.Length > 1) AppendStyledLine($"  {string.Join("  ", matches)}", WallyTheme.TextMuted);
+                if (matches.Length == 1)
+                {
+                    var completedArgs = args.Take(args.Length - 1).Append(matches[0]).ToArray();
+                    _txtInput.Text = string.Join(" ", completedArgs) + " ";
+                    _txtInput.SelectionStart = _txtInput.Text.Length;
+                }
+                else if (matches.Length > 1)
+                {
+                    AppendStyledLine($"  {string.Join("  ", matches)}", WallyTheme.TextMuted);
+                }
             }
         }
 
@@ -609,28 +644,15 @@ namespace Wally.Forms.Controls
             }
         }
 
-        // — Argument parsing (kept for local use, but SplitArgs now shared via WallyCommands) —
+        // – Argument parsing (now uses shared WallyArgParser) –
 
-        private static string[] SplitArgs(string input) => WallyCommands.SplitArgs(input);
+        private static string[] SplitArgs(string input) => WallyArgParser.Tokenise(input);
 
-        private static string? GetOption(string[] args, string flag)
-        {
-            for (int i = 0; i < args.Length - 1; i++)
-                if (args[i].Equals(flag, StringComparison.OrdinalIgnoreCase))
-                    return args[i + 1];
-            return null;
-        }
+        private static string? GetOption(string[] args, string flag) => WallyArgParser.GetOption(args, flag);
 
-        private static bool HasFlag(string[] args, string flag) =>
-            Array.Exists(args, a => a.Equals(flag, StringComparison.OrdinalIgnoreCase));
+        private static bool HasFlag(string[] args, string flag) => WallyArgParser.HasFlag(args, flag);
 
-        private static string? GetFirstPositional(string[] args, int startIndex)
-        {
-            for (int i = startIndex; i < args.Length; i++)
-                if (!args[i].StartsWith('-'))
-                    return args[i];
-            return null;
-        }
+        private static string? GetFirstPositional(string[] args, int startIndex) => WallyArgParser.GetFirstPositional(args, startIndex);
 
         // ?? Console capture ?????????????????????????????????????????????????
 
