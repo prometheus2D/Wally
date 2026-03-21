@@ -454,6 +454,7 @@ namespace Wally.Forms
             if (_environment.HasWorkspace)
             {
                 ShowWorkspacePanels();
+                _chatPanel.SetWorkspaceLoaded(true);
                 _lblWorkspaceStatus.Text = _environment.WorkspaceFolder!;
                 _lblActorCount.Text = $"Actors: {_environment.Actors.Count}";
                 
@@ -470,6 +471,7 @@ namespace Wally.Forms
             else
             {
                 HideWorkspacePanels();
+                _chatPanel.SetWorkspaceLoaded(false);
                 _lblWorkspaceStatus.Text = "No workspace";
                 _lblActorCount.Text = "Actors: 0";
                 
