@@ -77,6 +77,10 @@ namespace Wally.Forms
             tsbRepair = new ToolStripButton();
             tsWsSep2 = new ToolStripSeparator();
             tsbStop = new ToolStripButton();
+            runbookToolStrip = new WallyToolStrip();
+            tsbRunbookDropdown = new ToolStripDropDownButton();
+            tsbRunStart = new ToolStripButton();
+            tsbRunStop = new ToolStripButton();
             editorsToolStrip = new WallyToolStrip();
             tsbEditActors = new ToolStripButton();
             tsbConfig = new ToolStripButton();
@@ -91,6 +95,7 @@ namespace Wally.Forms
             toolbarPanel.SuspendLayout();
             fileToolStrip.SuspendLayout();
             workspaceToolStrip.SuspendLayout();
+            runbookToolStrip.SuspendLayout();
             editorsToolStrip.SuspendLayout();
             SuspendLayout();
             // 
@@ -430,6 +435,7 @@ namespace Wally.Forms
             // 
             toolbarPanel.BackColor = Color.FromArgb(39, 39, 44);
             toolbarPanel.Controls.Add(editorsToolStrip);
+            toolbarPanel.Controls.Add(runbookToolStrip);
             toolbarPanel.Controls.Add(workspaceToolStrip);
             toolbarPanel.Controls.Add(fileToolStrip);
             toolbarPanel.Dock = DockStyle.Top;
@@ -579,6 +585,49 @@ namespace Wally.Forms
             tsbStop.Text = "⏹ Stop";
             tsbStop.ToolTipText = "Stop the current running AI or terminal command (Esc)";
             // 
+            // runbookToolStrip
+            // 
+            runbookToolStrip.BackColor = Color.FromArgb(39, 39, 44);
+            runbookToolStrip.Dock = DockStyle.None;
+            runbookToolStrip.ForeColor = Color.FromArgb(228, 228, 233);
+            runbookToolStrip.Items.AddRange(new ToolStripItem[] { tsbRunbookDropdown, tsbRunStart, tsbRunStop });
+            runbookToolStrip.Location = new Point(838, 0);
+            runbookToolStrip.Name = "runbookToolStrip";
+            runbookToolStrip.Padding = new Padding(0, 0, 6, 0);
+            runbookToolStrip.Size = new Size(200, 25);
+            runbookToolStrip.TabIndex = 3;
+            // 
+            // tsbRunbookDropdown
+            // 
+            tsbRunbookDropdown.DisplayStyle = ToolStripItemDisplayStyle.Text;
+            tsbRunbookDropdown.Font = new Font("Segoe UI", 8.25F);
+            tsbRunbookDropdown.ForeColor = Color.FromArgb(228, 228, 233);
+            tsbRunbookDropdown.Name = "tsbRunbookDropdown";
+            tsbRunbookDropdown.Size = new Size(102, 22);
+            tsbRunbookDropdown.Text = "📜 (no runbook)";
+            tsbRunbookDropdown.ToolTipText = "Select runbook to run";
+            // 
+            // tsbRunStart
+            // 
+            tsbRunStart.DisplayStyle = ToolStripItemDisplayStyle.Text;
+            tsbRunStart.Font = new Font("Segoe UI", 8.25F, FontStyle.Bold);
+            tsbRunStart.ForeColor = Color.FromArgb(100, 200, 130);
+            tsbRunStart.Name = "tsbRunStart";
+            tsbRunStart.Size = new Size(44, 22);
+            tsbRunStart.Text = "▶ Run";
+            tsbRunStart.ToolTipText = "Run selected runbook";
+            // 
+            // tsbRunStop
+            // 
+            tsbRunStop.DisplayStyle = ToolStripItemDisplayStyle.Text;
+            tsbRunStop.Enabled = false;
+            tsbRunStop.Font = new Font("Segoe UI", 8.25F, FontStyle.Bold);
+            tsbRunStop.ForeColor = Color.FromArgb(200, 150, 150);
+            tsbRunStop.Name = "tsbRunStop";
+            tsbRunStop.Size = new Size(51, 22);
+            tsbRunStop.Text = "⏹ Stop";
+            tsbRunStop.ToolTipText = "Stop running runbook";
+            // 
             // editorsToolStrip
             // 
             editorsToolStrip.BackColor = Color.FromArgb(39, 39, 44);
@@ -685,6 +734,8 @@ namespace Wally.Forms
             fileToolStrip.PerformLayout();
             workspaceToolStrip.ResumeLayout(false);
             workspaceToolStrip.PerformLayout();
+            runbookToolStrip.ResumeLayout(false);
+            runbookToolStrip.PerformLayout();
             editorsToolStrip.ResumeLayout(false);
             editorsToolStrip.PerformLayout();
             ResumeLayout(false);
@@ -771,6 +822,12 @@ namespace Wally.Forms
         private ToolStripButton    tsbRepair;
         private ToolStripSeparator tsWsSep2;
         private ToolStripButton    tsbStop;
+
+        // ── Runbook ToolStrip ──
+        private WallyToolStrip        runbookToolStrip;
+        private ToolStripDropDownButton tsbRunbookDropdown;
+        private ToolStripButton       tsbRunStart;
+        private ToolStripButton       tsbRunStop;
 
         // ── Editors ToolStrip ──
         private WallyToolStrip     editorsToolStrip;

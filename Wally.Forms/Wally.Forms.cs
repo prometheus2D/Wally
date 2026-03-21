@@ -46,6 +46,11 @@ namespace Wally.Forms
         /// </summary>
         private Panel _content = null!;
 
+        // -- Runbook execution state -----------------------------------------
+
+        private string? _selectedRunbook;
+        private bool _isRunbookRunning;
+
         // -- Tab key constants -----------------------------------------------
 
         private const string TabKeyWelcome         = "__welcome__";
@@ -254,6 +259,11 @@ namespace Wally.Forms
             tsbRepair.Click       += OnRepairWorkspace;
             tsbStop.Click         += OnStopClick;
 
+            // -- Runbook ToolStrip --
+            tsbRunbookDropdown.DropDownOpening += OnRunbookDropdownOpening;
+            tsbRunStart.Click += OnRunStart;
+            tsbRunStop.Click += OnRunStop;
+
             // -- Editors ToolStrip --
             tsbEditActors.Click += OnEditActors;
             tsbConfig.Click     += OnEditConfig;
@@ -269,6 +279,81 @@ namespace Wally.Forms
             showChatMenuItem.Checked     = false;
             UpdateWorkspaceGating();
             TryAutoSetup();
+        }
+
+        // -- Runbook toolbar event handlers ---------------------------------
+
+        private void OnRunbookDropdownOpening(object? sender, EventArgs e)
+        {
+            if (!_environment.HasWorkspace) return;
+
+            tsbRunbookDropdown.DropDownItems.Clear();
+
+            var runbooks = _environment.Runbooks;
+            if (runbooks.Count == 0)
+            {
+                var noRunbooksItem = new ToolStripMenuItem("(no runbooks available)")
+                {
+                    Enabled = false,
+                    ForeColor = WallyTheme.TextMuted
+                };
+                tsbRunbookDropdown.DropDownItems.Add(noRunbooksItem);
+                return;
+            }
+
+            foreach (var runbook in runbooks)
+            {
+                var item = new ToolStripMenuItem(runbook.Name)
+                {
+                    ForeColor = WallyTheme.TextPrimary,
+                    Checked = runbook.Name == _selectedRunbook,
+                    Tag = runbook.Name
+                };
+                item.Click += OnRunbookSelected;
+                tsbRunbookDropdown.DropDownItems.Add(item);
+            }
+        }
+
+        private void OnRunbookSelected(object? sender, EventArgs e)
+        {
+            if (sender is ToolStripMenuItem item && item.Tag is string runbookName)
+            {
+                _selectedRunbook = runbookName;
+                tsbRunbookDropdown.Text = $"?? {runbookName}";
+                UpdateRunbookButtons();
+            }
+        }
+
+        private void OnRunStart(object? sender, EventArgs e)
+        {
+            if (_selectedRunbook == null || _isRunbookRunning || !_environment.HasWorkspace)
+                return;
+
+            _isRunbookRunning = true;
+            UpdateRunbookButtons();
+            
+            // Execute the runbook through the command panel
+            _commandPanel.ExecuteCommand($"runbook {_selectedRunbook}");
+        }
+
+        private void OnRunStop(object? sender, EventArgs e)
+        {
+            if (!_isRunbookRunning) return;
+
+            // Cancel the command panel execution
+            _commandPanel.Cancel();
+        }
+
+        private void UpdateRunbookButtons()
+        {
+            bool hasRunbook = _selectedRunbook != null && _environment.HasWorkspace;
+            bool canRun = hasRunbook && !_isRunbookRunning && !_commandPanel.IsRunning && !_chatPanel.IsRunning;
+
+            tsbRunStart.Enabled = canRun;
+            tsbRunStart.ForeColor = canRun ? Color.FromArgb(100, 200, 130) : WallyTheme.TextDisabled;
+
+            tsbRunStop.Enabled = _isRunbookRunning;
+            tsbRunStop.ForeColor = _isRunbookRunning ? Color.FromArgb(200, 150, 150) : WallyTheme.TextDisabled;
         }
 
         // -- Workspace panel add/remove --------------------------------------
@@ -332,6 +417,70 @@ namespace Wally.Forms
             }
         }
 
+        // -- Helper methods --------------------------------------------------
+
+        private void OnWorkspaceChanged(object? sender, EventArgs e)
+        {
+            UpdateWorkspaceGating();
+            RefreshAllPanels();
+            
+            if (_environment.HasWorkspace)
+            {
+                ShowWorkspacePanels();
+                _lblWorkspaceStatus.Text = _environment.WorkspaceFolder!;
+                _lblActorCount.Text = $"Actors: {_environment.Actors.Count}";
+            }
+            else
+            {
+                HideWorkspacePanels();
+                _lblWorkspaceStatus.Text = "No workspace";
+                _lblActorCount.Text = "Actors: 0";
+            }
+        }
+
+        private void OnChatCommandIssued(object? sender, string command)
+        {
+            // Handle commands issued from the chat panel
+            _commandPanel.ExecuteCommand(command);
+        }
+
+        private void UpdateWorkspaceGating()
+        {
+            bool hasWorkspace = _environment.HasWorkspace;
+            
+            // Update menu items
+            saveWorkspaceMenuItem.Enabled = hasWorkspace;
+            closeWorkspaceMenuItem.Enabled = hasWorkspace;
+            refreshMenuItem.Enabled = hasWorkspace;
+            showExplorerMenuItem.Enabled = hasWorkspace;
+            showChatMenuItem.Enabled = hasWorkspace;
+            
+            // Update toolbar buttons
+            tsbSave.Enabled = hasWorkspace;
+            tsbClose.Enabled = hasWorkspace;
+            tsbRefresh.Enabled = hasWorkspace;
+            tsbReloadActors.Enabled = hasWorkspace;
+            tsbInfo.Enabled = hasWorkspace;
+            tsbVerify.Enabled = hasWorkspace;
+            tsbRepair.Enabled = hasWorkspace;
+            
+            // Update runbook toolbar
+            tsbRunbookDropdown.Enabled = hasWorkspace;
+            UpdateRunbookButtons();
+        }
+
+        private void RefreshAllPanels()
+        {
+            if (_environment.HasWorkspace)
+            {
+                _explorerTabPanel.Refresh();
+                _chatPanel.RefreshActorList();
+                _chatPanel.RefreshLoopList();
+                _chatPanel.RefreshModelList();
+                _chatPanel.RefreshRunbookList();
+            }
+        }
+
         // -- Global keyboard shortcuts ---------------------------------------
 
         private void OnGlobalKeyDown(object? sender, KeyEventArgs e)
@@ -378,6 +527,40 @@ namespace Wally.Forms
             }
         }
 
+        // -- Stop button -----------------------------------------------------
+
+        private void OnRunningChanged(object? sender, EventArgs e)
+        {
+            if (InvokeRequired) { Invoke(() => OnRunningChanged(sender, e)); return; }
+
+            bool anyRunning = _chatPanel.IsRunning || _commandPanel.IsRunning;
+            tsbStop.Enabled   = anyRunning;
+            tsbStop.ForeColor = anyRunning ? WallyTheme.Red : WallyTheme.TextDisabled;
+
+            _progressBar.Visible = anyRunning;
+            _commandPanel.SetExternallyBusy(_chatPanel.IsRunning);
+            
+            // Update runbook running state based on command panel state
+            if (!_commandPanel.IsRunning && _isRunbookRunning)
+            {
+                _isRunbookRunning = false;
+                UpdateRunbookButtons();
+            }
+        }
+
+        private void OnStopClick(object? sender, EventArgs e)
+        {
+            if (_chatPanel.IsRunning)    _chatPanel.Cancel();
+            if (_commandPanel.IsRunning) _commandPanel.Cancel();
+            
+            // Also handle runbook stop
+            if (_isRunbookRunning)
+            {
+                _isRunbookRunning = false;
+                UpdateRunbookButtons();
+            }
+        }
+        
         // -- Menu handlers ---------------------------------------------------
 
         private void OnChatDefaults(object? sender, EventArgs e)
@@ -562,92 +745,6 @@ namespace Wally.Forms
             {
                 _commandPanel.AppendLine($"Could not open folder: {ex.Message}", WallyTheme.Red);
             }
-        }
-
-        // -- Panel sync ------------------------------------------------------
-
-        private void OnChatCommandIssued(object? sender, string cmd) =>
-            _commandPanel.AppendLine($"  \u2192 {cmd}", WallyTheme.TextMuted);
-
-        private void OnWorkspaceChanged(object? sender, EventArgs e)
-        {
-            if (InvokeRequired) { Invoke(() => OnWorkspaceChanged(sender, e)); return; }
-            RefreshAllPanels();
-        }
-
-        private void RefreshAllPanels()
-        {
-            if (_environment.HasWorkspace)
-            {
-                Text = $"Wally \u2014 {_environment.WorkSource}";
-                _explorerTabPanel.SetRootPath(_environment.WorkSource!);
-                _chatPanel.RefreshActorList();
-                _chatPanel.RefreshLoopList();
-                _chatPanel.RefreshModelList();
-
-                if (!_content.Controls.Contains(_chatPanel))
-                    ShowWorkspacePanels();
-
-                string? defaultModel = _environment.Workspace?.Config?.DefaultModel;
-                _welcomePanel.SetWorkspaceInfo(true, _environment.WorkSource,
-                    _environment.Actors.Count, defaultModel);
-
-                _lblWorkspaceStatus.Text      = _environment.WorkSource!;
-                _lblWorkspaceStatus.ForeColor = WallyTheme.TextPrimary;
-                _lblActorCount.Text           = $"Actors: {_environment.Actors.Count}";
-                _statusBar.BackColor          = WallyTheme.StatusBarActive;
-            }
-            else
-            {
-                Text = "Wally \u2014 AI Actor Environment";
-                _welcomePanel.SetWorkspaceInfo(false);
-                _lblWorkspaceStatus.Text      = "No workspace loaded \u2014 use File \u2192 Open or Setup";
-                _lblWorkspaceStatus.ForeColor = WallyTheme.TextSecondary;
-                _lblActorCount.Text           = "Actors: 0";
-                _statusBar.BackColor          = WallyTheme.StatusBarInactive;
-            }
-
-            UpdateWorkspaceGating();
-        }
-
-        // -- Workspace-gated UI ----------------------------------------------
-
-        private void UpdateWorkspaceGating()
-        {
-            bool loaded = _environment.HasWorkspace;
-
-            saveWorkspaceMenuItem.Enabled  = loaded;
-            closeWorkspaceMenuItem.Enabled = loaded;
-            showExplorerMenuItem.Enabled   = loaded;
-            showChatMenuItem.Enabled       = loaded;
-            refreshMenuItem.Enabled        = loaded;
-
-            workspaceToolStripMenuItem.Enabled = loaded;
-            editorsToolStripMenuItem.Enabled   = loaded;
-            chatDefaultsMenuItem.Enabled       = loaded;
-
-            // File toolbar
-            tsbSave.Enabled  = loaded;
-            tsbClose.Enabled = loaded;
-
-            // Workspace toolbar
-            tsbRefresh.Enabled      = loaded;
-            tsbReloadActors.Enabled = loaded;
-            tsbInfo.Enabled         = loaded;
-            tsbVerify.Enabled       = loaded;
-            tsbRepair.Enabled       = loaded;
-
-            // Editors toolbar
-            tsbEditActors.Enabled = loaded;
-            tsbConfig.Enabled     = loaded;
-            tsbLogs.Enabled       = loaded;
-            tsbClearChat.Enabled  = loaded;
-
-            bool anyRunning = _chatPanel.IsRunning || _commandPanel.IsRunning;
-            tsbStop.Enabled   = anyRunning;
-            tsbStop.ForeColor = anyRunning ? WallyTheme.Red : WallyTheme.TextDisabled;
-
-            _chatPanel.SetWorkspaceLoaded(loaded);
         }
 
         // -- File events / intelligent open ----------------------------------
@@ -944,26 +1041,6 @@ namespace Wally.Forms
         {
             _environment.Logger.Dispose();
             base.OnFormClosing(e);
-        }
-
-        // -- Stop button -----------------------------------------------------
-
-        private void OnRunningChanged(object? sender, EventArgs e)
-        {
-            if (InvokeRequired) { Invoke(() => OnRunningChanged(sender, e)); return; }
-
-            bool anyRunning = _chatPanel.IsRunning || _commandPanel.IsRunning;
-            tsbStop.Enabled   = anyRunning;
-            tsbStop.ForeColor = anyRunning ? WallyTheme.Red : WallyTheme.TextDisabled;
-
-            _progressBar.Visible = anyRunning;
-            _commandPanel.SetExternallyBusy(_chatPanel.IsRunning);
-        }
-
-        private void OnStopClick(object? sender, EventArgs e)
-        {
-            if (_chatPanel.IsRunning)    _chatPanel.Cancel();
-            if (_commandPanel.IsRunning) _commandPanel.Cancel();
         }
     }
 }
