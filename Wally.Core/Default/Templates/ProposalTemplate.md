@@ -83,14 +83,15 @@ Bullet list with mitigation strategies.
 
 | Task | Priority | Status | Owner | Due Date | Notes |
 |------|----------|--------|-------|----------|-------|
-| Research existing solutions | High | ? Complete | @author | 2024-01-10 | Found 3 viable approaches |
-| Create proof of concept | High | ?? In Progress | @engineer | 2024-01-15 | 50% complete |
-| Stakeholder review | Medium | ?? Blocked | @pm | 2024-01-18 | Waiting on calendar availability |
-| Technical feasibility analysis | High | ?? Paused | @architect | 2024-01-20 | Waiting on POC results |
+| Create proof of concept for async execution | High | ?? In Progress | @engineer | 2024-01-15 | Event loop implementation 50% complete |
+| Set up message queue infrastructure | High | ? Complete | @devops | 2024-01-10 | Redis queues configured |
+| Implement mailbox protocol handlers | Medium | ?? Blocked | @developer | 2024-01-18 | Waiting on message schema approval |
+| Deploy Phase 1 to staging environment | Medium | ?? Not Started | @devops | 2024-01-22 | Scheduled after POC completion |
+| Conduct performance testing | Low | ?? Paused | @qa | 2024-01-25 | Waiting on staging deployment |
 
 **Legend**: 
 - Priority: `High | Medium | Low`
-- Status: `?? Blocked | ?? In Progress | ? Complete | ?? Paused`
+- Status: `?? Blocked | ?? In Progress | ? Complete | ?? Paused | ?? Not Started`
 
 ### Acceptance Criteria
 
@@ -143,27 +144,29 @@ Bullet list with mitigation strategies.
 ## Todo Tracker Specification
 
 ### Task Categories
-- **Research**: Investigation, analysis, proof of concepts, feasibility studies
-- **Validation**: Stakeholder interviews, requirements validation, technical validation
-- **Documentation**: Writing, reviewing, updating proposal content
-- **Approval**: Review cycles, sign-offs, stakeholder consensus building
+- **Development**: Coding, implementing features, building components per the proposal
+- **Infrastructure**: Setting up environments, CI/CD, monitoring, deployment systems
+- **Testing**: Writing tests, validation, performance testing, user acceptance testing
+- **Integration**: Connecting systems, APIs, data flows, third-party integrations
+- **Deployment**: Rolling out to environments, production deployment, rollback procedures
 
 ### Priority Levels
-- **High**: Critical path items, blocking decisions, stakeholder dependencies
-- **Medium**: Important but not blocking, quality improvements, nice-to-haves
-- **Low**: Documentation polish, minor research, future considerations
+- **High**: Critical path work, blocking dependencies, production issues, stakeholder commitments
+- **Medium**: Important features, planned enhancements, quality improvements
+- **Low**: Nice-to-have features, technical debt, optimization, future preparation
 
 ### Status Values
-- **?? Blocked**: Cannot proceed due to dependency or external blocker
-- **?? In Progress**: Actively being worked on
-- **? Complete**: Finished and validated
-- **?? Paused**: Temporarily stopped, waiting for conditions
+- **?? Blocked**: Cannot proceed due to external dependency or blocker
+- **?? In Progress**: Actively being developed or worked on
+- **? Complete**: Finished, tested, and deployed/validated
+- **?? Paused**: Temporarily stopped, waiting for conditions to resume
+- **?? Not Started**: Planned but not yet begun
 
 ### Assignment Rules
 - Every task must have a clear owner (@username format)
-- Research tasks should have realistic timelines for investigation
-- Approval tasks must identify specific stakeholders required
-- Blocked tasks must include explanation and path to resolution
+- Tasks should represent actual implementation work described in the proposal
+- Blocked tasks must include specific blocker and escalation path
+- Due dates should align with project phases and delivery milestones
 
 ---
 

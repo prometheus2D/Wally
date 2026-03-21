@@ -10,11 +10,12 @@
 | Constraint | Rule |
 |------------|------|
 | **Audience** | Template authors — engineers or AI agents creating or updating a template |
-| **Scope** | The mandatory and optional sections every template must contain; section ordering; naming conventions; todo tracking; acceptance criteria |
+| **Scope** | The mandatory and optional sections every template must contain; section ordering; naming conventions; todo tracking; acceptance criteria; sub-file relationships |
 | **Out of Scope** | The content of any individual template's sections; instance-level documents; project-specific conventions |
 | **Maintenance** | Update only when a structural rule must change across all templates; changes here require all templates to be audited |
 | **Todo Tracking** | Every template instance must include a Todo Tracker section for task management |
 | **Acceptance Criteria** | Every template must define clear, testable acceptance criteria for completion |
+| **Related Documents** | Every template must support sub-file relationships; documentation within documentation is a key architectural principle |
 
 ---
 
@@ -25,6 +26,7 @@
 - Establish a shared relationship vocabulary so cross-document links are unambiguous regardless of document type.
 - Ensure every template instance has built-in todo tracking and acceptance criteria for systematic completion tracking.
 - Enable AI agents and human users to systematically track progress toward document completion.
+- **Enforce sub-file architecture**: Every template must support splitting large documents into focused, related child documents.
 
 ---
 
@@ -66,8 +68,9 @@ Required rows (all templates):
 | **Maintenance** | When instances must be updated |
 | **Todo Tracking** | Every template instance must include a Todo Tracker section for task management |
 | **Acceptance Criteria** | Every template must define clear, testable acceptance criteria for completion |
+| **Related Documents** | How instances of this template relate to and reference other documents |
 
-Additional rows are encouraged; the six required rows must not be removed.
+Additional rows are encouraged; the seven required rows must not be removed.
 
 ### 3. Objectives
 
@@ -111,7 +114,10 @@ For each required section, specify:
 - One sentence: what this section contains
 - Format constraint: `table | bullet list | prose | Mermaid | code block | header block`
 
-**Note**: All templates must include both "Todo Tracker" and "Acceptance Criteria" as required sections in their instance documents.
+**Mandatory sections for ALL templates**:
+- **Todo Tracker**: Task management with priority, status, owner, due date
+- **Acceptance Criteria**: Completion criteria with Must Have/Should Have breakdown
+- **Related Documents**: Cross-references to parent, child, sibling, or dependent documents
 
 ### 6. Optional Sections
 
@@ -124,6 +130,8 @@ Format:
 Include when: [condition].
 [One sentence: what this section contains.]
 ```
+
+**Note**: The "Related Documents" section is now REQUIRED for all templates to support the sub-file architecture principle.
 
 ### 7. Acceptance Criteria Definition
 
@@ -208,29 +216,36 @@ Defines update triggers and changelog format.
 Every document created from any template **must** include these sections (in addition to template-specific required sections):
 
 ### Todo Tracker
+**Purpose**: Track the actual work tasks needed to accomplish what this document defines.
+
 ```markdown
 ## Todo Tracker
 
 | Task | Priority | Status | Owner | Due Date | Notes |
 |------|----------|--------|-------|----------|-------|
-| Example task | High | ?? In Progress | @username | 2024-01-15 | Waiting on approval |
+| Implement feature X per requirements | High | ?? In Progress | @developer | 2024-01-15 | Backend API 60% complete |
+| Deploy new architecture to staging | Medium | ?? Not Started | @devops | 2024-01-18 | Waiting on infrastructure approval |
 
 **Legend**: 
 - Priority: `High | Medium | Low`
-- Status: `?? Blocked | ?? In Progress | ? Complete | ?? Paused`
+- Status: `?? Blocked | ?? In Progress | ? Complete | ?? Paused | ?? Not Started`
 ```
 
+**Key Distinction**: This tracks actual implementation work, not document completion tasks.
+
 ### Acceptance Criteria
+**Purpose**: Define completion criteria for the document itself and its content quality.
+
 ```markdown
 ## Acceptance Criteria
 
-### Must Have (Required for Completion)
-- [ ] Criterion 1: [Specific, measurable requirement]
-- [ ] Criterion 2: [Specific, measurable requirement]
+### Must Have (Required for Document Completion)
+- [ ] Criterion 1: [Specific, measurable requirement for document completeness]
+- [ ] Criterion 2: [Specific, measurable requirement for document quality]
 
 ### Should Have (Preferred for Quality)
-- [ ] Criterion 3: [Quality enhancement]
-- [ ] Criterion 4: [Quality enhancement]
+- [ ] Criterion 3: [Quality enhancement for document]
+- [ ] Criterion 4: [Quality enhancement for document]
 
 ### Completion Checklist
 - [ ] All "Must Have" criteria completed
@@ -239,49 +254,49 @@ Every document created from any template **must** include these sections (in add
 - [ ] All todo items resolved or transferred
 ```
 
----
+**Key Distinction**: This defines when the document itself is considered complete and high-quality.
 
-## Formatting Rules
+### Related Documents
+```markdown
+## Related Documents
 
-| Element | Format |
-|---------|--------|
-| Code / identifiers | Backtick inline code |
-| Diagrams | Mermaid only |
-| Structured data | Tables preferred over prose |
-| Lists | Numbered for ordered/sequential; bullets for unordered |
-| Section numbers | `### N. Title Case` for Required Sections entries |
-| Required vs optional | Always labelled in section headings |
-| Todo items | `- [ ]` unchecked or `- [x]` checked checkbox format |
-| Status indicators | Emoji prefixes: ?? Blocked, ?? In Progress, ? Complete |
-| Priority levels | `High | Medium | Low` — never Critical/P0/etc. |
+| Document | Relationship | Notes |
+|----------|--------------|-------|
+| [ParentDoc](./ParentDoc.md) | Parent | Spawned from this parent |
+| [ChildDoc](./ChildDoc.md) | Child — Component | Extracted section |
+| [SiblingDoc](./SiblingDoc.md) | Sibling | Parallel workstream |
+| [DependencyDoc](./DependencyDoc.md) | Depends on | Must be completed first |
 
----
-
-## Anti-Patterns
-
-| ? Avoid | ? Instead |
-|----------|-----------|
-| Defining content inside the meta-template | Define structure only; content belongs in individual templates |
-| Skipping Objectives | Every template must justify its existence |
-| Skipping Document Relationships | Every template must declare how it fits into the document ecosystem |
-| Omitting Out of Scope from constraints | Ambiguous scope causes scope creep in instance documents |
-| Mixing type-level and instance-level relationships | Document Relationships = type-level; instance links go in Optional Sections |
-| Placing sections out of the mandatory order | Follow the 11-step sequence defined in Required Sections |
-| Implicit formatting rules | Every format decision must appear in the Formatting Rules table |
-| A template that does not conform to this document | TemplateTemplate is the first rule it enforces |
-| Templates without todo trackers | Every template instance must include systematic todo tracking |
-| Vague acceptance criteria | Every criterion must be specific and measurable |
-| Todos without owners or due dates | Every todo must have clear ownership and timeline |
+**Relationship Types**:
+- `Parent`: This document was split out from the linked document  
+- `Child — [Aspect]`: The linked document is extracted from this one
+- `Depends on`: This document requires the linked document first
+- `Depended on by`: The linked document requires this one first  
+- `Sibling`: Independent documents from same parent
+- `Supersedes`: This document replaces the linked one
+- `Superseded by`: The linked document replaces this one
+- `Informs`: Provides context without strict ordering
+```
 
 ---
 
-## File Naming
+## Critical Distinction: Todo Tracking vs Acceptance Criteria
 
-`[DocumentType]Template.md` — PascalCase, suffix `Template`.
+### Todo Tracker = **Work Tasks**
+- **What**: Actual implementation, development, deployment, validation work
+- **Examples**: 
+  - "Implement caching layer per new architecture"
+  - "Deploy authentication service to production" 
+  - "Refactor API endpoints to match new design"
+  - "Write integration tests for new workflow"
 
-| Role | File Name |
-|------|-----------|
-| This document (meta-template) | `TemplateTemplate.md` |
-| Proposal template | `ProposalTemplate.md` |
-| Architecture template | `ArchitectureTemplate.md` |
-| Any new template | `[DocumentType]Template.md` |
+### Acceptance Criteria = **Document Completion**
+- **What**: Criteria for when the document itself is complete and high-quality
+- **Examples**:
+  - "All requirements have testable acceptance criteria"
+  - "Architecture accurately reflects current implementation"
+  - "Proposal reviewed and approved by stakeholders"
+  - "Test cases cover all Must/Should requirements"
+
+**Anti-Pattern**: Putting document-writing tasks in Todo Tracker ("Write section X", "Update diagrams")
+**Correct Pattern**: Todo Tracker contains the actual work the document defines; Acceptance Criteria defines document completeness

@@ -16,6 +16,7 @@
 | **Testability** | Every requirement has at least one acceptance criterion |
 | **Todo Tracking** | Every requirements document must track completion of all requirements and reviews |
 | **Acceptance Criteria** | Every requirement must have measurable, testable acceptance criteria |
+| **Related Documents** | Must reference parent requirements, child domain requirements, and related specification documents |
 
 ---
 
@@ -25,6 +26,7 @@
 - Provide traceability from business need through to acceptance criteria.
 - Serve as the input contract for proposals, implementation plans, and test plans.
 - Enable systematic tracking of requirements completion and stakeholder approval.
+- Support requirements decomposition for complex systems with multiple domains or components.
 
 ---
 
@@ -123,6 +125,17 @@ Categories: Performance, Security, Scalability, Reliability, Usability, Maintain
 - [ ] Status updated to "Approved"
 - [ ] All todo items resolved or transferred to implementation phase
 - [ ] Requirements linked to corresponding test cases
+
+### Related Documents
+
+| Document | Relationship | Notes |
+|----------|--------------|-------|
+| [SystemRequirements](./SystemRequirements.md) | Parent | High-level system requirements |
+| [AuthenticationRequirements](./AuthenticationRequirements.md) | Child — Domain | Authentication-specific requirements |
+| [UIRequirements](./UIRequirements.md) | Child — Domain | User interface requirements |
+| [APIRequirements](./APIRequirements.md) | Child — Domain | API and integration requirements |
+| [SecurityRequirements](./SecurityRequirements.md) | Sibling | Cross-cutting security requirements |
+| [PerformanceRequirements](./PerformanceRequirements.md) | Sibling | System-wide performance requirements |
 
 ### References
 
