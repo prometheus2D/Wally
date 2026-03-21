@@ -399,21 +399,48 @@ namespace Wally.Forms
 
         private void TryAutoSetup()
         {
-            string defaultWs  = WallyHelper.GetDefaultWorkspaceFolder();
-            string configPath = Path.Combine(defaultWs, WallyHelper.ConfigFileName);
-            if (!File.Exists(configPath)) return;
+            // First, try to look for a workspace in the current working directory
+            string currentDir = Directory.GetCurrentDirectory();
+            string currentWs = Path.Combine(currentDir, WallyHelper.DefaultWorkspaceFolderName);
+            string currentConfigPath = Path.Combine(currentWs, WallyHelper.ConfigFileName);
 
-            try
+            if (File.Exists(currentConfigPath))
             {
-                _environment.LoadWorkspace(defaultWs);
-                RefreshAllPanels();
-                _commandPanel.AppendLine(
-                    $"Loaded workspace: {_environment.WorkspaceFolder}",
-                    WallyTheme.TextSecondary);
+                try
+                {
+                    _environment.LoadWorkspace(currentWs);
+                    // Manually trigger the workspace changed event since LoadWorkspace doesn't fire it
+                    OnWorkspaceChanged(this, EventArgs.Empty);
+                    _commandPanel.AppendLine(
+                        $"Auto-loaded workspace from current directory: {_environment.WorkspaceFolder}",
+                        WallyTheme.TextSecondary);
+                    return;
+                }
+                catch (Exception ex)
+                {
+                    _commandPanel.AppendLine($"Auto-load from current directory failed: {ex.Message}", WallyTheme.Red);
+                }
             }
-            catch (Exception ex)
+
+            // Fallback: try the default workspace folder next to the executable
+            string defaultWs = WallyHelper.GetDefaultWorkspaceFolder();
+            string defaultConfigPath = Path.Combine(defaultWs, WallyHelper.ConfigFileName);
+            
+            if (File.Exists(defaultConfigPath))
             {
-                _commandPanel.AppendLine($"Auto-load failed: {ex.Message}", WallyTheme.Red);
+                try
+                {
+                    _environment.LoadWorkspace(defaultWs);
+                    // Manually trigger the workspace changed event since LoadWorkspace doesn't fire it
+                    OnWorkspaceChanged(this, EventArgs.Empty);
+                    _commandPanel.AppendLine(
+                        $"Auto-loaded workspace from exe directory: {_environment.WorkspaceFolder}",
+                        WallyTheme.TextSecondary);
+                }
+                catch (Exception ex)
+                {
+                    _commandPanel.AppendLine($"Auto-load from exe directory failed: {ex.Message}", WallyTheme.Red);
+                }
             }
         }
 
@@ -429,12 +456,28 @@ namespace Wally.Forms
                 ShowWorkspacePanels();
                 _lblWorkspaceStatus.Text = _environment.WorkspaceFolder!;
                 _lblActorCount.Text = $"Actors: {_environment.Actors.Count}";
+                
+                // Set the root path for the explorer panel
+                _explorerTabPanel.SetRootPath(_environment.WorkSource!);
+                
+                // Update the welcome panel to show workspace info
+                _welcomePanel.SetWorkspaceInfo(
+                    loaded: true, 
+                    workSource: _environment.WorkSource, 
+                    actorCount: _environment.Actors.Count,
+                    defaultModel: _environment.Workspace?.Config?.DefaultModel);
             }
             else
             {
                 HideWorkspacePanels();
                 _lblWorkspaceStatus.Text = "No workspace";
                 _lblActorCount.Text = "Actors: 0";
+                
+                // Clear the explorer when no workspace is loaded
+                _explorerTabPanel.ClearAll();
+                
+                // Update the welcome panel to show the "get started" view
+                _welcomePanel.SetWorkspaceInfo(loaded: false);
             }
         }
 
@@ -658,14 +701,8 @@ namespace Wally.Forms
             string closedPath = _environment.WorkSource ?? "workspace";
             _environment.CloseWorkspace();
 
-            _explorerTabPanel.ClearAll();
-            _chatPanel.ClearMessages();
-            _chatPanel.RefreshActorList();
-            _chatPanel.RefreshLoopList();
-            _chatPanel.RefreshModelList();
-            HideWorkspacePanels();
-            _tabHost.CloseAllTabs();
-            RefreshAllPanels();
+            // Manually trigger the workspace changed event since CloseWorkspace doesn't fire it
+            OnWorkspaceChanged(this, EventArgs.Empty);
 
             _commandPanel.AppendLine($"Closed workspace: {closedPath}", WallyTheme.TextMuted);
         }
