@@ -272,8 +272,8 @@ namespace Wally.Forms
             openWorkspaceFolderMenuItem.Click += OnOpenWorkspaceFolder;
 
             // -- Settings menu --
-            chatDefaultsMenuItem.Click += OnChatDefaults;
-            settingsToolStripMenuItem.Click += OnSettings;
+            settingsWorkspaceMenuItem.Click += OnSettingsWorkspace;
+            settingsUserMenuItem.Click      += OnSettingsUser;
 
             // -- Global shortcuts --
             KeyPreview = true;
@@ -640,23 +640,34 @@ namespace Wally.Forms
         
         // -- Menu handlers ---------------------------------------------------
 
-        private void OnChatDefaults(object? sender, EventArgs e)
-        {
-            if (!_environment.HasWorkspace) return;
-            using var form = new ChatDefaultsForm(_environment, () =>
-            {
-                _chatPanel.RefreshActorList();
-                _chatPanel.RefreshLoopList();
-                _chatPanel.RefreshModelList();
-            });
-            form.ShowDialog(this);
-        }
-
         private void OnSettings(object? sender, EventArgs e)
         {
-            if (_tabHost.SelectTab(TabKeySettings)) return;
+            OpenSettingsPanel(SettingsPanel.TabIndexWorkspace);
+        }
+
+        private void OnSettingsWorkspace(object? sender, EventArgs e)
+        {
+            OpenSettingsPanel(SettingsPanel.TabIndexWorkspace);
+        }
+
+        private void OnSettingsUser(object? sender, EventArgs e)
+        {
+            OpenSettingsPanel(SettingsPanel.TabIndexUser);
+        }
+
+        private void OpenSettingsPanel(int tabIndex)
+        {
+            if (_tabHost.SelectTab(TabKeySettings))
+            {
+                // Panel already open — navigate to the requested tab
+                if (_tabHost.GetActivePanel() is SettingsPanel existing)
+                    existing.SelectTab(tabIndex);
+                return;
+            }
+
             var panel = new SettingsPanel(_environment);
             _tabHost.OpenTab(TabKeySettings, "Settings", "\u2699", panel);
+            panel.SelectTab(tabIndex);
         }
 
         private void OnEditCopy(object? sender, EventArgs e)

@@ -91,7 +91,8 @@ namespace Wally.Forms
             tsbClearChat = new ToolStripButton();
             contentPanel = new Panel();
             settingsToolStripMenuItem = new ToolStripMenuItem();
-            chatDefaultsMenuItem = new ToolStripMenuItem();
+            settingsWorkspaceMenuItem = new ToolStripMenuItem();
+            settingsUserMenuItem = new ToolStripMenuItem();
             menuPanel.SuspendLayout();
             menuStrip1.SuspendLayout();
             toolbarPanel.SuspendLayout();
@@ -711,19 +712,27 @@ namespace Wally.Forms
             // 
             // settingsToolStripMenuItem
             // 
-            settingsToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { chatDefaultsMenuItem });
+            settingsToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { settingsWorkspaceMenuItem, settingsUserMenuItem });
             settingsToolStripMenuItem.ForeColor = Color.FromArgb(228, 228, 233);
             settingsToolStripMenuItem.Name = "settingsToolStripMenuItem";
             settingsToolStripMenuItem.Size = new Size(61, 20);
             settingsToolStripMenuItem.Text = "&Settings";
             // 
-            // chatDefaultsMenuItem
+            // settingsWorkspaceMenuItem
             // 
-            chatDefaultsMenuItem.ForeColor = Color.FromArgb(228, 228, 233);
-            chatDefaultsMenuItem.Name = "chatDefaultsMenuItem";
-            chatDefaultsMenuItem.Size = new Size(180, 22);
-            chatDefaultsMenuItem.Text = "⚙  Chat &Defaults…";
-            chatDefaultsMenuItem.ToolTipText = "Configure default actor, loop, model, and wrapper for the Chat panel";
+            settingsWorkspaceMenuItem.ForeColor = Color.FromArgb(228, 228, 233);
+            settingsWorkspaceMenuItem.Name = "settingsWorkspaceMenuItem";
+            settingsWorkspaceMenuItem.Size = new Size(190, 22);
+            settingsWorkspaceMenuItem.Text = "⚙  &Workspace Settings";
+            settingsWorkspaceMenuItem.ToolTipText = "Open workspace configuration settings";
+            // 
+            // settingsUserMenuItem
+            // 
+            settingsUserMenuItem.ForeColor = Color.FromArgb(228, 228, 233);
+            settingsUserMenuItem.Name = "settingsUserMenuItem";
+            settingsUserMenuItem.Size = new Size(190, 22);
+            settingsUserMenuItem.Text = "👤  &User Preferences";
+            settingsUserMenuItem.ToolTipText = "Open user-level preferences";
             // 
             // WallyForms
             // 
@@ -856,6 +865,7 @@ namespace Wally.Forms
 
         // ── Settings menu ──
         private ToolStripMenuItem settingsToolStripMenuItem;
-        private ToolStripMenuItem chatDefaultsMenuItem;
+        private ToolStripMenuItem settingsWorkspaceMenuItem;
+        private ToolStripMenuItem settingsUserMenuItem;
     }
 }
