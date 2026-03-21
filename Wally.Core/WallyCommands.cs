@@ -15,6 +15,24 @@ namespace Wally.Core
     {
         private const int MaxRunbookDepth = 10;
 
+        // ?? Static verb list for tab completion and validation ????????????????
+        private static readonly string[] _knownVerbs = 
+        {
+            "setup", "repair", "load", "save", "run", "runbook", "list", "list-loops",
+            "list-wrappers", "list-runbooks", "info", "reload-actors", "cleanup", 
+            "clear-history", "commands", "help", "tutorial", "clear", "cls",
+            "add-actor", "edit-actor", "delete-actor",
+            "add-loop", "edit-loop", "delete-loop", 
+            "add-wrapper", "edit-wrapper", "delete-wrapper",
+            "add-runbook", "edit-runbook", "delete-runbook"
+        };
+
+        /// <summary>
+        /// Gets the list of known command verbs for tab completion and validation.
+        /// Single source of truth for both CLI and Forms UI.
+        /// </summary>
+        public static IReadOnlyList<string> GetVerbs() => _knownVerbs;
+
         private static WallyEnvironment? RequireWorkspace(WallyEnvironment env, string commandName)
         {
             if (!env.HasWorkspace)
@@ -26,24 +44,10 @@ namespace Wally.Core
             return env;
         }
 
-        public static string[] SplitArgs(string input)
-        {
-            var args = new List<string>();
-            bool inQuotes = false;
-            var current = new System.Text.StringBuilder();
-            foreach (char c in input)
-            {
-                if (c == '"') { inQuotes = !inQuotes; continue; }
-                if (c == ' ' && !inQuotes)
-                {
-                    if (current.Length > 0) { args.Add(current.ToString()); current.Clear(); }
-                    continue;
-                }
-                current.Append(c);
-            }
-            if (current.Length > 0) args.Add(current.ToString());
-            return args.ToArray();
-        }
+        /// <summary>
+        /// Splits a command line string into arguments using shared tokenizer.
+        /// </summary>
+        public static string[] SplitArgs(string input) => WallyArgParser.Tokenise(input);
 
         public static bool DispatchCommand(WallyEnvironment env, string[] args, int runbookDepth = 0)
         {
@@ -53,14 +57,14 @@ namespace Wally.Core
             {
                 case "setup":
                 {
-                    bool verify = HasFlag(args, "--verify");
-                    string? path = GetFirstPositional(args, 1);
+                    bool verify = WallyArgParser.HasFlag(args, "--verify");
+                    string? path = WallyArgParser.GetFirstPositional(args, 1);
                     HandleSetup(env, path, verify);
                     return true;
                 }
                 case "repair":
                 {
-                    string? path = GetFirstPositional(args, 1);
+                    string? path = WallyArgParser.GetFirstPositional(args, 1);
                     HandleRepair(env, path);
                     return true;
                 }
@@ -75,11 +79,11 @@ namespace Wally.Core
                 case "run":
                 {
                     if (args.Length < 2) { Console.WriteLine("Usage: run \"<prompt>\" [-a actor] [-m model] [-w wrapper] [-l name] [--no-history]"); return false; }
-                    string? actorName = GetOption(args, "-a") ?? GetOption(args, "--actor");
-                    string? model     = GetOption(args, "-m") ?? GetOption(args, "--model");
-                    string? wrapper   = GetOption(args, "-w") ?? GetOption(args, "--wrapper");
-                    string? loopName  = GetOption(args, "-l") ?? GetOption(args, "--loop-name");
-                    bool noHistory    = HasFlag(args, "--no-history");
+                    string? actorName = WallyArgParser.GetOption(args, "-a", "--actor");
+                    string? model     = WallyArgParser.GetOption(args, "-m", "--model");
+                    string? wrapper   = WallyArgParser.GetOption(args, "-w", "--wrapper");
+                    string? loopName  = WallyArgParser.GetOption(args, "-l", "--loop-name");
+                    bool noHistory    = WallyArgParser.HasFlag(args, "--no-history");
                     HandleRun(env, args[1], actorName, model, loopName, wrapper, noHistory);
                     return true;
                 }
@@ -97,7 +101,7 @@ namespace Wally.Core
                 case "reload-actors": HandleReloadActors(env); return true;
                 case "cleanup":
                 {
-                    string? cleanupPath = GetFirstPositional(args, 1);
+                    string? cleanupPath = WallyArgParser.GetFirstPositional(args, 1);
                     HandleCleanup(env, cleanupPath);
                     return true;
                 }
@@ -109,18 +113,18 @@ namespace Wally.Core
                 case "add-actor":
                 {
                     if (args.Length < 2) { Console.WriteLine("Usage: add-actor <name> [-r \"role\"] [-c \"criteria\"] [-i \"intent\"]"); return false; }
-                    string role     = GetOption(args, "-r") ?? GetOption(args, "--role")     ?? "";
-                    string criteria = GetOption(args, "-c") ?? GetOption(args, "--criteria") ?? "";
-                    string intent   = GetOption(args, "-i") ?? GetOption(args, "--intent")   ?? "";
+                    string role     = WallyArgParser.GetOption(args, "-r", "--role")     ?? "";
+                    string criteria = WallyArgParser.GetOption(args, "-c", "--criteria") ?? "";
+                    string intent   = WallyArgParser.GetOption(args, "-i", "--intent")   ?? "";
                     HandleAddActor(env, args[1], role, criteria, intent);
                     return true;
                 }
                 case "edit-actor":
                 {
                     if (args.Length < 2) { Console.WriteLine("Usage: edit-actor <name> [-r \"role\"] [-c \"criteria\"] [-i \"intent\"]"); return false; }
-                    string? role     = GetOption(args, "-r") ?? GetOption(args, "--role");
-                    string? criteria = GetOption(args, "-c") ?? GetOption(args, "--criteria");
-                    string? intent   = GetOption(args, "-i") ?? GetOption(args, "--intent");
+                    string? role     = WallyArgParser.GetOption(args, "-r", "--role");
+                    string? criteria = WallyArgParser.GetOption(args, "-c", "--criteria");
+                    string? intent   = WallyArgParser.GetOption(args, "-i", "--intent");
                     HandleEditActor(env, args[1], role, criteria, intent);
                     return true;
                 }
@@ -133,18 +137,18 @@ namespace Wally.Core
                 case "add-loop":
                 {
                     if (args.Length < 2) { Console.WriteLine("Usage: add-loop <name> [-d desc] [-a actor] [-s prompt]"); return false; }
-                    string desc        = GetOption(args, "-d") ?? GetOption(args, "--description") ?? "";
-                    string actor       = GetOption(args, "-a") ?? GetOption(args, "--actor")        ?? "";
-                    string startPrompt = GetOption(args, "-s") ?? GetOption(args, "--start-prompt") ?? "{userPrompt}";
+                    string desc        = WallyArgParser.GetOption(args, "-d", "--description") ?? "";
+                    string actor       = WallyArgParser.GetOption(args, "-a", "--actor")        ?? "";
+                    string startPrompt = WallyArgParser.GetOption(args, "-s", "--start-prompt") ?? "{userPrompt}";
                     HandleAddLoop(env, args[1], desc, actor, startPrompt);
                     return true;
                 }
                 case "edit-loop":
                 {
                     if (args.Length < 2) { Console.WriteLine("Usage: edit-loop <name> [-d desc] [-a actor] [-s prompt]"); return false; }
-                    string? desc        = GetOption(args, "-d") ?? GetOption(args, "--description");
-                    string? actor       = GetOption(args, "-a") ?? GetOption(args, "--actor");
-                    string? startPrompt = GetOption(args, "-s") ?? GetOption(args, "--start-prompt");
+                    string? desc        = WallyArgParser.GetOption(args, "-d", "--description");
+                    string? actor       = WallyArgParser.GetOption(args, "-a", "--actor");
+                    string? startPrompt = WallyArgParser.GetOption(args, "-s", "--start-prompt");
                     HandleEditLoop(env, args[1], desc, actor, startPrompt);
                     return true;
                 }
@@ -157,22 +161,22 @@ namespace Wally.Core
                 case "add-wrapper":
                 {
                     if (args.Length < 2) { Console.WriteLine("Usage: add-wrapper <name> [-d desc] [-e exe] [-t template] [--can-make-changes] [--no-conversation-history]"); return false; }
-                    string desc     = GetOption(args, "-d") ?? GetOption(args, "--description") ?? "";
-                    string exe      = GetOption(args, "-e") ?? GetOption(args, "--executable")  ?? "gh";
-                    string template = GetOption(args, "-t") ?? GetOption(args, "--template")    ?? "";
-                    bool canChange  = HasFlag(args, "--can-make-changes");
-                    bool useHistory = !HasFlag(args, "--no-conversation-history");
+                    string desc     = WallyArgParser.GetOption(args, "-d", "--description") ?? "";
+                    string exe      = WallyArgParser.GetOption(args, "-e", "--executable")  ?? "gh";
+                    string template = WallyArgParser.GetOption(args, "-t", "--template")    ?? "";
+                    bool canChange  = WallyArgParser.HasFlag(args, "--can-make-changes");
+                    bool useHistory = !WallyArgParser.HasFlag(args, "--no-conversation-history");
                     HandleAddWrapper(env, args[1], desc, exe, template, canChange, useHistory);
                     return true;
                 }
                 case "edit-wrapper":
                 {
                     if (args.Length < 2) { Console.WriteLine("Usage: edit-wrapper <name> [-d desc] [-e exe] [-t template] [--can-make-changes] [--no-conversation-history]"); return false; }
-                    string? desc     = GetOption(args, "-d") ?? GetOption(args, "--description");
-                    string? exe      = GetOption(args, "-e") ?? GetOption(args, "--executable");
-                    string? template = GetOption(args, "-t") ?? GetOption(args, "--template");
-                    bool? canChange  = HasFlag(args, "--can-make-changes") ? true : null;
-                    bool? useHistory = HasFlag(args, "--no-conversation-history") ? false : null;
+                    string? desc     = WallyArgParser.GetOption(args, "-d", "--description");
+                    string? exe      = WallyArgParser.GetOption(args, "-e", "--executable");
+                    string? template = WallyArgParser.GetOption(args, "-t", "--template");
+                    bool? canChange  = WallyArgParser.HasFlag(args, "--can-make-changes") ? true : null;
+                    bool? useHistory = WallyArgParser.HasFlag(args, "--no-conversation-history") ? false : null;
                     HandleEditWrapper(env, args[1], desc, exe, template, canChange, useHistory);
                     return true;
                 }
@@ -185,14 +189,14 @@ namespace Wally.Core
                 case "add-runbook":
                 {
                     if (args.Length < 2) { Console.WriteLine("Usage: add-runbook <name> [-d desc]"); return false; }
-                    string desc = GetOption(args, "-d") ?? GetOption(args, "--description") ?? "";
+                    string desc = WallyArgParser.GetOption(args, "-d", "--description") ?? "";
                     HandleAddRunbook(env, args[1], desc);
                     return true;
                 }
                 case "edit-runbook":
                 {
                     if (args.Length < 2) { Console.WriteLine("Usage: edit-runbook <name> [-d desc]"); return false; }
-                    string? desc = GetOption(args, "-d") ?? GetOption(args, "--description");
+                    string? desc = WallyArgParser.GetOption(args, "-d", "--description");
                     HandleEditRunbook(env, args[1], desc);
                     return true;
                 }
@@ -896,6 +900,30 @@ namespace Wally.Core
             Console.WriteLine("  wally commands");
         }
 
+        // ?? Private helpers ??????????????????????????????????????????????????
+
+        private static string ResolveWorkspaceFolder(string? workSourcePath)
+        {
+            if (!string.IsNullOrWhiteSpace(workSourcePath) && Directory.Exists(workSourcePath))
+                return Path.Combine(Path.GetFullPath(workSourcePath), ".wally");
+            string exeFolder = AppDomain.CurrentDomain.BaseDirectory;
+            return Path.Combine(Path.GetFullPath(exeFolder), "..", "..", "..", ".wally");
+        }
+
+        private static void PrintWorkspaceSummary(string header, WallyEnvironment env)
+        {
+            Console.WriteLine(header);
+            Console.WriteLine(new string('=', header.Length));
+            Console.WriteLine();
+            Console.WriteLine($"WorkSource:       {env.WorkSource}");
+            Console.WriteLine($"Workspace folder: {env.WorkspaceFolder}");
+            Console.WriteLine($"Actors folder:    {Path.Combine(env.WorkspaceFolder!, env.Workspace!.Config.ActorsFolderName)}");
+            Console.WriteLine($"Docs folder:      {Path.Combine(env.WorkspaceFolder!, env.Workspace!.Config.DocsFolderName)}");
+            Console.WriteLine($"Templates folder: {Path.Combine(env.WorkspaceFolder!, env.Workspace!.Config.TemplatesFolderName)}");
+            Console.WriteLine($"Logs folder:      {Path.Combine(env.WorkspaceFolder!, env.Workspace!.Config.LogsFolderName)}");
+            Console.WriteLine($"Projects folder:  {Path.Combine(env.WorkspaceFolder!, env.Workspace!.Config.ProjectsFolderName)}");
+        }
+
         // ?? List wrappers ????????????????????????????????????????????????????
 
         public static void HandleListWrappers(WallyEnvironment env)
@@ -1007,7 +1035,7 @@ namespace Wally.Core
             Console.WriteLine($"Loop '{name}' deleted.");
         }
 
-        // ?? Wrapper CRUD ?????????????????????????????????????????????????????
+        // ?? Wrapper CRUD ????????????????????????????????????????????????????
 
         public static void HandleAddWrapper(WallyEnvironment env, string name, string description, string executable, string argumentTemplate, bool canMakeChanges, bool useConversationHistory = true)
         {
@@ -1052,7 +1080,7 @@ namespace Wally.Core
             Console.WriteLine($"Wrapper '{name}' deleted.");
         }
 
-        // ?? Runbook CRUD ?????????????????????????????????????????????????????
+        // ?? Runbook CRUD ????????????????????????????????????????????????????
 
         public static void HandleAddRunbook(WallyEnvironment env, string name, string description)
         {
@@ -1088,44 +1116,7 @@ namespace Wally.Core
             Console.WriteLine($"Runbook '{name}' deleted.");
         }
 
-        // ?? Private helpers ??????????????????????????????????????????????????
-
-        private static string ResolveWorkspaceFolder(string? workSourcePath)
-        {
-            if (!string.IsNullOrWhiteSpace(workSourcePath) && Directory.Exists(workSourcePath))
-                return Path.Combine(Path.GetFullPath(workSourcePath), ".wally");
-            string exeFolder = AppDomain.CurrentDomain.BaseDirectory;
-            return Path.Combine(Path.GetFullPath(exeFolder), "..", "..", "..", ".wally");
-        }
-
-        private static void PrintWorkspaceSummary(string header, WallyEnvironment env)
-        {
-            Console.WriteLine(header);
-            Console.WriteLine(new string('=', header.Length));
-            Console.WriteLine();
-            Console.WriteLine($"WorkSource:       {env.WorkSource}");
-            Console.WriteLine($"Workspace folder: {env.WorkspaceFolder}");
-            Console.WriteLine($"Actors folder:    {Path.Combine(env.WorkspaceFolder!, env.Workspace!.Config.ActorsFolderName)}");
-            Console.WriteLine($"Docs folder:      {Path.Combine(env.WorkspaceFolder!, env.Workspace!.Config.DocsFolderName)}");
-            Console.WriteLine($"Templates folder: {Path.Combine(env.WorkspaceFolder!, env.Workspace!.Config.TemplatesFolderName)}");
-            Console.WriteLine($"Logs folder:      {Path.Combine(env.WorkspaceFolder!, env.Workspace!.Config.LogsFolderName)}");
-            Console.WriteLine($"Projects folder:  {Path.Combine(env.WorkspaceFolder!, env.Workspace!.Config.ProjectsFolderName)}");
-        }
-
         private static void PrintRbaLine(string label, string value) =>
             Console.WriteLine($"{label}: {(string.IsNullOrWhiteSpace(value) ? "(none)" : value)}");
-
-        private static string? GetOption(string[] args, string flag)
-        {
-            for (int i = 0; i < args.Length - 1; i++)
-                if (args[i].Equals(flag, StringComparison.OrdinalIgnoreCase)) return args[i + 1];
-            return null;
-        }
-
-        private static bool HasFlag(string[] args, string flag) =>
-            args.Any(a => a.Equals(flag, StringComparison.OrdinalIgnoreCase));
-
-        private static string? GetFirstPositional(string[] args, int startIndex) =>
-            args.Length > startIndex ? args[startIndex] : null;
     }
 }
