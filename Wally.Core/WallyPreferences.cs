@@ -8,7 +8,10 @@ namespace Wally.Core
     /// User-profile-level preferences for Wally, persisted in
     /// <c>%APPDATA%\Wally\wally-prefs.json</c> (Windows) or
     /// <c>~/.config/Wally/wally-prefs.json</c> (Linux/macOS).
-    /// Completely separate from any workspace — one file per OS user.
+    /// 
+    /// <b>Note:</b> This file stores user-level session and history data (recent workspaces, last loaded workspace, auto-load preference) and is <b>completely separate</b> from <see cref="WallyConfig"/>, which is per-workspace and controls workspace structure and options.
+    /// 
+    /// <b>See also:</b> <see cref="WallyConfig"/> for workspace-specific configuration.
     /// </summary>
     public class WallyPreferences
     {

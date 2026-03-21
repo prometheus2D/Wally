@@ -8,40 +8,12 @@ using System.Text.Json.Serialization;
 namespace Wally.Core
 {
     /// <summary>
-    /// Holds configuration for a Wally workspace folder.
-    ///
-    /// The workspace lives inside the <b>WorkSource</b> directory — the root of
-    /// the user's codebase.  The <c>.wally/</c> folder sits at the top level of
-    /// the WorkSource:
-    /// <code>
-    ///   &lt;WorkSource&gt;/               e.g. C:\repos\MyApp
-    ///       .wally/                     workspace folder (tooling root)
-    ///           wally-config.json
-    ///           Projects/               shared project store — Epochs ? Sprints ? Tasks
-    ///               &lt;ProjectName&gt;/
-    ///                   Epochs/
-    ///                       &lt;EpochName&gt;/
-    ///                           Tasks/      (tasks directly under an epoch)
-    ///                           Sprints/
-    ///                               &lt;SprintName&gt;/
-    ///                                   Tasks/
-    ///           Docs/                   workspace-level documentation
-    ///           Templates/              document templates
-    ///           Actors/
-    ///               &lt;ActorName&gt;/
-    ///                   actor.json
-    ///                   Docs/           actor-private documentation
-    ///                   Inbox/          actor mailbox — incoming requests
-    ///                   Outbox/         actor mailbox — completed deliverables
-    ///                   Pending/        actor mailbox — awaiting action
-    ///                   Active/         actor mailbox — work in progress
-    ///           Loops/                  loop definitions (JSON)
-    ///           Wrappers/               LLM wrapper definitions (JSON)
-    ///           Runbooks/               runbook files (.wrb)
-    ///           Logs/                   session logs
-    /// </code>
-    /// All files under WorkSource (including <c>.wally/</c>) are accessible to
-    /// the LLM wrapper.
+    /// Holds configuration for a single Wally workspace folder, loaded from
+    /// <c>wally-config.json</c> inside the <c>.wally/</c> directory.
+    /// 
+    /// <b>Note:</b> This file is <b>workspace-specific</b> and does not store any user-level session or history data. For user preferences (recent workspaces, last loaded workspace, auto-load), see <see cref="WallyPreferences"/>.
+    /// 
+    /// <b>See also:</b> <see cref="WallyPreferences"/> for user-profile-level preferences and history.
     /// </summary>
     public class WallyConfig
     {

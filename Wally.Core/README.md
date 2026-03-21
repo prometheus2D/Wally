@@ -6,6 +6,15 @@ Domain library for Wally — the AI Actor Environment. This is the core engine tha
 
 ---
 
+## Preferences vs. Config: Separation of Concerns
+
+- **WallyPreferences** (`wally-prefs.json`): User-profile-level, global to all workspaces. Stores recent workspaces, last loaded workspace, and auto-load preference. Used for session and history, not workspace structure.
+- **WallyConfig** (`wally-config.json`): Workspace-specific, lives inside each `.wally/` folder. Stores folder names, available/selected models, wrappers, loops, runbooks, and runtime options. Used for configuring the structure and behavior of a specific workspace.
+
+<b>There is no redundancy:</b> Preferences are for user session/history (cross-workspace), config is for workspace structure/options (per workspace).
+
+---
+
 ## Table of Contents
 
 - [Architecture Overview](#architecture-overview)
@@ -18,6 +27,7 @@ Domain library for Wally — the AI Actor Environment. This is the core engine tha
   - [WallyRunbook](#wallyrunbook)
   - [WallyWorkspace](#wallyworkspace)
   - [WallyConfig](#wallyconfig)
+  - [WallyPreferences](#wallypreferences)
   - [WallyCommands](#wallycommands)
   - [SessionLogger](#sessionlogger)
 - [RBA Framework](#rba-framework)
@@ -357,6 +367,18 @@ Loaded from `wally-config.json`. Controls folder names, defaults, and runtime se
 | `SelectedRunbooks` | `[...]` | Priority-ordered preferred runbooks |
 
 **Resolved defaults** (runtime, not persisted): `DefaultModel`, `DefaultWrapper`, `ResolvedDefaultLoop`, `ResolvedDefaultRunbook` — the first `Selected*` entry that actually exists becomes the active default.
+
+---
+
+### WallyPreferences
+
+User-level preferences loaded from `wally-prefs.json`. Controls global settings and last-used workspace.
+
+| Property | Default | Description |
+|---|---|---|
+| `LastWorkspace` | `""` | Path to the last opened workspace |
+| `AutoLoadWorkspace` | `true` | Whether to auto-load the last workspace on start |
+| `RecentWorkspaces` | `[]` | List of recently used workspaces |
 
 ---
 
