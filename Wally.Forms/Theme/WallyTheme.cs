@@ -125,17 +125,6 @@ namespace Wally.Forms.Theme
         }
 
         /// <summary>
-        /// Call once at application startup (before any Form is created).
-        /// Sets <see cref="Application.UseCompatibleTextRendering"/> to <c>true</c>
-        /// so that WinForms controls use GDI+ for text, enabling system-level
-        /// Unicode/emoji font fallback everywhere (📂 💾 🎭 → render correctly).
-        /// </summary>
-        public static void EnableEmojiRendering()
-        {
-            Application.SetCompatibleTextRenderingDefault(true);
-        }
-
-        /// <summary>
         /// Creates the standard dark-themed renderer used across all menus,
         /// toolstrips, and context menus.
         /// </summary>

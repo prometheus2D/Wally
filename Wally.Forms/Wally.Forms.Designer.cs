@@ -205,7 +205,7 @@ namespace Wally.Forms
             settingsUserMenuItem.ForeColor   = Color.FromArgb(228, 228, 233);
             settingsUserMenuItem.Name        = "settingsUserMenuItem";
             settingsUserMenuItem.Size        = new Size(276, 22);
-            settingsUserMenuItem.Text        = "??  &User Preferences";
+            settingsUserMenuItem.Text        = "&User Preferences";
             settingsUserMenuItem.ToolTipText = "Open user-level preferences";
 
             fileSettingsSeparator.Name = "fileSettingsSeparator";
@@ -311,22 +311,22 @@ namespace Wally.Forms
             viewLogsMenuItem.ForeColor = Color.FromArgb(228, 228, 233);
             viewLogsMenuItem.Name      = "viewLogsMenuItem";
             viewLogsMenuItem.Size      = new Size(205, 22);
-            viewLogsMenuItem.Text      = "??  Session &Logs";
+            viewLogsMenuItem.Text      = "Session &Logs";
 
             viewChatHistoryMenuItem.ForeColor = Color.FromArgb(228, 228, 233);
             viewChatHistoryMenuItem.Name      = "viewChatHistoryMenuItem";
             viewChatHistoryMenuItem.Size      = new Size(205, 22);
-            viewChatHistoryMenuItem.Text      = "??  Chat &History";
+            viewChatHistoryMenuItem.Text      = "Chat &History";
 
             viewPromptViewerMenuItem.ForeColor = Color.FromArgb(228, 228, 233);
             viewPromptViewerMenuItem.Name      = "viewPromptViewerMenuItem";
             viewPromptViewerMenuItem.Size      = new Size(205, 22);
-            viewPromptViewerMenuItem.Text      = "??  &Prompt Viewer";
+            viewPromptViewerMenuItem.Text      = "&Prompt Viewer";
 
             viewWorkspaceViewerMenuItem.ForeColor = Color.FromArgb(228, 228, 233);
             viewWorkspaceViewerMenuItem.Name      = "viewWorkspaceViewerMenuItem";
             viewWorkspaceViewerMenuItem.Size      = new Size(205, 22);
-            viewWorkspaceViewerMenuItem.Text      = "??  &Workspace Viewer";
+            viewWorkspaceViewerMenuItem.Text      = "&Workspace Viewer";
 
             viewSeparator3.Name = "viewSeparator3";
             viewSeparator3.Size = new Size(202, 6);
@@ -361,22 +361,22 @@ namespace Wally.Forms
             editActorsMenuItem.ForeColor = Color.FromArgb(228, 228, 233);
             editActorsMenuItem.Name      = "editActorsMenuItem";
             editActorsMenuItem.Size      = new Size(215, 22);
-            editActorsMenuItem.Text      = "??  &Actors…";
+            editActorsMenuItem.Text      = "&Actors…";
 
             editLoopsMenuItem.ForeColor = Color.FromArgb(228, 228, 233);
             editLoopsMenuItem.Name      = "editLoopsMenuItem";
             editLoopsMenuItem.Size      = new Size(215, 22);
-            editLoopsMenuItem.Text      = "?  &Loops…";
+            editLoopsMenuItem.Text      = "&Loops…";
 
             editWrappersMenuItem.ForeColor = Color.FromArgb(228, 228, 233);
             editWrappersMenuItem.Name      = "editWrappersMenuItem";
             editWrappersMenuItem.Size      = new Size(215, 22);
-            editWrappersMenuItem.Text      = "?  &Wrappers…";
+            editWrappersMenuItem.Text      = "&Wrappers…";
 
             editRunbooksMenuItem.ForeColor = Color.FromArgb(228, 228, 233);
             editRunbooksMenuItem.Name      = "editRunbooksMenuItem";
             editRunbooksMenuItem.Size      = new Size(215, 22);
-            editRunbooksMenuItem.Text      = "??  &Runbooks…";
+            editRunbooksMenuItem.Text      = "&Runbooks…";
 
             workspaceSeparator0.Name = "workspaceSeparator0";
             workspaceSeparator0.Size = new Size(212, 6);
@@ -384,12 +384,12 @@ namespace Wally.Forms
             editConfigMenuItem.ForeColor = Color.FromArgb(228, 228, 233);
             editConfigMenuItem.Name      = "editConfigMenuItem";
             editConfigMenuItem.Size      = new Size(215, 22);
-            editConfigMenuItem.Text      = "?  &Configuration";
+            editConfigMenuItem.Text      = "&Configuration";
 
             settingsWorkspaceMenuItem.ForeColor    = Color.FromArgb(228, 228, 233);
             settingsWorkspaceMenuItem.Name         = "settingsWorkspaceMenuItem";
             settingsWorkspaceMenuItem.Size         = new Size(215, 22);
-            settingsWorkspaceMenuItem.Text         = "?  &Workspace Settings";
+            settingsWorkspaceMenuItem.Text         = "&Workspace Settings";
             settingsWorkspaceMenuItem.ToolTipText  = "Open workspace configuration settings";
 
             workspaceSeparator1.Name = "workspaceSeparator1";
@@ -470,7 +470,7 @@ namespace Wally.Forms
             tsbOpen.ForeColor        = Color.FromArgb(228, 228, 233);
             tsbOpen.Name             = "tsbOpen";
             tsbOpen.Size             = new Size(66, 22);
-            tsbOpen.Text             = "?? Open";
+            tsbOpen.Text             = "Open";
             tsbOpen.ToolTipText      = "Open Workspace (Ctrl+O)  · Recent workspaces";
             tsbOpen.ShowDropDownArrow = true;
 
@@ -479,7 +479,7 @@ namespace Wally.Forms
             tsbSetup.ForeColor    = Color.FromArgb(228, 228, 233);
             tsbSetup.Name         = "tsbSetup";
             tsbSetup.Size         = new Size(56, 22);
-            tsbSetup.Text         = "? Setup";
+            tsbSetup.Text         = "Setup";
             tsbSetup.ToolTipText  = "Setup New Workspace (Ctrl+Shift+N)";
 
             tsbSave.DisplayStyle = ToolStripItemDisplayStyle.Text;
@@ -487,7 +487,7 @@ namespace Wally.Forms
             tsbSave.ForeColor    = Color.FromArgb(228, 228, 233);
             tsbSave.Name         = "tsbSave";
             tsbSave.Size         = new Size(49, 22);
-            tsbSave.Text         = "?? Save";
+            tsbSave.Text         = "Save";
             tsbSave.ToolTipText  = "Save Workspace (Ctrl+S)";
 
             tsFileSep1.Name = "tsFileSep1";
@@ -498,7 +498,7 @@ namespace Wally.Forms
             tsbClose.ForeColor    = Color.FromArgb(161, 161, 170);
             tsbClose.Name         = "tsbClose";
             tsbClose.Size         = new Size(51, 22);
-            tsbClose.Text         = "? Close";
+            tsbClose.Text         = "Close";
             tsbClose.ToolTipText  = "Close Workspace";
 
             // ?? workspaceToolStrip ????????????????????????????????????????????
@@ -522,7 +522,7 @@ namespace Wally.Forms
             tsbRefresh.ForeColor    = Color.FromArgb(228, 228, 233);
             tsbRefresh.Name         = "tsbRefresh";
             tsbRefresh.Size         = new Size(62, 22);
-            tsbRefresh.Text         = "?? Refresh";
+            tsbRefresh.Text         = "Refresh";
             tsbRefresh.ToolTipText  = "Refresh Explorer (F5)";
 
             tsbReloadActors.DisplayStyle = ToolStripItemDisplayStyle.Text;
@@ -530,7 +530,7 @@ namespace Wally.Forms
             tsbReloadActors.ForeColor    = Color.FromArgb(228, 228, 233);
             tsbReloadActors.Name         = "tsbReloadActors";
             tsbReloadActors.Size         = new Size(96, 22);
-            tsbReloadActors.Text         = "? Reload Actors";
+            tsbReloadActors.Text         = "Reload Actors";
             tsbReloadActors.ToolTipText  = "Reload Actors from Disk (Ctrl+R)";
 
             tsbInfo.DisplayStyle = ToolStripItemDisplayStyle.Text;
@@ -538,7 +538,7 @@ namespace Wally.Forms
             tsbInfo.ForeColor    = Color.FromArgb(228, 228, 233);
             tsbInfo.Name         = "tsbInfo";
             tsbInfo.Size         = new Size(47, 22);
-            tsbInfo.Text         = "? Info";
+            tsbInfo.Text         = "Info";
             tsbInfo.ToolTipText  = "Workspace Info";
 
             tsbVerify.DisplayStyle = ToolStripItemDisplayStyle.Text;
@@ -546,7 +546,7 @@ namespace Wally.Forms
             tsbVerify.ForeColor    = Color.FromArgb(228, 228, 233);
             tsbVerify.Name         = "tsbVerify";
             tsbVerify.Size         = new Size(50, 22);
-            tsbVerify.Text         = "? Verify";
+            tsbVerify.Text         = "Verify";
             tsbVerify.ToolTipText  = "Verify Workspace Structure";
 
             tsbRepair.DisplayStyle = ToolStripItemDisplayStyle.Text;
@@ -554,7 +554,7 @@ namespace Wally.Forms
             tsbRepair.ForeColor    = Color.FromArgb(228, 228, 233);
             tsbRepair.Name         = "tsbRepair";
             tsbRepair.Size         = new Size(56, 22);
-            tsbRepair.Text         = "?? Repair";
+            tsbRepair.Text         = "Repair";
             tsbRepair.ToolTipText  = "Repair Workspace — add any missing folders, mailboxes, and actor components (Ctrl+Shift+R)";
 
             tsbStop.DisplayStyle = ToolStripItemDisplayStyle.Text;
@@ -563,7 +563,7 @@ namespace Wally.Forms
             tsbStop.ForeColor    = Color.FromArgb(200, 150, 150);
             tsbStop.Name         = "tsbStop";
             tsbStop.Size         = new Size(51, 22);
-            tsbStop.Text         = "? Stop";
+            tsbStop.Text         = "Stop";
             tsbStop.ToolTipText  = "Stop the current running AI or terminal command (Esc)";
 
             // ?? runbookToolStrip ??????????????????????????????????????????????
@@ -582,7 +582,7 @@ namespace Wally.Forms
             tsbRunbookDropdown.ForeColor    = Color.FromArgb(228, 228, 233);
             tsbRunbookDropdown.Name         = "tsbRunbookDropdown";
             tsbRunbookDropdown.Size         = new Size(102, 22);
-            tsbRunbookDropdown.Text         = "?? (no runbook)";
+            tsbRunbookDropdown.Text         = "(no runbook)";
             tsbRunbookDropdown.ToolTipText  = "Select runbook to run";
 
             tsbRunStart.DisplayStyle = ToolStripItemDisplayStyle.Text;
@@ -590,7 +590,7 @@ namespace Wally.Forms
             tsbRunStart.ForeColor    = Color.FromArgb(100, 200, 130);
             tsbRunStart.Name         = "tsbRunStart";
             tsbRunStart.Size         = new Size(44, 22);
-            tsbRunStart.Text         = "? Run";
+            tsbRunStart.Text         = "Run";
             tsbRunStart.ToolTipText  = "Run selected runbook";
 
             tsbRunStop.DisplayStyle = ToolStripItemDisplayStyle.Text;
@@ -599,7 +599,7 @@ namespace Wally.Forms
             tsbRunStop.ForeColor    = Color.FromArgb(200, 150, 150);
             tsbRunStop.Name         = "tsbRunStop";
             tsbRunStop.Size         = new Size(51, 22);
-            tsbRunStop.Text         = "? Stop";
+            tsbRunStop.Text         = "Stop";
             tsbRunStop.ToolTipText  = "Stop running runbook";
 
             // ?? editorsToolStrip ??????????????????????????????????????????????
@@ -621,7 +621,7 @@ namespace Wally.Forms
             tsbEditActors.ForeColor    = Color.FromArgb(228, 228, 233);
             tsbEditActors.Name         = "tsbEditActors";
             tsbEditActors.Size         = new Size(58, 22);
-            tsbEditActors.Text         = "?? Actors";
+            tsbEditActors.Text         = "Actors";
             tsbEditActors.ToolTipText  = "Open Actor Editor";
 
             tsbConfig.DisplayStyle = ToolStripItemDisplayStyle.Text;
@@ -629,7 +629,7 @@ namespace Wally.Forms
             tsbConfig.ForeColor    = Color.FromArgb(228, 228, 233);
             tsbConfig.Name         = "tsbConfig";
             tsbConfig.Size         = new Size(61, 22);
-            tsbConfig.Text         = "? Config";
+            tsbConfig.Text         = "Config";
             tsbConfig.ToolTipText  = "Open Workspace Configuration";
 
             tsbLogs.DisplayStyle = ToolStripItemDisplayStyle.Text;
@@ -637,7 +637,7 @@ namespace Wally.Forms
             tsbLogs.ForeColor    = Color.FromArgb(161, 161, 170);
             tsbLogs.Name         = "tsbLogs";
             tsbLogs.Size         = new Size(48, 22);
-            tsbLogs.Text         = "?? Logs";
+            tsbLogs.Text         = "Logs";
             tsbLogs.ToolTipText  = "Open Session Log Viewer";
 
             tsEdSep1.Name = "tsEdSep1";
@@ -648,7 +648,7 @@ namespace Wally.Forms
             tsbClearChat.ForeColor    = Color.FromArgb(161, 161, 170);
             tsbClearChat.Name         = "tsbClearChat";
             tsbClearChat.Size         = new Size(76, 22);
-            tsbClearChat.Text         = "?? Clear Chat";
+            tsbClearChat.Text         = "Clear Chat";
             tsbClearChat.ToolTipText  = "Clear Chat Conversation";
 
             // ????????????????????????????????????????????????????????????????

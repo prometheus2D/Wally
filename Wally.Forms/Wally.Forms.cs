@@ -314,7 +314,7 @@ namespace Wally.Forms
             if (sender is ToolStripMenuItem item && item.Tag is string runbookName)
             {
                 _selectedRunbook        = runbookName;
-                tsbRunbookDropdown.Text = $"?? {runbookName}";
+                tsbRunbookDropdown.Text = runbookName;
                 UpdateRunbookButtons();
             }
         }
