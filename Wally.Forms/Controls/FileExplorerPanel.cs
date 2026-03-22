@@ -188,7 +188,7 @@ namespace Wally.Forms.Controls
                 ContextMenuStrip = _contextMenu,
                 BackColor = WallyTheme.Surface1,
                 ForeColor = WallyTheme.TextPrimary,
-                DrawMode = TreeViewDrawMode.OwnerDrawText
+                DrawMode = TreeViewDrawMode.OwnerDrawAll
             };
             _tree.BeforeExpand += OnBeforeExpand;
             _tree.AfterSelect += OnAfterSelect;
@@ -393,27 +393,72 @@ namespace Wally.Forms.Controls
 
         private void OnDrawNode(object? sender, DrawTreeNodeEventArgs e)
         {
-            if (e.Node == null) return;
+            if (e.Node == null || e.Bounds.IsEmpty) return;
 
+            var g = e.Graphics;
+            var tv = e.Node.TreeView!;
             bool selected = (e.State & TreeNodeStates.Selected) != 0;
 
-            // ?? Background ??
+            // ?? Full-width background ??????????????????????????????????
+            // e.Bounds in OwnerDrawAll is the node's text rect; we need
+            // to fill the entire row from x=0 to the client width.
+            var rowRect = new Rectangle(0, e.Bounds.Y, tv.ClientSize.Width, e.Bounds.Height);
             Color bg = selected ? WallyTheme.Surface3 : WallyTheme.Surface1;
             using (var brush = new SolidBrush(bg))
-                e.Graphics.FillRectangle(brush, e.Bounds);
+                g.FillRectangle(brush, rowRect);
 
-            // ?? Left accent bar on selected ??
+            // ?? Left accent bar on selected ????????????????????????????
             if (selected)
             {
                 using var accent = new SolidBrush(WallyTheme.Accent);
-                e.Graphics.FillRectangle(accent, e.Bounds.X, e.Bounds.Y, 2, e.Bounds.Height);
+                g.FillRectangle(accent, 0, e.Bounds.Y, 2, e.Bounds.Height);
             }
 
-            // ?? Text ??
+            // ?? Expand / collapse glyph ????????????????????????????????
+            int indent = e.Node.Level * tv.Indent + 4;
+            if (e.Node.Nodes.Count > 0)
+            {
+                int glyphX = indent;
+                int glyphY = e.Bounds.Y + (e.Bounds.Height - 8) / 2;
+                using var glyphPen = new Pen(WallyTheme.TextMuted, 1.5f);
+                if (e.Node.IsExpanded)
+                {
+                    // ? down chevron
+                    g.DrawLine(glyphPen, glyphX, glyphY + 2, glyphX + 4, glyphY + 6);
+                    g.DrawLine(glyphPen, glyphX + 4, glyphY + 6, glyphX + 8, glyphY + 2);
+                }
+                else
+                {
+                    // ? right chevron
+                    g.DrawLine(glyphPen, glyphX + 2, glyphY, glyphX + 6, glyphY + 4);
+                    g.DrawLine(glyphPen, glyphX + 6, glyphY + 4, glyphX + 2, glyphY + 8);
+                }
+            }
+
+            int iconX = indent + 14;
+
+            // ?? Icon from ImageList ????????????????????????????????????
+            if (tv.ImageList != null)
+            {
+                string key = selected
+                    ? (e.Node.SelectedImageKey ?? e.Node.ImageKey ?? "")
+                    : (e.Node.ImageKey ?? "");
+                int imgIdx = string.IsNullOrEmpty(key) ? -1 : tv.ImageList.Images.IndexOfKey(key);
+                if (imgIdx >= 0)
+                {
+                    int imgY = e.Bounds.Y + (e.Bounds.Height - tv.ImageList.ImageSize.Height) / 2;
+                    tv.ImageList.Draw(g, iconX, imgY, imgIdx);
+                }
+            }
+
+            int textX = iconX + 20;
+
+            // ?? Text ???????????????????????????????????????????????????
             Color fg = selected ? WallyTheme.TextPrimary : WallyTheme.TextSecondary;
-            TextRenderer.DrawText(e.Graphics, e.Node.Text, e.Node.TreeView!.Font,
-                new Rectangle(e.Bounds.X + 4, e.Bounds.Y, e.Bounds.Width - 4, e.Bounds.Height),
-                fg, TextFormatFlags.VerticalCenter | TextFormatFlags.Left | TextFormatFlags.NoPrefix);
+            var textRect = new Rectangle(textX, e.Bounds.Y, tv.ClientSize.Width - textX, e.Bounds.Height);
+            TextRenderer.DrawText(g, e.Node.Text, tv.Font,
+                textRect, fg,
+                TextFormatFlags.VerticalCenter | TextFormatFlags.Left | TextFormatFlags.NoPrefix);
         }
 
         private void OnExpandWally(object? sender, EventArgs e)
