@@ -15,7 +15,7 @@ The current Wally architecture executes single-shot and pre-scripted work well b
 
 1. **No async execution path** — `LLMWrapper.Execute` blocks the calling thread for the full LLM call duration. `ChatPanel` works around it with `Task.Run`, which is not genuinely async and splits cancellation handling. **Status: ? COMPLETE — `ExecuteAsync` at all layers, sync wrappers, `ConfigureAwait(false)`, end-to-end cancellation with `process.Kill`**
 2. **No autonomy loop** — there is no plan?act?observe?re-plan cycle. `WallyPipeline` runs N steps and stops. `MaxIterations` is declared in `WallyConfig` but never consumed. **Status: ?? Not Started (now UNBLOCKED by #1)**
-3. **Mailbox system is inert** — `Inbox/Outbox/Pending/Active` folders exist for every actor but no code processes or routes messages. **Status: ? Partial — `send_message` delivers to Inbox; `process-mailboxes` and `route-outbox` commands not yet implemented (now UNBLOCKED by #1)**
+3. **Mailbox system is inert** — `Inbox/Outbox/Pending/Active` folders exist for every actor but no code processes or routes messages. **Status: ? Partial — `send_message` writes to Outbox; `process-mailboxes` and `route-outbox` commands not yet implemented (now UNBLOCKED by #1)**
 
 ---
 

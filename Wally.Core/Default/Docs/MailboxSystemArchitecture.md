@@ -8,13 +8,13 @@
 
 ## Core Principle
 
-Every actor owns a private, file-based mailbox — folders on disk that define the lifecycle of a message. No actor may directly invoke another. All cross-actor communication flows through the mailbox: an actor emits a `send_message` action block; `ActionDispatcher` writes the message file into the target's `Inbox/`; system commands process inboxes and route responses.
+Every actor owns a private, file-based mailbox — folders on disk that define the lifecycle of a message. No actor may directly invoke another. All cross-actor communication flows through the mailbox with **one delivery path**: messages are written to the sender's Outbox, then `route-outbox` delivers them to the recipient's Inbox.
 
 | Benefit | Detail |
 |---------|--------|
 | Decoupling | Actor A has no compile-time or runtime reference to Actor B |
 | Auditability | Every message is a file on disk; the full chain is inspectable at any time |
-| Simplicity | Two commands complete the entire lifecycle: `process-mailboxes` + `route-outbox` |
+| Simplicity | One delivery path: Outbox ? `route-outbox` ? Inbox |
 | Human control | Processing only happens when explicitly triggered — no background automation |
 
 ---
@@ -25,8 +25,8 @@ Each actor's directory contains four mailbox folders:
 
 ```
 .wally/Actors/<ActorName>/
-    Inbox/      — unprocessed messages waiting for the actor
-    Outbox/     — actor's responses waiting to be routed
+    Inbox/      — messages waiting for this actor to read
+    Outbox/     — messages this actor wants to send
     Active/     — reserved for future use
     Pending/    — reserved for future use
 ```
@@ -37,10 +37,34 @@ All four folders are created by `WallyHelper.CreateMailboxFolders` and are guara
 
 | Folder | Written by | Deleted by | Purpose |
 |--------|-----------|------------|---------|
-| **Inbox/** | `send_message` action or `route-outbox` command | `process-mailboxes` command | Messages waiting to be processed by the actor |
-| **Outbox/** | `process-mailboxes` command | `route-outbox` command | Actor's responses waiting to be delivered to recipients |
+| **Inbox/** | `route-outbox` command only | `process-mailboxes` command | Messages waiting to be read by the actor |
+| **Outbox/** | `send_message` action | `route-outbox` command | Messages the actor wants to send to others |
 | **Active/** | — | — | Reserved for future mid-processing state |
 | **Pending/** | — | — | Reserved for future error recovery |
+
+---
+
+## One Delivery Path
+
+All messages follow the same path. No exceptions.
+
+```
+Actor emits send_message action
+  ? Written to sender's Outbox/
+
+wally route-outbox
+  ? Parses to: field from YAML front-matter
+  ? Copies to target actor's Inbox/
+  ? Deletes Outbox/ original
+
+wally process-mailboxes
+  ? Reads actor's Inbox/ messages
+  ? Feeds to actor as prompt
+  ? Actor responds (may emit send_message ? goes to their Outbox/)
+  ? Deletes processed Inbox/ files
+```
+
+There is no direct-to-inbox delivery. `route-outbox` is the **only** mechanism that writes to any actor's Inbox.
 
 ---
 
@@ -49,9 +73,6 @@ All four folders are created by `WallyHelper.CreateMailboxFolders` and are guara
 Every message is a Markdown file with YAML front-matter.
 
 **File naming**: `{timestamp}_{correlationId}_{subject}.md`
-- `timestamp`: UTC ISO-8601, e.g. `2024-01-15T14:30:00.000Z`
-- `correlationId`: Short UUID (8 chars), e.g. `a1b2c3d4`
-- `subject`: Topic, e.g. `RequirementsReview`
 
 **File content**:
 
@@ -67,70 +88,27 @@ status: new
 ---
 
 Please review the following proposal for business alignment...
-[message body — free-text Markdown]
 ```
 
 **Front-matter fields**:
 
 | Field | Required | Description |
 |-------|----------|-------------|
-| `from` | Yes | Sending actor name (must match a loaded actor) |
+| `from` | Yes | Sending actor name |
 | `to` | Yes | Target actor name; comma-separated for multiple recipients |
 | `subject` | Yes | Short description; used in file name and logs |
-| `replyTo` | No | Actor name that should receive the response; defaults to `from` |
-| `correlationId` | No | Opaque string linking messages in a chain; auto-generated if absent |
-| `timestamp` | No | ISO-8601 UTC timestamp; auto-generated |
+| `replyTo` | No | Actor to receive response; defaults to `from` |
+| `correlationId` | No | Links related messages; auto-generated |
+| `timestamp` | No | ISO-8601 UTC; auto-generated |
 | `status` | No | Message status; defaults to `new` |
-
----
-
-## Message Lifecycle
-
-### Two Commands, Complete Lifecycle
-
-```
-1. Message arrives in actor's Inbox/
-   (via send_message action OR via route-outbox delivery)
-
-2. wally process-mailboxes
-   For each actor with Inbox/ messages:
-     ? Read all .md files from Inbox/
-     ? Concatenate as prompt: "You have N message(s). Review and respond."
-     ? Call ExecuteActorAsync with the prompt
-     ? ActionDispatcher processes response (any send_message actions ? direct delivery)
-     ? Save actor's full response as Outbox/ message (to: original sender)
-     ? Delete processed Inbox/ files
-
-3. wally route-outbox
-   For each actor's Outbox/:
-     ? Read each .md file
-     ? Parse to: field from YAML front-matter
-     ? Copy to each target actor's Inbox/
-     ? Delete Outbox/ original
-```
-
-### Two Delivery Paths
-
-| Path | Mechanism | When |
-|------|-----------|------|
-| **Direct delivery** | `send_message` action in LLM response | Actor explicitly sends a message during any prompt |
-| **Response routing** | `route-outbox` command | System moves actor's response back to the original sender |
-
-Both paths write to the target's `Inbox/`. Both use the same YAML front-matter format.
-
-### Error Handling
-
-- `process-mailboxes` failure: Inbox files stay in place (not deleted), error logged, processing continues to next actor
-- `route-outbox` failure (invalid recipient): Outbox file stays in place, warning logged
-- No messages to process: Actor skipped silently
 
 ---
 
 ## `send_message` Action
 
-Every actor with mailbox capability declares this action. `ActionDispatcher` resolves the target actor's `Inbox/` path and validates the actor is loaded before writing.
+Emitted by an actor in their LLM response. Writes to the **sending actor's own Outbox**.
 
-**Action block format** (emitted by the LLM in a response):
+**Action block format**:
 
 ```action
 name: send_message
@@ -139,14 +117,13 @@ subject: FeasibilityCheck
 replyTo: Engineer
 body: |
   Please review the attached proposal for business alignment.
-  Specifically assess whether the scope matches the original requirements.
 ```
 
 **Dispatcher behaviour**:
-1. Validates `to` actor exists in loaded workspace ? error result if not
+1. Validates `to` actor exists ? error if not
 2. Generates `correlationId` and `timestamp`
-3. Writes message file to target actor's `Inbox/`
-4. Returns `? Message sent to {to}` on success
+3. Writes message file to **sender's Outbox/** (not target's Inbox)
+4. Returns confirmation
 
 ---
 
@@ -160,11 +137,10 @@ wally process-mailboxes
 
 For each actor with Inbox messages:
 1. Read all `.md` files from Inbox
-2. Build prompt with all message contents
+2. Concatenate as prompt with header
 3. Call `ExecuteActorAsync` — actor responds naturally
-4. Response dispatched through `ActionDispatcher` (handles any `send_message` actions)
-5. Save full response as Outbox message (to: original sender via `replyTo`/`from`)
-6. Delete processed Inbox files
+4. Response dispatched through `ActionDispatcher` (any `send_message` actions ? actor's Outbox)
+5. Delete processed Inbox files
 
 ### `route-outbox`
 
@@ -175,35 +151,16 @@ wally route-outbox
 For each actor's Outbox folder:
 1. Read each `.md` file
 2. Parse `to:` from YAML front-matter
-3. Copy file to target actor's `Inbox/` (for each recipient if comma-separated)
+3. Copy to target actor's `Inbox/` (each recipient if comma-separated)
 4. Delete Outbox original
 
 ### Runbook Usage
 
 ```wrb
-# Full mailbox processing cycle
+# Full mailbox cycle
 process-mailboxes
 route-outbox
 ```
-
-```wrb
-# Multiple rounds
-process-mailboxes
-route-outbox
-process-mailboxes
-route-outbox
-```
-
----
-
-## Actor Mailbox Policies
-
-| Actor | Typically Sends To | Typically Receives From |
-|-------|-------------------|------------------------|
-| `Engineer` | `BusinessAnalyst`, `RequirementsExtractor` | `BusinessAnalyst`, `Stakeholder` |
-| `BusinessAnalyst` | `Engineer`, `Stakeholder`, `RequirementsExtractor` | `Engineer`, `Stakeholder`, `RequirementsExtractor` |
-| `RequirementsExtractor` | `BusinessAnalyst`, `Engineer` | `Stakeholder`, `BusinessAnalyst` |
-| `Stakeholder` | `BusinessAnalyst` | `BusinessAnalyst` |
 
 ---
 
@@ -211,25 +168,24 @@ route-outbox
 
 | Component | Responsibility |
 |-----------|----------------|
-| `ActionDispatcher` | Validates `send_message` actor, writes message to target Inbox |
-| `WallyCommands.HandleProcessMailboxes` | Reads Inbox ? prompts actor ? saves Outbox ? deletes Inbox |
-| `WallyCommands.HandleRouteOutbox` | Reads Outbox ? parses `to:` ? copies to target Inbox ? deletes Outbox |
+| `ActionDispatcher.ExecuteSendMessage` | Writes `send_message` to **sender's Outbox** |
+| `WallyCommands.HandleProcessMailboxes` | Reads Inbox ? prompts actor ? deletes Inbox |
+| `WallyCommands.HandleRouteOutbox` | Reads Outbox ? copies to target Inbox ? deletes Outbox |
 | `Mailbox/MailboxHelper` | Parses YAML front-matter fields from message files |
 | `WallyHelper` | Creates and validates mailbox folder structure |
-| `WallyWorkspace` | Calls `EnsureAllMailboxFolders` on every load |
 
 ---
 
 ## Patterns
 
-**? Pattern**: Use simple sequential processing — `process-mailboxes` then `route-outbox`.
-**? Anti-pattern**: Automatic/daemon processing — keep human in control of when mailboxes are processed.
-
-**? Pattern**: Message body is free-text Markdown; structured routing data goes in YAML front-matter only.
-**? Anti-pattern**: Message body contains structured key-value parameters beyond the front-matter.
+**? Pattern**: One delivery path — Outbox ? `route-outbox` ? Inbox.
+**? Anti-pattern**: Writing directly to another actor's Inbox — bypasses routing.
 
 **? Pattern**: All inbox messages concatenated into one prompt — actor sees everything at once.
-**? Anti-pattern**: Per-message LLM calls — slow, expensive, and loses cross-message context.
+**? Anti-pattern**: Per-message LLM calls — slow, expensive, loses cross-message context.
+
+**? Pattern**: Message body is free-text Markdown; routing data in YAML front-matter only.
+**? Anti-pattern**: Structured parameters in message body.
 
 **? Pattern**: Inbox files only deleted after successful processing.
 **? Anti-pattern**: Delete-then-process — data loss on failure.
@@ -241,18 +197,18 @@ route-outbox
 | Observable | Location | Meaning |
 |------------|----------|---------|
 | Files in `Inbox/` | `Actors/<Name>/Inbox/` | Unprocessed messages — run `process-mailboxes` |
-| Files in `Outbox/` | `Actors/<Name>/Outbox/` | Undelivered responses — run `route-outbox` |
-| Files in `Active/` | `Actors/<Name>/Active/` | (Reserved — should be empty in v1) |
-| Files in `Pending/` | `Actors/<Name>/Pending/` | (Reserved — should be empty in v1) |
+| Files in `Outbox/` | `Actors/<Name>/Outbox/` | Undelivered messages — run `route-outbox` |
+| Files in `Active/` | `Actors/<Name>/Active/` | Should be empty in v1 |
+| Files in `Pending/` | `Actors/<Name>/Pending/` | Should be empty in v1 |
 
 ---
 
 ## Design Principles
 
-1. **File is the unit of communication** — no in-memory message queues.
-2. **Every message is addressable by file path** — no opaque IDs in the routing layer.
-3. **`send_message` is the only cross-actor invocation mechanism** — no direct actor-to-actor calls.
-4. **Two commands, complete lifecycle** — `process-mailboxes` + `route-outbox`.
-5. **Human-triggered processing** — no daemon mode, no automatic processing.
-6. **Error-safe** — files only deleted after successful processing/delivery.
+1. **One delivery path** — Outbox ? `route-outbox` ? Inbox. Always.
+2. **File is the unit of communication** — no in-memory queues.
+3. **`send_message` writes to sender's Outbox** — never directly to another actor's Inbox.
+4. **Two commands complete the lifecycle** — `process-mailboxes` + `route-outbox`.
+5. **Human-triggered** — no daemon mode, no automatic processing.
+6. **Error-safe** — files only deleted after success.
 7. **`correlationId` provides traceability** — across message chains.

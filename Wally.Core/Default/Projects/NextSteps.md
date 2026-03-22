@@ -56,35 +56,36 @@ Existing single-shot and pipeline paths must remain unchanged.
 
 ### Priority 1 (parallel): Implement MailboxProtocolProposal (remaining work)
 
-**Why**: Also unblocked by async completion. `send_message` is already implemented; remaining work is two new Wally commands.
+**Why**: Also unblocked by async completion. `send_message` needs one change (write to sender's Outbox instead of target's Inbox), plus two new commands.
 
-**Scope**: Two commands that complete the mailbox lifecycle:
-1. `process-mailboxes` — Read each actor's Inbox ? feed to actor as prompt ? save response to Outbox ? delete Inbox originals
-2. `route-outbox` — Read each actor's Outbox ? parse `to:` YAML field ? copy to target Inbox ? delete Outbox originals
+**Scope**: One delivery path — Outbox ? `route-outbox` ? Inbox:
+1. Change `send_message` — write to sender's Outbox instead of target's Inbox
+2. `process-mailboxes` — Read each actor's Inbox ? feed to actor as prompt ? actor responds (send_message goes to Outbox) ? delete Inbox originals
+3. `route-outbox` — Read each actor's Outbox ? parse `to:` YAML field ? copy to target Inbox ? delete Outbox originals
 
 **Files to modify/create**:
-1. `Wally.Core/Mailbox/MailboxHelper.cs` (new) — YAML front-matter parser for `to:`, `from:`, `replyTo:`, `subject:` fields
-2. `Wally.Core/WallyCommands.cs` — Add `process-mailboxes` and `route-outbox` verbs + handler methods
+1. `Wally.Core/ActionDispatcher.cs` — Change `ExecuteSendMessage` to write to sender's Outbox
+2. `Wally.Core/Mailbox/MailboxHelper.cs` (new) — YAML front-matter parser for `to:`, `from:`, `replyTo:`, `subject:` fields
+3. `Wally.Core/WallyCommands.cs` — Add `process-mailboxes` and `route-outbox` verbs + handler methods
 
 **Key design constraints** (from proposal):
-- Parse existing YAML front-matter format from `send_message` — do not change the format
-- Inbox files only deleted after successful processing (error = files stay in place)
+- One delivery path: `send_message` ? sender's Outbox ? `route-outbox` ? target's Inbox
+- Inbox files only deleted after successful processing (error = files stay)
 - Outbox files only deleted after successful delivery to all recipients
 - Multiple recipients via comma-separated `to:` field
-- Actor responses dispatched through `ActionDispatcher` (handles `send_message` actions in response)
-- One outbox response per unique `replyTo`/`from` sender when actor has multiple inbox messages
+- Actor responses dispatched through `ActionDispatcher` (send_message actions ? actor's Outbox)
 
 **Suggested prompt**:
 ```
-Implement the remaining MailboxProtocolProposal work. Read the proposal at 
+Implement the MailboxProtocolProposal. Read the proposal at 
 Wally.Core/Default/Projects/Proposals/MailboxProtocolProposal.md. 
-send_message is already implemented in ActionDispatcher.ExecuteSendMessage 
-using YAML front-matter format. Implement: (1) MailboxHelper.cs to parse 
-YAML front-matter fields, (2) process-mailboxes command in WallyCommands 
-that reads Inbox ? prompts actor ? saves response to Outbox ? deletes 
-Inbox, (3) route-outbox command that reads Outbox ? parses to: field ? 
-copies to target Inbox ? deletes Outbox. No MailboxRouter, no 
-MailboxWatcher, no daemon mode — just two simple commands.
+Change send_message in ActionDispatcher.ExecuteSendMessage to write to 
+the sending actor's own Outbox instead of the target's Inbox. 
+Implement MailboxHelper.cs to parse YAML front-matter fields. 
+Add process-mailboxes command (reads Inbox ? prompts actor ? deletes 
+Inbox) and route-outbox command (reads Outbox ? copies to target 
+Inbox ? deletes Outbox). One delivery path: Outbox ? route-outbox ? 
+Inbox. No direct-to-inbox delivery.
 ```
 
 ---

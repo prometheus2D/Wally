@@ -46,13 +46,13 @@ flowchart LR
 6. ~~TEST~~ — ? Async execution works in ChatPanel; console behavior unchanged
 
 ### Phase 2: Mailbox Protocol — `process-mailboxes` + `route-outbox`
-1. CREATE `Wally.Core/Mailbox/MailboxHelper.cs` — Simple YAML front-matter parser: extract `to:`, `from:`, `replyTo:`, `subject:`, `correlationId:` fields from message files
-2. MODIFY `Wally.Core/WallyCommands.cs` — Add `process-mailboxes` and `route-outbox` verbs to `DispatchCommand` switch + `_knownVerbs` array
-3. MODIFY `Wally.Core/WallyCommands.cs` — Add `HandleProcessMailboxes`: iterate actors ? read Inbox ? build prompt ? `ExecuteActorAsync` ? dispatch actions ? save response to Outbox ? delete Inbox originals
-4. MODIFY `Wally.Core/WallyCommands.cs` — Add `HandleRouteOutbox`: iterate actors ? read Outbox ? parse `to:` ? copy to target Inbox ? delete Outbox originals
-5. ~~MODIFY `Wally.Core/ActionDispatcher.cs`~~ — ? Already implemented — `ExecuteSendMessage` writes YAML front-matter messages to target actor's Inbox
+1. MODIFY `Wally.Core/ActionDispatcher.cs` — Change `ExecuteSendMessage` to write to **sender's Outbox** instead of target's Inbox
+2. CREATE `Wally.Core/Mailbox/MailboxHelper.cs` — Simple YAML front-matter parser: extract `to:`, `from:`, `replyTo:`, `subject:`, `correlationId:` fields from message files
+3. MODIFY `Wally.Core/WallyCommands.cs` — Add `process-mailboxes` and `route-outbox` verbs to `DispatchCommand` switch + `_knownVerbs` array
+4. MODIFY `Wally.Core/WallyCommands.cs` — Add `HandleProcessMailboxes`: iterate actors ? read Inbox ? build prompt ? `ExecuteActorAsync` ? dispatch actions ? delete Inbox originals
+5. MODIFY `Wally.Core/WallyCommands.cs` — Add `HandleRouteOutbox`: iterate actors ? read Outbox ? parse `to:` ? copy to target Inbox ? delete Outbox originals
 6. CREATE example runbook: `process-mailboxes` then `route-outbox`
-7. TEST: Verify full cycle — send_message ? process-mailboxes ? route-outbox ? message arrives in target Inbox
+7. TEST: Verify full cycle — send_message ? route-outbox ? process-mailboxes ? route-outbox
 
 ### Phase 3: Documentation Workflow Automation
 1. CREATE `Wally.Core/Default/Loops/DocumentationReflection.json` — Loop definition with convergence detection
@@ -103,6 +103,7 @@ flowchart LR
 | ~~Add async methods to WallyEnvironment~~ | Phase 1 | High | ? Complete | @lead-engineer | 2025-07-15 | `ExecutePromptAsync` + `ExecuteActorAsync` |
 | ~~Add HandleRunTypedAsync to WallyCommands~~ | Phase 1 | High | ? Complete | @lead-engineer | 2025-07-15 | With `TextWriter? output` parameter |
 | ~~Update ChatPanel to use direct await~~ | Phase 1 | Medium | ? Complete | @lead-engineer | 2025-07-15 | No `Task.Run` — direct `await` |
+| Change `send_message` to write to sender's Outbox | Phase 2 | High | ?? Not Started | @lead-engineer | TBD | Currently writes to target's Inbox |
 | Create MailboxHelper YAML parser | Phase 2 | High | ?? Not Started | @lead-engineer | TBD | Extract `to:`, `from:`, `replyTo:` fields |
 | Implement `process-mailboxes` command | Phase 2 | High | ?? Not Started | @lead-engineer | TBD | Read Inbox ? prompt ? Outbox ? delete |
 | Implement `route-outbox` command | Phase 2 | High | ?? Not Started | @lead-engineer | TBD | Parse `to:` ? copy to Inbox ? delete |
@@ -118,11 +119,11 @@ flowchart LR
 
 ### Must Have (Required for Completion)
 - [x] Async execution works without blocking UI thread
-- [ ] `process-mailboxes` reads Inbox ? prompts actor ? saves Outbox ? deletes Inbox
+- [ ] `send_message` writes to sender's Outbox (not target's Inbox)
+- [ ] `process-mailboxes` reads Inbox ? prompts actor ? deletes Inbox on success
 - [ ] `route-outbox` reads Outbox ? parses `to:` ? copies to target Inbox ? deletes Outbox
-- [ ] Mailbox protocol enables file-based actor communication using existing YAML format
+- [ ] One delivery path: Outbox ? `route-outbox` ? Inbox
 - [ ] Documentation workflow automates reflection and task creation
-- [ ] All integration tests pass for new functionality
 - [x] Console behavior remains unchanged for single-user operations
 - [x] Cancellation propagates end-to-end to LLM processes
 
