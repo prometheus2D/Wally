@@ -11,7 +11,10 @@ This folder contains proposals that are currently being developed, under review,
 | [AutonomyLoopProposal.md](./AutonomyLoopProposal.md) | Draft | Medium | @engineer | Self-sustaining autonomy loop implementation |
 | [ChatDefaultsManagerProposal.md](./ChatDefaultsManagerProposal.md) | Draft | Low | @ui-engineer | Chat interface defaults management |
 | [DocumentationWorkflowProposal.md](./DocumentationWorkflowProposal.md) | Draft | Medium | @architect | Automated documentation workflow for actors |
+| [EnhancedTextEditorAndRunbookLanguageProposal.md](./EnhancedTextEditorAndRunbookLanguageProposal.md) | Draft | High | @architect | Parent: professional text editor + runbook scripting language |
 | [MailboxProtocolProposal.md](./MailboxProtocolProposal.md) | Draft | High | @engineer | Actor-to-actor communication protocol |
+| [RunbookScriptingLanguageProposal.md](./RunbookScriptingLanguageProposal.md) | Draft | High | @developer | WallyScript: variables, loops, conditionals, orchestration for `.wrb` files |
+| [TextEditorIntegrationProposal.md](./TextEditorIntegrationProposal.md) | Draft | High | @frontend | ScintillaNET/alternative editor integration into Wally Forms |
 
 ## Proposal Lifecycle
 

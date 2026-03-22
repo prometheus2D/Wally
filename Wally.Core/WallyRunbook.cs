@@ -7,14 +7,18 @@ namespace Wally.Core
     /// <summary>
     /// A runbook loaded from a <c>.wrb</c> (Wally Runbook) file.
     /// <para>
-    /// Runbooks are plain-text files with one Wally command per line.
-    /// Lines starting with <c>#</c> are comments. Blank lines are ignored.
-    /// The first comment line becomes the <see cref="Description"/>.
+    /// <b>Simple format</b> — one Wally command per line. Lines starting with
+    /// <c>#</c> are comments. Blank lines are ignored.
+    /// </para>
+    /// <para>
+    /// <b>Script format (WallyScript)</b> — detected automatically when the file
+    /// contains WallyScript keywords. Script execution is not yet implemented;
+    /// the format flag is stored so future phases can act on it.
     /// </para>
     /// </summary>
     public class WallyRunbook
     {
-        /// <summary>Name derived from filename without extension (e.g. "setup-and-review").</summary>
+        /// <summary>Name derived from filename without extension.</summary>
         public string Name { get; set; } = string.Empty;
 
         /// <summary>Description extracted from the first non-directive comment line, or empty.</summary>
@@ -23,42 +27,78 @@ namespace Wally.Core
         /// <summary>Absolute path to the <c>.wrb</c> file on disk.</summary>
         public string FilePath { get; set; } = string.Empty;
 
+        /// <summary>
+        /// <c>"simple"</c> or <c>"script"</c>.
+        /// Detected automatically by <see cref="LoadFromFile"/>.
+        /// Script execution is reserved for a future phase.
+        /// </summary>
+        public string Format { get; set; } = "simple";
+
         /// <summary>Parsed command lines (non-comment, non-blank, trimmed).</summary>
         public List<string> Commands { get; set; } = new();
 
         /// <summary>
-        /// When <see langword="false"/> this runbook is skipped during workspace
-        /// load and will not appear in any dropdown or be selectable by name.
-        /// <para>
-        /// Set via a comment directive in the <c>.wrb</c> file:
-        /// <code># enabled: false</code>
-        /// Any other value or the absence of the directive is treated as enabled.
-        /// </para>
+        /// The full raw source text. Always populated regardless of format.
+        /// Kept for editor display and future script execution.
+        /// </summary>
+        public string RawSource { get; set; } = string.Empty;
+
+        /// <summary>
+        /// When <see langword="false"/> this runbook is skipped during workspace load.
         /// </summary>
         public bool Enabled { get; set; } = true;
 
-        // ?? Loading ???????????????????????????????????????????????????????????
+        // ?? Format detection ??????????????????????????????????????????????
+
+        private static readonly HashSet<string> ScriptKeywords = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "if", "while", "foreach", "function", "parallel", "pipeline", "try", "retry"
+        };
+
+        /// <summary>
+        /// Returns <see langword="true"/> when any line in the source looks like a
+        /// WallyScript statement (not a simple command or comment).
+        /// Detection is line-prefix based and requires no parsing.
+        /// </summary>
+        public static bool DetectScriptFormat(string source)
+        {
+            foreach (string raw in source.Split('\n'))
+            {
+                string line = raw.Trim();
+                if (string.IsNullOrEmpty(line) || line.StartsWith('#')) continue;
+
+                if (line.StartsWith('$')) return true;
+
+                int spaceIdx = line.IndexOf(' ');
+                string word  = spaceIdx > 0 ? line[..spaceIdx] : line;
+                if (ScriptKeywords.Contains(word)) return true;
+            }
+            return false;
+        }
+
+        // ?? Loading ????????????????????????????????????????????????????????
 
         /// <summary>Parses a single <c>.wrb</c> file.</summary>
         public static WallyRunbook LoadFromFile(string filePath)
         {
+            string rawSource = File.ReadAllText(filePath);
+
             var rb = new WallyRunbook
             {
-                Name     = Path.GetFileNameWithoutExtension(filePath),
-                FilePath = Path.GetFullPath(filePath)
+                Name      = Path.GetFileNameWithoutExtension(filePath),
+                FilePath  = Path.GetFullPath(filePath),
+                RawSource = rawSource
             };
 
             bool descriptionSet = false;
 
-            foreach (string rawLine in File.ReadAllLines(filePath))
+            foreach (string rawLine in rawSource.Split('\n'))
             {
-                string line = rawLine.Trim();
-                if (string.IsNullOrEmpty(line))
-                    continue;
+                string line = rawLine.Trim().TrimEnd('\r');
+                if (string.IsNullOrEmpty(line)) continue;
 
                 if (line.StartsWith('#'))
                 {
-                    // Parse directives: lines of the form  "# key: value"
                     string directive = line.TrimStart('#').Trim();
 
                     if (directive.StartsWith("enabled:", StringComparison.OrdinalIgnoreCase))
@@ -70,14 +110,21 @@ namespace Wally.Core
 
                     if (!descriptionSet)
                     {
-                        rb.Description = directive;
-                        descriptionSet = true;
+                        if (!directive.Contains(':'))
+                        {
+                            rb.Description = directive;
+                            descriptionSet = true;
+                        }
                     }
                     continue;
                 }
 
                 rb.Commands.Add(line);
             }
+
+            // Tag format for future scripting support — no AST parsing yet.
+            if (DetectScriptFormat(rawSource))
+                rb.Format = "script";
 
             return rb;
         }

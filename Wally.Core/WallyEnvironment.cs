@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Text.Json.Serialization;
 using System.Threading;
+using System.Threading.Tasks;
 using Wally.Core.Actors;
 using Wally.Core.Logging;
 using Wally.Core.Providers;
@@ -310,11 +311,25 @@ namespace Wally.Core
         // ?? Running actors ?????????????????????????????????????????????????????
 
         /// <summary>
-        /// Executes a prompt directly through the LLM wrapper without any actor
-        /// enrichment. Use this when no actor is specified — the user's prompt is
-        /// sent as-is.
+        /// Synchronous wrapper — delegates to <see cref="ExecutePromptAsync"/>
         /// </summary>
         public string ExecutePrompt(
+            string prompt,
+            string? modelOverride = null,
+            string? wrapperOverride = null,
+            string? loopName = null,
+            int iteration = 0,
+            bool skipHistory = false,
+            CancellationToken cancellationToken = default)
+            => ExecutePromptAsync(prompt, modelOverride, wrapperOverride, loopName, iteration,
+                    skipHistory, cancellationToken)
+                .GetAwaiter().GetResult();
+
+        /// <summary>
+        /// Executes a prompt directly through the LLM wrapper without any actor
+        /// enrichment. Genuinely async — does not block the calling thread.
+        /// </summary>
+        public async Task<string> ExecutePromptAsync(
             string prompt,
             string? modelOverride = null,
             string? wrapperOverride = null,
@@ -343,7 +358,8 @@ namespace Wally.Core
             Logger.LogProcessedPrompt("(no actor)", effectivePrompt, model);
 
             var sw = Stopwatch.StartNew();
-            string response = wrapper.Execute(effectivePrompt, ws.SourcePath, model, Logger, cancellationToken);
+            string response = await wrapper.ExecuteAsync(effectivePrompt, ws.SourcePath, model, Logger, cancellationToken)
+                .ConfigureAwait(false);
             sw.Stop();
 
             bool isError = IsWrapperError(response, wrapper.Name);
@@ -366,18 +382,26 @@ namespace Wally.Core
         }
 
         /// <summary>
-        /// Executes a single actor: Setup ? ProcessPrompt ? LlmWrapper.Execute.
-        /// <para>
-        /// Enforces actor capability constraints:
-        /// <list type="bullet">
-        ///   <item>Wrapper allow-list (<see cref="Actor.AllowedWrappers"/>)</item>
-        ///   <item>Loop allow-list (<see cref="Actor.AllowedLoops"/>)</item>
-        ///   <item>After the LLM responds, scans for action blocks and dispatches
-        ///         only declared <see cref="Actor.Abilities"/>.</item>
-        /// </list>
-        /// </para>
+        /// Synchronous wrapper — delegates to <see cref="ExecuteActorAsync"/>
         /// </summary>
         public string ExecuteActor(
+            Actor actor,
+            string prompt,
+            string? modelOverride = null,
+            string? wrapperOverride = null,
+            string? loopName = null,
+            int iteration = 0,
+            bool skipHistory = false,
+            CancellationToken cancellationToken = default)
+            => ExecuteActorAsync(actor, prompt, modelOverride, wrapperOverride, loopName, iteration,
+                    skipHistory, cancellationToken)
+                .GetAwaiter().GetResult();
+
+        /// <summary>
+        /// Executes a single actor: Setup ? ProcessPrompt ? LlmWrapper.ExecuteAsync.
+        /// Genuinely async — does not block the calling thread.
+        /// </summary>
+        public async Task<string> ExecuteActorAsync(
             Actor actor,
             string prompt,
             string? modelOverride = null,
@@ -417,14 +441,12 @@ namespace Wally.Core
             Logger.LogProcessedPrompt(actor.Name, processed, model);
 
             var sw = Stopwatch.StartNew();
-            string response = wrapper.Execute(processed, ws.SourcePath, model, Logger, cancellationToken);
+            string response = await wrapper.ExecuteAsync(processed, ws.SourcePath, model, Logger, cancellationToken)
+                .ConfigureAwait(false);
             sw.Stop();
 
-            // Process any action blocks in the LLM response
             if (wrapper.CanMakeChanges && !string.IsNullOrEmpty(response))
-            {
                 response = actor.PerformActions(response, ws);
-            }
 
             bool isError = IsWrapperError(response, wrapper.Name);
             History.RecordTurn(new ConversationTurn
