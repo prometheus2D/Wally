@@ -29,7 +29,7 @@ namespace Wally.Forms.Controls
     /// Layout (top ? bottom):
     ///   Header bar        — "AI CHAT — Ask/Agent" title
     ///   Row 1 / Mode bar  — Ask | Agent  ·  ? Clear | ?? History  (plain Buttons, no ToolStrip)
-    ///   Row 2 / Selectors — Actor ?  Loop ?  Runbook ?  Model ?   (wrapping FlowLayoutPanel,
+    ///   Row 2 / Selectors — Actor ?  Loop ?  Model ?   (wrapping FlowLayoutPanel,
     ///                        never produces a ToolStrip overflow chevron)
     ///   Messages area     — scrollable chat bubbles
     ///   Status bar        — ready / running indicator
@@ -56,15 +56,12 @@ namespace Wally.Forms.Controls
         private readonly ContextMenuStrip _mnuActor;
         private readonly Button           _btnLoopDd;
         private readonly ContextMenuStrip _mnuLoop;
-        private readonly Button           _btnRunbookDd;
-        private readonly ContextMenuStrip _mnuRunbook;
         private readonly Button           _btnModelDd;
         private readonly ContextMenuStrip _mnuModel;
 
         // ?? Selected values (raw — never contain the " (default)" suffix) /////
         private string? _selectedActor;
         private string? _selectedLoop;
-        private string? _selectedRunbook;
         private string? _selectedModel;
 
         // Resolved defaults — used to apply / restore the " (default)" label.
@@ -157,7 +154,6 @@ namespace Wally.Forms.Controls
             // ?? Row 2: selector dropdowns ????????????????????????????????????
             (_btnActorDd,   _mnuActor)   = CreateSelectorPair();
             (_btnLoopDd,    _mnuLoop)    = CreateSelectorPair();
-            (_btnRunbookDd, _mnuRunbook) = CreateSelectorPair();
             (_btnModelDd,   _mnuModel)   = CreateSelectorPair();
 
             // Wrapping FlowLayoutPanel — items wrap onto a new line when the
@@ -184,7 +180,6 @@ namespace Wally.Forms.Controls
             }
             AddGroup("Actor",   _btnActorDd);
             AddGroup("Loop",    _btnLoopDd);
-            AddGroup("Runbook", _btnRunbookDd);
             AddGroup("Model",   _btnModelDd);
 
             // The outer panel auto-sizes its height so all wrapped rows are
@@ -461,8 +456,6 @@ namespace Wally.Forms.Controls
 
             _btnActorDd.Enabled   = inputEnabled;
             _btnLoopDd.Enabled    = inputEnabled;
-            _btnRunbookDd.Enabled = runbookOn;
-            _btnRunbookDd.ForeColor = runbookOn ? WallyTheme.TextPrimary : WallyTheme.TextDisabled;
             _btnModelDd.Enabled   = inputEnabled;
 
             if (!_isRunning && _workspaceLoaded)
@@ -553,7 +546,6 @@ namespace Wally.Forms.Controls
             _environment = environment;
             RefreshActorList();
             RefreshLoopList();
-            RefreshRunbookList();
             RefreshModelList();
         }
 
@@ -570,7 +562,6 @@ namespace Wally.Forms.Controls
             _btnActorDd.Enabled      = inputEnabled;
             _btnLoopDd.Enabled       = inputEnabled;
             _btnModelDd.Enabled      = inputEnabled;
-            _btnRunbookDd.Enabled    = inputEnabled && _currentMode == ActionMode.Agent;
             _btnClear.Enabled        = loaded;
             _btnClearHistory.Enabled = loaded;
             _btnSend.Enabled         = inputEnabled;
@@ -692,38 +683,7 @@ namespace Wally.Forms.Controls
             {
                 _selectedLoop = string.Equals(value, "(none)", StringComparison.OrdinalIgnoreCase)
                     ? null : value;
-                if (_selectedLoop != null)
-                {
-                    _selectedRunbook   = null;
-                    _btnRunbookDd.Text = "(none)";
-                    foreach (ToolStripMenuItem mi in _mnuRunbook.Items)
-                        mi.Checked = string.Equals(mi.Text, "(none)", StringComparison.Ordinal);
-                }
             }, defaultValue: _defaultLoop);
-        }
-
-        public void RefreshRunbookList()
-        {
-            if (InvokeRequired) { Invoke(RefreshRunbookList); return; }
-
-            var items = new List<string> { "(none)" };
-            if (_environment?.HasWorkspace == true)
-                items.AddRange(_environment.Runbooks.Select(r => r.Name));
-
-            _selectedRunbook   = null;
-            _btnRunbookDd.Text = "(none)";
-            PopulateSelector(_btnRunbookDd, _mnuRunbook, items, "(none)", value =>
-            {
-                _selectedRunbook = string.Equals(value, "(none)", StringComparison.OrdinalIgnoreCase)
-                    ? null : value;
-                if (_selectedRunbook != null)
-                {
-                    _selectedLoop   = null;
-                    _btnLoopDd.Text = "(none)";
-                    foreach (ToolStripMenuItem mi in _mnuLoop.Items)
-                        mi.Checked = string.Equals(mi.Text, "(none)", StringComparison.Ordinal);
-                }
-            });
         }
 
         public void RefreshModelList()
@@ -847,23 +807,19 @@ namespace Wally.Forms.Controls
 
             string? actorName     = _selectedActor;
             string? loopName      = _selectedLoop;
-            string? runbookName   = _currentMode == ActionMode.Agent ? _selectedRunbook : null;
             string? modelOverride = string.IsNullOrWhiteSpace(_selectedModel) ? null : _selectedModel;
             string? wrapperName   = ResolveWrapperForMode();
 
-            bool hasRunbook = !string.IsNullOrEmpty(runbookName);
             bool directMode = string.IsNullOrEmpty(actorName);
             bool isLooped   = !string.IsNullOrEmpty(loopName);
             string label    = directMode ? "AI" : actorName!;
 
-            string cmdText = hasRunbook
-                ? $"runbook {runbookName} \"{prompt}\""
-                : string.Join(" ",
-                    new List<string>(new[] { "run", $"\"{prompt}\"" })
-                    .Concat(!directMode          ? new[] { $"-a {actorName}" }      : Array.Empty<string>())
-                    .Concat(isLooped             ? new[] { $"-l {loopName}" }       : Array.Empty<string>())
-                    .Concat(modelOverride != null ? new[] { $"-m {modelOverride}" } : Array.Empty<string>())
-                    .Concat(wrapperName   != null ? new[] { $"-w {wrapperName}" }   : Array.Empty<string>()));
+            string cmdText = string.Join(" ",
+                new List<string>(new[] { "run", $"\"{prompt}\"" })
+                .Concat(!directMode          ? new[] { $"-a {actorName}" }      : Array.Empty<string>())
+                .Concat(isLooped             ? new[] { $"-l {loopName}" }       : Array.Empty<string>())
+                .Concat(modelOverride != null ? new[] { $"-m {modelOverride}" } : Array.Empty<string>())
+                .Concat(wrapperName   != null ? new[] { $"-w {wrapperName}" }   : Array.Empty<string>()));
             CommandIssued?.Invoke(this, cmdText);
 
             AddMessage("You", prompt, MessageKind.User);
@@ -873,10 +829,7 @@ namespace Wally.Forms.Controls
 
             _cts = new CancellationTokenSource();
             string modeLabel = _currentMode == ActionMode.Agent ? "Agent" : "Ask";
-            string runLabel  = hasRunbook
-                ? $"{modeLabel}: runbook [{runbookName}]"
-                : isLooped ? $"{modeLabel}: {label} [{loopName}]"
-                           : $"{modeLabel}: {label}";
+            string runLabel  = isLooped ? $"{modeLabel}: {label} [{loopName}]" : $"{modeLabel}: {label}";
             SetRunning(true, runLabel);
 
             try
@@ -964,7 +917,6 @@ namespace Wally.Forms.Controls
             _txtInput.ReadOnly    = !inputEnabled;
             _btnActorDd.Enabled   = inputEnabled;
             _btnLoopDd.Enabled    = inputEnabled;
-            _btnRunbookDd.Enabled = inputEnabled && _currentMode == ActionMode.Agent;
             _btnModelDd.Enabled   = inputEnabled;
             _btnModeAsk.Enabled   = inputEnabled;
             _btnModeAgent.Enabled = inputEnabled;

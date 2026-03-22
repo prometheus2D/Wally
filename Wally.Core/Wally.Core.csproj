@@ -25,6 +25,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Content Update="Default\Projects\Proposals\WorkspaceMemoryImplementationPlan.md" Link="Default\Projects\ImplementationPlans\WorkspaceMemoryImplementationPlan.md" />
+  </ItemGroup>
+
+  <ItemGroup>
     <None Update="Default\Projects\Proposals\ScrollbarAndCommandArgParsingProposal.md">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
