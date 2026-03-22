@@ -59,7 +59,6 @@ namespace Wally.Forms
         private const string TabKeyChatHistory     = "__chat_history__";
         private const string TabKeyPromptViewer    = "__prompt_viewer__";
         private const string TabKeyWorkspaceViewer = "__workspace_viewer__";
-        private const string TabKeyWorkspaceSettings = "__ws_settings__";
         private const string TabKeyUserPrefs       = "__user_prefs__";
 
         // ?? Constructor ??????????????????????????????????????????????????????
@@ -260,7 +259,6 @@ namespace Wally.Forms
             editWrappersMenuItem.Click        += OnEditWrappers;
             editRunbooksMenuItem.Click        += OnEditRunbooks;
             editConfigMenuItem.Click          += OnEditConfig;
-            settingsWorkspaceMenuItem.Click   += OnSettingsWorkspace;
             reloadActorsMenuItem.Click        += OnReloadActors;
             listActorsMenuItem.Click          += OnListActors;
             workspaceInfoMenuItem.Click       += OnWorkspaceInfo;
@@ -316,7 +314,7 @@ namespace Wally.Forms
             if (sender is ToolStripMenuItem item && item.Tag is string runbookName)
             {
                 _selectedRunbook        = runbookName;
-                tsbRunbookDropdown.Text = $"?? {runbookName}";
+                tsbRunbookDropdown.Text = runbookName;
                 UpdateRunbookButtons();
             }
         }
@@ -512,20 +510,19 @@ namespace Wally.Forms
         {
             bool has = _environment.HasWorkspace;
 
-            saveWorkspaceMenuItem.Enabled     = has;
-            closeWorkspaceMenuItem.Enabled    = has;
-            refreshMenuItem.Enabled           = has;
-            showExplorerMenuItem.Enabled      = has;
-            showChatMenuItem.Enabled          = has;
-            settingsWorkspaceMenuItem.Enabled = has;
+            saveWorkspaceMenuItem.Enabled  = has;
+            closeWorkspaceMenuItem.Enabled = has;
+            refreshMenuItem.Enabled        = has;
+            showExplorerMenuItem.Enabled   = has;
+            showChatMenuItem.Enabled       = has;
 
-            tsbSave.Enabled         = has;
-            tsbClose.Enabled        = has;
-            tsbRefresh.Enabled      = has;
-            tsbReloadActors.Enabled = has;
-            tsbInfo.Enabled         = has;
-            tsbVerify.Enabled       = has;
-            tsbRepair.Enabled       = has;
+            tsbSave.Enabled            = has;
+            tsbClose.Enabled           = has;
+            tsbRefresh.Enabled         = has;
+            tsbReloadActors.Enabled    = has;
+            tsbInfo.Enabled            = has;
+            tsbVerify.Enabled          = has;
+            tsbRepair.Enabled          = has;
             tsbRunbookDropdown.Enabled = has;
 
             UpdateRunbookButtons();
@@ -634,22 +631,8 @@ namespace Wally.Forms
 
         // ?? Menu handlers ????????????????????????????????????????????????????
 
-        private void OnSettingsWorkspace(object? sender, EventArgs e) =>
-            OpenWorkspaceSettingsTab();
-
         private void OnSettingsUser(object? sender, EventArgs e) =>
             OpenUserPrefsTab();
-
-        private void OpenWorkspaceSettingsTab()
-        {
-            if (!_environment.HasWorkspace) return;
-            if (_tabHost.SelectTab(TabKeyWorkspaceSettings)) return;
-            var editor = new ConfigEditorPanel();
-            editor.BindEnvironment(_environment);
-            editor.LoadConfig();
-            editor.DirtyChanged += (_, _) => _tabHost.SetTabDirty(TabKeyWorkspaceSettings, editor.IsDirty);
-            _tabHost.OpenTab(TabKeyWorkspaceSettings, "Workspace Settings", "\u2699", editor);
-        }
 
         private void OpenUserPrefsTab()
         {

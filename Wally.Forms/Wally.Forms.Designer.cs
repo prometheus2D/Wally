@@ -67,7 +67,6 @@ namespace Wally.Forms
             editRunbooksMenuItem        = new ToolStripMenuItem();
             workspaceSeparator0         = new ToolStripSeparator();
             editConfigMenuItem          = new ToolStripMenuItem();
-            settingsWorkspaceMenuItem   = new ToolStripMenuItem();
             workspaceSeparator1         = new ToolStripSeparator();
             reloadActorsMenuItem        = new ToolStripMenuItem();
             listActorsMenuItem          = new ToolStripMenuItem();
@@ -151,7 +150,7 @@ namespace Wally.Forms
             menuStrip1.Size     = new Size(1280, 24);
             menuStrip1.TabIndex = 0;
 
-            // ?? File ?????????????????????????????????????????????????????????
+            // ?? File ??????????????????????????????????????????????????????????
             fileToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[]
             {
                 openWorkspaceMenuItem, setupWorkspaceMenuItem,
@@ -205,7 +204,7 @@ namespace Wally.Forms
             settingsUserMenuItem.ForeColor   = Color.FromArgb(228, 228, 233);
             settingsUserMenuItem.Name        = "settingsUserMenuItem";
             settingsUserMenuItem.Size        = new Size(276, 22);
-            settingsUserMenuItem.Text        = "??  &User Preferences";
+            settingsUserMenuItem.Text        = "&User Preferences";
             settingsUserMenuItem.ToolTipText = "Open user-level preferences";
 
             fileSettingsSeparator.Name = "fileSettingsSeparator";
@@ -217,7 +216,7 @@ namespace Wally.Forms
             exitMenuItem.Size         = new Size(276, 22);
             exitMenuItem.Text         = "E&xit";
 
-            // ?? Edit ?????????????????????????????????????????????????????????
+            // ?? Edit ??????????????????????????????????????????????????????????
             // Copy + Select All (text editing) then a separator before Word Wrap
             // (display option). Absorbed the old standalone "Options" menu.
             editToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[]
@@ -253,9 +252,9 @@ namespace Wally.Forms
             wordWrapMenuItem.ShortcutKeys  = Keys.Alt | Keys.Z;
             wordWrapMenuItem.Size          = new Size(180, 22);
             wordWrapMenuItem.Text          = "&Word Wrap";
-            wordWrapMenuItem.ToolTipText   = "Toggle word wrap in editor tabs to avoid horizontal scrollbars";
+            wordWrapMenuItem.ToolTipText   = "Toggle word wrap in editor tabs";
 
-            // ?? View ?????????????????????????????????????????????????????????
+            // ?? View ??????????????????????????????????????????????????????????
             // Panel toggles + Refresh, then viewer-tab openers, then Close All.
             // Absorbed the old "Editors" menu's viewer items.
             viewToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[]
@@ -265,7 +264,7 @@ namespace Wally.Forms
                 viewSeparator2,
                 viewLogsMenuItem, viewChatHistoryMenuItem,
                 viewPromptViewerMenuItem, viewWorkspaceViewerMenuItem,
-                viewSeparator3, closeAllEditorsMenuItem
+                viewSeparator3,       closeAllEditorsMenuItem
             });
             viewToolStripMenuItem.ForeColor = Color.FromArgb(228, 228, 233);
             viewToolStripMenuItem.Name      = "viewToolStripMenuItem";
@@ -311,22 +310,22 @@ namespace Wally.Forms
             viewLogsMenuItem.ForeColor = Color.FromArgb(228, 228, 233);
             viewLogsMenuItem.Name      = "viewLogsMenuItem";
             viewLogsMenuItem.Size      = new Size(205, 22);
-            viewLogsMenuItem.Text      = "??  Session &Logs";
+            viewLogsMenuItem.Text      = "Session &Logs";
 
             viewChatHistoryMenuItem.ForeColor = Color.FromArgb(228, 228, 233);
             viewChatHistoryMenuItem.Name      = "viewChatHistoryMenuItem";
             viewChatHistoryMenuItem.Size      = new Size(205, 22);
-            viewChatHistoryMenuItem.Text      = "??  Chat &History";
+            viewChatHistoryMenuItem.Text      = "Chat &History";
 
             viewPromptViewerMenuItem.ForeColor = Color.FromArgb(228, 228, 233);
             viewPromptViewerMenuItem.Name      = "viewPromptViewerMenuItem";
             viewPromptViewerMenuItem.Size      = new Size(205, 22);
-            viewPromptViewerMenuItem.Text      = "??  &Prompt Viewer";
+            viewPromptViewerMenuItem.Text      = "&Prompt Viewer";
 
             viewWorkspaceViewerMenuItem.ForeColor = Color.FromArgb(228, 228, 233);
             viewWorkspaceViewerMenuItem.Name      = "viewWorkspaceViewerMenuItem";
             viewWorkspaceViewerMenuItem.Size      = new Size(205, 22);
-            viewWorkspaceViewerMenuItem.Text      = "??  &Workspace Viewer";
+            viewWorkspaceViewerMenuItem.Text      = "&Workspace Viewer";
 
             viewSeparator3.Name = "viewSeparator3";
             viewSeparator3.Size = new Size(202, 6);
@@ -336,7 +335,7 @@ namespace Wally.Forms
             closeAllEditorsMenuItem.Size      = new Size(205, 22);
             closeAllEditorsMenuItem.Text      = "Close All &Editors\tCtrl+W";
 
-            // ?? Workspace ????????????????????????????????????????????????????
+            // ?? Workspace ?????????????????????????????????????????????????????
             // Entity editors (Actors/Loops/Wrappers/Runbooks), then Config +
             // Settings, then runtime actions, then diagnostics, then danger zone.
             // Absorbed the old "Editors" entity-editor items and both Settings items.
@@ -345,7 +344,7 @@ namespace Wally.Forms
                 editActorsMenuItem, editLoopsMenuItem,
                 editWrappersMenuItem, editRunbooksMenuItem,
                 workspaceSeparator0,
-                editConfigMenuItem, settingsWorkspaceMenuItem,
+                editConfigMenuItem,
                 workspaceSeparator1,
                 reloadActorsMenuItem, listActorsMenuItem,
                 workspaceSeparator2,
@@ -361,36 +360,32 @@ namespace Wally.Forms
             editActorsMenuItem.ForeColor = Color.FromArgb(228, 228, 233);
             editActorsMenuItem.Name      = "editActorsMenuItem";
             editActorsMenuItem.Size      = new Size(215, 22);
-            editActorsMenuItem.Text      = "??  &Actors…";
+            editActorsMenuItem.Text      = "&Actors…";
 
             editLoopsMenuItem.ForeColor = Color.FromArgb(228, 228, 233);
             editLoopsMenuItem.Name      = "editLoopsMenuItem";
             editLoopsMenuItem.Size      = new Size(215, 22);
-            editLoopsMenuItem.Text      = "?  &Loops…";
+            editLoopsMenuItem.Text      = "&Loops…";
 
             editWrappersMenuItem.ForeColor = Color.FromArgb(228, 228, 233);
             editWrappersMenuItem.Name      = "editWrappersMenuItem";
             editWrappersMenuItem.Size      = new Size(215, 22);
-            editWrappersMenuItem.Text      = "?  &Wrappers…";
+            editWrappersMenuItem.Text      = "&Wrappers…";
 
             editRunbooksMenuItem.ForeColor = Color.FromArgb(228, 228, 233);
             editRunbooksMenuItem.Name      = "editRunbooksMenuItem";
             editRunbooksMenuItem.Size      = new Size(215, 22);
-            editRunbooksMenuItem.Text      = "??  &Runbooks…";
+            editRunbooksMenuItem.Text      = "&Runbooks…";
 
             workspaceSeparator0.Name = "workspaceSeparator0";
             workspaceSeparator0.Size = new Size(212, 6);
 
-            editConfigMenuItem.ForeColor = Color.FromArgb(228, 228, 233);
-            editConfigMenuItem.Name      = "editConfigMenuItem";
-            editConfigMenuItem.Size      = new Size(215, 22);
-            editConfigMenuItem.Text      = "?  &Configuration";
-
-            settingsWorkspaceMenuItem.ForeColor    = Color.FromArgb(228, 228, 233);
-            settingsWorkspaceMenuItem.Name         = "settingsWorkspaceMenuItem";
-            settingsWorkspaceMenuItem.Size         = new Size(215, 22);
-            settingsWorkspaceMenuItem.Text         = "?  &Workspace Settings";
-            settingsWorkspaceMenuItem.ToolTipText  = "Open workspace configuration settings";
+            editConfigMenuItem.ForeColor  = Color.FromArgb(228, 228, 233);
+            editConfigMenuItem.Name       = "editConfigMenuItem";
+            editConfigMenuItem.ShortcutKeys = Keys.Control | Keys.Shift | Keys.C;
+            editConfigMenuItem.Size       = new Size(215, 22);
+            editConfigMenuItem.Text       = "&Configuration";
+            editConfigMenuItem.ToolTipText = "Open workspace configuration (wally-config.json)";
 
             workspaceSeparator1.Name = "workspaceSeparator1";
             workspaceSeparator1.Size = new Size(212, 6);
@@ -419,12 +414,12 @@ namespace Wally.Forms
             verifyWorkspaceMenuItem.Size      = new Size(215, 22);
             verifyWorkspaceMenuItem.Text      = "&Verify Structure";
 
-            repairWorkspaceMenuItem.ForeColor   = Color.FromArgb(228, 228, 233);
-            repairWorkspaceMenuItem.Name        = "repairWorkspaceMenuItem";
+            repairWorkspaceMenuItem.ForeColor    = Color.FromArgb(228, 228, 233);
+            repairWorkspaceMenuItem.Name         = "repairWorkspaceMenuItem";
             repairWorkspaceMenuItem.ShortcutKeys = Keys.Control | Keys.Shift | Keys.R;
-            repairWorkspaceMenuItem.Size        = new Size(215, 22);
-            repairWorkspaceMenuItem.Text        = "&Repair Workspace";
-            repairWorkspaceMenuItem.ToolTipText = "Add any missing workspace folders, mailboxes, and actor components";
+            repairWorkspaceMenuItem.Size         = new Size(215, 22);
+            repairWorkspaceMenuItem.Text         = "&Repair Workspace";
+            repairWorkspaceMenuItem.ToolTipText  = "Add any missing workspace folders, mailboxes, and actor components";
 
             workspaceSeparator3.Name = "workspaceSeparator3";
             workspaceSeparator3.Size = new Size(212, 6);
@@ -454,7 +449,7 @@ namespace Wally.Forms
             toolbarPanel.RowMargin   = new Padding(3, 0, 0, 0);
             toolbarPanel.Size        = new Size(1280, 25);
 
-            // ?? fileToolStrip ????????????????????????????????????????????????
+            // ?? fileToolStrip ?????????????????????????????????????????????????
             fileToolStrip.BackColor = Color.FromArgb(39, 39, 44);
             fileToolStrip.Dock      = DockStyle.None;
             fileToolStrip.ForeColor = Color.FromArgb(228, 228, 233);
@@ -465,29 +460,29 @@ namespace Wally.Forms
             fileToolStrip.Size     = new Size(234, 25);
             fileToolStrip.TabIndex = 0;
 
-            tsbOpen.DisplayStyle     = ToolStripItemDisplayStyle.Text;
-            tsbOpen.Font             = new Font("Segoe UI", 8.25F);
-            tsbOpen.ForeColor        = Color.FromArgb(228, 228, 233);
-            tsbOpen.Name             = "tsbOpen";
-            tsbOpen.Size             = new Size(66, 22);
-            tsbOpen.Text             = "?? Open";
-            tsbOpen.ToolTipText      = "Open Workspace (Ctrl+O)  · Recent workspaces";
+            tsbOpen.DisplayStyle      = ToolStripItemDisplayStyle.Text;
+            tsbOpen.Font              = new Font("Segoe UI", 8.25F);
+            tsbOpen.ForeColor         = Color.FromArgb(228, 228, 233);
+            tsbOpen.Name              = "tsbOpen";
+            tsbOpen.Size              = new Size(55, 22);
+            tsbOpen.Text              = "Open";
+            tsbOpen.ToolTipText       = "Open Workspace (Ctrl+O)  · Recent workspaces";
             tsbOpen.ShowDropDownArrow = true;
 
             tsbSetup.DisplayStyle = ToolStripItemDisplayStyle.Text;
             tsbSetup.Font         = new Font("Segoe UI", 8.25F);
             tsbSetup.ForeColor    = Color.FromArgb(228, 228, 233);
             tsbSetup.Name         = "tsbSetup";
-            tsbSetup.Size         = new Size(56, 22);
-            tsbSetup.Text         = "? Setup";
+            tsbSetup.Size         = new Size(46, 22);
+            tsbSetup.Text         = "Setup";
             tsbSetup.ToolTipText  = "Setup New Workspace (Ctrl+Shift+N)";
 
             tsbSave.DisplayStyle = ToolStripItemDisplayStyle.Text;
             tsbSave.Font         = new Font("Segoe UI", 8.25F);
             tsbSave.ForeColor    = Color.FromArgb(228, 228, 233);
             tsbSave.Name         = "tsbSave";
-            tsbSave.Size         = new Size(49, 22);
-            tsbSave.Text         = "?? Save";
+            tsbSave.Size         = new Size(38, 22);
+            tsbSave.Text         = "Save";
             tsbSave.ToolTipText  = "Save Workspace (Ctrl+S)";
 
             tsFileSep1.Name = "tsFileSep1";
@@ -497,11 +492,11 @@ namespace Wally.Forms
             tsbClose.Font         = new Font("Segoe UI", 8.25F);
             tsbClose.ForeColor    = Color.FromArgb(161, 161, 170);
             tsbClose.Name         = "tsbClose";
-            tsbClose.Size         = new Size(51, 22);
-            tsbClose.Text         = "? Close";
+            tsbClose.Size         = new Size(42, 22);
+            tsbClose.Text         = "Close";
             tsbClose.ToolTipText  = "Close Workspace";
 
-            // ?? workspaceToolStrip ???????????????????????????????????????????
+            // ?? workspaceToolStrip ????????????????????????????????????????????
             workspaceToolStrip.BackColor = Color.FromArgb(39, 39, 44);
             workspaceToolStrip.Dock      = DockStyle.None;
             workspaceToolStrip.ForeColor = Color.FromArgb(228, 228, 233);
@@ -521,16 +516,16 @@ namespace Wally.Forms
             tsbRefresh.Font         = new Font("Segoe UI", 8.25F);
             tsbRefresh.ForeColor    = Color.FromArgb(228, 228, 233);
             tsbRefresh.Name         = "tsbRefresh";
-            tsbRefresh.Size         = new Size(62, 22);
-            tsbRefresh.Text         = "?? Refresh";
+            tsbRefresh.Size         = new Size(51, 22);
+            tsbRefresh.Text         = "Refresh";
             tsbRefresh.ToolTipText  = "Refresh Explorer (F5)";
 
             tsbReloadActors.DisplayStyle = ToolStripItemDisplayStyle.Text;
             tsbReloadActors.Font         = new Font("Segoe UI", 8.25F);
             tsbReloadActors.ForeColor    = Color.FromArgb(228, 228, 233);
             tsbReloadActors.Name         = "tsbReloadActors";
-            tsbReloadActors.Size         = new Size(96, 22);
-            tsbReloadActors.Text         = "? Reload Actors";
+            tsbReloadActors.Size         = new Size(82, 22);
+            tsbReloadActors.Text         = "Reload Actors";
             tsbReloadActors.ToolTipText  = "Reload Actors from Disk (Ctrl+R)";
 
             tsWsSep1.Name = "tsWsSep1";
@@ -540,24 +535,24 @@ namespace Wally.Forms
             tsbInfo.Font         = new Font("Segoe UI", 8.25F);
             tsbInfo.ForeColor    = Color.FromArgb(228, 228, 233);
             tsbInfo.Name         = "tsbInfo";
-            tsbInfo.Size         = new Size(47, 22);
-            tsbInfo.Text         = "? Info";
+            tsbInfo.Size         = new Size(30, 22);
+            tsbInfo.Text         = "Info";
             tsbInfo.ToolTipText  = "Workspace Info";
 
             tsbVerify.DisplayStyle = ToolStripItemDisplayStyle.Text;
             tsbVerify.Font         = new Font("Segoe UI", 8.25F);
             tsbVerify.ForeColor    = Color.FromArgb(228, 228, 233);
             tsbVerify.Name         = "tsbVerify";
-            tsbVerify.Size         = new Size(50, 22);
-            tsbVerify.Text         = "? Verify";
+            tsbVerify.Size         = new Size(40, 22);
+            tsbVerify.Text         = "Verify";
             tsbVerify.ToolTipText  = "Verify Workspace Structure";
 
             tsbRepair.DisplayStyle = ToolStripItemDisplayStyle.Text;
             tsbRepair.Font         = new Font("Segoe UI", 8.25F);
             tsbRepair.ForeColor    = Color.FromArgb(228, 228, 233);
             tsbRepair.Name         = "tsbRepair";
-            tsbRepair.Size         = new Size(56, 22);
-            tsbRepair.Text         = "?? Repair";
+            tsbRepair.Size         = new Size(44, 22);
+            tsbRepair.Text         = "Repair";
             tsbRepair.ToolTipText  = "Repair Workspace — add any missing folders, mailboxes, and actor components (Ctrl+Shift+R)";
 
             tsWsSep2.Name = "tsWsSep2";
@@ -568,11 +563,11 @@ namespace Wally.Forms
             tsbStop.Font         = new Font("Segoe UI", 8.25F, FontStyle.Bold);
             tsbStop.ForeColor    = Color.FromArgb(200, 150, 150);
             tsbStop.Name         = "tsbStop";
-            tsbStop.Size         = new Size(51, 22);
-            tsbStop.Text         = "? Stop";
+            tsbStop.Size         = new Size(36, 22);
+            tsbStop.Text         = "Stop";
             tsbStop.ToolTipText  = "Stop the current running AI or terminal command (Esc)";
 
-            // ?? runbookToolStrip ?????????????????????????????????????????????
+            // ?? runbookToolStrip ??????????????????????????????????????????????
             runbookToolStrip.BackColor = Color.FromArgb(39, 39, 44);
             runbookToolStrip.Dock      = DockStyle.None;
             runbookToolStrip.ForeColor = Color.FromArgb(228, 228, 233);
@@ -587,16 +582,16 @@ namespace Wally.Forms
             tsbRunbookDropdown.Font         = new Font("Segoe UI", 8.25F);
             tsbRunbookDropdown.ForeColor    = Color.FromArgb(228, 228, 233);
             tsbRunbookDropdown.Name         = "tsbRunbookDropdown";
-            tsbRunbookDropdown.Size         = new Size(102, 22);
-            tsbRunbookDropdown.Text         = "?? (no runbook)";
+            tsbRunbookDropdown.Size         = new Size(90, 22);
+            tsbRunbookDropdown.Text         = "(no runbook)";
             tsbRunbookDropdown.ToolTipText  = "Select runbook to run";
 
             tsbRunStart.DisplayStyle = ToolStripItemDisplayStyle.Text;
             tsbRunStart.Font         = new Font("Segoe UI", 8.25F, FontStyle.Bold);
             tsbRunStart.ForeColor    = Color.FromArgb(100, 200, 130);
             tsbRunStart.Name         = "tsbRunStart";
-            tsbRunStart.Size         = new Size(44, 22);
-            tsbRunStart.Text         = "? Run";
+            tsbRunStart.Size         = new Size(32, 22);
+            tsbRunStart.Text         = "Run";
             tsbRunStart.ToolTipText  = "Run selected runbook";
 
             tsbRunStop.DisplayStyle = ToolStripItemDisplayStyle.Text;
@@ -604,11 +599,11 @@ namespace Wally.Forms
             tsbRunStop.Font         = new Font("Segoe UI", 8.25F, FontStyle.Bold);
             tsbRunStop.ForeColor    = Color.FromArgb(200, 150, 150);
             tsbRunStop.Name         = "tsbRunStop";
-            tsbRunStop.Size         = new Size(51, 22);
-            tsbRunStop.Text         = "? Stop";
+            tsbRunStop.Size         = new Size(36, 22);
+            tsbRunStop.Text         = "Stop";
             tsbRunStop.ToolTipText  = "Stop running runbook";
 
-            // ?? editorsToolStrip ?????????????????????????????????????????????
+            // ?? editorsToolStrip ??????????????????????????????????????????????
             editorsToolStrip.BackColor = Color.FromArgb(39, 39, 44);
             editorsToolStrip.Dock      = DockStyle.None;
             editorsToolStrip.ForeColor = Color.FromArgb(228, 228, 233);
@@ -626,24 +621,24 @@ namespace Wally.Forms
             tsbEditActors.Font         = new Font("Segoe UI", 8.25F);
             tsbEditActors.ForeColor    = Color.FromArgb(228, 228, 233);
             tsbEditActors.Name         = "tsbEditActors";
-            tsbEditActors.Size         = new Size(58, 22);
-            tsbEditActors.Text         = "?? Actors";
+            tsbEditActors.Size         = new Size(46, 22);
+            tsbEditActors.Text         = "Actors";
             tsbEditActors.ToolTipText  = "Open Actor Editor";
 
             tsbConfig.DisplayStyle = ToolStripItemDisplayStyle.Text;
             tsbConfig.Font         = new Font("Segoe UI", 8.25F);
             tsbConfig.ForeColor    = Color.FromArgb(228, 228, 233);
             tsbConfig.Name         = "tsbConfig";
-            tsbConfig.Size         = new Size(61, 22);
-            tsbConfig.Text         = "? Config";
-            tsbConfig.ToolTipText  = "Open Workspace Configuration";
+            tsbConfig.Size         = new Size(49, 22);
+            tsbConfig.Text         = "Config";
+            tsbConfig.ToolTipText  = "Open Workspace Configuration (Ctrl+Shift+C)";
 
             tsbLogs.DisplayStyle = ToolStripItemDisplayStyle.Text;
             tsbLogs.Font         = new Font("Segoe UI", 8.25F);
             tsbLogs.ForeColor    = Color.FromArgb(161, 161, 170);
             tsbLogs.Name         = "tsbLogs";
-            tsbLogs.Size         = new Size(48, 22);
-            tsbLogs.Text         = "?? Logs";
+            tsbLogs.Size         = new Size(34, 22);
+            tsbLogs.Text         = "Logs";
             tsbLogs.ToolTipText  = "Open Session Log Viewer";
 
             tsEdSep1.Name = "tsEdSep1";
@@ -653,8 +648,8 @@ namespace Wally.Forms
             tsbClearChat.Font         = new Font("Segoe UI", 8.25F);
             tsbClearChat.ForeColor    = Color.FromArgb(161, 161, 170);
             tsbClearChat.Name         = "tsbClearChat";
-            tsbClearChat.Size         = new Size(76, 22);
-            tsbClearChat.Text         = "?? Clear Chat";
+            tsbClearChat.Size         = new Size(64, 22);
+            tsbClearChat.Text         = "Clear Chat";
             tsbClearChat.ToolTipText  = "Clear Chat Conversation";
 
             // ????????????????????????????????????????????????????????????????
@@ -677,11 +672,11 @@ namespace Wally.Forms
             Controls.Add(contentPanel);
             Controls.Add(toolbarPanel);
             Controls.Add(menuPanel);
-            ForeColor      = Color.FromArgb(228, 228, 233);
-            MainMenuStrip  = menuStrip1;
-            Name           = "WallyForms";
-            StartPosition  = FormStartPosition.CenterScreen;
-            Text           = "Wally — AI Actor Environment";
+            ForeColor     = Color.FromArgb(228, 228, 233);
+            MainMenuStrip = menuStrip1;
+            Name          = "WallyForms";
+            StartPosition = FormStartPosition.CenterScreen;
+            Text          = "Wally — AI Actor Environment";
 
             menuPanel.ResumeLayout(false);
             menuPanel.PerformLayout();
@@ -753,7 +748,6 @@ namespace Wally.Forms
         private ToolStripMenuItem  editRunbooksMenuItem;
         private ToolStripSeparator workspaceSeparator0;
         private ToolStripMenuItem  editConfigMenuItem;
-        private ToolStripMenuItem  settingsWorkspaceMenuItem;
         private ToolStripSeparator workspaceSeparator1;
         private ToolStripMenuItem  reloadActorsMenuItem;
         private ToolStripMenuItem  listActorsMenuItem;
