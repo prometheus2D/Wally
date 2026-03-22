@@ -8,8 +8,8 @@ This folder contains proposals that are currently being developed, under review,
 |----------|--------|----------|-------|-------------|
 | [AutonomousBotGapsProposal.md](./AutonomousBotGapsProposal.md) | In Progress (Phase 1 Complete) | High | @architect | Parent: async ?, autonomy loop + mailbox pending |
 | [AutonomyLoopProposal.md](./AutonomyLoopProposal.md) | Draft (UNBLOCKED) | High | @engineer | Self-driving iteration with stop conditions + feedback modes |
-| [MailboxProtocolProposal.md](./MailboxProtocolProposal.md) | In Progress (Partial, UNBLOCKED) | High | @engineer | Actor-to-actor communication — `send_message` ?; routing/watching pending |
-| [DocumentationWorkflowProposal.md](./DocumentationWorkflowProposal.md) | Draft | Medium | @architect | Automated documentation reflection loop for actors |
+| [MailboxProtocolProposal.md](./MailboxProtocolProposal.md) | In Progress (Partial, UNBLOCKED) | High | @engineer | Actor-to-actor communication — `send_message` ?; routing commands pending |
+| [DocumentationWorkflowProposal.md](./DocumentationWorkflowProposal.md) | Draft (BLOCKED) | Medium | @architect | Automated documentation reflection loop — blocked by autonomy loop + mailbox |
 
 ## Proposal Lifecycle
 
@@ -35,7 +35,7 @@ This folder contains proposals that are currently being developed, under review,
 
 | Proposal | Cancelled | Reason |
 |----------|-----------|--------|
-| RunbookScriptingLanguageProposal | 2025-07-15 | Handled elsewhere; `.wrb` files remain simple command lists |
+| RunbookScriptingLanguageProposal | 2025-07-15 | Handled elsewhere; `.wrb` files remain simple command lists. *(Proposal file was removed; not archived.)* |
 
 ## Guidelines
 

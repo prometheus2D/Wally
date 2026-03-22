@@ -1,7 +1,7 @@
 # Next Steps — Prioritised Work Queue
 
-**Last Updated**: 2025-07-15  
-**Context**: Documentation refactor complete. Mailbox proposal simplified to two commands (`process-mailboxes` + `route-outbox`). No MailboxRouter/Watcher/daemon — just simple Wally commands.
+**Last Updated**: 2025-07-16  
+**Context**: Documentation audit complete. Autonomy loop and mailbox protocol are both unblocked (async dependency satisfied). MailboxProtocolProposal status corrected from "Complete" to "In Progress (Partial)". Implementation plan updated to include all 4 phases.
 
 ---
 
@@ -111,4 +111,4 @@ Inbox. No direct-to-inbox delivery.
 
 | Proposal | Archive Location | Reason |
 |----------|-----------------|--------|
-| RunbookScriptingLanguage | `Archive/CancelledProposals/RunbookScriptingLanguageProposal.md` | Handled elsewhere; `.wrb` files remain simple command lists |
+| RunbookScriptingLanguage | *(not archived — proposal file was removed)* | Handled elsewhere; `.wrb` files remain simple command lists |

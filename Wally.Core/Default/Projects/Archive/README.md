@@ -1,13 +1,12 @@
 # Project Archive
 
-This folder contains completed, cancelled, and archived project documentation.
+This folder contains completed and archived project documentation.
 
 ## Structure
 
 ```
 Archive/
 ??? CompletedProposals/     # Implemented proposals that are now complete
-??? CancelledProposals/     # Proposals that were cancelled or superseded
 ??? ImplementationPlans/    # Completed implementation plans
 ```
 
@@ -26,7 +25,7 @@ Archive/
 
 | Proposal | Cancelled Date | Reason |
 |----------|----------------|--------|
-| RunbookScriptingLanguageProposal.md | 2025-07-15 | Handled elsewhere; `.wrb` files remain simple batch-style command lists |
+| RunbookScriptingLanguageProposal | 2025-07-15 | Handled elsewhere; `.wrb` files remain simple batch-style command lists. *(Proposal file was removed; not archived.)* |
 
 ## Completed Implementation Plans
 
@@ -37,7 +36,6 @@ Archive/
 ## Guidelines
 
 - **Completed Proposals**: Move proposals here when they are fully implemented and validated
-- **Cancelled Proposals**: Move proposals here when they are cancelled, superseded, or rejected
 - **Implementation Plans**: Move completed implementation plans here for historical reference
 
 ## Active Work

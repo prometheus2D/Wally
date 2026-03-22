@@ -1,9 +1,9 @@
 # Mailbox Protocol — Proposal
 
-**Status**: Complete
+**Status**: In Progress (Partial, UNBLOCKED — `send_message` exists; routing commands pending)
 **Author**: System Architecture Team
 **Created**: 2024-01-10
-**Last Updated**: 2025-07-15
+**Last Updated**: 2025-07-16
 
 *Template: [../../Templates/ProposalTemplate.md](../../Templates/ProposalTemplate.md)*
 
@@ -34,7 +34,7 @@ A runbook chains these: `process-mailboxes` then `route-outbox`.
 | Proposal | Relationship | Notes |
 |----------|--------------|-------|
 | [AutonomousBotGapsProposal](./AutonomousBotGapsProposal.md) | Parent | Extracted from parent as Phase 3 |
-| ~~[AsyncExecutionProposal](./AsyncExecutionProposal.md)~~ | Depends on | ? **COMPLETE** — `ExecuteActorAsync` available |
+| ~~[AsyncExecutionProposal](../Archive/CompletedProposals/AsyncExecutionProposal.md)~~ | Depends on | ? **COMPLETE** — `ExecuteActorAsync` available |
 | [AutonomyLoopProposal](./AutonomyLoopProposal.md) | Sibling | Independent; agents can emit `send_message` from within a loop |
 
 ---

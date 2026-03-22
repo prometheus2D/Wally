@@ -3,7 +3,7 @@
 **Status**: In Progress (Phase 1 Complete)
 **Author**: System Architecture Team
 **Created**: 2024-01-10
-**Last Updated**: 2025-07-15
+**Last Updated**: 2025-07-16
 
 *Template: [../../Templates/ProposalTemplate.md](../../Templates/ProposalTemplate.md)*
 
@@ -15,7 +15,7 @@ The current Wally architecture executes single-shot and pre-scripted work well b
 
 1. **No async execution path** — `LLMWrapper.Execute` blocks the calling thread for the full LLM call duration. `ChatPanel` works around it with `Task.Run`, which is not genuinely async and splits cancellation handling. **Status: ? COMPLETE — `ExecuteAsync` at all layers, sync wrappers, `ConfigureAwait(false)`, end-to-end cancellation with `process.Kill`**
 2. **No autonomy loop** — there is no plan?act?observe?re-plan cycle. `WallyPipeline` runs N steps and stops. `MaxIterations` is declared in `WallyConfig` but never consumed. **Status: ?? Not Started (now UNBLOCKED by #1)**
-3. **Mailbox system is inert** — `Inbox/Outbox/Pending/Active` folders exist for every actor but no code processes or routes messages. **Status: ? Partial — `send_message` writes to Outbox; `process-mailboxes` and `route-outbox` commands not yet implemented (now UNBLOCKED by #1)**
+3. **Mailbox system is inert** — `Inbox/Outbox/Pending/Active` folders exist for every actor but no code processes or routes messages. **Status: ? Partial — `send_message` writes to target's Inbox (needs change to write to sender's Outbox per proposal); `process-mailboxes` and `route-outbox` commands not yet implemented (now UNBLOCKED by #1)**
 
 ---
 
@@ -39,7 +39,7 @@ Three independent workstreams delivered in priority order. Each is detailed in i
 
 | Proposal | Relationship | Notes |
 |----------|--------------|-------|
-| ~~[AsyncExecutionProposal](./AsyncExecutionProposal.md)~~ | Child — Phase 1 | ? **COMPLETE** — archived to `../Archive/CompletedProposals/` |
+| ~~[AsyncExecutionProposal](../Archive/CompletedProposals/AsyncExecutionProposal.md)~~ | Child — Phase 1 | ? **COMPLETE** — archived to `../Archive/CompletedProposals/` |
 | [AutonomyLoopProposal](./AutonomyLoopProposal.md) | Child — Phase 2 | Now unblocked — depends on Phase 1 async path |
 | [MailboxProtocolProposal](./MailboxProtocolProposal.md) | Child — Phase 3 | Now unblocked — two commands: `process-mailboxes` + `route-outbox` |
 
