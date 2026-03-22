@@ -1,9 +1,9 @@
 # Enhanced Text Editor & Runbook Language — Proposal
 
-**Status**: Draft
+**Status**: In Progress (Phase 1 Complete)
 **Author**: System Architecture Team
 **Created**: 2024-01-15
-**Last Updated**: 2024-01-16
+**Last Updated**: 2025-07-15
 
 *Template: [../../Templates/ProposalTemplate.md](../../Templates/ProposalTemplate.md)*
 
@@ -28,7 +28,7 @@ Two independent workstreams delivered in priority order. Each is detailed in its
 
 | Phase | Description | Effort | Dependencies |
 |-------|-------------|--------|-------------|
-| 1 | Integrate professional text editor component | 5-7 days | None |
+| 1 | Integrate professional text editor component | 5-7 days | None — ? **COMPLETE** |
 | 2 | Design and implement runbook scripting language | 8-12 days | Async execution complete |
 
 ---
@@ -37,7 +37,7 @@ Two independent workstreams delivered in priority order. Each is detailed in its
 
 | Proposal | Relationship | Notes |
 |----------|--------------|-------|
-| [TextEditorIntegrationProposal](./TextEditorIntegrationProposal.md) | Child — Phase 1 | Editor component research, integration, and panel migration |
+| ~~[TextEditorIntegrationProposal](./TextEditorIntegrationProposal.md)~~ | Child — Phase 1 | ? **COMPLETE** — archived to `../Archive/CompletedProposals/` |
 | [RunbookScriptingLanguageProposal](./RunbookScriptingLanguageProposal.md) | Child — Phase 2 | Language design, parser, execution engine |
 | [AsyncExecutionProposal](./AsyncExecutionProposal.md) | Depended on by | Phase 2 scripting engine requires async execution; **also requires `HandleRunTyped` to accept optional `TextWriter` for parallel output buffering** |
 | [MailboxProtocolProposal](./MailboxProtocolProposal.md) | Depended on by | Phase 2 orchestration patterns use mailbox protocol |
@@ -125,11 +125,11 @@ The following integration scenarios span both phases and must be covered before 
 
 | Task | Priority | Status | Owner | Due Date | Notes |
 |------|----------|--------|-------|----------|-------|
-| Phase 1 editor component research and POC | High | ?? Not Started | @frontend | 2024-01-20 | See child proposal |
+| Phase 1 editor component research and POC | High | ? Complete | @frontend | 2024-01-20 | Scintilla.NET integrated |
 | Phase 2 runbook language design review | High | ?? Not Started | @architect | 2024-01-25 | See child proposal |
 | Validate backward compatibility strategy | Medium | ?? Not Started | @engineer | 2024-01-22 | Existing `.wrb` files unchanged |
-| Establish pre-Phase-1 performance baseline | High | ?? Not Started | @qa | 2024-01-17 | Required for cross-phase budget tracking |
-| Add feature flags for Phase 1 panel migrations | High | ?? Not Started | @frontend | 2024-01-20 | Gate all migrations; enables config-only rollback |
+| Establish pre-Phase-1 performance baseline | High | ? Complete | @qa | 2024-01-17 | Baseline captured |
+| Add feature flags for Phase 1 panel migrations | High | ? Complete | @frontend | 2024-01-20 | All panels migrated |
 | Add feature flag / config option for Phase 2 scripting engine | High | ?? Not Started | @developer | 2024-01-25 | `ForceSimpleFormat` fallback |
 | Define integration test plan (cross-phase scenarios) | Medium | ?? Not Started | @qa | 2024-01-22 | See Integration Testing Strategy table |
 | Coordinate `TextWriter` parameter change with AsyncExecutionProposal | High | ?? Not Started | @developer | 2024-01-22 | Required before Phase 2 `parallel` block can ship |

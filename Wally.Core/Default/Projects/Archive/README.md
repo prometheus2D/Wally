@@ -15,7 +15,16 @@ Archive/
 
 | Proposal | Completed Date | Summary |
 |----------|----------------|---------|
+| WorkspaceMemoryProposal.md | 2025-07-15 | ? Persistent last-workspace and recent-workspaces across Forms and Console |
+| TextEditorIntegrationProposal.md | 2025-07-15 | ? Scintilla.NET integration, ThemedEditorFactory, panel migration |
+| ChatDefaultsManagerProposal.md | 2025-07-15 | ? ConfigEditorPanel with all workspace settings, resolved defaults display |
 | ScrollbarAndCommandArgParsingProposal.md | 2024-01-15 | ? Unified argument parsing across CLI and Forms, removed System.CommandLine dependency |
+
+## Completed Implementation Plans
+
+| Plan | Completed Date | Summary |
+|------|----------------|---------|
+| WorkspaceMemoryImplementationPlan.md | 2025-07-15 | ? All 5 phases delivered: Core store, Forms auto-load, Recent menu, Console interactive, Console one-shot |
 
 ## Guidelines
 

@@ -1,9 +1,9 @@
 # Mailbox Protocol — Proposal
 
-**Status**: Draft
+**Status**: In Progress (Partial)
 **Author**: System Architecture Team
 **Created**: 2024-01-10
-**Last Updated**: 2024-01-10
+**Last Updated**: 2025-07-15
 
 *Template: [../../Templates/ProposalTemplate.md](../../Templates/ProposalTemplate.md)*
 
@@ -263,8 +263,8 @@ wally run --actor Engineer --loop ProcessMailboxes
 
 | Task | Priority | Status | Owner | Due Date | Notes |
 |------|----------|--------|-------|----------|-------|
-| Implement email-like message format creation | High | ?? Not Started | @developer | 2024-01-16 | Standard email headers |
-| Add `send_message` action with email formatting | High | ?? Not Started | @developer | 2024-01-17 | Single-action loop |
+| Implement email-like message format creation | High | ? Complete | @developer | 2024-01-16 | YAML front-matter format in ActionDispatcher |
+| Add `send_message` action with email formatting | High | ? Complete | @developer | 2024-01-17 | Implemented in `ActionDispatcher.ExecuteSendMessage` |
 | Create `process_all_mailboxes` action | High | ?? Not Started | @developer | 2024-01-18 | Trigger all actors |
 | Enhance `run` command for unified routing | Medium | ?? Not Started | @developer | 2024-01-19 | --loop, --action options |
 | Add email header parsing utilities | Medium | ?? Not Started | @developer | 2024-01-20 | To, From, Subject extraction |
