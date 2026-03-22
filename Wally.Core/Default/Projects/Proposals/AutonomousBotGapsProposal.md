@@ -1,9 +1,9 @@
 # Autonomous Bot Gaps — Proposal
 
-**Status**: Draft
+**Status**: In Progress (Phase 1 Complete)
 **Author**: System Architecture Team
 **Created**: 2024-01-10
-**Last Updated**: 2024-01-10
+**Last Updated**: 2025-07-15
 
 *Template: [../../Templates/ProposalTemplate.md](../../Templates/ProposalTemplate.md)*
 
@@ -13,9 +13,9 @@
 
 The current Wally architecture executes single-shot and pre-scripted work well but has three structural gaps that prevent it from operating as a truly autonomous AI bot:
 
-1. **No async execution path** — `LLMWrapper.Execute` blocks the calling thread for the full LLM call duration. `ChatPanel` works around it with `Task.Run`, which is not genuinely async and splits cancellation handling.
-2. **No autonomy loop** — there is no plan?act?observe?re-plan cycle. `WallyPipeline` runs N steps and stops. `MaxIterations` is declared in `WallyConfig` but never consumed.
-3. **Mailbox system is inert** — `Inbox/Outbox/Pending/Active` folders exist for every actor but no code reads, writes, or routes them.
+1. **No async execution path** — `LLMWrapper.Execute` blocks the calling thread for the full LLM call duration. `ChatPanel` works around it with `Task.Run`, which is not genuinely async and splits cancellation handling. **Status: ? COMPLETE — `ExecuteAsync` at all layers, sync wrappers, `ConfigureAwait(false)`, end-to-end cancellation with `process.Kill`**
+2. **No autonomy loop** — there is no plan?act?observe?re-plan cycle. `WallyPipeline` runs N steps and stops. `MaxIterations` is declared in `WallyConfig` but never consumed. **Status: ?? Not Started (now UNBLOCKED by #1)**
+3. **Mailbox system is inert** — `Inbox/Outbox/Pending/Active` folders exist for every actor but no code reads, writes, or routes them. **Status: ? Partial — `send_message` action implemented in `ActionDispatcher`; routing/watching/`process_all_mailboxes` not yet implemented (now UNBLOCKED by #1)**
 
 ---
 
@@ -39,9 +39,9 @@ Three independent workstreams delivered in priority order. Each is detailed in i
 
 | Proposal | Relationship | Notes |
 |----------|--------------|-------|
-| [AsyncExecutionProposal](./AsyncExecutionProposal.md) | Child — Phase 1 | Async path; no existing call sites change |
-| [AutonomyLoopProposal](./AutonomyLoopProposal.md) | Child — Phase 2 | Depends on Phase 1 async path |
-| [MailboxProtocolProposal](./MailboxProtocolProposal.md) | Child — Phase 3 | Depends on Phase 1; independent of Phase 2 |
+| ~~[AsyncExecutionProposal](./AsyncExecutionProposal.md)~~ | Child — Phase 1 | ? **COMPLETE** — archived to `../Archive/CompletedProposals/` |
+| [AutonomyLoopProposal](./AutonomyLoopProposal.md) | Child — Phase 2 | Now unblocked — depends on Phase 1 async path |
+| [MailboxProtocolProposal](./MailboxProtocolProposal.md) | Child — Phase 3 | Now unblocked — depends on Phase 1; independent of Phase 2 |
 
 ---
 
@@ -78,9 +78,9 @@ Three independent workstreams delivered in priority order. Each is detailed in i
 
 | Task | Priority | Status | Owner | Due Date | Notes |
 |------|----------|--------|-------|----------|-------|
-| Phase 1 async execution design review | High | ?? Not Started | @architect | 2024-01-15 | Review async patterns |
-| Phase 2 autonomy loop validation | Medium | ?? Not Started | @product | 2024-01-20 | Validate loop termination |
-| Phase 3 mailbox protocol security review | Medium | ?? Not Started | @security | 2024-01-25 | File-based messaging risks |
+| Phase 1 async execution design review | High | ? Complete | @architect | 2024-01-15 | ? All 4 layers async, sync wrappers, end-to-end cancellation |
+| Phase 2 autonomy loop validation | Medium | ?? Not Started | @product | 2024-01-20 | Now UNBLOCKED — validate loop termination |
+| Phase 3 mailbox protocol security review | Medium | ? In Progress | @security | 2024-01-25 | `send_message` implemented; routing pending |
 
 ---
 

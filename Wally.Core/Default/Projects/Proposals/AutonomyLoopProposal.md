@@ -1,9 +1,9 @@
 # Autonomy Loop — Proposal
 
-**Status**: Draft  
+**Status**: Draft (UNBLOCKED — async dependency satisfied)
 **Author**: System Architecture Team  
 **Created**: 2024-01-10  
-**Last Updated**: 2024-01-10  
+**Last Updated**: 2025-07-15  
 
 *Template: [../../Templates/ProposalTemplate.md](../../Templates/ProposalTemplate.md)*
 
@@ -26,7 +26,7 @@ Introduce `WallyAgentLoop` — a self-driving iteration class that feeds each resp
 | Proposal | Relationship | Notes |
 |----------|--------------|-------|
 | [AutonomousBotGapsProposal](./AutonomousBotGapsProposal.md) | Parent | Extracted from parent as Phase 2 |
-| [AsyncExecutionProposal](./AsyncExecutionProposal.md) | Depends on | `ExecuteActorAsync` must exist before the loop can call it |
+| ~~[AsyncExecutionProposal](./AsyncExecutionProposal.md)~~ | Depends on | ? **COMPLETE** — `ExecuteActorAsync` exists and is ready for use |
 | [MailboxProtocolProposal](./MailboxProtocolProposal.md) | Sibling | Independent; agents can emit `send_message` actions from within a loop |
 
 ---

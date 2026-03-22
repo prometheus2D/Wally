@@ -1,6 +1,6 @@
 # Mailbox Protocol — Proposal
 
-**Status**: In Progress (Partial)
+**Status**: In Progress (Partial — UNBLOCKED — async dependency satisfied)
 **Author**: System Architecture Team
 **Created**: 2024-01-10
 **Last Updated**: 2025-07-15
@@ -26,7 +26,7 @@ Implement a simple file-based inter-actor message protocol that works like email
 | Proposal | Relationship | Notes |
 |----------|--------------|-------|
 | [AutonomousBotGapsProposal](./AutonomousBotGapsProposal.md) | Parent | Extracted from parent as Phase 3 |
-| [AsyncExecutionProposal](./AsyncExecutionProposal.md) | Depends on | Message processing uses `ExecuteActorAsync` |
+| ~~[AsyncExecutionProposal](./AsyncExecutionProposal.md)~~ | Depends on | ? **COMPLETE** — `ExecuteActorAsync` available for message processing |
 | [AutonomyLoopProposal](./AutonomyLoopProposal.md) | Sibling | Message processing triggers through loop system |
 
 ---
@@ -46,6 +46,12 @@ Implement a simple file-based inter-actor message protocol that works like email
 - **Email-like format**: Standard email headers (To, From, Subject) for easy metadata parsing
 - **Outbox as "unsent email"**: Messages stored in standard email format, ready for future delivery
 - **Unified trigger**: One message processing action triggers all actors simultaneously
+
+---
+
+## Implementation Status
+
+> **Note**: The implemented `send_message` action in `ActionDispatcher.ExecuteSendMessage` uses **YAML front-matter** format (`---` fenced metadata) rather than the RFC-email-style headers described in this proposal. The YAML format stores `from`, `to`, `replyTo`, `subject`, `correlationId`, `timestamp`, and `status` fields. This deviation is acceptable — the YAML format is easier to parse programmatically and aligns with the existing Wally document conventions. Future `process_all_mailboxes` implementation should parse this YAML format.
 
 ---
 
