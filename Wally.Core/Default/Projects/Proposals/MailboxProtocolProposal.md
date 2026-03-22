@@ -1,9 +1,9 @@
 # Mailbox Protocol — Proposal
 
-**Status**: In Progress (Partial, UNBLOCKED — `send_message` exists; routing commands pending)
+**Status**: ? Implemented
 **Author**: System Architecture Team
 **Created**: 2024-01-10
-**Last Updated**: 2025-07-16
+**Last Updated**: 2025-07-17
 
 *Template: [../../Templates/ProposalTemplate.md](../../Templates/ProposalTemplate.md)*
 
@@ -59,7 +59,15 @@ A runbook chains these: `process-mailboxes` then `route-outbox`.
 
 ## Implementation Status
 
-> `send_message` is currently implemented in `ActionDispatcher.ExecuteSendMessage` writing to the **target's Inbox**. This needs to change to write to the **sending actor's Outbox** instead. The YAML front-matter format (`from`, `to`, `replyTo`, `subject`, `correlationId`, `timestamp`, `status`) stays the same.
+> ? **COMPLETE** — All items implemented:
+> - `send_message` writes to the **sending actor's Outbox** (changed from target's Inbox)
+> - `MailboxHelper` YAML front-matter parser created at `Wally.Core/Mailbox/MailboxHelper.cs`
+> - `process-mailboxes` command reads Inbox ? prompts actor ? deletes Inbox files on success
+> - `route-outbox` command reads Outbox ? parses `to:` ? copies to target Inbox ? deletes Outbox
+> - Both commands added to `DispatchCommand` switch and `_knownVerbs` array
+> - Example runbook `MailboxCycle.wrb` created
+> - Comma-separated `to:` field supported for multiple recipients
+> - Warning logged when inbox has >10 messages
 
 ---
 
@@ -222,13 +230,13 @@ route-outbox
 
 | Task | Priority | Status | Owner | Notes |
 |------|----------|--------|-------|-------|
-| ~~Implement `send_message` action~~ | High | ? Complete | @developer | Needs change: write to sender's Outbox |
-| Change `send_message` to write to sender's Outbox | High | ?? Not Started | @developer | Currently writes to target's Inbox |
-| Create YAML front-matter parser (`MailboxHelper`) | High | ?? Not Started | @developer | Extract `to:`, `from:`, etc. |
-| Implement `process-mailboxes` command | High | ?? Not Started | @developer | Read Inbox ? prompt actor ? delete Inbox |
-| Implement `route-outbox` command | High | ?? Not Started | @developer | Read Outbox ? copy to target Inbox ? delete Outbox |
-| Add verbs to `DispatchCommand` + `_knownVerbs` | Medium | ?? Not Started | @developer | |
-| Create example runbook | Low | ?? Not Started | @developer | `process-mailboxes` then `route-outbox` |
+| ~~Implement `send_message` action~~ | High | ? Complete | @developer | Changed to write to sender's Outbox |
+| ~~Change `send_message` to write to sender's Outbox~~ | High | ? Complete | @developer | `ActionDispatcher.ExecuteSendMessage` updated |
+| ~~Create YAML front-matter parser (`MailboxHelper`)~~ | High | ? Complete | @developer | `Wally.Core/Mailbox/MailboxHelper.cs` |
+| ~~Implement `process-mailboxes` command~~ | High | ? Complete | @developer | Read Inbox ? prompt actor ? delete Inbox |
+| ~~Implement `route-outbox` command~~ | High | ? Complete | @developer | Read Outbox ? copy to target Inbox ? delete Outbox |
+| ~~Add verbs to `DispatchCommand` + `_knownVerbs`~~ | Medium | ? Complete | @developer | Both commands added |
+| ~~Create example runbook~~ | Low | ? Complete | @developer | `MailboxCycle.wrb` |
 | Test end-to-end cycle | Low | ?? Not Started | @qa | |
 
 ---
@@ -236,23 +244,23 @@ route-outbox
 ## Acceptance Criteria
 
 #### Must Have
-- [ ] `send_message` writes to the sending actor's Outbox (not target's Inbox)
-- [ ] `process-mailboxes` reads Inbox, prompts actor, deletes Inbox files on success
-- [ ] `route-outbox` reads Outbox, parses `to:`, copies to target Inbox, deletes Outbox
-- [ ] Inbox files only deleted after successful processing
-- [ ] Outbox files only deleted after successful delivery
-- [ ] YAML front-matter format unchanged
+- [x] `send_message` writes to the sending actor's Outbox (not target's Inbox)
+- [x] `process-mailboxes` reads Inbox, prompts actor, deletes Inbox files on success
+- [x] `route-outbox` reads Outbox, parses `to:`, copies to target Inbox, deletes Outbox
+- [x] Inbox files only deleted after successful processing
+- [x] Outbox files only deleted after successful delivery
+- [x] YAML front-matter format unchanged
 
 #### Should Have
-- [ ] Multiple recipients via comma-separated `to:`
-- [ ] Warning when inbox has >10 messages
-- [ ] Per-actor summary output
-- [ ] Example runbook
+- [x] Multiple recipients via comma-separated `to:`
+- [x] Warning when inbox has >10 messages
+- [x] Per-actor summary output
+- [x] Example runbook
 
 #### Completion Checklist
-- [ ] Commands in `DispatchCommand` and `_knownVerbs`
-- [ ] YAML parser handles missing/malformed fields
-- [ ] No new external dependencies
+- [x] Commands in `DispatchCommand` and `_knownVerbs`
+- [x] YAML parser handles missing/malformed fields
+- [x] No new external dependencies
 
 ---
 

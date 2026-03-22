@@ -1,9 +1,9 @@
 # Autonomy Loop — Proposal
 
-**Status**: Draft (UNBLOCKED — async dependency satisfied)
+**Status**: ? Implemented
 **Author**: System Architecture Team  
 **Created**: 2024-01-10  
-**Last Updated**: 2025-07-16  
+**Last Updated**: 2025-07-17  
 
 *Template: [../../Templates/ProposalTemplate.md](../../Templates/ProposalTemplate.md)*
 
@@ -110,8 +110,8 @@ FeedbackMode.Combine(userPrompt, response) ? newPrompt ? back to top
 
 | Task | Priority | Status | Owner | Due Date | Notes |
 |------|----------|--------|-------|----------|-------|
-| Implement `WallyAgentLoop` core class | High | ?? Not Started | @developer | TBD | Core loop logic |
-| Add loop configuration to `WallyLoopDefinition` | High | ?? Not Started | @developer | TBD | JSON schema updates |
-| Implement stop condition handlers | Medium | ?? Not Started | @developer | TBD | Keyword and action-based stopping |
-| Add feedback mode implementations | Medium | ?? Not Started | @developer | TBD | Append/replace/custom combiners |
+| ~~Implement `WallyAgentLoop` core class~~ | High | ? Complete | @developer | 2025-07-17 | `WallyAgentLoop.cs` with stop conditions + feedback modes |
+| ~~Add loop configuration to `WallyLoopDefinition`~~ | High | ? Complete | @developer | 2025-07-17 | `MaxIterations`, `StopKeyword`, `FeedbackMode`, `IsAgentLoop` |
+| ~~Implement stop condition handlers~~ | Medium | ? Complete | @developer | 2025-07-17 | Priority: StopKeyword ? NoActions ? MaxIterations |
+| ~~Add feedback mode implementations~~ | Medium | ? Complete | @developer | 2025-07-17 | AppendResponse + ReplacePrompt |
 | Integration testing with sample loops | Medium | ?? Not Started | @qa | TBD | Verify termination conditions |

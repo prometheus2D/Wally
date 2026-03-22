@@ -467,6 +467,34 @@ namespace Wally.Core
             return response;
         }
 
+        // ?? Agent loop execution ???????????????????????????????????????????????
+
+        /// <summary>
+        /// Runs a self-driving agent loop: iterates the actor until a stop condition
+        /// is met or <see cref="WallyLoopDefinition.MaxIterations"/> is reached.
+        /// <para>
+        /// This is the entry point called by <see cref="WallyCommands.HandleRunTypedAsync"/>
+        /// when the resolved loop definition has <see cref="WallyLoopDefinition.IsAgentLoop"/> set.
+        /// </para>
+        /// </summary>
+        public async Task<List<WallyRunResult>> RunAgentLoopAsync(
+            WallyLoopDefinition loopDef,
+            Actor? actor,
+            string prompt,
+            string? modelOverride = null,
+            string? wrapperOverride = null,
+            bool noHistory = false,
+            CancellationToken cancellationToken = default,
+            TextWriter? output = null)
+        {
+            var loop = new WallyAgentLoop(loopDef);
+            return await loop.RunAsync(
+                this, actor, prompt, loopDef,
+                modelOverride, wrapperOverride, noHistory,
+                cancellationToken, output ?? Console.Out)
+                .ConfigureAwait(false);
+        }
+
         // — Guard —————————————————————————————————————————————————————————————
 
         public WallyWorkspace RequireWorkspace()

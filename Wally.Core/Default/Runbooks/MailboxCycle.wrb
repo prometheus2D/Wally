@@ -1,0 +1,3 @@
+# Mailbox cycle: process all inbox messages, then route outbox to recipients
+process-mailboxes
+route-outbox

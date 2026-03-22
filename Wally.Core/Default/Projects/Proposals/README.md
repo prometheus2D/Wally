@@ -6,10 +6,10 @@ This folder contains proposals that are currently being developed, under review,
 
 | Proposal | Status | Priority | Owner | Description |
 |----------|--------|----------|-------|-------------|
-| [AutonomousBotGapsProposal.md](./AutonomousBotGapsProposal.md) | In Progress (Phase 1 Complete) | High | @architect | Parent: async ?, autonomy loop + mailbox pending |
-| [AutonomyLoopProposal.md](./AutonomyLoopProposal.md) | Draft (UNBLOCKED) | High | @engineer | Self-driving iteration with stop conditions + feedback modes |
-| [MailboxProtocolProposal.md](./MailboxProtocolProposal.md) | In Progress (Partial, UNBLOCKED) | High | @engineer | Actor-to-actor communication — `send_message` ?; routing commands pending |
-| [DocumentationWorkflowProposal.md](./DocumentationWorkflowProposal.md) | Draft (BLOCKED) | Medium | @architect | Automated documentation reflection loop — blocked by autonomy loop + mailbox |
+| [AutonomousBotGapsProposal.md](./AutonomousBotGapsProposal.md) | In Progress (Phases 1-3 Complete) | High | @architect | Parent: async ?, autonomy loop ?, mailbox ?; Phase 4 pending |
+| [AutonomyLoopProposal.md](./AutonomyLoopProposal.md) | ? Implemented | High | @engineer | `WallyAgentLoop` with stop conditions + feedback modes |
+| [MailboxProtocolProposal.md](./MailboxProtocolProposal.md) | ? Implemented | High | @engineer | Actor-to-actor communication — `send_message` ? Outbox; `process-mailboxes` + `route-outbox` |
+| [DocumentationWorkflowProposal.md](./DocumentationWorkflowProposal.md) | Draft (UNBLOCKED) | Medium | @architect | Automated documentation reflection loop — now unblocked by autonomy loop + mailbox |
 
 ## Proposal Lifecycle
 

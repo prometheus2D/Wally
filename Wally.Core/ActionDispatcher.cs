@@ -237,7 +237,7 @@ namespace Wally.Core
 
             try
             {
-                // Find target actor
+                // Validate target actor exists (but we write to sender's Outbox, not target's Inbox)
                 var targetActor = workspace.Actors.FirstOrDefault(a => 
                     string.Equals(a.Name, targetActorName, StringComparison.OrdinalIgnoreCase));
 
@@ -263,18 +263,19 @@ namespace Wally.Core
                     {body}
                     """;
 
-                // Write to target's Inbox
-                string inboxPath = Path.Combine(targetActor.FolderPath, "Inbox");
-                Directory.CreateDirectory(inboxPath);
+                // Write to sender's Outbox (not target's Inbox)
+                // route-outbox will deliver it to the target's Inbox
+                string outboxPath = Path.Combine(fromActor.FolderPath, "Outbox");
+                Directory.CreateDirectory(outboxPath);
 
                 string messageFileName = $"{timestamp}_{correlationId}_{subject}.md";
-                string messageFilePath = Path.Combine(inboxPath, messageFileName);
+                string messageFilePath = Path.Combine(outboxPath, messageFileName);
 
                 File.WriteAllText(messageFilePath, messageContent);
 
-                logger?.LogInfo($"Message sent from '{fromActor.Name}' to '{targetActorName}': {subject} (ID: {correlationId})");
+                logger?.LogInfo($"Message queued in '{fromActor.Name}' Outbox for '{targetActorName}': {subject} (ID: {correlationId})");
 
-                return $"? Message sent to {targetActorName}\n**Subject:** {subject}\n**Correlation ID:** {correlationId}";
+                return $"? Message queued in Outbox for {targetActorName}\n**Subject:** {subject}\n**Correlation ID:** {correlationId}\n(Run `route-outbox` to deliver)";
             }
             catch (Exception ex)
             {

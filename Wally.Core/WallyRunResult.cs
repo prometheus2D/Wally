@@ -22,11 +22,26 @@ namespace Wally.Core
         public string Response { get; init; } = string.Empty;
 
         /// <summary>
-        /// Display label for UI bubbles.
-        /// Examples: <c>"Engineer"</c>, <c>"TechnicalReview (Engineer)"</c>.
+        /// The 0-based iteration index for agent loop results.
+        /// 0 for non-loop and single-shot runs.
         /// </summary>
-        public string DisplayLabel() =>
-            StepName != null ? $"{StepName} ({ActorName})" : ActorName;
+        public int Iteration { get; init; }
+
+        /// <summary>
+        /// Describes why the agent loop stopped (e.g. "StopKeyword", "NoActions", "MaxIterations").
+        /// <see langword="null"/> for non-loop and pipeline runs.
+        /// </summary>
+        public string? StopReason { get; init; }
+
+        /// <summary>
+        /// Display label for UI bubbles.
+        /// Examples: <c>"Engineer"</c>, <c>"TechnicalReview (Engineer)"</c>, <c>"Engineer [iter 2]"</c>.
+        /// </summary>
+        public string DisplayLabel()
+        {
+            string baseLabel = StepName != null ? $"{StepName} ({ActorName})" : ActorName;
+            return Iteration > 0 ? $"{baseLabel} [iter {Iteration + 1}]" : baseLabel;
+        }
 
         /// <summary>Extracts the raw response strings from a result list.</summary>
         public static List<string> ToStringList(IEnumerable<WallyRunResult> results) =>

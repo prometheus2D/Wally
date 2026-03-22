@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Wally.Core.Actors;
+using Wally.Core.Mailbox;
 using Wally.Core.Providers;
 
 namespace Wally.Core
@@ -25,7 +26,8 @@ namespace Wally.Core
             "add-actor", "edit-actor", "delete-actor",
             "add-loop", "edit-loop", "delete-loop", 
             "add-wrapper", "edit-wrapper", "delete-wrapper",
-            "add-runbook", "edit-runbook", "delete-runbook"
+            "add-runbook", "edit-runbook", "delete-runbook",
+            "process-mailboxes", "route-outbox"
         };
 
         /// <summary>
@@ -204,6 +206,14 @@ namespace Wally.Core
                 case "delete-runbook":
                     if (args.Length < 2) { Console.WriteLine("Usage: delete-runbook <name>"); return false; }
                     HandleDeleteRunbook(env, args[1]);
+                    return true;
+
+                // ?? Mailbox commands ?????????????????????????????????????????????????
+                case "process-mailboxes":
+                    HandleProcessMailboxes(env);
+                    return true;
+                case "route-outbox":
+                    HandleRouteOutbox(env);
                     return true;
 
                 default:
@@ -485,6 +495,14 @@ namespace Wally.Core
             string resolvedPrompt = (loopDef != null && !string.IsNullOrWhiteSpace(loopDef.StartPrompt))
                 ? loopDef.StartPrompt.Replace("{userPrompt}", prompt)
                 : prompt;
+
+            // ?? Agent loop routing — when loop defines MaxIterations > 0
+            if (loopDef?.IsAgentLoop == true)
+            {
+                return await env.RunAgentLoopAsync(
+                    loopDef, actor, resolvedPrompt, model, wrapper,
+                    noHistory, cancellationToken, out_).ConfigureAwait(false);
+            }
 
             env.Logger.LogCommand("run", $"Actor='{actorLabel}' loop='{loopDef?.Name ?? "(none)"}' model='{model ?? "(default)"}' wrapper='{wrapper ?? "(default)"}'");
             env.Logger.LogPrompt(actorLabel, resolvedPrompt, model ?? env.Workspace!.Config.DefaultModel);
@@ -772,9 +790,10 @@ namespace Wally.Core
                 Console.WriteLine($"  [{loop.Name}]");
                 if (!string.IsNullOrWhiteSpace(loop.Description))
                     Console.WriteLine($"    Description: {loop.Description}");
-                Console.WriteLine($"    Mode:        {(loop.HasSteps ? $"pipeline ({loop.Steps.Count} step(s))" : "single-actor")}");
+
                 if (loop.HasSteps)
                 {
+                    Console.WriteLine($"    Mode:        pipeline ({loop.Steps.Count} step(s))");
                     for (int i = 0; i < loop.Steps.Count; i++)
                     {
                         var s = loop.Steps[i];
@@ -786,8 +805,18 @@ namespace Wally.Core
                             Console.WriteLine($"             {s.Description}");
                     }
                 }
+                else if (loop.IsAgentLoop)
+                {
+                    Console.WriteLine($"    Mode:        agent-loop (max {loop.MaxIterations} iteration(s))");
+                    Console.WriteLine($"    Actor:       {(string.IsNullOrWhiteSpace(loop.ActorName) ? "(caller must specify)" : loop.ActorName)}");
+                    if (!string.IsNullOrWhiteSpace(loop.StopKeyword))
+                        Console.WriteLine($"    StopKeyword: {loop.StopKeyword}");
+                    Console.WriteLine($"    FeedbackMode: {loop.FeedbackMode}");
+                    PrintRbaLine("    Prompt", loop.StartPrompt);
+                }
                 else
                 {
+                    Console.WriteLine($"    Mode:        single-actor");
                     Console.WriteLine($"    Actor:       {(string.IsNullOrWhiteSpace(loop.ActorName) ? "(caller must specify)" : loop.ActorName)}");
                     PrintRbaLine("    Prompt", loop.StartPrompt);
                 }
@@ -868,6 +897,10 @@ namespace Wally.Core
             Console.WriteLine("  Wrappers: list-wrappers | add-wrapper | edit-wrapper | delete-wrapper");
             Console.WriteLine("  Runbooks: list-runbooks | add-runbook | edit-runbook | delete-runbook");
             Console.WriteLine();
+            Console.WriteLine("  Mailbox commands:");
+            Console.WriteLine("  process-mailboxes             Read each actor's Inbox, prompt actor, delete processed.");
+            Console.WriteLine("  route-outbox                  Route Outbox messages to target actors' Inboxes.");
+            Console.WriteLine();
             Console.WriteLine("  save <path> | cleanup [<path>] | clear-history");
             Console.WriteLine();
             Console.WriteLine("Workspace structure:");
@@ -885,11 +918,23 @@ namespace Wally.Core
             Console.WriteLine("  promptTemplate. Steps run in order; each receives the previous step's");
             Console.WriteLine("  output via {previousStepResult}.");
             Console.WriteLine();
+            Console.WriteLine("Agent loops:");
+            Console.WriteLine("  Set maxIterations > 0 in the loop JSON. The actor iterates until a");
+            Console.WriteLine("  stopKeyword is found, no action blocks are emitted, or maxIterations");
+            Console.WriteLine("  is reached. feedbackMode controls how responses feed back into prompts.");
+            Console.WriteLine();
+            Console.WriteLine("Mailbox workflow:");
+            Console.WriteLine("  1. Actors emit send_message actions \u2192 written to sender's Outbox");
+            Console.WriteLine("  2. wally route-outbox \u2192 copies to target's Inbox, deletes Outbox");
+            Console.WriteLine("  3. wally process-mailboxes \u2192 reads Inbox, prompts actor, deletes Inbox");
+            Console.WriteLine();
             Console.WriteLine("Examples:");
             Console.WriteLine("  .\\wally run \"What does this codebase do?\"");
             Console.WriteLine("  .\\wally run \"Review the auth module\" -a Engineer");
             Console.WriteLine("  .\\wally run \"Review the auth module\" -l CodeReview");
             Console.WriteLine("  .\\wally add-actor SecurityAuditor -r \"You are a security auditor\"");
+            Console.WriteLine("  .\\wally process-mailboxes");
+            Console.WriteLine("  .\\wally route-outbox");
         }
 
         public static void HandleTutorial()
@@ -1158,6 +1203,229 @@ namespace Wally.Core
             env.Logger.LogCommand("delete-runbook", $"Deleted runbook '{name}'");
             Console.WriteLine($"Runbook '{name}' deleted.");
         }
+
+        // ?? Mailbox commands ??????????????????????????????????????????????????
+
+        /// <summary>
+        /// Processes all actors' inboxes: reads Inbox messages, feeds them to
+        /// the actor as a prompt, dispatches any actions from the response,
+        /// and deletes the processed Inbox files on success.
+        /// </summary>
+        public static void HandleProcessMailboxes(WallyEnvironment env)
+        {
+            if (RequireWorkspace(env, "process-mailboxes") == null) return;
+            HandleProcessMailboxesAsync(env, CancellationToken.None).GetAwaiter().GetResult();
+        }
+
+        /// <summary>
+        /// Async implementation of <see cref="HandleProcessMailboxes"/>
+        /// </summary>
+        public static async Task HandleProcessMailboxesAsync(
+            WallyEnvironment env,
+            CancellationToken cancellationToken)
+        {
+            var ws = env.Workspace!;
+            env.Logger.LogCommand("process-mailboxes", $"Processing mailboxes for {ws.Actors.Count} actor(s)");
+            Console.WriteLine($"[process-mailboxes] Scanning {ws.Actors.Count} actor(s)...");
+
+            int totalProcessed = 0;
+            int totalErrors = 0;
+
+            foreach (var actor in ws.Actors)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                if (string.IsNullOrEmpty(actor.FolderPath)) continue;
+
+                string inboxPath = Path.Combine(actor.FolderPath, WallyHelper.MailboxInboxFolderName);
+                if (!Directory.Exists(inboxPath)) continue;
+
+                var messageFiles = Directory.GetFiles(inboxPath, "*.md")
+                    .OrderBy(f => f) // chronological — timestamp-prefixed filenames
+                    .ToList();
+
+                if (messageFiles.Count == 0) continue;
+
+                // Warn when >10 messages
+                if (messageFiles.Count > 10)
+                {
+                    Console.WriteLine($"  [WARNING] Actor '{actor.Name}' has {messageFiles.Count} inbox messages (>10). " +
+                        "Consider batching to avoid exceeding LLM context limits.");
+                    env.Logger.LogError(
+                        $"Actor '{actor.Name}' inbox has {messageFiles.Count} messages (>10 warning threshold).",
+                        "process-mailboxes");
+                }
+
+                Console.WriteLine($"  [{actor.Name}] Processing {messageFiles.Count} inbox message(s)...");
+
+                // Read and concatenate all messages
+                var messageContents = new List<string>();
+                foreach (string filePath in messageFiles)
+                {
+                    try
+                    {
+                        string content = File.ReadAllText(filePath);
+                        var frontMatter = MailboxHelper.ParseFrontMatter(content);
+                        string subject = frontMatter.GetValueOrDefault("subject", Path.GetFileNameWithoutExtension(filePath)) ?? "";
+                        string from = frontMatter.GetValueOrDefault("from", "unknown") ?? "unknown";
+                        string body = MailboxHelper.ExtractBody(content);
+                        messageContents.Add($"--- Message: {subject} (from {from}) ---\n{body}");
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"    [ERROR] Failed to read '{Path.GetFileName(filePath)}': {ex.Message}");
+                        env.Logger.LogError($"Failed to read inbox file '{filePath}': {ex.Message}", "process-mailboxes");
+                    }
+                }
+
+                if (messageContents.Count == 0) continue;
+
+                // Build prompt
+                string prompt = $"You have {messageContents.Count} new message(s) in your inbox. " +
+                    "Review and respond to each.\n\n" +
+                    string.Join("\n\n", messageContents);
+
+                try
+                {
+                    // Execute actor with the prompt
+                    string response = await env.ExecuteActorAsync(
+                        actor, prompt,
+                        skipHistory: true,
+                        cancellationToken: cancellationToken).ConfigureAwait(false);
+
+                    Console.WriteLine($"    Response received ({response.Length} chars).");
+
+                    // Delete all processed inbox files on success
+                    int deleted = 0;
+                    foreach (string filePath in messageFiles)
+                    {
+                        try
+                        {
+                            File.Delete(filePath);
+                            deleted++;
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"    [ERROR] Failed to delete '{Path.GetFileName(filePath)}': {ex.Message}");
+                            env.Logger.LogError($"Failed to delete inbox file '{filePath}': {ex.Message}", "process-mailboxes");
+                        }
+                    }
+
+                    Console.WriteLine($"    Deleted {deleted}/{messageFiles.Count} inbox file(s).");
+                    totalProcessed += messageContents.Count;
+                }
+                catch (OperationCanceledException) { throw; }
+                catch (Exception ex)
+                {
+                    // On failure, leave inbox files in place
+                    Console.WriteLine($"    [ERROR] Actor '{actor.Name}' processing failed: {ex.Message}");
+                    Console.WriteLine($"    Inbox files left in place for retry.");
+                    env.Logger.LogError(
+                        $"Actor '{actor.Name}' inbox processing failed: {ex.Message}", "process-mailboxes");
+                    totalErrors++;
+                }
+            }
+
+            Console.WriteLine($"[process-mailboxes] Complete — {totalProcessed} message(s) processed, {totalErrors} error(s).");
+            env.Logger.LogInfo($"process-mailboxes complete: {totalProcessed} processed, {totalErrors} errors.");
+        }
+
+        /// <summary>
+        /// Routes all actors' outbox messages: reads Outbox files, parses the
+        /// <c>to:</c> field from YAML front-matter, copies each message to the
+        /// target actor's Inbox, and deletes the Outbox original on success.
+        /// </summary>
+        public static void HandleRouteOutbox(WallyEnvironment env)
+        {
+            if (RequireWorkspace(env, "route-outbox") == null) return;
+
+            var ws = env.Workspace!;
+            env.Logger.LogCommand("route-outbox", $"Routing outboxes for {ws.Actors.Count} actor(s)");
+            Console.WriteLine($"[route-outbox] Scanning {ws.Actors.Count} actor(s)...");
+
+            int totalRouted = 0;
+            int totalErrors = 0;
+
+            foreach (var actor in ws.Actors)
+            {
+                if (string.IsNullOrEmpty(actor.FolderPath)) continue;
+
+                string outboxPath = Path.Combine(actor.FolderPath, WallyHelper.MailboxOutboxFolderName);
+                if (!Directory.Exists(outboxPath)) continue;
+
+                var messageFiles = Directory.GetFiles(outboxPath, "*.md").ToList();
+                if (messageFiles.Count == 0) continue;
+
+                Console.WriteLine($"  [{actor.Name}] Routing {messageFiles.Count} outbox message(s)...");
+
+                foreach (string filePath in messageFiles)
+                {
+                    string fileName = Path.GetFileName(filePath);
+                    try
+                    {
+                        string content = File.ReadAllText(filePath);
+                        var frontMatter = MailboxHelper.ParseFrontMatter(content);
+
+                        if (!frontMatter.TryGetValue("to", out string? toField) || string.IsNullOrWhiteSpace(toField))
+                        {
+                            Console.WriteLine($"    [WARNING] '{fileName}' missing 'to:' field — left in Outbox.");
+                            env.Logger.LogError($"Outbox file '{filePath}' missing 'to:' field.", "route-outbox");
+                            totalErrors++;
+                            continue;
+                        }
+
+                        // Support comma-separated recipients
+                        var recipients = toField.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                        bool allDelivered = true;
+
+                        foreach (string recipientName in recipients)
+                        {
+                            var targetActor = ws.Actors.FirstOrDefault(a =>
+                                string.Equals(a.Name, recipientName, StringComparison.OrdinalIgnoreCase));
+
+                            if (targetActor == null || string.IsNullOrEmpty(targetActor.FolderPath))
+                            {
+                                Console.WriteLine($"    [WARNING] Target actor '{recipientName}' not found — '{fileName}' left in Outbox.");
+                                env.Logger.LogError(
+                                    $"Outbox file '{filePath}': target actor '{recipientName}' not found.",
+                                    "route-outbox");
+                                allDelivered = false;
+                                totalErrors++;
+                                continue;
+                            }
+
+                            // Copy to target's Inbox
+                            string targetInbox = Path.Combine(targetActor.FolderPath, WallyHelper.MailboxInboxFolderName);
+                            Directory.CreateDirectory(targetInbox);
+                            string targetPath = Path.Combine(targetInbox, fileName);
+                            File.Copy(filePath, targetPath, overwrite: true);
+
+                            Console.WriteLine($"    Delivered '{fileName}' ? {recipientName}/Inbox/");
+                            env.Logger.LogInfo(
+                                $"Message delivered: {actor.Name}/Outbox/{fileName} ? {recipientName}/Inbox/");
+                        }
+
+                        // Only delete outbox original if ALL recipients were delivered
+                        if (allDelivered)
+                        {
+                            File.Delete(filePath);
+                            totalRouted++;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"    [ERROR] Failed to route '{fileName}': {ex.Message}");
+                        env.Logger.LogError($"Failed to route outbox file '{filePath}': {ex.Message}", "route-outbox");
+                        totalErrors++;
+                    }
+                }
+            }
+
+            Console.WriteLine($"[route-outbox] Complete — {totalRouted} message(s) routed, {totalErrors} error(s).");
+            env.Logger.LogInfo($"route-outbox complete: {totalRouted} routed, {totalErrors} errors.");
+        }
+
+        // ?? Private helpers — formatting ????????????????????????????????????????
 
         private static void PrintRbaLine(string label, string value) =>
             Console.WriteLine($"{label}: {(string.IsNullOrWhiteSpace(value) ? "(none)" : value)}");

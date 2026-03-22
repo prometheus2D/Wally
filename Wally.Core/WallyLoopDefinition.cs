@@ -49,6 +49,39 @@ namespace Wally.Core
         /// </summary>
         public bool Enabled { get; set; } = true;
 
+        // ?? Agent loop configuration ??????????????????????????????????????????
+
+        /// <summary>
+        /// Maximum number of iterations for agent loop mode.
+        /// When set to a value &gt; 0 (and <see cref="HasSteps"/> is false),
+        /// the loop runs as a self-driving agent loop instead of a single-shot call.
+        /// Default is 0, meaning single-shot / pipeline mode (no iteration).
+        /// </summary>
+        public int MaxIterations { get; set; }
+
+        /// <summary>
+        /// When the LLM response contains this keyword (case-insensitive),
+        /// the agent loop stops immediately. Checked before action dispatch
+        /// and iteration-count limits.
+        /// </summary>
+        public string StopKeyword { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Controls how the previous response is fed back into the next iteration's prompt.
+        /// <list type="bullet">
+        ///   <item><c>"AppendResponse"</c> (default) — appends the response to the original prompt.</item>
+        ///   <item><c>"ReplacePrompt"</c> — uses the response as the next iteration's prompt, discarding the original.</item>
+        /// </list>
+        /// </summary>
+        public string FeedbackMode { get; set; } = "AppendResponse";
+
+        /// <summary>
+        /// Returns <see langword="true"/> when this definition is configured as an
+        /// agent loop (has <see cref="MaxIterations"/> &gt; 0 and no explicit steps).
+        /// </summary>
+        [JsonIgnore]
+        public bool IsAgentLoop => MaxIterations > 0 && !HasSteps;
+
         // ?? Single-actor shorthand ????????????????????????????????????????????
 
         /// <summary>
