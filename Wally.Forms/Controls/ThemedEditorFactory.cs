@@ -171,12 +171,15 @@ namespace Wally.Forms.Controls
 
         private static void ApplyWallyTheme(Scintilla editor)
         {
+            // Control-level background — prevents WinForms default from leaking
+            editor.BackColor = WallyTheme.Surface1;
+
             editor.StyleResetDefault();
             editor.Styles[Style.Default].Font      = "Cascadia Mono";
             editor.Styles[Style.Default].Size      = 10;
             editor.Styles[Style.Default].BackColor = WallyTheme.Surface1;
             editor.Styles[Style.Default].ForeColor = WallyTheme.TextPrimary;
-            editor.StyleClearAll();
+            editor.StyleClearAll();   // propagates Default's Back/ForeColor to all styles
 
             editor.SetSelectionBackColor(true, WallyTheme.Surface4);
             editor.SetSelectionForeColor(false, WallyTheme.TextPrimary);
@@ -184,9 +187,13 @@ namespace Wally.Forms.Controls
             editor.CaretLineBackColor = WallyTheme.Surface2;
             editor.CaretLineVisible   = true;
 
+            // Whitespace rendering (visible or not, colours must be correct)
+            editor.SetWhitespaceBackColor(true, WallyTheme.Surface1);
+            editor.SetWhitespaceForeColor(true, WallyTheme.Border);
+
             // Margin 0 — line numbers
-            editor.Margins[0].Width = 40;
-            editor.Margins[0].Type  = MarginType.Number;
+            editor.Margins[0].Width   = 40;
+            editor.Margins[0].Type    = MarginType.Number;
             editor.Styles[Style.LineNumber].BackColor = WallyTheme.Surface1;
             editor.Styles[Style.LineNumber].ForeColor = WallyTheme.TextMuted;
 
@@ -195,6 +202,10 @@ namespace Wally.Forms.Controls
             editor.Margins[1].Type      = MarginType.Symbol;
             editor.Margins[1].Mask      = Marker.MaskFolders;
             editor.Margins[1].Sensitive = true;
+
+            // Fold margin background — fills the entire fold-margin gutter area
+            editor.SetFoldMarginColor(true, WallyTheme.Surface1);
+            editor.SetFoldMarginHighlightColor(true, WallyTheme.Surface1);
 
             int[] foldMarkers =
             {
@@ -212,6 +223,16 @@ namespace Wally.Forms.Controls
             editor.IndentationGuides = IndentView.LookBoth;
             editor.Styles[Style.IndentGuide].ForeColor = WallyTheme.Border;
             editor.Styles[Style.IndentGuide].BackColor = WallyTheme.Surface1;
+
+            // Brace-match highlight styles
+            editor.Styles[Style.BraceLight].BackColor = WallyTheme.Surface3;
+            editor.Styles[Style.BraceLight].ForeColor = WallyTheme.TextPrimary;
+            editor.Styles[Style.BraceBad].BackColor   = WallyTheme.RedMuted;
+            editor.Styles[Style.BraceBad].ForeColor   = WallyTheme.Red;
+
+            // Call-tip styles
+            editor.Styles[Style.CallTip].BackColor = WallyTheme.Surface2;
+            editor.Styles[Style.CallTip].ForeColor = WallyTheme.TextPrimary;
         }
 
         // ?? Language configurations ????????????????????????????????????????
@@ -234,22 +255,44 @@ namespace Wally.Forms.Controls
             const int LINECOMMENT  = 6;
             const int BLOCKCOMMENT = 7;
             const int OPERATOR     = 8;
+            const int URI          = 9;
+            const int COMPACTIRI   = 10;
             const int KEYWORD      = 11;
+            const int LDKEYWORD    = 12;
             const int ERROR        = 13;
 
-            editor.Styles[DEFAULT].ForeColor      = WallyTheme.TextPrimary;
+            Color bg = WallyTheme.Surface1;
+
+            editor.Styles[DEFAULT].ForeColor       = WallyTheme.TextPrimary;
+            editor.Styles[DEFAULT].BackColor       = bg;
             editor.Styles[NUMBER].ForeColor        = Color.FromArgb(181, 206, 168);
+            editor.Styles[NUMBER].BackColor        = bg;
             editor.Styles[STRING].ForeColor        = Color.FromArgb(206, 145, 120);
+            editor.Styles[STRING].BackColor        = bg;
             editor.Styles[UNCLOSED].ForeColor      = WallyTheme.Red;
+            editor.Styles[UNCLOSED].BackColor      = bg;
             editor.Styles[PROPERTY].ForeColor      = Color.FromArgb(156, 220, 254);
+            editor.Styles[PROPERTY].BackColor      = bg;
             editor.Styles[ESCAPE].ForeColor        = Color.FromArgb(215, 186, 125);
+            editor.Styles[ESCAPE].BackColor        = bg;
             editor.Styles[LINECOMMENT].ForeColor   = WallyTheme.TextMuted;
+            editor.Styles[LINECOMMENT].BackColor   = bg;
             editor.Styles[LINECOMMENT].Italic      = true;
             editor.Styles[BLOCKCOMMENT].ForeColor  = WallyTheme.TextMuted;
+            editor.Styles[BLOCKCOMMENT].BackColor  = bg;
             editor.Styles[BLOCKCOMMENT].Italic     = true;
             editor.Styles[OPERATOR].ForeColor      = WallyTheme.TextSecondary;
+            editor.Styles[OPERATOR].BackColor      = bg;
+            editor.Styles[URI].ForeColor           = Color.FromArgb(78, 201, 176);
+            editor.Styles[URI].BackColor           = bg;
+            editor.Styles[COMPACTIRI].ForeColor    = Color.FromArgb(78, 201, 176);
+            editor.Styles[COMPACTIRI].BackColor    = bg;
             editor.Styles[KEYWORD].ForeColor       = Color.FromArgb(86, 156, 214);
+            editor.Styles[KEYWORD].BackColor       = bg;
+            editor.Styles[LDKEYWORD].ForeColor     = Color.FromArgb(86, 156, 214);
+            editor.Styles[LDKEYWORD].BackColor     = bg;
             editor.Styles[ERROR].ForeColor         = WallyTheme.Red;
+            editor.Styles[ERROR].BackColor         = bg;
             editor.Styles[ERROR].Bold              = true;
 
             editor.SetProperty("fold", "1");
@@ -280,42 +323,63 @@ namespace Wally.Forms.Controls
             const int CODE2      = 17;
             const int CODEBLOCK  = 18;
 
-            editor.Styles[DEFAULT].ForeColor    = WallyTheme.TextPrimary;
+            Color bg = WallyTheme.Surface1;
+            Color codeBg = WallyTheme.Surface2;
+
+            editor.Styles[DEFAULT].ForeColor     = WallyTheme.TextPrimary;
+            editor.Styles[DEFAULT].BackColor     = bg;
             editor.Styles[LINE_BEGIN].ForeColor  = WallyTheme.TextMuted;
+            editor.Styles[LINE_BEGIN].BackColor  = bg;
             editor.Styles[STRONG1].Bold          = true;
             editor.Styles[STRONG1].ForeColor     = WallyTheme.TextPrimary;
+            editor.Styles[STRONG1].BackColor     = bg;
             editor.Styles[STRONG2].Bold          = true;
             editor.Styles[STRONG2].ForeColor     = WallyTheme.TextPrimary;
+            editor.Styles[STRONG2].BackColor     = bg;
             editor.Styles[EM1].Italic            = true;
             editor.Styles[EM1].ForeColor         = WallyTheme.TextSecondary;
+            editor.Styles[EM1].BackColor         = bg;
             editor.Styles[EM2].Italic            = true;
             editor.Styles[EM2].ForeColor         = WallyTheme.TextSecondary;
+            editor.Styles[EM2].BackColor         = bg;
 
             Color headerColor = Color.FromArgb(86, 156, 214);
             editor.Styles[HEADER1].ForeColor     = headerColor;
+            editor.Styles[HEADER1].BackColor     = bg;
             editor.Styles[HEADER1].Bold          = true;
             editor.Styles[HEADER1].Size          = 12;
             editor.Styles[HEADER2].ForeColor     = headerColor;
+            editor.Styles[HEADER2].BackColor     = bg;
             editor.Styles[HEADER2].Bold          = true;
             editor.Styles[HEADER2].Size          = 11;
             editor.Styles[HEADER3].ForeColor     = headerColor;
+            editor.Styles[HEADER3].BackColor     = bg;
             editor.Styles[HEADER3].Bold          = true;
 
             editor.Styles[PRECHAR].ForeColor     = WallyTheme.TextMuted;
+            editor.Styles[PRECHAR].BackColor     = bg;
             editor.Styles[ULIST_ITEM].ForeColor  = WallyTheme.TextSecondary;
+            editor.Styles[ULIST_ITEM].BackColor  = bg;
             editor.Styles[OLIST_ITEM].ForeColor  = WallyTheme.TextSecondary;
+            editor.Styles[OLIST_ITEM].BackColor  = bg;
             editor.Styles[BLOCKQUOTE].ForeColor  = WallyTheme.TextMuted;
+            editor.Styles[BLOCKQUOTE].BackColor  = bg;
             editor.Styles[BLOCKQUOTE].Italic     = true;
             editor.Styles[STRIKEOUT].ForeColor   = WallyTheme.TextDisabled;
+            editor.Styles[STRIKEOUT].BackColor   = bg;
             editor.Styles[HRULE].ForeColor       = WallyTheme.Border;
+            editor.Styles[HRULE].BackColor       = bg;
             editor.Styles[LINK].ForeColor        = Color.FromArgb(78, 201, 176);
+            editor.Styles[LINK].BackColor        = bg;
             editor.Styles[LINK].Underline        = true;
 
             Color codeColor = Color.FromArgb(206, 145, 120);
             editor.Styles[CODE].ForeColor        = codeColor;
+            editor.Styles[CODE].BackColor        = codeBg;
             editor.Styles[CODE2].ForeColor       = codeColor;
+            editor.Styles[CODE2].BackColor       = codeBg;
             editor.Styles[CODEBLOCK].ForeColor   = codeColor;
-            editor.Styles[CODEBLOCK].BackColor   = WallyTheme.Surface2;
+            editor.Styles[CODEBLOCK].BackColor   = codeBg;
             editor.Styles[CODEBLOCK].FillLine    = true;
 
             editor.WrapMode = WrapMode.Word;
@@ -337,16 +401,26 @@ namespace Wally.Forms.Controls
             const int IDENTIFIER  = 6;
             const int OPERATOR    = 7;
 
+            Color bg = WallyTheme.Surface1;
+
             editor.Styles[DEFAULT].ForeColor    = WallyTheme.TextPrimary;
+            editor.Styles[DEFAULT].BackColor    = bg;
             editor.Styles[COMMENT].ForeColor    = WallyTheme.TextMuted;
+            editor.Styles[COMMENT].BackColor    = bg;
             editor.Styles[COMMENT].Italic       = true;
             editor.Styles[WORD].ForeColor       = Color.FromArgb(86, 156, 214);
+            editor.Styles[WORD].BackColor       = bg;
             editor.Styles[WORD].Bold            = true;
             editor.Styles[LABEL].ForeColor      = Color.FromArgb(197, 134, 192);
+            editor.Styles[LABEL].BackColor      = bg;
             editor.Styles[HIDE].ForeColor       = WallyTheme.TextMuted;
+            editor.Styles[HIDE].BackColor       = bg;
             editor.Styles[COMMAND].ForeColor    = Color.FromArgb(78, 201, 176);
+            editor.Styles[COMMAND].BackColor    = bg;
             editor.Styles[IDENTIFIER].ForeColor = WallyTheme.TextPrimary;
+            editor.Styles[IDENTIFIER].BackColor = bg;
             editor.Styles[OPERATOR].ForeColor   = WallyTheme.TextSecondary;
+            editor.Styles[OPERATOR].BackColor   = bg;
 
             // Wally command verbs
             editor.SetKeywords(0,
