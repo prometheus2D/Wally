@@ -191,9 +191,10 @@ namespace Wally.Forms
             _chatPanel.RunningChanged      += OnRunningChanged;
             _chatPanel.CommandIssued       += OnChatCommandIssued;
 
-            _explorerTabPanel.FileDoubleClicked += OnFileDoubleClicked;
-            _explorerTabPanel.FileSelected      += OnFileSelected;
-            _explorerTabPanel.FileEditRequested  += OnFileEditRequested;
+            _explorerTabPanel.FileDoubleClicked        += OnFileDoubleClicked;
+            _explorerTabPanel.FileSelected             += OnFileSelected;
+            _explorerTabPanel.FileEditRequested        += OnFileEditRequested;
+            _explorerTabPanel.FileOpenExternalRequested += OnFileOpenExternalRequested;
             _explorerTabPanel.ActorActivated    += (_, name) => { var a = _environment.GetActor(name); if (a != null) OpenActorEditor(a); };
             _explorerTabPanel.LoopActivated     += (_, name) => { var l = _environment.GetLoop(name);  if (l != null) OpenLoopEditor(l); };
             _explorerTabPanel.WrapperActivated  += (_, name) =>
@@ -880,20 +881,31 @@ namespace Wally.Forms
             WallyPreferencesStore.Save(prefs);
         }
 
-        // ?? File events / intelligent open ???????????????????????????????????
+        // ?? File events / intelligent open ??????????????????????????????
 
+        /// <summary>
+        /// Double-click handler — opens the file using the best available method:
+        /// <list type="number">
+        ///   <item>Custom editor (Actor, Loop, Wrapper, Runbook, Config) if applicable.</item>
+        ///   <item>Built-in Scintilla text editor for editable text files.</item>
+        ///   <item>Windows shell (OS default app) for everything else.</item>
+        /// </list>
+        /// </summary>
         private void OnFileDoubleClicked(object? sender, FileSelectedEventArgs e)
         {
-            if (_environment.HasWorkspace && TryOpenFileInEditor(e.FilePath)) return;
-            try
+            // 1. Try opening in a custom workspace editor
+            if (_environment.HasWorkspace && TryOpenFileInEditor(e.FilePath))
+                return;
+
+            // 2. Try opening in the built-in text editor for editable files
+            if (IsTextEditableFile(e.FilePath))
             {
-                var psi = new System.Diagnostics.ProcessStartInfo(e.FilePath) { UseShellExecute = true };
-                System.Diagnostics.Process.Start(psi);
+                OpenTextFileEditor(e.FilePath);
+                return;
             }
-            catch (Exception ex)
-            {
-                _commandPanel.AppendLine($"Could not open file: {ex.Message}", WallyTheme.Red);
-            }
+
+            // 3. Fall back to the OS default application
+            OpenFileExternal(e.FilePath);
         }
 
         private bool TryOpenFileInEditor(string filePath)
@@ -955,9 +967,51 @@ namespace Wally.Forms
                 _lblWorkspaceStatus.Text = Path.GetRelativePath(_environment.WorkSource!, e.FilePath);
         }
 
+        /// <summary>
+        /// "Edit as Text" handler — always opens the raw file in the Scintilla
+        /// text editor, bypassing any custom workspace editors.
+        /// </summary>
         private void OnFileEditRequested(object? sender, FileSelectedEventArgs e)
         {
             OpenTextFileEditor(e.FilePath);
+        }
+
+        /// <summary>
+        /// "Open with System" handler — always opens the file with the OS
+        /// default application via shell execute.
+        /// </summary>
+        private void OnFileOpenExternalRequested(object? sender, FileSelectedEventArgs e)
+        {
+            OpenFileExternal(e.FilePath);
+        }
+
+        /// <summary>
+        /// Opens a file using the Windows shell (OS default application).
+        /// </summary>
+        private void OpenFileExternal(string filePath)
+        {
+            try
+            {
+                var psi = new System.Diagnostics.ProcessStartInfo(filePath) { UseShellExecute = true };
+                System.Diagnostics.Process.Start(psi);
+            }
+            catch (Exception ex)
+            {
+                _commandPanel.AppendLine($"Could not open file: {ex.Message}", WallyTheme.Red);
+            }
+        }
+
+        /// <summary>
+        /// Returns true for file types that can be opened in the built-in
+        /// Scintilla text editor.
+        /// </summary>
+        private static bool IsTextEditableFile(string filePath)
+        {
+            string ext = Path.GetExtension(filePath).ToLowerInvariant();
+            return ext is ".json" or ".md" or ".markdown" or ".txt" or ".wrb"
+                      or ".xml" or ".yaml" or ".yml" or ".toml" or ".ini"
+                      or ".log" or ".csv" or ".cfg" or ".conf"
+                      or ".gitignore" or ".editorconfig" or ".env";
         }
 
         // ?? Editor open helpers ??????????????????????????????????????????????

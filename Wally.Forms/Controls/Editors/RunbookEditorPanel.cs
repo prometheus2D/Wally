@@ -42,17 +42,14 @@ namespace Wally.Forms.Controls.Editors
             {
                 Dock = DockStyle.Top, FlowDirection = FlowDirection.TopDown,
                 WrapContents = false, AutoSize = true, BackColor = WallyTheme.Surface0,
-                Padding = new Padding(20, 20, 20, 0)
+                Padding = new Padding(20, 12, 20, 0)
             };
-
-            headerPanel.Controls.Add(CreateSectionLabel("\uD83D\uDCDC Runbook Editor", WallyTheme.FontUIBold, WallyTheme.TextPrimary));
-            headerPanel.Controls.Add(CreateSpacer(8));
 
             var actionBar = new FlowLayoutPanel
             {
                 FlowDirection = FlowDirection.LeftToRight, AutoSize = true,
                 WrapContents = false, BackColor = Color.Transparent,
-                Margin = new Padding(0, 0, 0, 8)
+                Margin = new Padding(0, 0, 0, 6)
             };
 
             _btnSave   = CreateButton("\uD83D\uDCBE Save");

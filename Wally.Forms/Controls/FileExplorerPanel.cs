@@ -27,6 +27,7 @@ namespace Wally.Forms.Controls
         private readonly ContextMenuStrip _contextMenu;
         private readonly ToolStripMenuItem _ctxOpen;
         private readonly ToolStripMenuItem _ctxEdit;
+        private readonly ToolStripMenuItem _ctxOpenExternal;
         private readonly ToolStripMenuItem _ctxOpenFolder;
         private readonly ToolStripMenuItem _ctxCopyPath;
         private readonly ToolStripMenuItem _ctxRefresh;
@@ -40,8 +41,11 @@ namespace Wally.Forms.Controls
         public event EventHandler<FileSelectedEventArgs>? FileDoubleClicked;
         public event EventHandler<FileSelectedEventArgs>? FileSelected;
 
-        /// <summary>Raised when the user chooses "Edit" from the context menu.</summary>
+        /// <summary>Raised when the user chooses "Edit as Text" from the context menu.</summary>
         public event EventHandler<FileSelectedEventArgs>? FileEditRequested;
+
+        /// <summary>Raised when the user chooses "Open with System" from the context menu.</summary>
+        public event EventHandler<FileSelectedEventArgs>? FileOpenExternalRequested;
 
         // ?? Constructor ?????????????????????????????????????????????????????
 
@@ -139,8 +143,11 @@ namespace Wally.Forms.Controls
             _ctxOpen = new ToolStripMenuItem("Open") { ForeColor = WallyTheme.TextPrimary };
             _ctxOpen.Click += (_, _) => OpenSelectedFile();
 
-            _ctxEdit = new ToolStripMenuItem("Edit") { ForeColor = WallyTheme.TextPrimary };
+            _ctxEdit = new ToolStripMenuItem("Edit as Text") { ForeColor = WallyTheme.TextPrimary };
             _ctxEdit.Click += (_, _) => EditSelectedFile();
+
+            _ctxOpenExternal = new ToolStripMenuItem("Open with System") { ForeColor = WallyTheme.TextPrimary };
+            _ctxOpenExternal.Click += (_, _) => OpenSelectedExternal();
 
             _ctxOpenFolder = new ToolStripMenuItem("Open in Explorer") { ForeColor = WallyTheme.TextPrimary };
             _ctxOpenFolder.Click += (_, _) => OpenSelectedInExplorer();
@@ -154,7 +161,7 @@ namespace Wally.Forms.Controls
             _contextMenu = new ContextMenuStrip { Renderer = renderer };
             _contextMenu.Items.AddRange(new ToolStripItem[]
             {
-                _ctxOpen, _ctxEdit, _ctxOpenFolder,
+                _ctxOpen, _ctxEdit, _ctxOpenExternal, _ctxOpenFolder,
                 new ToolStripSeparator(),
                 _ctxCopyPath,
                 new ToolStripSeparator(),
@@ -434,6 +441,7 @@ namespace Wally.Forms.Controls
             bool isFile = File.Exists(path);
             _ctxOpen.Visible = isFile;
             _ctxEdit.Visible = isFile && IsEditableFile(path);
+            _ctxOpenExternal.Visible = isFile;
             _ctxOpenFolder.Text = isFile ? "Open Containing Folder" : "Open in Explorer";
         }
 
@@ -447,6 +455,12 @@ namespace Wally.Forms.Controls
         {
             if (_tree.SelectedNode?.Tag is string fp && File.Exists(fp))
                 FileEditRequested?.Invoke(this, new FileSelectedEventArgs(fp));
+        }
+
+        private void OpenSelectedExternal()
+        {
+            if (_tree.SelectedNode?.Tag is string fp && File.Exists(fp))
+                FileOpenExternalRequested?.Invoke(this, new FileSelectedEventArgs(fp));
         }
 
         private void OpenSelectedInExplorer()
