@@ -144,27 +144,24 @@ namespace Wally.Core.Providers
         // — Execution —————————————————————————————————————————————————————
 
         /// <summary>
-        /// Builds the CLI command from <see cref="ArgumentTemplate"/>, spawns
-        /// the process, and returns the captured output.
+        /// Synchronous wrapper — delegates to <see cref="ExecuteAsync"/>.
+        /// No logic lives here; all logic is in the async path.
         /// </summary>
-        /// <param name="processedPrompt">
-        /// The fully enriched prompt (RBA context + user prompt + doc context).
-        /// </param>
-        /// <param name="sourcePath">
-        /// The root of the user's codebase. May be <see langword="null"/>.
-        /// </param>
-        /// <param name="model">
-        /// The resolved model identifier. May be <see langword="null"/>.
-        /// </param>
-        /// <param name="logger">
-        /// Session logger for CLI errors. May be <see langword="null"/>.
-        /// </param>
-        /// <param name="cancellationToken">
-        /// Optional token. When cancelled, the spawned child process is killed
-        /// and an <see cref="OperationCanceledException"/> is thrown.
-        /// </param>
-        /// <returns>The LLM response text, or an error message.</returns>
         public string Execute(
+            string processedPrompt,
+            string? sourcePath,
+            string? model,
+            SessionLogger? logger,
+            CancellationToken cancellationToken = default)
+            => ExecuteAsync(processedPrompt, sourcePath, model, logger, cancellationToken)
+                .GetAwaiter().GetResult();
+
+        /// <summary>
+        /// Genuinely async execution path. Builds the CLI command from
+        /// <see cref="ArgumentTemplate"/>, spawns the process, awaits exit,
+        /// and returns the captured output.
+        /// </summary>
+        public async Task<string> ExecuteAsync(
             string processedPrompt,
             string? sourcePath,
             string? model,
@@ -188,17 +185,17 @@ namespace Wally.Core.Providers
                     StandardErrorEncoding  = Encoding.UTF8
                 };
 
-                // Build the argument list from the template.
                 BuildArguments(startInfo, processedPrompt, sourcePath, model, hasSourcePath);
 
                 if (UseSourcePathAsWorkingDirectory && hasSourcePath)
                     startInfo.WorkingDirectory = sourcePath!;
 
-                return RunProcess(startInfo, logger, cancellationToken);
+                return await RunProcessAsync(startInfo, logger, cancellationToken)
+                    .ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
-                throw;  // propagate cleanly — do not wrap as an error message
+                throw;
             }
             catch (Exception ex)
             {
@@ -270,7 +267,9 @@ namespace Wally.Core.Providers
 
         // — Process execution —————————————————————————————————————————————
 
-        private string RunProcess(ProcessStartInfo startInfo, SessionLogger? logger,
+        private async Task<string> RunProcessAsync(
+            ProcessStartInfo startInfo,
+            SessionLogger? logger,
             CancellationToken cancellationToken)
         {
             using var process = new Process { StartInfo = startInfo };
@@ -278,34 +277,29 @@ namespace Wally.Core.Providers
             process.Start();
             process.StandardInput.Close();
 
-            // Async-read both streams concurrently to prevent deadlock when the
-            // child process fills one pipe buffer while the other is unread.
-            // We pass CancellationToken.None here — the kill registration below
-            // handles termination; passing the token to ReadToEndAsync would
-            // abort the read before we can drain the pipe on kill.
+            // Read both streams concurrently to prevent pipe-buffer deadlock.
+            // CancellationToken.None — the kill registration below handles termination;
+            // cancelling the reads before draining would lose partial output.
             var stdoutTask = process.StandardOutput.ReadToEndAsync(CancellationToken.None);
             var stderrTask = process.StandardError.ReadToEndAsync(CancellationToken.None);
 
-            // Register kill callback — fires immediately when the token is cancelled.
+            // Kill callback fires immediately on cancellation.
             using var registration = cancellationToken.Register(() =>
             {
                 try { process.Kill(entireProcessTree: true); }
                 catch { /* already exited */ }
             });
 
-            // WaitForExitAsync yields the thread-pool thread while waiting, so
-            // the kill callback above can be serviced without a deadlock.
-            // We pass CancellationToken.None because we want to wait for the
-            // process to actually exit after Kill() (which is near-instant).
-            process.WaitForExitAsync(CancellationToken.None).GetAwaiter().GetResult();
+            // Await the real exit — this yields the thread while the process runs.
+            // CancellationToken.None so we wait for the kill to fully complete.
+            await process.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false);
 
-            // Drain streams — they complete immediately after the process exits.
             string output = string.Empty;
             string error  = string.Empty;
-            try { output = stdoutTask.GetAwaiter().GetResult(); } catch { /* killed */ }
-            try { error  = stderrTask.GetAwaiter().GetResult(); } catch { /* killed */ }
+            try { output = await stdoutTask.ConfigureAwait(false); } catch { /* killed */ }
+            try { error  = await stderrTask.ConfigureAwait(false); } catch { /* killed */ }
 
-            // Throw after draining so the caller sees a clean cancellation.
+            // Throw after draining so the caller sees clean cancellation.
             cancellationToken.ThrowIfCancellationRequested();
 
             if (process.ExitCode != 0)

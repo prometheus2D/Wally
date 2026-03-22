@@ -61,7 +61,7 @@ namespace Wally.Forms.Controls
         private readonly Button           _btnModelDd;
         private readonly ContextMenuStrip _mnuModel;
 
-        // ?? Selected values (raw — never contain the " (default)" suffix) ????
+        // ?? Selected values (raw — never contain the " (default)" suffix) /////
         private string? _selectedActor;
         private string? _selectedLoop;
         private string? _selectedRunbook;
@@ -893,14 +893,10 @@ namespace Wally.Forms.Controls
                 }
                 else
                 {
-                    var results = await Task.Run(() =>
-                    {
-                        token.ThrowIfCancellationRequested();
-                        return WallyCommands.HandleRunTyped(
-                            _environment!, prompt, actorName, modelOverride,
-                            loopName: loopName, wrapper: wrapperName,
-                            noHistory: false, cancellationToken: token);
-                    }, token);
+                    var results = await WallyCommands.HandleRunTypedAsync(
+                        _environment!, prompt, actorName, modelOverride,
+                        loopName: loopName, wrapper: wrapperName,
+                        noHistory: false, cancellationToken: token);
 
                     if (results.Count == 0)
                         AddMessage("System", "No response from AI.", MessageKind.Error);
