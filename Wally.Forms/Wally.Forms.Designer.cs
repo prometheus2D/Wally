@@ -33,6 +33,8 @@ namespace Wally.Forms
             saveWorkspaceMenuItem    = new ToolStripMenuItem();
             closeWorkspaceMenuItem   = new ToolStripMenuItem();
             fileSeparator2           = new ToolStripSeparator();
+            settingsUserMenuItem     = new ToolStripMenuItem();
+            fileSettingsSeparator    = new ToolStripSeparator();
             exitMenuItem             = new ToolStripMenuItem();
 
             // ?? Edit menu ??
@@ -66,7 +68,6 @@ namespace Wally.Forms
             workspaceSeparator0         = new ToolStripSeparator();
             editConfigMenuItem          = new ToolStripMenuItem();
             settingsWorkspaceMenuItem   = new ToolStripMenuItem();
-            settingsUserMenuItem        = new ToolStripMenuItem();
             workspaceSeparator1         = new ToolStripSeparator();
             reloadActorsMenuItem        = new ToolStripMenuItem();
             listActorsMenuItem          = new ToolStripMenuItem();
@@ -156,7 +157,8 @@ namespace Wally.Forms
                 openWorkspaceMenuItem, setupWorkspaceMenuItem,
                 fileRecentSeparator,   recentWorkspacesMenuItem,
                 fileSeparator1,        saveWorkspaceMenuItem, closeWorkspaceMenuItem,
-                fileSeparator2,        exitMenuItem
+                fileSeparator2,        settingsUserMenuItem,
+                fileSettingsSeparator, exitMenuItem
             });
             fileToolStripMenuItem.ForeColor = Color.FromArgb(228, 228, 233);
             fileToolStripMenuItem.Name      = "fileToolStripMenuItem";
@@ -199,6 +201,15 @@ namespace Wally.Forms
 
             fileSeparator2.Name = "fileSeparator2";
             fileSeparator2.Size = new Size(273, 6);
+
+            settingsUserMenuItem.ForeColor   = Color.FromArgb(228, 228, 233);
+            settingsUserMenuItem.Name        = "settingsUserMenuItem";
+            settingsUserMenuItem.Size        = new Size(276, 22);
+            settingsUserMenuItem.Text        = "??  &User Preferences";
+            settingsUserMenuItem.ToolTipText = "Open user-level preferences";
+
+            fileSettingsSeparator.Name = "fileSettingsSeparator";
+            fileSettingsSeparator.Size = new Size(273, 6);
 
             exitMenuItem.ForeColor    = Color.FromArgb(228, 228, 233);
             exitMenuItem.Name         = "exitMenuItem";
@@ -334,7 +345,7 @@ namespace Wally.Forms
                 editActorsMenuItem, editLoopsMenuItem,
                 editWrappersMenuItem, editRunbooksMenuItem,
                 workspaceSeparator0,
-                editConfigMenuItem, settingsWorkspaceMenuItem, settingsUserMenuItem,
+                editConfigMenuItem, settingsWorkspaceMenuItem,
                 workspaceSeparator1,
                 reloadActorsMenuItem, listActorsMenuItem,
                 workspaceSeparator2,
@@ -380,12 +391,6 @@ namespace Wally.Forms
             settingsWorkspaceMenuItem.Size         = new Size(215, 22);
             settingsWorkspaceMenuItem.Text         = "?  &Workspace Settings";
             settingsWorkspaceMenuItem.ToolTipText  = "Open workspace configuration settings";
-
-            settingsUserMenuItem.ForeColor   = Color.FromArgb(228, 228, 233);
-            settingsUserMenuItem.Name        = "settingsUserMenuItem";
-            settingsUserMenuItem.Size        = new Size(215, 22);
-            settingsUserMenuItem.Text        = "??  &User Preferences";
-            settingsUserMenuItem.ToolTipText = "Open user-level preferences";
 
             workspaceSeparator1.Name = "workspaceSeparator1";
             workspaceSeparator1.Size = new Size(212, 6);
@@ -466,7 +471,7 @@ namespace Wally.Forms
             tsbOpen.Name             = "tsbOpen";
             tsbOpen.Size             = new Size(66, 22);
             tsbOpen.Text             = "?? Open";
-            tsbOpen.ToolTipText      = "Open Workspace (Ctrl+O)  ? Recent workspaces";
+            tsbOpen.ToolTipText      = "Open Workspace (Ctrl+O)  · Recent workspaces";
             tsbOpen.ShowDropDownArrow = true;
 
             tsbSetup.DisplayStyle = ToolStripItemDisplayStyle.Text;
@@ -517,7 +522,7 @@ namespace Wally.Forms
             tsbRefresh.ForeColor    = Color.FromArgb(228, 228, 233);
             tsbRefresh.Name         = "tsbRefresh";
             tsbRefresh.Size         = new Size(62, 22);
-            tsbRefresh.Text         = "? Refresh";
+            tsbRefresh.Text         = "?? Refresh";
             tsbRefresh.ToolTipText  = "Refresh Explorer (F5)";
 
             tsbReloadActors.DisplayStyle = ToolStripItemDisplayStyle.Text;
@@ -649,7 +654,7 @@ namespace Wally.Forms
             tsbClearChat.ForeColor    = Color.FromArgb(161, 161, 170);
             tsbClearChat.Name         = "tsbClearChat";
             tsbClearChat.Size         = new Size(76, 22);
-            tsbClearChat.Text         = "? Clear Chat";
+            tsbClearChat.Text         = "?? Clear Chat";
             tsbClearChat.ToolTipText  = "Clear Chat Conversation";
 
             // ????????????????????????????????????????????????????????????????
@@ -714,6 +719,8 @@ namespace Wally.Forms
         private ToolStripMenuItem  saveWorkspaceMenuItem;
         private ToolStripMenuItem  closeWorkspaceMenuItem;
         private ToolStripSeparator fileSeparator2;
+        private ToolStripMenuItem  settingsUserMenuItem;
+        private ToolStripSeparator fileSettingsSeparator;
         private ToolStripMenuItem  exitMenuItem;
 
         // ?? Edit menu ??
@@ -747,7 +754,6 @@ namespace Wally.Forms
         private ToolStripSeparator workspaceSeparator0;
         private ToolStripMenuItem  editConfigMenuItem;
         private ToolStripMenuItem  settingsWorkspaceMenuItem;
-        private ToolStripMenuItem  settingsUserMenuItem;
         private ToolStripSeparator workspaceSeparator1;
         private ToolStripMenuItem  reloadActorsMenuItem;
         private ToolStripMenuItem  listActorsMenuItem;

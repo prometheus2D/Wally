@@ -59,7 +59,8 @@ namespace Wally.Forms
         private const string TabKeyChatHistory     = "__chat_history__";
         private const string TabKeyPromptViewer    = "__prompt_viewer__";
         private const string TabKeyWorkspaceViewer = "__workspace_viewer__";
-        private const string TabKeySettings        = "__settings__";
+        private const string TabKeyWorkspaceSettings = "__ws_settings__";
+        private const string TabKeyUserPrefs       = "__user_prefs__";
 
         // ?? Constructor ??????????????????????????????????????????????????????
 
@@ -207,6 +208,7 @@ namespace Wally.Forms
             setupWorkspaceMenuItem.Click += OnSetupWorkspace;
             saveWorkspaceMenuItem.Click  += OnSaveWorkspace;
             closeWorkspaceMenuItem.Click += OnCloseWorkspace;
+            settingsUserMenuItem.Click   += OnSettingsUser;
             exitMenuItem.Click           += OnExit;
             recentWorkspacesMenuItem.DropDownOpening += OnRecentWorkspacesOpening;
 
@@ -250,15 +252,13 @@ namespace Wally.Forms
             viewWorkspaceViewerMenuItem.Click  += OnViewWorkspaceViewer;
             closeAllEditorsMenuItem.Click      += OnCloseAllEditors;
 
-            // ?? Workspace menu (entity editors + settings + runtime actions,
-            //    absorbed from old Editors and Settings menus) ??
+            // ?? Workspace menu (entity editors + settings + runtime actions) ??
             editActorsMenuItem.Click          += OnEditActors;
             editLoopsMenuItem.Click           += OnEditLoops;
             editWrappersMenuItem.Click        += OnEditWrappers;
             editRunbooksMenuItem.Click        += OnEditRunbooks;
             editConfigMenuItem.Click          += OnEditConfig;
             settingsWorkspaceMenuItem.Click   += OnSettingsWorkspace;
-            settingsUserMenuItem.Click        += OnSettingsUser;
             reloadActorsMenuItem.Click        += OnReloadActors;
             listActorsMenuItem.Click          += OnListActors;
             workspaceInfoMenuItem.Click       += OnWorkspaceInfo;
@@ -484,7 +484,23 @@ namespace Wally.Forms
                 _lblActorCount.Text      = "Actors: 0";
                 _explorerTabPanel.ClearAll();
                 _welcomePanel.SetWorkspaceInfo(loaded: false);
+
+                // Close all workspace-scoped tabs — keep only Welcome and User Prefs.
+                CloseWorkspaceTabs();
             }
+        }
+
+        /// <summary>
+        /// Closes every open tab that belongs to a workspace context, leaving
+        /// only the Welcome tab and the User Preferences tab open.
+        /// </summary>
+        private void CloseWorkspaceTabs()
+        {
+            var keysToClose = _tabHost.OpenTabKeys
+                .Where(k => k != TabKeyWelcome && k != TabKeyUserPrefs)
+                .ToList();
+            foreach (var key in keysToClose)
+                _tabHost.CloseTab(key);
         }
 
         private void OnChatCommandIssued(object? sender, string command) =>
@@ -494,11 +510,12 @@ namespace Wally.Forms
         {
             bool has = _environment.HasWorkspace;
 
-            saveWorkspaceMenuItem.Enabled  = has;
-            closeWorkspaceMenuItem.Enabled = has;
-            refreshMenuItem.Enabled        = has;
-            showExplorerMenuItem.Enabled   = has;
-            showChatMenuItem.Enabled       = has;
+            saveWorkspaceMenuItem.Enabled     = has;
+            closeWorkspaceMenuItem.Enabled    = has;
+            refreshMenuItem.Enabled           = has;
+            showExplorerMenuItem.Enabled      = has;
+            showChatMenuItem.Enabled          = has;
+            settingsWorkspaceMenuItem.Enabled = has;
 
             tsbSave.Enabled         = has;
             tsbClose.Enabled        = has;
@@ -601,22 +618,28 @@ namespace Wally.Forms
         // ?? Menu handlers ????????????????????????????????????????????????????
 
         private void OnSettingsWorkspace(object? sender, EventArgs e) =>
-            OpenSettingsPanel(SettingsPanel.TabIndexWorkspace);
+            OpenWorkspaceSettingsTab();
 
         private void OnSettingsUser(object? sender, EventArgs e) =>
-            OpenSettingsPanel(SettingsPanel.TabIndexUser);
+            OpenUserPrefsTab();
 
-        private void OpenSettingsPanel(int tabIndex)
+        private void OpenWorkspaceSettingsTab()
         {
-            if (_tabHost.SelectTab(TabKeySettings))
-            {
-                if (_tabHost.GetActivePanel() is SettingsPanel existing)
-                    existing.SelectTab(tabIndex);
-                return;
-            }
-            var panel = new SettingsPanel(_environment);
-            _tabHost.OpenTab(TabKeySettings, "Settings", "\u2699", panel);
-            panel.SelectTab(tabIndex);
+            if (!_environment.HasWorkspace) return;
+            if (_tabHost.SelectTab(TabKeyWorkspaceSettings)) return;
+            var editor = new ConfigEditorPanel();
+            editor.BindEnvironment(_environment);
+            editor.LoadConfig();
+            editor.DirtyChanged += (_, _) => _tabHost.SetTabDirty(TabKeyWorkspaceSettings, editor.IsDirty);
+            _tabHost.OpenTab(TabKeyWorkspaceSettings, "Workspace Settings", "\u2699", editor);
+        }
+
+        private void OpenUserPrefsTab()
+        {
+            if (_tabHost.SelectTab(TabKeyUserPrefs)) return;
+            var editor = new UserPreferencesEditorPanel();
+            editor.LoadPreferences();
+            _tabHost.OpenTab(TabKeyUserPrefs, "User Preferences", "\uD83D\uDC64", editor);
         }
 
         private void OnEditCopy(object? sender, EventArgs e)
