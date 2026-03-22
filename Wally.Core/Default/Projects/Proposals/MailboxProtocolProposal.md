@@ -1,9 +1,9 @@
 # Mailbox Protocol — Proposal
 
-**Status**: Draft
+**Status**: Complete
 **Author**: System Architecture Team
 **Created**: 2024-01-10
-**Last Updated**: 2024-01-10
+**Last Updated**: 2025-07-15
 
 *Template: [../../Templates/ProposalTemplate.md](../../Templates/ProposalTemplate.md)*
 
@@ -11,13 +11,21 @@
 
 ## Problem Statement
 
-`Inbox/Outbox/Pending/Active` folders are scaffolded for every actor but no code reads, writes, or routes them. Multi-agent handoff is structurally defined but behaviourally unimplemented. Actors cannot trigger each other without tight pipeline coupling.
+`Inbox/Outbox/Pending/Active` folders are scaffolded for every actor but no code reads, writes, or routes them. `send_message` currently delivers directly to the target's Inbox, bypassing the Outbox entirely. Nothing processes Inbox messages or routes responses. The mailbox system is structurally complete but behaviourally inert.
 
 ---
 
 ## Resolution
 
-Implement a simple file-based inter-actor message protocol that works like email. Messages are processed as single-action Wally loops that trigger all actors to process their inboxes. Use standard email formatting for easy metadata parsing. Outbox messages are stored as "emails waiting to be sent" for future delivery implementation.
+Two new Wally commands and one change to `send_message`:
+
+1. **Change `send_message`** — Write to the **sending actor's own Outbox** instead of the target's Inbox. The Outbox is the staging area for all outgoing messages.
+2. **`process-mailboxes`** — For each actor with Inbox messages: read all messages, feed them to the actor as a prompt. The actor responds naturally and may emit `send_message` actions (which write to their Outbox). Delete the Inbox originals after successful processing.
+3. **`route-outbox`** — Scan all actors' Outbox folders, read the `to:` field from YAML front-matter, copy each message to the target actor's Inbox, delete the Outbox original.
+
+One delivery path: **Outbox ? `route-outbox` ? Inbox**. That's it.
+
+A runbook chains these: `process-mailboxes` then `route-outbox`.
 
 ---
 
@@ -26,8 +34,8 @@ Implement a simple file-based inter-actor message protocol that works like email
 | Proposal | Relationship | Notes |
 |----------|--------------|-------|
 | [AutonomousBotGapsProposal](./AutonomousBotGapsProposal.md) | Parent | Extracted from parent as Phase 3 |
-| [AsyncExecutionProposal](./AsyncExecutionProposal.md) | Depends on | Message processing uses `ExecuteActorAsync` |
-| [AutonomyLoopProposal](./AutonomyLoopProposal.md) | Sibling | Message processing triggers through loop system |
+| ~~[AsyncExecutionProposal](./AsyncExecutionProposal.md)~~ | Depends on | ? **COMPLETE** — `ExecuteActorAsync` available |
+| [AutonomyLoopProposal](./AutonomyLoopProposal.md) | Sibling | Independent; agents can emit `send_message` from within a loop |
 
 ---
 
@@ -35,196 +43,149 @@ Implement a simple file-based inter-actor message protocol that works like email
 
 | Phase | Description | Effort | Dependencies |
 |-------|-------------|--------|-------------|
-| 1 | Email-like mailbox processing with unified loops | 3-5 days | Async execution complete |
+| 1 | Change `send_message` + implement `process-mailboxes` + `route-outbox` | 2-3 days | Async execution complete |
 
 ---
 
 ## Concepts
 
-- **Message processing as Wally loop**: Single-action loop that triggers all actors to process their inboxes
-- **Actions are loops**: No distinction — actions are just loops that do one thing and don't continue
-- **Email-like format**: Standard email headers (To, From, Subject) for easy metadata parsing
-- **Outbox as "unsent email"**: Messages stored in standard email format, ready for future delivery
-- **Unified trigger**: One message processing action triggers all actors simultaneously
+- **One delivery path**: All messages flow through Outbox ? `route-outbox` ? Inbox. There is no direct-to-inbox delivery.
+- **`send_message`**: Writes to the **sending actor's own Outbox**. This is a change from the current behaviour (which writes to the target's Inbox). The message sits in the sender's Outbox until `route-outbox` delivers it.
+- **`process-mailboxes`**: Reads each actor's Inbox, feeds messages as a prompt, actor thinks and responds (may emit `send_message` actions which go to their Outbox), deletes processed Inbox files.
+- **`route-outbox`**: Reads each actor's Outbox, parses `to:` field, copies to target's Inbox, deletes Outbox original.
+- **Mailbox cycle**: `process-mailboxes` ? `route-outbox`. Run manually or via runbook.
 
 ---
 
-## Email-Like Message Format
+## Implementation Status
 
-### Standard Email Headers
+> `send_message` is currently implemented in `ActionDispatcher.ExecuteSendMessage` writing to the **target's Inbox**. This needs to change to write to the **sending actor's Outbox** instead. The YAML front-matter format (`from`, `to`, `replyTo`, `subject`, `correlationId`, `timestamp`, `status`) stays the same.
+
+---
+
+## Message Format
+
+All messages use YAML front-matter:
+
 ```markdown
-To: BusinessAnalyst
-From: Engineer  
-Subject: Requirements Review Request
-Reply-To: Engineer
-Message-ID: a1b2c3d4-e5f6-7890-abcd-ef1234567890
-Date: 2024-01-15T14:30:00Z
+---
+from: Engineer
+to: BusinessAnalyst
+replyTo: Engineer
+subject: RequirementsReview
+correlationId: a1b2c3d4
+timestamp: 2024-01-15T14:30:00.000Z
+status: new
+---
 
 Please review the attached requirements document and provide feedback on business alignment...
 ```
 
-### File Structure (Same as Email)
+### File Naming
+
 ```
-{timestamp}-{fromActor}-{subject}.md
-
-Example: 2024-01-15T14-30-00Z-Engineer-RequirementsReview.md
-```
-
-**Email-Style Metadata in File**:
-- **To**: Target actor (required)
-- **From**: Sending actor (required)  
-- **Subject**: Brief description (required)
-- **Reply-To**: Who should receive reply (optional, defaults to From)
-- **Message-ID**: Correlation UUID (auto-generated)
-- **Date**: ISO-8601 timestamp (auto-generated)
-
----
-
-## Message Processing Loop Architecture
-
-### Single Message Processing Action/Loop
-```json
-{
-  "name": "ProcessMailboxes", 
-  "description": "Trigger all actors to process their inbox messages",
-  "actorName": "System",
-  "maxIterations": 1,
-  "startPrompt": "Process all pending mailbox messages",
-  "actions": ["process_all_mailboxes"]
-}
-```
-
-### How It Works
-1. **Trigger**: `wally run --loop ProcessMailboxes` OR daemon detects new messages
-2. **Single action**: `process_all_mailboxes` action executes
-3. **All actors process**: Each actor with inbox messages gets executed
-4. **Email-like flow**: Inbox ? Active ? Outbox (like email client)
-
-### No Distinction Between Actions and Loops
-- `send_message` = single-action loop that sends one message
-- `process_mailboxes` = single-action loop that processes all inboxes  
-- `analyze_requirements` = single-action loop that analyzes requirements
-- All use same infrastructure, just different `maxIterations` and continuation logic
-
----
-
-## Implementation Approach
-
-### Enhanced `send_message` Action (Single-Action Loop)
-```csharp
-// In ActionDispatcher.cs - creates email-like messages
-case "send_message":
-    var to = GetRequiredParameter("to");
-    var subject = GetRequiredParameter("subject");
-    var body = GetRequiredParameter("body");
-    var from = currentActor.Name;
-    var replyTo = GetOptionalParameter("replyTo") ?? from;
-    
-    var messageId = Guid.NewGuid().ToString();
-    var timestamp = DateTime.UtcNow.ToString("yyyy-MM-ddTHH-mm-ssZ");
-    var filename = $"{timestamp}-{from}-{subject.Replace(" ", "")}.md";
-    
-    var emailMessage = CreateEmailLikeMessage(to, from, subject, body, replyTo, messageId);
-    WriteToActorInbox(to, filename, emailMessage);
-    return $"Message sent to {to}: {subject}";
-
-private string CreateEmailLikeMessage(string to, string from, string subject, string body, string replyTo, string messageId)
-{
-    return $@"To: {to}
-From: {from}
-Subject: {subject}
-Reply-To: {replyTo}
-Message-ID: {messageId}
-Date: {DateTime.UtcNow:yyyy-MM-ddTHH:mm:ssZ}
-
-{body}";
-}
-```
-
-### `process_all_mailboxes` Action (Single-Action Loop)
-```csharp
-case "process_all_mailboxes":
-    var results = new List<string>();
-    
-    foreach (var actor in workspace.Actors)
-    {
-        var inboxPath = Path.Combine(actor.DirectoryPath, "Inbox");
-        if (!Directory.Exists(inboxPath)) continue;
-        
-        var messages = Directory.GetFiles(inboxPath, "*.md");
-        foreach (var messagePath in messages)
-        {
-            var result = ProcessSingleMessage(actor, messagePath);
-            results.Add(result);
-        }
-    }
-    
-    return $"Processed {results.Count} messages across all actors";
-```
-
-### Runbooks Stay Simple
-Runbooks just run Wally commands:
-```json
-{
-  "name": "DailyMailboxCheck",
-  "steps": [
-    {"command": "wally run --loop ProcessMailboxes"},
-    {"command": "wally run --actor Monitor \"Report mailbox status\""}
-  ]
-}
+{timestamp}_{correlationId}_{subject}.md
 ```
 
 ---
 
-## Email-Like File Lifecycle
+## Mailbox Lifecycle
+
+### One Path
 
 ```
-Actor A: wally run --action send_message
-  ? Creates email-like message file
-Actor B's Inbox/{timestamp}-A-{subject}.md (email format)
-  ? wally run --loop ProcessMailboxes OR daemon trigger  
-Move Inbox/ ? Active/ (like email client moving to "processing")
-  ? Parse email headers, execute actor with message body
-Actor B processes message, may send replies via send_message
-  ? Response written to Outbox/ (email ready to be sent)
-Active/ cleaned up (email processing complete)
+Actor emits send_message action
+  ? Message written to sender's Outbox/
+
+wally route-outbox
+  ? Reads each Outbox/ message
+  ? Parses to: field
+  ? Copies to target actor's Inbox/
+  ? Deletes Outbox/ original
+
+wally process-mailboxes
+  ? Reads each actor's Inbox/ messages
+  ? Feeds to actor as prompt
+  ? Actor responds (may emit send_message ? goes to their Outbox/)
+  ? Deletes processed Inbox/ files
+
+wally route-outbox
+  ? Delivers new Outbox/ messages to recipients' Inboxes
 ```
 
-### Outbox Messages (Unsent Emails)
-- **Same format**: To, From, Subject, Message-ID, Date headers
-- **Same structure**: Ready to be moved directly to target actor's Inbox/
-- **Future delivery**: Code will eventually move Outbox/ messages to target Inbox/ folders
-- **Audit trail**: Shows what each actor has "sent" but not yet delivered
+### Folder Usage
+
+| Folder | Purpose | Written by | Deleted by |
+|--------|---------|-----------|------------|
+| **Inbox/** | Messages waiting for this actor to read | `route-outbox` only | `process-mailboxes` |
+| **Outbox/** | Messages this actor wants to send | `send_message` action | `route-outbox` |
+| **Active/** | Reserved for future use | — | — |
+| **Pending/** | Reserved for future use | — | — |
+
+### Multiple outbox messages from one input
+
+An actor processing inbox messages may create multiple outbox messages — they simply emit multiple `send_message` action blocks in their response. Each creates a separate file in the actor's Outbox. `route-outbox` delivers each one to its respective recipient.
 
 ---
 
-## Unified Command Structure
+## Commands
 
-### Single `run` Command for Everything
+### `process-mailboxes`
+
 ```bash
-# Current behavior - actor execution
-wally run "analyze user requirements"
-wally run --actor Engineer "review this code"
-
-# Loop execution (actions are just single-iteration loops)  
-wally run --loop ProcessMailboxes        # Message processing loop
-wally run --loop AnalyzeRequirements     # Analysis loop
-wally run --action send_message          # Single-action loop
-
-# Runbook execution
-wally run --runbook DailyWorkflow        # Runs sequence of wally commands
+wally process-mailboxes
 ```
 
-### Message Processing Integration
+**Behaviour**:
+1. Iterate all actors in workspace
+2. For each actor, check `Inbox/` for `.md` files
+3. If no messages, skip actor
+4. Read all Inbox message files, concatenate their content
+5. Build prompt: `"You have {n} new message(s) in your inbox. Review and respond to each.\n\n{message contents}"`
+6. Call `ExecuteActorAsync` with the prompt
+7. Process response through `ActionDispatcher` (any `send_message` actions write to this actor's Outbox)
+8. Delete all processed Inbox files
+9. Print summary
+
+**Edge cases**:
+- No inbox messages ? skip silently
+- Multiple inbox messages ? concatenate into one prompt
+- `ExecuteActorAsync` fails ? leave Inbox files in place, log error, continue to next actor
+
+### `route-outbox`
+
 ```bash
-# Manual message processing
-wally run --loop ProcessMailboxes
+wally route-outbox
+```
 
-# Daemon mode (future)
-wally watch --loop ProcessMailboxes --interval 30s
+**Behaviour**:
+1. Iterate all actors in workspace
+2. For each actor, check `Outbox/` for `.md` files
+3. For each file, parse YAML front-matter to extract `to:` field
+4. If `to:` contains comma-separated names, deliver to each target
+5. Copy file to each target actor's `Inbox/`
+6. Delete Outbox original
+7. Print summary
 
-# Single actor mailbox
-wally run --actor Engineer --loop ProcessMailboxes
+**Edge cases**:
+- `to:` field missing/empty ? log warning, leave in Outbox
+- Target actor doesn't exist ? log warning, leave in Outbox
+- All recipients invalid ? file stays in Outbox
+
+### Runbook
+
+```wrb
+# Full mailbox cycle
+process-mailboxes
+route-outbox
+```
+
+```wrb
+# Multiple rounds
+process-mailboxes
+route-outbox
+process-mailboxes
+route-outbox
 ```
 
 ---
@@ -233,94 +194,99 @@ wally run --actor Engineer --loop ProcessMailboxes
 
 | File | Change | Risk Level |
 |------|--------|------------|
-| `Wally.Core/ActionDispatcher.cs` | Add `send_message` and `process_all_mailboxes` actions | Low |
-| `Wally.Core/WallyCommands.cs` | Enhance unified `run` command routing | Low |  
-| `Wally.Core/WallyLoop.cs` | Clarify that actions are single-iteration loops | Low |
-| `Wally.Console/Program.cs` | Update `run` command option parsing | Low |
+| `Wally.Core/ActionDispatcher.cs` | Change `send_message` to write to sender's Outbox instead of target's Inbox | Low |
+| `Wally.Core/WallyCommands.cs` | Add `process-mailboxes` and `route-outbox` verbs + handler methods | Medium |
+| `Wally.Core/Mailbox/MailboxHelper.cs` | New — YAML front-matter parser for `to:`, `from:`, `replyTo:`, `subject:` | Low |
 
 ---
 
 ## Benefits
 
-- **Email-familiar format**: Everyone understands To, From, Subject headers
-- **Easy metadata parsing**: Standard email headers make code parsing simple
-- **Unified architecture**: Actions and loops use same infrastructure  
-- **Simple runbooks**: Just sequences of `wally run` commands
-- **Future-ready outbox**: Messages stored as "unsent emails" for delivery
-- **Single trigger**: One action processes all actor mailboxes simultaneously
+- **One delivery path** — Outbox ? `route-outbox` ? Inbox. No confusion about direct vs routed.
+- **Uses existing infrastructure** — `ExecuteActorAsync`, `ActionDispatcher`, YAML front-matter
+- **No new abstractions** — no MailboxRouter, no MailboxWatcher, no BatchContext, no daemon mode
+- **Chainable** — runbooks sequence processing rounds
+- **Error-safe** — Inbox files only deleted after success; Outbox files only deleted after delivery
 
 ---
 
 ## Risks
 
-- **File parsing complexity**: Email header parsing needs to be robust
-- **Message ordering**: Multiple messages may process simultaneously
-- **Outbox accumulation**: Undelivered messages may accumulate over time
+- **Message ordering**: Multiple inbox messages concatenated chronologically (timestamp-prefixed filenames).
+- **Large inboxes**: Many messages in one prompt could exceed LLM context. Mitigation: warn when >10 messages.
+- **Circular messaging**: A?B?A?B. Mitigation: human controls when to run commands.
 
 ---
 
 ## Todo Tracker
 
-| Task | Priority | Status | Owner | Due Date | Notes |
-|------|----------|--------|-------|----------|-------|
-| Implement email-like message format creation | High | ?? Not Started | @developer | 2024-01-16 | Standard email headers |
-| Add `send_message` action with email formatting | High | ?? Not Started | @developer | 2024-01-17 | Single-action loop |
-| Create `process_all_mailboxes` action | High | ?? Not Started | @developer | 2024-01-18 | Trigger all actors |
-| Enhance `run` command for unified routing | Medium | ?? Not Started | @developer | 2024-01-19 | --loop, --action options |
-| Add email header parsing utilities | Medium | ?? Not Started | @developer | 2024-01-20 | To, From, Subject extraction |
-| Test email-like message flow end-to-end | Low | ?? Not Started | @qa | 2024-01-21 | Inbox ? Active ? Outbox |
+| Task | Priority | Status | Owner | Notes |
+|------|----------|--------|-------|-------|
+| ~~Implement `send_message` action~~ | High | ? Complete | @developer | Needs change: write to sender's Outbox |
+| Change `send_message` to write to sender's Outbox | High | ?? Not Started | @developer | Currently writes to target's Inbox |
+| Create YAML front-matter parser (`MailboxHelper`) | High | ?? Not Started | @developer | Extract `to:`, `from:`, etc. |
+| Implement `process-mailboxes` command | High | ?? Not Started | @developer | Read Inbox ? prompt actor ? delete Inbox |
+| Implement `route-outbox` command | High | ?? Not Started | @developer | Read Outbox ? copy to target Inbox ? delete Outbox |
+| Add verbs to `DispatchCommand` + `_knownVerbs` | Medium | ?? Not Started | @developer | |
+| Create example runbook | Low | ?? Not Started | @developer | `process-mailboxes` then `route-outbox` |
+| Test end-to-end cycle | Low | ?? Not Started | @qa | |
 
 ---
 
 ## Acceptance Criteria
 
-#### Must Have (Required for Approval)
-- [ ] `send_message` creates email-formatted messages with standard headers
-- [ ] `process_all_mailboxes` triggers all actors to process their inboxes
-- [ ] Email headers (To, From, Subject, Message-ID, Date) easily parseable by code
-- [ ] Outbox messages stored in same email format for future delivery
-- [ ] `wally run --loop` and `wally run --action` work identically (actions are single-iteration loops)
+#### Must Have
+- [ ] `send_message` writes to the sending actor's Outbox (not target's Inbox)
+- [ ] `process-mailboxes` reads Inbox, prompts actor, deletes Inbox files on success
+- [ ] `route-outbox` reads Outbox, parses `to:`, copies to target Inbox, deletes Outbox
+- [ ] Inbox files only deleted after successful processing
+- [ ] Outbox files only deleted after successful delivery
+- [ ] YAML front-matter format unchanged
 
-#### Should Have (Preferred for Quality)  
-- [ ] Unified `run` command routes correctly to loops, actions, and runbooks
-- [ ] Email header parsing robust and error-tolerant
-- [ ] File naming prevents conflicts and maintains chronological order
-- [ ] Message processing integrates seamlessly with existing execution infrastructure
+#### Should Have
+- [ ] Multiple recipients via comma-separated `to:`
+- [ ] Warning when inbox has >10 messages
+- [ ] Per-actor summary output
+- [ ] Example runbook
 
 #### Completion Checklist
-- [ ] All message functionality works through standard Wally loop infrastructure
-- [ ] Email format consistent and easily readable by both humans and code
-- [ ] Outbox messages ready for future automatic delivery implementation
-- [ ] Actions and loops unified under same architectural pattern
+- [ ] Commands in `DispatchCommand` and `_knownVerbs`
+- [ ] YAML parser handles missing/malformed fields
+- [ ] No new external dependencies
 
 ---
 
-## Open Questions & Recommendations
+## Open Questions — All Resolved
 
-### 1. **Email Header Standards**
-**Question**: Should we follow RFC 5322 email standards exactly or simplified version?
-**Recommendation**: Simplified but compatible — use standard header names (To, From, Subject) but don't require all RFC fields.
+### 1. How does `process-mailboxes` build the prompt? ?
 
-### 2. **Message-ID Format**
-**Question**: Use GUID, timestamp-based, or RFC-compliant Message-ID?
-**Recommendation**: GUID for simplicity, with format like `{guid}@wally.local` for email compatibility.
+Concatenate all inbox messages into one prompt:
+```
+You have {n} new message(s). Review and respond to each.
 
-### 3. **Reply Threading**
-**Question**: Should replies include In-Reply-To header for threading?
-**Recommendation**: Yes, add `In-Reply-To: {original-message-id}` for conversation threading.
+--- Message 1: {subject} (from {from}) ---
+{body}
 
-### 4. **Outbox Delivery Timing**
-**Question**: When should future outbox delivery be implemented?
-**Recommendation**: Separate proposal after this phase — outbox provides audit trail and staging area for now.
+--- Message 2: {subject} (from {from}) ---
+{body}
+```
 
-**Email Header Template**:
-```markdown
-To: {targetActor}
-From: {sourceActor}
-Subject: {subject}
-Reply-To: {replyToActor}
-Message-ID: {guid}@wally.local
-Date: {iso8601timestamp}
-In-Reply-To: {originalMessageId}  // Only for replies
+### 2. Where does `send_message` write? ?
 
-{messageBody}
+To the **sending actor's own Outbox**. `route-outbox` delivers it. One path.
+
+### 3. Should `route-outbox` delete or keep outbox files? ?
+
+Delete. Outbox is staging, not archive. If audit trail is needed later, add a `Sent/` folder.
+
+### 4. Active/ and Pending/ folders? ?
+
+Not used in v1. Reserved for future use.
+
+### 5. Daemon / watch mode? ?
+
+No. Manual trigger only.
+
+### 6. Message format? ?
+
+YAML front-matter. Already implemented by `send_message`. Canonical format.

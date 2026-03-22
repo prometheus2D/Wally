@@ -1,9 +1,9 @@
 # Autonomous Bot Implementation Plan
 
-**Status**: Draft
+**Status**: In Progress (Phase 1 Complete)
 **Owner**: Lead Engineer
-**Started**: TBD
-**Target Completion**: 2024-02-15
+**Started**: 2025-07-15
+**Target Completion**: TBD
 
 *Template: [../../Templates/ImplementationPlanTemplate.md](../../Templates/ImplementationPlanTemplate.md)*
 
@@ -11,7 +11,7 @@
 
 ## Summary
 
-Autonomous Bot system implementation: 3 phases, 8 total days, enabling async execution, batch mailbox processing, and documentation workflow automation.
+Autonomous Bot system implementation: 3 phases enabling async execution, mailbox processing, and documentation workflow automation.
 
 ---
 
@@ -19,8 +19,8 @@ Autonomous Bot system implementation: 3 phases, 8 total days, enabling async exe
 
 | Phase | Days | Deps | Deliverable | Status |
 |-------|------|------|-------------|--------|
-| Phase 1 | 2 | None | Async execution path with batch integration | ?? Not Started |
-| Phase 2 | 3 | Phase 1 | Mailbox protocol with batch concurrency | ?? Not Started |
+| Phase 1 | 2 | None | Async execution path | ? **COMPLETE** |
+| Phase 2 | 2-3 | Phase 1 | Mailbox protocol: `process-mailboxes` + `route-outbox` commands | ? Partial (`send_message` implemented; now UNBLOCKED) |
 | Phase 3 | 3 | Phase 2 | Documentation workflow automation | ?? Not Started |
 
 ---
@@ -29,7 +29,7 @@ Autonomous Bot system implementation: 3 phases, 8 total days, enabling async exe
 
 ```mermaid
 flowchart LR
-    P1[Phase 1: Async Execution] --> P2[Phase 2: Mailbox Protocol]
+    P1[Phase 1: Async Execution ?] --> P2[Phase 2: Mailbox Protocol]
     P2 --> P3[Phase 3: Documentation Workflow]
 ```
 
@@ -37,24 +37,22 @@ flowchart LR
 
 ## Detailed Steps
 
-### Phase 1: Async Execution Path
-1. CREATE `Wally.Core/Mailbox/BatchContext.cs` — Thread-local context for batch processing coordination
-2. MODIFY `Wally.Core/LLMWrappers/LLMWrapper.cs` — Add `ExecuteAsync(string, string, string, SessionLogger, CancellationToken)` method, make `Execute` wrapper
-3. MODIFY `Wally.Core/WallyEnvironment.cs` — Add `ExecuteActorAsync` and `ExecutePromptAsync` with BatchContext integration
-4. MODIFY `Wally.Core/WallyCommands.cs` — Add `HandleRunTypedAsync` and `RunPipelineAsync` methods
-5. MODIFY `Wally.Forms/Controls/ChatPanel.cs` — Replace `Task.Run` wrapper with direct `await HandleRunTypedAsync`
-6. MODIFY `Wally.Core/ActionDispatcher.cs` — Add batch-aware message staging for `send_message` action
-7. TEST: Verify async execution works in single-user mode (ChatPanel) and batch context awareness
+### Phase 1: Async Execution Path ? COMPLETE
+1. ~~MODIFY `Wally.Core/LLMWrappers/LLMWrapper.cs`~~ — ? `ExecuteAsync` with `WaitForExitAsync` + `process.Kill(entireProcessTree: true)` on cancellation; `Execute` is sync wrapper
+2. ~~MODIFY `Wally.Core/WallyEnvironment.cs`~~ — ? `ExecutePromptAsync` + `ExecuteActorAsync` with `.ConfigureAwait(false)`; sync wrappers
+3. ~~MODIFY `Wally.Core/WallyCommands.cs`~~ — ? `HandleRunTypedAsync` with `TextWriter? output` + `RunPipelineAsync`; sync wrappers
+4. ~~MODIFY `Wally.Forms/Controls/ChatPanel.cs`~~ — ? Direct `await HandleRunTypedAsync` — no `Task.Run`
+5. ~~MODIFY `Wally.Core/ActionDispatcher.cs`~~ — ? `send_message` action already implemented with YAML front-matter
+6. ~~TEST~~ — ? Async execution works in ChatPanel; console behavior unchanged
 
-### Phase 2: Mailbox Protocol with Batch Concurrency  
-1. CREATE `Wally.Core/Mailbox/WallyMessage.cs` — Message envelope model with YAML front-matter and batchId
-2. CREATE `Wally.Core/Mailbox/MailboxRouter.cs` — Batch iteration orchestrator with atomic commit
-3. CREATE `Wally.Core/Mailbox/MailboxWatcher.cs` — FileSystemWatcher wrapper with batch triggering
-4. MODIFY `Wally.Core/ActionDispatcher.cs` — Enhanced `send_message` handler with staging and validation
-5. CREATE `Wally.Console/Options/Run/WatchOptions.cs` — CLI options for daemon mode with batch configuration
-6. MODIFY `Wally.Console/Program.cs` — Add `watch` verb handler for daemon mode
-7. TEST: Verify batch processing cycle (snapshot ? concurrent processing ? atomic commit)
-8. TEST: Verify mailbox lifecycle (Inbox ? Active ? Outbox/Pending) with failure isolation
+### Phase 2: Mailbox Protocol — `process-mailboxes` + `route-outbox`
+1. MODIFY `Wally.Core/ActionDispatcher.cs` — Change `ExecuteSendMessage` to write to **sender's Outbox** instead of target's Inbox
+2. CREATE `Wally.Core/Mailbox/MailboxHelper.cs` — Simple YAML front-matter parser: extract `to:`, `from:`, `replyTo:`, `subject:`, `correlationId:` fields from message files
+3. MODIFY `Wally.Core/WallyCommands.cs` — Add `process-mailboxes` and `route-outbox` verbs to `DispatchCommand` switch + `_knownVerbs` array
+4. MODIFY `Wally.Core/WallyCommands.cs` — Add `HandleProcessMailboxes`: iterate actors ? read Inbox ? build prompt ? `ExecuteActorAsync` ? dispatch actions ? delete Inbox originals
+5. MODIFY `Wally.Core/WallyCommands.cs` — Add `HandleRouteOutbox`: iterate actors ? read Outbox ? parse `to:` ? copy to target Inbox ? delete Outbox originals
+6. CREATE example runbook: `process-mailboxes` then `route-outbox`
+7. TEST: Verify full cycle — send_message ? route-outbox ? process-mailboxes ? route-outbox
 
 ### Phase 3: Documentation Workflow Automation
 1. CREATE `Wally.Core/Default/Loops/DocumentationReflection.json` — Loop definition with convergence detection
@@ -72,9 +70,9 @@ flowchart LR
 
 | Days | Phase | Parallel? | Status |
 |------|-------|-----------|--------|
-| 1-2 | Phase 1: Async Execution | No | ?? Not Started |
-| 3-5 | Phase 2: Mailbox Protocol | No | ?? Not Started |
-| 6-8 | Phase 3: Documentation Workflow | No | ?? Not Started |
+| 1-2 | Phase 1: Async Execution | No | ? **COMPLETE** |
+| 3-4 | Phase 2: Mailbox Protocol | No | ? Partial (now UNBLOCKED) |
+| 5-7 | Phase 3: Documentation Workflow | No | ?? Not Started |
 
 ---
 
@@ -90,9 +88,9 @@ flowchart LR
 
 | Risk | Mitigation | Status |
 |------|-----------|--------|
-| Sync-over-async deadlock in batch processing | Use `.ConfigureAwait(false)` throughout Wally.Core | ?? Prevention |
-| FileSystemWatcher reliability on network drives | Add polling fallback with configurable interval | ?? Planned |
-| Batch processing memory usage during large batches | Implement configurable batch size limits | ?? Planned |
+| Sync-over-async deadlock in batch processing | Use `.ConfigureAwait(false)` throughout Wally.Core | ? Implemented |
+| Large inboxes exceeding LLM context limits | Log warning when >10 messages; future batching if needed | ?? Planned |
+| Circular messaging (A?B?A?B…) | Controlled by human deciding when to run `process-mailboxes` | ? By design |
 | Documentation loop infinite cycles | Implement convergence detection with max iteration limits | ?? Prevention |
 
 ---
@@ -101,44 +99,45 @@ flowchart LR
 
 | Task | Phase | Priority | Status | Owner | Due Date | Notes |
 |------|--------|----------|--------|-------|----------|-------|
-| Create BatchContext for thread-local coordination | Phase 1 | High | ?? Not Started | @lead-engineer | 2024-01-22 | Foundation for batch processing |
-| Implement async LLMWrapper.ExecuteAsync method | Phase 1 | High | ?? Not Started | @lead-engineer | 2024-01-22 | Core async execution |
-| Add async methods to WallyEnvironment | Phase 1 | High | ?? Not Started | @lead-engineer | 2024-01-23 | Layer 2 async integration |
-| Update ChatPanel to use direct await | Phase 1 | Medium | ?? Not Started | @lead-engineer | 2024-01-23 | UI responsiveness |
-| Create WallyMessage envelope model | Phase 2 | High | ?? Not Started | @lead-engineer | 2024-01-25 | Mailbox foundation |
-| Implement MailboxRouter batch orchestration | Phase 2 | High | ?? Not Started | @lead-engineer | 2024-01-26 | Core batch processing engine |
-| Add MailboxWatcher for file system monitoring | Phase 2 | Medium | ?? Not Started | @lead-engineer | 2024-01-27 | Event-driven processing |
-| Create console watch verb for daemon mode | Phase 2 | Medium | ?? Not Started | @lead-engineer | 2024-01-27 | CLI integration |
-| Design DocumentationReflection loop definition | Phase 3 | High | ?? Not Started | @lead-engineer | 2024-01-29 | Workflow automation |
-| Update actor prompts for documentation awareness | Phase 3 | Medium | ?? Not Started | @lead-engineer | 2024-01-30 | Actor capability enhancement |
-| Test complete workflow with real project data | Phase 3 | High | ?? Not Started | @lead-engineer | 2024-01-31 | End-to-end validation |
-| Write usage documentation and best practices | Phase 3 | Low | ?? Not Started | @lead-engineer | 2024-01-31 | User guidance |
+| ~~Implement async LLMWrapper.ExecuteAsync method~~ | Phase 1 | High | ? Complete | @lead-engineer | 2025-07-15 | `ExecuteAsync` + `RunProcessAsync` + kill on cancel |
+| ~~Add async methods to WallyEnvironment~~ | Phase 1 | High | ? Complete | @lead-engineer | 2025-07-15 | `ExecutePromptAsync` + `ExecuteActorAsync` |
+| ~~Add HandleRunTypedAsync to WallyCommands~~ | Phase 1 | High | ? Complete | @lead-engineer | 2025-07-15 | With `TextWriter? output` parameter |
+| ~~Update ChatPanel to use direct await~~ | Phase 1 | Medium | ? Complete | @lead-engineer | 2025-07-15 | No `Task.Run` — direct `await` |
+| Change `send_message` to write to sender's Outbox | Phase 2 | High | ?? Not Started | @lead-engineer | TBD | Currently writes to target's Inbox |
+| Create MailboxHelper YAML parser | Phase 2 | High | ?? Not Started | @lead-engineer | TBD | Extract `to:`, `from:`, `replyTo:` fields |
+| Implement `process-mailboxes` command | Phase 2 | High | ?? Not Started | @lead-engineer | TBD | Read Inbox ? prompt ? Outbox ? delete |
+| Implement `route-outbox` command | Phase 2 | High | ?? Not Started | @lead-engineer | TBD | Parse `to:` ? copy to Inbox ? delete |
+| Create example mailbox runbook | Phase 2 | Low | ?? Not Started | @lead-engineer | TBD | `process-mailboxes` + `route-outbox` |
+| Design DocumentationReflection loop definition | Phase 3 | High | ?? Not Started | @lead-engineer | TBD | Workflow automation |
+| Update actor prompts for documentation awareness | Phase 3 | Medium | ?? Not Started | @lead-engineer | TBD | Actor capability enhancement |
+| Test complete workflow with real project data | Phase 3 | High | ?? Not Started | @lead-engineer | TBD | End-to-end validation |
+| Write usage documentation and best practices | Phase 3 | Low | ?? Not Started | @lead-engineer | TBD | User guidance |
 
 ---
 
 ## Acceptance Criteria
 
 ### Must Have (Required for Completion)
-- [ ] Async execution works without blocking UI thread
-- [ ] Batch processing provides stable concurrency for multi-actor scenarios  
-- [ ] Mailbox protocol enables file-based actor communication
+- [x] Async execution works without blocking UI thread
+- [ ] `send_message` writes to sender's Outbox (not target's Inbox)
+- [ ] `process-mailboxes` reads Inbox ? prompts actor ? deletes Inbox on success
+- [ ] `route-outbox` reads Outbox ? parses `to:` ? copies to target Inbox ? deletes Outbox
+- [ ] One delivery path: Outbox ? `route-outbox` ? Inbox
 - [ ] Documentation workflow automates reflection and task creation
-- [ ] All integration tests pass for new functionality
-- [ ] Console behavior remains unchanged for single-user operations
-- [ ] Cancellation propagates end-to-end to LLM processes
+- [x] Console behavior remains unchanged for single-user operations
+- [x] Cancellation propagates end-to-end to LLM processes
 
 ### Should Have (Preferred for Quality)
-- [ ] Batch size limits prevent memory issues during large operations
-- [ ] FileSystemWatcher has polling fallback for network drives
+- [ ] Multiple recipients supported via comma-separated `to:` field
+- [ ] Warning logged when inbox has >10 messages
 - [ ] Documentation loop has convergence detection preventing infinite cycles
-- [ ] Error handling covers all identified batch processing edge cases
 - [ ] Performance benchmarks show no regression in single-user scenarios
 
 ### Completion Checklist
 - [ ] All three phases completed with deliverables validated
 - [ ] Code review completed and approved for all changes
 - [ ] Integration testing completed in staging environment
-- [ ] Documentation updated to reflect new async capabilities
+- [x] Documentation updated to reflect new async capabilities
 - [ ] Status updated to "Complete"
 
 ---
@@ -147,8 +146,8 @@ flowchart LR
 
 | Plan | Relationship | Notes |
 |------|--------------|-------|
-| [AsyncExecutionProposal](../Proposals/AsyncExecutionProposal.md) | Implements | Phase 1 implementation source |
-| [MailboxProtocolProposal](../Proposals/MailboxProtocolProposal.md) | Implements | Phase 2 implementation source |
+| ~~[AsyncExecutionProposal](../Proposals/AsyncExecutionProposal.md)~~ | Implements | ? **COMPLETE** — archived to `../Archive/CompletedProposals/` |
+| [MailboxProtocolProposal](../Proposals/MailboxProtocolProposal.md) | Implements | Phase 2 — two commands: `process-mailboxes` + `route-outbox` |
 | [DocumentationWorkflowProposal](../Proposals/DocumentationWorkflowProposal.md) | Implements | Phase 3 implementation source |
 | [AutonomousBotGapsProposal](../Proposals/AutonomousBotGapsProposal.md) | Implements | Parent proposal coordinating all phases |
 
@@ -158,6 +157,5 @@ flowchart LR
 
 | Document | Relationship |
 |----------|-------------|
-| [MailboxSystemArchitecture](../Docs/MailboxSystemArchitecture.md) | Informs | Batch concurrency model specification |
 | [ImplementationPlanTemplate](../../Templates/ImplementationPlanTemplate.md) | Follows | Document structure and formatting |
 | [ProposalTemplate](../../Templates/ProposalTemplate.md) | Follows | Source proposal specifications |

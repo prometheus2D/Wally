@@ -40,6 +40,7 @@ Discussion documents are open roundtables. They capture competing options, desig
 3. **Approved** - Proposal approved and ready for implementation planning
 4. **In Progress** - Implementation has started
 5. **Complete** - Implementation finished ? moved to `../Archive/CompletedProposals/`
+6. **Cancelled** - Proposal cancelled or superseded ? moved to `../Archive/CancelledProposals/`
 
 ## Discussion Lifecycle
 
@@ -52,7 +53,18 @@ Discussion documents are open roundtables. They capture competing options, desig
 
 | Proposal | Completed | Summary |
 |----------|-----------|---------|
+| AsyncExecutionProposal | 2025-07-15 | ? `ExecuteAsync` at all layers, sync wrappers, `ConfigureAwait(false)`, end-to-end cancellation |
+| EnhancedTextEditorAndRunbookLanguageProposal | 2025-07-15 | ? Phase 1 (Scintilla.NET) complete; Phase 2 (scripting) cancelled — handled elsewhere |
+| WorkspaceMemoryProposal | 2025-07-15 | ? Persistent last-workspace and recent-workspaces across Forms and Console |
+| TextEditorIntegrationProposal | 2025-07-15 | ? Scintilla.NET integration, ThemedEditorFactory, panel migration |
+| ChatDefaultsManagerProposal | 2025-07-15 | ? ConfigEditorPanel with all workspace settings, resolved defaults display |
 | ScrollbarAndCommandArgParsingProposal | 2024-01-15 | ? Unified argument parsing, removed System.CommandLine dependency |
+
+## Recently Cancelled
+
+| Proposal | Cancelled | Reason |
+|----------|-----------|--------|
+| RunbookScriptingLanguageProposal | 2025-07-15 | Handled elsewhere; `.wrb` files remain simple command lists |
 
 ## Guidelines
 
