@@ -11,7 +11,7 @@ namespace Wally.Forms.Theme
     /// </summary>
     internal static class WallyTheme
     {
-        // ?? Surface hierarchy (darkest ? lightest) ??????????????????????????
+        // ── Surface hierarchy (darkest → lightest) ────────────────────────────
 
         /// <summary>Primary background — deepest panels (chat messages, output).</summary>
         public static readonly Color Surface0 = Color.FromArgb(24, 24, 27);
@@ -28,76 +28,57 @@ namespace Wally.Forms.Theme
         /// <summary>Highest elevation — active highlights, focused borders.</summary>
         public static readonly Color Surface4 = Color.FromArgb(63, 63, 70);
 
-        // ?? Borders ?????????????????????????????????????????????????????????
+        // ── Borders ───────────────────────────────────────────────────────────
 
-        public static readonly Color Border = Color.FromArgb(46, 46, 51);
-        public static readonly Color BorderSubtle = Color.FromArgb(38, 38, 43);
+        public static readonly Color Border        = Color.FromArgb(46, 46, 51);
+        public static readonly Color BorderSubtle  = Color.FromArgb(38, 38, 43);
         public static readonly Color BorderFocused = Color.FromArgb(82, 82, 91);
 
-        // ?? Text hierarchy ??????????????????????????????????????????????????
+        // ── Text hierarchy ────────────────────────────────────────────────────
 
-        public static readonly Color TextPrimary = Color.FromArgb(228, 228, 233);
+        public static readonly Color TextPrimary   = Color.FromArgb(228, 228, 233);
         public static readonly Color TextSecondary = Color.FromArgb(161, 161, 170);
-        public static readonly Color TextMuted = Color.FromArgb(113, 113, 122);
-        public static readonly Color TextDisabled = Color.FromArgb(82, 82, 91);
+        public static readonly Color TextMuted     = Color.FromArgb(113, 113, 122);
+        public static readonly Color TextDisabled  = Color.FromArgb(82, 82, 91);
 
-        // ?? Functional colors (kept minimal) ????????????????????????????????
+        // ── Functional colors (kept minimal) ──────────────────────────────────
 
         /// <summary>Accent — used sparingly for the primary interactive element.</summary>
-        public static readonly Color Accent = Color.FromArgb(161, 161, 170);
-
-        /// <summary>Lighter accent for hover states.</summary>
-        public static readonly Color AccentHover = Color.FromArgb(190, 190, 198);
-
-        /// <summary>Muted accent for checked / subtle backgrounds.</summary>
-        public static readonly Color AccentMuted = Color.FromArgb(50, 50, 56);
-
-        /// <summary>Very subtle accent wash.</summary>
+        public static readonly Color Accent     = Color.FromArgb(161, 161, 170);
+        public static readonly Color AccentHover  = Color.FromArgb(190, 190, 198);
+        public static readonly Color AccentMuted  = Color.FromArgb(50, 50, 56);
         public static readonly Color AccentSubtle = Color.FromArgb(35, 35, 40);
 
-        /// <summary>Success / positive — a soft, readable gray-green for light emphasis.</summary>
-        public static readonly Color Green = Color.FromArgb(161, 161, 170);
-
-        /// <summary>Muted green background.</summary>
+        public static readonly Color Green      = Color.FromArgb(161, 161, 170);
         public static readonly Color GreenMuted = Color.FromArgb(39, 39, 44);
-
-        /// <summary>Error / destructive — softened red, still distinguishable.</summary>
-        public static readonly Color Red = Color.FromArgb(200, 150, 150);
-
-        /// <summary>Muted error background.</summary>
-        public static readonly Color RedMuted = Color.FromArgb(50, 40, 40);
-
-        /// <summary>Warning / running state — maps to TextMuted for simplicity.</summary>
-        public static readonly Color Yellow = Color.FromArgb(161, 161, 170);
-
-        /// <summary>Muted warning background.</summary>
+        public static readonly Color Red        = Color.FromArgb(200, 150, 150);
+        public static readonly Color RedMuted   = Color.FromArgb(50, 40, 40);
+        public static readonly Color Yellow     = Color.FromArgb(161, 161, 170);
         public static readonly Color YellowMuted = Color.FromArgb(45, 45, 50);
+        public static readonly Color Purple     = Color.FromArgb(161, 161, 170);
 
-        /// <summary>Secondary mode accent — maps to TextSecondary.</summary>
-        public static readonly Color Purple = Color.FromArgb(161, 161, 170);
+        // ── Status bar ────────────────────────────────────────────────────────
 
-        // ?? Status bar ??????????????????????????????????????????????????????
-
-        public static readonly Color StatusBarActive = Color.FromArgb(50, 50, 56);
+        public static readonly Color StatusBarActive   = Color.FromArgb(50, 50, 56);
         public static readonly Color StatusBarInactive = Color.FromArgb(30, 30, 34);
 
-        // ?? Splitter ????????????????????????????????????????????????????????
+        // ── Splitter ──────────────────────────────────────────────────────────
 
-        public static readonly Color Splitter = Color.FromArgb(46, 46, 51);
+        public static readonly Color Splitter      = Color.FromArgb(46, 46, 51);
         public static readonly Color SplitterHover = Color.FromArgb(63, 63, 70);
 
-        // ?? Fonts ???????????????????????????????????????????????????????????
+        // ── Fonts ─────────────────────────────────────────────────────────────
 
-        public static readonly Font FontUI = new("Segoe UI", 9f);
-        public static readonly Font FontUISmall = new("Segoe UI", 8.25f);
-        public static readonly Font FontUIBold = new("Segoe UI", 9f, FontStyle.Bold);
+        public static readonly Font FontUI          = new("Segoe UI", 9f);
+        public static readonly Font FontUISmall     = new("Segoe UI", 8.25f);
+        public static readonly Font FontUIBold      = new("Segoe UI", 9f, FontStyle.Bold);
         public static readonly Font FontUISmallBold = new("Segoe UI", 8.25f, FontStyle.Bold);
-        public static readonly Font FontMono = new("Cascadia Mono", 9.5f);
-        public static readonly Font FontMonoSmall = new("Cascadia Mono", 9f);
-        public static readonly Font FontMonoLarge = new("Cascadia Mono", 10f);
-        public static readonly Font FontMonoBold = new("Cascadia Mono", 10f, FontStyle.Bold);
+        public static readonly Font FontMono        = new("Cascadia Mono", 9.5f);
+        public static readonly Font FontMonoSmall   = new("Cascadia Mono", 9f);
+        public static readonly Font FontMonoLarge   = new("Cascadia Mono", 10f);
+        public static readonly Font FontMonoBold    = new("Cascadia Mono", 10f, FontStyle.Bold);
 
-        // ?? Chat bubble colors ??????????????????????????????????????????????
+        // ── Chat bubble colors ────────────────────────────────────────────────
 
         public static readonly Color SenderUser   = TextPrimary;
         public static readonly Color SenderActor  = TextSecondary;
@@ -107,7 +88,7 @@ namespace Wally.Forms.Theme
         public static readonly Color BubbleActor = Color.FromArgb(39, 39, 44);
         public static readonly Color BubbleError = Color.FromArgb(50, 40, 40);
 
-        // ?? Helpers ?????????????????????????????????????????????????????????
+        // ── Helpers ───────────────────────────────────────────────────────────
 
         /// <summary>
         /// Creates a rounded rectangle path for custom-painted controls.
@@ -116,15 +97,11 @@ namespace Wally.Forms.Theme
         {
             int d = radius * 2;
             var path = new GraphicsPath();
-            if (d <= 0)
-            {
-                path.AddRectangle(bounds);
-                return path;
-            }
-            path.AddArc(bounds.X, bounds.Y, d, d, 180, 90);
-            path.AddArc(bounds.Right - d, bounds.Y, d, d, 270, 90);
-            path.AddArc(bounds.Right - d, bounds.Bottom - d, d, d, 0, 90);
-            path.AddArc(bounds.X, bounds.Bottom - d, d, d, 90, 90);
+            if (d <= 0) { path.AddRectangle(bounds); return path; }
+            path.AddArc(bounds.X,            bounds.Y,            d, d, 180, 90);
+            path.AddArc(bounds.Right - d,    bounds.Y,            d, d, 270, 90);
+            path.AddArc(bounds.Right - d,    bounds.Bottom - d,   d, d,   0, 90);
+            path.AddArc(bounds.X,            bounds.Bottom - d,   d, d,  90, 90);
             path.CloseFigure();
             return path;
         }
@@ -134,7 +111,7 @@ namespace Wally.Forms.Theme
         {
             control.BackColor = Surface1;
             control.ForeColor = TextPrimary;
-            control.Font = FontUI;
+            control.Font      = FontUI;
         }
 
         /// <summary>
@@ -142,9 +119,20 @@ namespace Wally.Forms.Theme
         /// </summary>
         public static void ConfigureGraphics(Graphics g)
         {
-            g.SmoothingMode = SmoothingMode.AntiAlias;
+            g.SmoothingMode     = SmoothingMode.AntiAlias;
             g.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
-            g.PixelOffsetMode = PixelOffsetMode.HighQuality;
+            g.PixelOffsetMode   = PixelOffsetMode.HighQuality;
+        }
+
+        /// <summary>
+        /// Call once at application startup (before any Form is created).
+        /// Sets <see cref="Application.UseCompatibleTextRendering"/> to <c>true</c>
+        /// so that WinForms controls use GDI+ for text, enabling system-level
+        /// Unicode/emoji font fallback everywhere (📂 💾 🎭 → render correctly).
+        /// </summary>
+        public static void EnableEmojiRendering()
+        {
+            Application.SetCompatibleTextRenderingDefault(true);
         }
 
         /// <summary>
@@ -154,9 +142,9 @@ namespace Wally.Forms.Theme
         public static WallyToolStripRenderer CreateRenderer() => new();
     }
 
-    // ????????????????????????????????????????????????????????????????????????
+    // ─────────────────────────────────────────────────────────────────────────
     //  WallyToolStripRenderer — themed renderer with proper disabled text
-    // ????????????????????????????????????????????????????????????????????????
+    // ─────────────────────────────────────────────────────────────────────────
 
     internal sealed class WallyToolStripRenderer : ToolStripProfessionalRenderer
     {
@@ -167,7 +155,9 @@ namespace Wally.Forms.Theme
 
         protected override void OnRenderItemText(ToolStripItemTextRenderEventArgs e)
         {
-            if (e.Item is ToolStripMenuItem || e.Item is ToolStripButton || e.Item is ToolStripLabel)
+            // Apply correct foreground colour; let base handle all layout/metrics.
+            if (e.Item is ToolStripMenuItem or ToolStripButton or ToolStripLabel
+                       or ToolStripDropDownButton or ToolStripStatusLabel)
             {
                 e.TextColor = e.Item.Enabled
                     ? (e.Item.ForeColor != default && e.Item.ForeColor != Control.DefaultForeColor
@@ -182,23 +172,21 @@ namespace Wally.Forms.Theme
         {
             if (!e.Item.Enabled)
             {
-                var g = e.Graphics;
                 using var brush = new SolidBrush(WallyTheme.Surface2);
-                g.FillRectangle(brush, new Rectangle(Point.Empty, e.Item.Size));
+                e.Graphics.FillRectangle(brush, new Rectangle(Point.Empty, e.Item.Size));
                 return;
             }
             base.OnRenderMenuItemBackground(e);
         }
     }
 
-    // ????????????????????????????????????????????????????????????????????????
+    // ─────────────────────────────────────────────────────────────────────────
     //  Dark color table
-    // ????????????????????????????????????????????????????????????????????????
+    // ─────────────────────────────────────────────────────────────────────────
 
     internal sealed class DarkColorTable : ProfessionalColorTable
     {
-        // ?? ToolStrip / MenuStrip backgrounds ???????????????????????????????
-
+        // ── ToolStrip / MenuStrip backgrounds ─────────────────────────────────
         public override Color ToolStripGradientBegin => WallyTheme.Surface2;
         public override Color ToolStripGradientMiddle => WallyTheme.Surface2;
         public override Color ToolStripGradientEnd => WallyTheme.Surface2;
@@ -210,8 +198,7 @@ namespace Wally.Forms.Theme
         public override Color ToolStripPanelGradientBegin => WallyTheme.Surface2;
         public override Color ToolStripPanelGradientEnd => WallyTheme.Surface2;
 
-        // ?? Menu item states ????????????????????????????????????????????????
-
+        // ── Menu item states ──────────────────────────────────────────────────
         public override Color MenuItemSelected => WallyTheme.Surface3;
         public override Color MenuItemSelectedGradientBegin => WallyTheme.Surface3;
         public override Color MenuItemSelectedGradientEnd => WallyTheme.Surface3;
@@ -221,8 +208,7 @@ namespace Wally.Forms.Theme
         public override Color MenuItemBorder => WallyTheme.Border;
         public override Color MenuBorder => WallyTheme.Border;
 
-        // ?? Image margin ????????????????????????????????????????????????????
-
+        // ── Image margin ──────────────────────────────────────────────────────
         public override Color ImageMarginGradientBegin => WallyTheme.Surface2;
         public override Color ImageMarginGradientMiddle => WallyTheme.Surface2;
         public override Color ImageMarginGradientEnd => WallyTheme.Surface2;
@@ -230,17 +216,14 @@ namespace Wally.Forms.Theme
         public override Color ImageMarginRevealedGradientMiddle => WallyTheme.Surface2;
         public override Color ImageMarginRevealedGradientEnd => WallyTheme.Surface2;
 
-        // ?? Separators ??????????????????????????????????????????????????????
-
-        public override Color SeparatorDark => WallyTheme.Border;
+        // ── Separators ────────────────────────────────────────────────────────
+        public override Color SeparatorDark  => WallyTheme.Border;
         public override Color SeparatorLight => WallyTheme.Border;
 
-        // ?? Borders ?????????????????????????????????????????????????????????
-
+        // ── Borders ───────────────────────────────────────────────────────────
         public override Color ToolStripBorder => WallyTheme.Border;
 
-        // ?? Button states ???????????????????????????????????????????????????
-
+        // ── Button states ─────────────────────────────────────────────────────
         public override Color ButtonSelectedBorder => WallyTheme.BorderFocused;
         public override Color ButtonSelectedHighlight => WallyTheme.Surface3;
         public override Color ButtonSelectedHighlightBorder => WallyTheme.BorderFocused;
@@ -259,41 +242,37 @@ namespace Wally.Forms.Theme
         public override Color ButtonCheckedGradientMiddle => WallyTheme.Surface3;
         public override Color ButtonCheckedGradientEnd => WallyTheme.Surface3;
 
-        // ?? Check states ????????????????????????????????????????????????????
-
-        public override Color CheckBackground => WallyTheme.AccentMuted;
-        public override Color CheckPressedBackground => WallyTheme.Surface4;
+        // ── Check states ──────────────────────────────────────────────────────
+        public override Color CheckBackground        => WallyTheme.AccentMuted;
+        public override Color CheckPressedBackground  => WallyTheme.Surface4;
         public override Color CheckSelectedBackground => WallyTheme.AccentMuted;
 
-        // ?? Overflow / grip ?????????????????????????????????????????????????
-
-        public override Color OverflowButtonGradientBegin => WallyTheme.Surface3;
+        // ── Overflow / grip ───────────────────────────────────────────────────
+        public override Color OverflowButtonGradientBegin  => WallyTheme.Surface3;
         public override Color OverflowButtonGradientMiddle => WallyTheme.Surface3;
-        public override Color OverflowButtonGradientEnd => WallyTheme.Surface3;
-        public override Color GripDark => WallyTheme.Border;
+        public override Color OverflowButtonGradientEnd    => WallyTheme.Surface3;
+        public override Color GripDark  => WallyTheme.Border;
         public override Color GripLight => WallyTheme.Surface4;
 
-        // ?? Status strip ????????????????????????????????????????????????????
-
+        // ── Status strip ──────────────────────────────────────────────────────
         public override Color StatusStripGradientBegin => WallyTheme.Surface2;
-        public override Color StatusStripGradientEnd => WallyTheme.Surface2;
+        public override Color StatusStripGradientEnd   => WallyTheme.Surface2;
 
-        // ?? Raft / float ????????????????????????????????????????????????????
-
+        // ── Raft / float ──────────────────────────────────────────────────────
         public override Color RaftingContainerGradientBegin => WallyTheme.Surface1;
-        public override Color RaftingContainerGradientEnd => WallyTheme.Surface1;
+        public override Color RaftingContainerGradientEnd   => WallyTheme.Surface1;
     }
 
-    // ????????????????????????????????????????????????????????????????????????
+    // ─────────────────────────────────────────────────────────────────────────
     //  Themed splitter with hover highlight
-    // ????????????????????????????????????????????????????????????????????????
+    // ─────────────────────────────────────────────────────────────────────────
 
     internal sealed class ThemedSplitter : Splitter
     {
         protected override void OnMouseEnter(EventArgs e)
         {
             BackColor = WallyTheme.SplitterHover;
-            Cursor = Cursors.SizeAll;
+            Cursor    = Cursors.SizeAll;
             base.OnMouseEnter(e);
         }
 
@@ -305,7 +284,7 @@ namespace Wally.Forms.Theme
     }
 
     // ════════════════════════════════════════════════════════════════════════
-    //  WallyToolStrip – flat ToolStrip with no hover/pressed background
+    //  WallyToolStrip — flat ToolStrip with no hover/pressed background
     // ════════════════════════════════════════════════════════════════════════
 
     /// <summary>
@@ -317,17 +296,16 @@ namespace Wally.Forms.Theme
     {
         public WallyToolStrip()
         {
-            Renderer = WallyTheme.CreateRenderer();
+            Renderer  = WallyTheme.CreateRenderer();
             BackColor = WallyTheme.Surface2;
             ForeColor = WallyTheme.TextPrimary;
             GripStyle = ToolStripGripStyle.Hidden;
-            Padding = new Padding(4, 0, 4, 0);
+            Padding   = new Padding(4, 0, 4, 0);
         }
 
         protected override void OnRendererChanged(EventArgs e)
         {
             base.OnRendererChanged(e);
-            // Keep renderer in sync if someone swaps it externally.
             if (Renderer is not WallyFlatButtonRenderer)
                 Renderer = new WallyFlatButtonRenderer();
         }
@@ -351,26 +329,19 @@ namespace Wally.Forms.Theme
         // Suppress ALL button highlight backgrounds (hover, pressed, checked).
         protected override void OnRenderButtonBackground(ToolStripItemRenderEventArgs e)
         {
-            var item = e.Item;
-            Color bg;
-
-            if (!item.Enabled)
-                bg = WallyTheme.Surface2;
-            else if (item.Pressed)
-                bg = WallyTheme.Surface4;
-            else if (item.Selected)
-                bg = WallyTheme.Surface3;
-            else
-                bg = WallyTheme.Surface2;
+            Color bg = (!e.Item.Enabled) ? WallyTheme.Surface2
+                     : e.Item.Pressed    ? WallyTheme.Surface4
+                     : e.Item.Selected   ? WallyTheme.Surface3
+                                         : WallyTheme.Surface2;
 
             using var brush = new SolidBrush(bg);
-            e.Graphics.FillRectangle(brush, new Rectangle(Point.Empty, item.Size));
+            e.Graphics.FillRectangle(brush, new Rectangle(Point.Empty, e.Item.Size));
         }
 
-        // Keep text colouring consistent with the main renderer.
+        // Apply correct foreground colour; let base handle all layout/metrics.
         protected override void OnRenderItemText(ToolStripItemTextRenderEventArgs e)
         {
-            if (e.Item is ToolStripButton or ToolStripLabel)
+            if (e.Item is ToolStripButton or ToolStripLabel or ToolStripDropDownButton)
             {
                 e.TextColor = e.Item.Enabled
                     ? (e.Item.ForeColor != default && e.Item.ForeColor != Control.DefaultForeColor

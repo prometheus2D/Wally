@@ -484,7 +484,6 @@ namespace Wally.Forms.Controls.Editors
                 cfg.SelectedActors.Add(actorSel);
 
             // ?? Wrappers — rebuild SelectedWrappers preserving non-Ask/Agent entries ??
-            // Remove the old ask/agent selections but keep any others.
             var askNames   = ws.LlmWrappers.Where(w => !w.CanMakeChanges).Select(w => w.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
             var agentNames = ws.LlmWrappers.Where(w =>  w.CanMakeChanges).Select(w => w.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
             cfg.SelectedWrappers.RemoveAll(n => askNames.Contains(n) || agentNames.Contains(n));
@@ -518,7 +517,7 @@ namespace Wally.Forms.Controls.Editors
                 ws.Actors.Select(a => a.Name));
 
             // ?? Refresh advanced tab labels ???????????????????????????????????
-            _lblResolvedModel.Text   = cfg.DefaultModel           ?? "(none)";
+            _lblResolvedModel.Text   = cfg.DefaultModel ?? "(none)";
             _lblResolvedWrapper.Text = cfg.DefaultWrapper         ?? "(none)";
             _lblResolvedLoop.Text    = cfg.ResolvedDefaultLoop    ?? "(none)";
             _lblResolvedRunbook.Text = cfg.ResolvedDefaultRunbook ?? "(none)";
