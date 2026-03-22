@@ -183,6 +183,20 @@ namespace Wally.Forms.Controls
                 ? _tabs[_selectedIndex].Content
                 : null;
 
+        /// <summary>Returns the content control for the tab with the given key, or null.</summary>
+        public Control? GetTabContent(string key) =>
+            _tabsByKey.TryGetValue(key, out var entry) ? entry.Content : null;
+
+        /// <summary>Returns true when the tab with the given key is marked dirty.</summary>
+        public bool IsTabDirty(string key) =>
+            _tabsByKey.TryGetValue(key, out var entry) && entry.IsDirty;
+
+        /// <summary>Returns true when any open tab is marked dirty.</summary>
+        public bool HasDirtyTabs => _tabs.Any(t => t.IsDirty);
+
+        /// <summary>Returns the keys of all tabs that are currently marked dirty.</summary>
+        public IEnumerable<string> DirtyTabKeys => _tabs.Where(t => t.IsDirty).Select(t => t.Key);
+
         // ?? Selection ???????????????????????????????????????????????????????
 
         private void SelectEntry(TabEntry entry)

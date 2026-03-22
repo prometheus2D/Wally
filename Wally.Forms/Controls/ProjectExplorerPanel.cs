@@ -28,6 +28,7 @@ namespace Wally.Forms.Controls
         private readonly ImageList _imageList;
         private readonly ContextMenuStrip _contextMenu;
         private readonly ToolStripMenuItem _ctxOpen;
+        private readonly ToolStripMenuItem _ctxEdit;
         private readonly ToolStripMenuItem _ctxOpenFolder;
         private readonly ToolStripMenuItem _ctxCopyPath;
 
@@ -35,10 +36,13 @@ namespace Wally.Forms.Controls
 
         private WallyEnvironment? _environment;
 
-        // ?? Events ??????????????????????????????????????????????????????????
+        // ?? Events ??????????????????????????????????????????????????????
 
         public event EventHandler<FileSelectedEventArgs>? FileDoubleClicked;
         public event EventHandler<FileSelectedEventArgs>? FileSelected;
+
+        /// <summary>Raised when the user chooses "Edit" from the context menu.</summary>
+        public event EventHandler<FileSelectedEventArgs>? FileEditRequested;
 
         // ?? Node tag types ??????????????????????????????????????????????????
 
@@ -96,6 +100,9 @@ namespace Wally.Forms.Controls
             _ctxOpen = new ToolStripMenuItem("Open") { ForeColor = WallyTheme.TextPrimary };
             _ctxOpen.Click += (_, _) => OpenSelected();
 
+            _ctxEdit = new ToolStripMenuItem("Edit") { ForeColor = WallyTheme.TextPrimary };
+            _ctxEdit.Click += (_, _) => EditSelected();
+
             _ctxOpenFolder = new ToolStripMenuItem("Open in Explorer") { ForeColor = WallyTheme.TextPrimary };
             _ctxOpenFolder.Click += (_, _) => OpenSelectedInExplorer();
 
@@ -105,7 +112,7 @@ namespace Wally.Forms.Controls
             _contextMenu = new ContextMenuStrip { Renderer = renderer };
             _contextMenu.Items.AddRange(new ToolStripItem[]
             {
-                _ctxOpen, _ctxOpenFolder,
+                _ctxOpen, _ctxEdit, _ctxOpenFolder,
                 new ToolStripSeparator(),
                 _ctxCopyPath
             });
@@ -452,15 +459,35 @@ namespace Wally.Forms.Controls
             if (_tree.SelectedNode?.Tag is not NodeTag t || t.Kind == NodeKind.Category)
             { e.Cancel = true; return; }
 
-            _ctxOpen.Visible       = File.Exists(t.Path);
-            _ctxOpenFolder.Text    = File.Exists(t.Path) ? "Open Containing Folder" : "Open in Explorer";
-            _ctxOpenFolder.Enabled = File.Exists(t.Path) || Directory.Exists(t.Path);
+            bool isFile = File.Exists(t.Path);
+            _ctxOpen.Visible       = isFile;
+            _ctxEdit.Visible       = isFile && IsEditableFile(t.Path);
+            _ctxOpenFolder.Text    = isFile ? "Open Containing Folder" : "Open in Explorer";
+            _ctxOpenFolder.Enabled = isFile || Directory.Exists(t.Path);
         }
 
         private void OpenSelected()
         {
             if (_tree.SelectedNode?.Tag is NodeTag t && File.Exists(t.Path))
                 FileDoubleClicked?.Invoke(this, new FileSelectedEventArgs(t.Path));
+        }
+
+        private void EditSelected()
+        {
+            if (_tree.SelectedNode?.Tag is NodeTag t && File.Exists(t.Path))
+                FileEditRequested?.Invoke(this, new FileSelectedEventArgs(t.Path));
+        }
+
+        /// <summary>
+        /// Returns true for file types that can be opened in the built-in text editor.
+        /// </summary>
+        private static bool IsEditableFile(string filePath)
+        {
+            string ext = Path.GetExtension(filePath).ToLowerInvariant();
+            return ext is ".json" or ".md" or ".markdown" or ".txt" or ".wrb"
+                      or ".xml" or ".yaml" or ".yml" or ".toml" or ".ini"
+                      or ".log" or ".csv" or ".cfg" or ".conf"
+                      or ".gitignore" or ".editorconfig" or ".env";
         }
 
         private void OpenSelectedInExplorer()

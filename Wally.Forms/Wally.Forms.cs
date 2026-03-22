@@ -193,6 +193,7 @@ namespace Wally.Forms
 
             _explorerTabPanel.FileDoubleClicked += OnFileDoubleClicked;
             _explorerTabPanel.FileSelected      += OnFileSelected;
+            _explorerTabPanel.FileEditRequested  += OnFileEditRequested;
             _explorerTabPanel.ActorActivated    += (_, name) => { var a = _environment.GetActor(name); if (a != null) OpenActorEditor(a); };
             _explorerTabPanel.LoopActivated     += (_, name) => { var l = _environment.GetLoop(name);  if (l != null) OpenLoopEditor(l); };
             _explorerTabPanel.WrapperActivated  += (_, name) =>
@@ -546,6 +547,21 @@ namespace Wally.Forms
             {
                 e.Handled = true;
                 OnStopClick(this, EventArgs.Empty);
+            }
+            else if (e.Control && !e.Shift && e.KeyCode == Keys.S)
+            {
+                e.Handled = true;
+                e.SuppressKeyPress = true;
+                if (SaveActiveTab())
+                    _commandPanel.AppendLine("Saved.", WallyTheme.Green);
+            }
+            else if (e.Control && e.Shift && e.KeyCode == Keys.S)
+            {
+                e.Handled = true;
+                e.SuppressKeyPress = true;
+                int count = SaveAllDirtyTabs();
+                if (count > 0)
+                    _commandPanel.AppendLine($"Saved {count} file(s).", WallyTheme.Green);
             }
             else if (e.Control && e.KeyCode == Keys.Oem3)   // Ctrl+`
             {
@@ -939,6 +955,11 @@ namespace Wally.Forms
                 _lblWorkspaceStatus.Text = Path.GetRelativePath(_environment.WorkSource!, e.FilePath);
         }
 
+        private void OnFileEditRequested(object? sender, FileSelectedEventArgs e)
+        {
+            OpenTextFileEditor(e.FilePath);
+        }
+
         // ?? Editor open helpers ??????????????????????????????????????????????
 
         private void OpenActorEditor(Actor actor)
@@ -1027,6 +1048,81 @@ namespace Wally.Forms
             viewer.BindEnvironment(_environment);
             viewer.BuildView();
             _tabHost.OpenTab(TabKeyWorkspaceViewer, "Workspace", "\uD83D\uDCCA", viewer);
+        }
+
+        /// <summary>
+        /// Opens a raw text file in the Scintilla-backed editor with syntax
+        /// highlighting based on extension. Used by the "Edit" context menu.
+        /// </summary>
+        private void OpenTextFileEditor(string filePath)
+        {
+            string key = $"edit:{filePath.ToLowerInvariant()}";
+            if (_tabHost.SelectTab(key)) return;
+
+            string langId = TextFileEditorPanel.LanguageIdForFile(filePath);
+            var editor = new TextFileEditorPanel(langId);
+            editor.LoadFile(filePath);
+            editor.DirtyChanged += (_, _) => _tabHost.SetTabDirty(key, editor.IsDirty);
+            editor.Saved += (_, _) =>
+            {
+                _commandPanel.AppendLine($"Saved: {Path.GetFileName(filePath)}", WallyTheme.Green);
+            };
+
+            string title = Path.GetFileName(filePath);
+            string icon  = langId switch
+            {
+                "json"           => "\uD83D\uDCC4",
+                "markdown"       => "\uD83D\uDCDD",
+                "wally-runbook"  => "\uD83D\uDCDC",
+                _                => "\uD83D\uDCC4"
+            };
+            _tabHost.OpenTab(key, title, icon, editor);
+        }
+
+        // ?? Save active tab / Save all ???????????????????????????????????????
+
+        /// <summary>
+        /// Attempts to save the content of the currently active tab.
+        /// Works with <see cref="TextFileEditorPanel"/>,
+        /// <see cref="RunbookEditorPanel"/>, and any other panel that
+        /// exposes a <c>Save()</c> or <c>IsDirty</c> pattern.
+        /// </summary>
+        private bool SaveActiveTab()
+        {
+            var panel = _tabHost.GetActivePanel();
+            if (panel == null) return false;
+
+            return TrySavePanel(panel);
+        }
+
+        /// <summary>
+        /// Saves all open tabs that are currently dirty.
+        /// </summary>
+        private int SaveAllDirtyTabs()
+        {
+            int saved = 0;
+            foreach (string key in _tabHost.DirtyTabKeys.ToList())
+            {
+                var content = _tabHost.GetTabContent(key);
+                if (content != null && TrySavePanel(content))
+                    saved++;
+            }
+            return saved;
+        }
+
+        /// <summary>
+        /// Attempts to save a panel by checking for known editor types.
+        /// Returns true if a save was performed.
+        /// </summary>
+        private static bool TrySavePanel(Control panel)
+        {
+            if (panel is TextFileEditorPanel textEditor && textEditor.IsDirty)
+                return textEditor.Save();
+
+            if (panel is RunbookEditorPanel runbookEditor && runbookEditor.IsDirty)
+                return runbookEditor.Save();
+
+            return false;
         }
 
         // ?? Entity pickers ???????????????????????????????????????????????????
@@ -1150,10 +1246,31 @@ namespace Wally.Forms
             _content.ResumeLayout(true);
         }
 
-        // ?? Cleanup ??????????????????????????????????????????????????????????
+        // ?? Cleanup ??????????????????????????????????????????????????????
 
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
+            if (_tabHost.HasDirtyTabs)
+            {
+                var dirtyKeys = _tabHost.DirtyTabKeys.ToList();
+                var result = MessageBox.Show(this,
+                    $"You have {dirtyKeys.Count} unsaved file(s).\n\n" +
+                    "Save all changes before closing?",
+                    "Unsaved Changes",
+                    MessageBoxButtons.YesNoCancel,
+                    MessageBoxIcon.Warning,
+                    MessageBoxDefaultButton.Button1);
+
+                if (result == DialogResult.Cancel)
+                {
+                    e.Cancel = true;
+                    return;
+                }
+
+                if (result == DialogResult.Yes)
+                    SaveAllDirtyTabs();
+            }
+
             _environment.Logger.Dispose();
             base.OnFormClosing(e);
         }

@@ -714,6 +714,12 @@ namespace Wally.Forms.Controls
             }, defaultValue: _defaultModel);
         }
 
+        public void RefreshRunbookList()
+        {
+            // Runbook selection is handled by the main form's runbook toolbar.
+            // This method exists so callers can refresh all dropdown lists uniformly.
+        }
+
         public void ClearMessages()
         {
             if (InvokeRequired) { Invoke(ClearMessages); return; }
@@ -835,32 +841,20 @@ namespace Wally.Forms.Controls
             try
             {
                 var token = _cts.Token;
-                if (hasRunbook)
-                {
-                    await Task.Run(() =>
-                    {
-                        token.ThrowIfCancellationRequested();
-                        WallyCommands.HandleRunbook(_environment!, runbookName!, prompt);
-                    }, token);
-                    AddMessage("System", $"\uD83D\uDCDC Runbook '{runbookName}' complete.", MessageKind.System);
-                }
+                var results = await WallyCommands.HandleRunTypedAsync(
+                    _environment!, prompt, actorName, modelOverride,
+                    loopName: loopName, wrapper: wrapperName,
+                    noHistory: false, cancellationToken: token);
+
+                if (results.Count == 0)
+                    AddMessage("System", "No response from AI.", MessageKind.Error);
+                else if (results.Count == 1)
+                    AddMessage(results[0].DisplayLabel(), results[0].Response, MessageKind.Actor);
                 else
                 {
-                    var results = await WallyCommands.HandleRunTypedAsync(
-                        _environment!, prompt, actorName, modelOverride,
-                        loopName: loopName, wrapper: wrapperName,
-                        noHistory: false, cancellationToken: token);
-
-                    if (results.Count == 0)
-                        AddMessage("System", "No response from AI.", MessageKind.Error);
-                    else if (results.Count == 1)
-                        AddMessage(results[0].DisplayLabel(), results[0].Response, MessageKind.Actor);
-                    else
-                    {
-                        foreach (var r in results)
-                            AddMessage(r.DisplayLabel(), r.Response, MessageKind.Actor);
-                        AddMessage("System", $"Pipeline complete \u2014 {results.Count} step(s).", MessageKind.System);
-                    }
+                    foreach (var r in results)
+                        AddMessage(r.DisplayLabel(), r.Response, MessageKind.Actor);
+                    AddMessage("System", $"Pipeline complete \u2014 {results.Count} step(s).", MessageKind.System);
                 }
             }
             catch (OperationCanceledException) { AddMessage("System", "Cancelled.", MessageKind.Error); }

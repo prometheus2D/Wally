@@ -61,6 +61,9 @@ namespace Wally.Forms.Controls
         public event EventHandler<FileSelectedEventArgs>? FileDoubleClicked;
         public event EventHandler<FileSelectedEventArgs>? FileSelected;
 
+        /// <summary>Raised when the user chooses "Edit" on a file in any explorer tab.</summary>
+        public event EventHandler<FileSelectedEventArgs>? FileEditRequested;
+
         /// <summary>Raised when the user double-clicks an Actor in the Object Explorer.</summary>
         public event EventHandler<string>? ActorActivated;
         /// <summary>Raised when the user double-clicks a Loop in the Object Explorer.</summary>
@@ -113,14 +116,16 @@ namespace Wally.Forms.Controls
             _body.Controls.Add(_objectExplorer);
 
             // ?? Wire child events ??
-            _fileExplorer.FileDoubleClicked += (s, e) => FileDoubleClicked?.Invoke(s, e);
-            _fileExplorer.FileSelected      += (s, e) => FileSelected?.Invoke(s, e);
+            _fileExplorer.FileDoubleClicked    += (s, e) => FileDoubleClicked?.Invoke(s, e);
+            _fileExplorer.FileSelected         += (s, e) => FileSelected?.Invoke(s, e);
+            _fileExplorer.FileEditRequested    += (s, e) => FileEditRequested?.Invoke(s, e);
             _projectExplorer.FileDoubleClicked += (s, e) => FileDoubleClicked?.Invoke(s, e);
             _projectExplorer.FileSelected      += (s, e) => FileSelected?.Invoke(s, e);
-            _objectExplorer.ActorActivated   += (s, e) => ActorActivated?.Invoke(s, e);
-            _objectExplorer.LoopActivated    += (s, e) => LoopActivated?.Invoke(s, e);
-            _objectExplorer.WrapperActivated += (s, e) => WrapperActivated?.Invoke(s, e);
-            _objectExplorer.RunbookActivated += (s, e) => RunbookActivated?.Invoke(s, e);
+            _projectExplorer.FileEditRequested += (s, e) => FileEditRequested?.Invoke(s, e);
+            _objectExplorer.ActorActivated     += (s, e) => ActorActivated?.Invoke(s, e);
+            _objectExplorer.LoopActivated      += (s, e) => LoopActivated?.Invoke(s, e);
+            _objectExplorer.WrapperActivated   += (s, e) => WrapperActivated?.Invoke(s, e);
+            _objectExplorer.RunbookActivated   += (s, e) => RunbookActivated?.Invoke(s, e);
 
             // ?? Assembly ??
             Controls.Add(_body);

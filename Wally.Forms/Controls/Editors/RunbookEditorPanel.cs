@@ -126,6 +126,16 @@ namespace Wally.Forms.Controls.Editors
             _lblStatus.ForeColor = WallyTheme.TextMuted;
         }
 
+        /// <summary>
+        /// Saves the current content back to disk. Returns true on success.
+        /// </summary>
+        public bool Save()
+        {
+            if (_runbook == null) return false;
+            OnSave(this, EventArgs.Empty);
+            return !_isDirty; // OnSave sets dirty=false on success
+        }
+
         // ?? Event handlers ?????????????????????????????????????????????????
 
         private void OnContentChanged(object? sender, EventArgs e)
