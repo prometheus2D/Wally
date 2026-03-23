@@ -6,12 +6,13 @@
 
 ---
 
-> **?? Implementation Status**: This document describes the **target architecture**. As of 2025-07-16:
-> - ? `send_message` action exists in `ActionDispatcher` — but currently writes to the **target's Inbox** (needs change to write to sender's Outbox)
-> - ?? `process-mailboxes` command — not yet implemented
-> - ?? `route-outbox` command — not yet implemented
-> - ?? `MailboxHelper` YAML parser — not yet implemented
-> - See [MailboxProtocolProposal](Projects/Proposals/MailboxProtocolProposal.md) for implementation tracking.
+> **Implementation Status**: ? **COMPLETE** (as of 2025-07-17)
+> - ? `send_message` action writes to the **sender's Outbox** (`ActionDispatcher.ExecuteSendMessage`)
+> - ? `process-mailboxes` command reads Inbox ? prompts actor ? deletes processed files
+> - ? `route-outbox` command reads Outbox ? parses `to:` ? copies to target Inbox ? deletes Outbox
+> - ? `MailboxHelper` YAML front-matter parser at `Wally.Core/Mailbox/MailboxHelper.cs`
+> - ? Example runbook `MailboxCycle.wrb`: `process-mailboxes` then `route-outbox`
+> - See [MailboxProtocolProposal](../Projects/Proposals/MailboxProtocolProposal.md) for full implementation details.
 
 ---
 

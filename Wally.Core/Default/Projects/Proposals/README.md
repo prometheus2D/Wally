@@ -6,10 +6,11 @@ This folder contains proposals that are currently being developed, under review,
 
 | Proposal | Status | Priority | Owner | Description |
 |----------|--------|----------|-------|-------------|
-| [AutonomousBotGapsProposal.md](./AutonomousBotGapsProposal.md) | In Progress (Phases 1-3 Complete) | High | @architect | Parent: async ?, autonomy loop ?, mailbox ?; Phase 4 pending |
+| [AutonomousBotGapsProposal.md](./AutonomousBotGapsProposal.md) | In Progress (Phases 1-3 Complete, Phase 4 In Progress) | High | @architect | Parent: async ?, autonomy loop ?, mailbox ?; Phase 4 documentation workflow in progress |
 | [AutonomyLoopProposal.md](./AutonomyLoopProposal.md) | ? Implemented | High | @engineer | `WallyAgentLoop` with stop conditions + feedback modes |
 | [MailboxProtocolProposal.md](./MailboxProtocolProposal.md) | ? Implemented | High | @engineer | Actor-to-actor communication — `send_message` ? Outbox; `process-mailboxes` + `route-outbox` |
-| [DocumentationWorkflowProposal.md](./DocumentationWorkflowProposal.md) | Draft (UNBLOCKED) | Medium | @architect | Automated documentation reflection loop — now unblocked by autonomy loop + mailbox |
+| [DocumentationWorkflowProposal.md](./DocumentationWorkflowProposal.md) | In Progress (Phases 1-3 Complete) | Medium | @architect | Documentation reflection loop — loop def ?, actor prompts ?, workflow guide ?; end-to-end validation pending |
+| [UnifiedExecutionModelProposal.md](./UnifiedExecutionModelProposal.md) | ? Approved | High | @lead-engineer | Data-driven action dispatch from actor.json; retire dead WallyPipeline — Implementation Plan ready |
 
 ## Proposal Lifecycle
 

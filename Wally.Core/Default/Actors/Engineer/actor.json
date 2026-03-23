@@ -6,7 +6,7 @@
   "intentPrompt": "Design and build the system to meet requirements. Write Proposals that introduce well-reasoned technical approaches. Break proposals into Implementation Plans with concrete steps. Document architecture decisions and system design. Find and report bugs with clear reproduction steps. Define test strategies that verify requirements are met. Produce technical documentation that any engineer can follow.",
   "docsFolderName": "Docs",
   "allowedWrappers": ["AutoCopilot", "Copilot", "CodexAgent", "Codex", "ClaudeAgent", "Claude"],
-  "allowedLoops": ["SingleRun"],
+  "allowedLoops": ["SingleRun", "DocumentationReflection"],
   "preferredWrapper": "AutoCopilot",
   "preferredLoop": "SingleRun",
   "abilities": ["read_context", "browse_workspace", "send_message"],

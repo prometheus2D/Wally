@@ -1,6 +1,6 @@
 # Autonomous Bot Implementation Plan
 
-**Status**: In Progress (Phases 1-3 Complete)
+**Status**: In Progress (Phases 1-3 Complete, Phase 4 In Progress)
 **Owner**: Lead Engineer
 **Started**: 2025-07-15
 **Target Completion**: TBD
@@ -22,7 +22,7 @@ Autonomous Bot system implementation: 4 phases enabling async execution, autonom
 | Phase 1 | 2 | None | Async execution path | ? **COMPLETE** |
 | Phase 2 | 5-7 | Phase 1 | Autonomy loop: `WallyAgentLoop` with stop conditions + feedback modes | ? **COMPLETE** |
 | Phase 3 | 2-3 | Phase 1 | Mailbox protocol: `process-mailboxes` + `route-outbox` commands | ? **COMPLETE** |
-| Phase 4 | 3 | Phase 2 + Phase 3 | Documentation workflow automation | ?? Not Started (UNBLOCKED) |
+| Phase 4 | 3 | Phase 2 + Phase 3 | Documentation workflow automation | ?? **IN PROGRESS** |
 
 ---
 
@@ -64,11 +64,11 @@ flowchart LR
 6. ~~CREATE example runbook~~ — ? `Wally.Core/Default/Runbooks/MailboxCycle.wrb`: `process-mailboxes` then `route-outbox`
 
 ### Phase 4: Documentation Workflow Automation
-1. CREATE `Wally.Core/Default/Loops/DocumentationReflection.json` — Loop definition with convergence detection
-2. MODIFY `Wally.Core/Actors/BusinessAnalyst/actor.json` — Add documentation reflection guidance to prompts  
-3. MODIFY `Wally.Core/Actors/Engineer/actor.json` — Add technical documentation review patterns
-4. MODIFY `Wally.Core/Actors/RequirementsExtractor/actor.json` — Add requirements completeness review
-5. CREATE `Wally.Core/Default/Docs/DocumentationWorkflowGuide.md` — Usage patterns and best practices
+1. ~~CREATE `Wally.Core/Default/Loops/DocumentationReflection.json`~~ — ? Loop definition with `StopKeyword: "DOCUMENTATION_COMPLETE"`, `MaxIterations: 5`, `FeedbackMode: "AppendResponse"`, actor: BusinessAnalyst
+2. ~~MODIFY `Wally.Core/Default/Actors/BusinessAnalyst/actor.json`~~ — ? Added documentation reflection guidance to rolePrompt, criteriaPrompt, intentPrompt; added `DocumentationReflection` to allowedLoops
+3. ~~MODIFY `Wally.Core/Default/Actors/Engineer/actor.json`~~ — ? Added `DocumentationReflection` to allowedLoops
+4. MODIFY `Wally.Core/Default/Actors/RequirementsExtractor/actor.json` — Add `DocumentationReflection` to allowedLoops (optional — low priority)
+5. ~~CREATE `Wally.Core/Default/Docs/DocumentationWorkflowGuide.md`~~ — ? Usage patterns, best practices, troubleshooting
 6. TEST: Verify loop convergence detection prevents infinite cycles
 7. TEST: Verify todo task persistence and cross-batch coordination
 8. TEST: Validate complete documentation reflection workflow with real project data
@@ -82,7 +82,7 @@ flowchart LR
 | 1-2 | Phase 1: Async Execution | No | ? **COMPLETE** |
 | 3-9 | Phase 2: Autonomy Loop | No | ? **COMPLETE** |
 | 3-5 | Phase 3: Mailbox Protocol | Yes (parallel with Phase 2) | ? **COMPLETE** |
-| 10-12 | Phase 4: Documentation Workflow | No | ?? Not Started (UNBLOCKED) |
+| 10-12 | Phase 4: Documentation Workflow | No | ?? **IN PROGRESS** |
 
 ---
 
@@ -103,7 +103,7 @@ flowchart LR
 | History bloat in multi-iteration loops | `Iteration > 0` turns suppressed by `ConversationLogger.GetRecentTurns`; `skipHistory: true` for iteration > 0 | ? Implemented |
 | Large inboxes exceeding LLM context limits | Log warning when >10 messages; future batching if needed | ? Implemented |
 | Circular messaging (A?B?A?B…) | Controlled by human deciding when to run `process-mailboxes` | ? By design |
-| Documentation loop infinite cycles | Implement convergence detection with max iteration limits | ?? Planned (Phase 4) |
+| Documentation loop infinite cycles | Convergence detection via `StopKeyword: "DOCUMENTATION_COMPLETE"` + `MaxIterations: 5` | ? Implemented |
 
 ---
 
@@ -125,10 +125,12 @@ flowchart LR
 | ~~Implement `process-mailboxes` command~~ | Phase 3 | High | ? Complete | @lead-engineer | 2025-07-17 | Read Inbox ? prompt ? delete; >10 warning |
 | ~~Implement `route-outbox` command~~ | Phase 3 | High | ? Complete | @lead-engineer | 2025-07-17 | Parse `to:` ? comma-separated ? copy to Inbox ? delete |
 | ~~Create example mailbox runbook~~ | Phase 3 | Low | ? Complete | @lead-engineer | 2025-07-17 | `MailboxCycle.wrb`: `process-mailboxes` then `route-outbox` |
-| Design DocumentationReflection loop definition | Phase 4 | High | ?? Not Started | @lead-engineer | TBD | Workflow automation |
-| Update actor prompts for documentation awareness | Phase 4 | Medium | ?? Not Started | @lead-engineer | TBD | Actor capability enhancement |
-| Test complete workflow with real project data | Phase 4 | High | ?? Not Started | @lead-engineer | TBD | End-to-end validation |
-| Write usage documentation and best practices | Phase 4 | Low | ?? Not Started | @lead-engineer | TBD | User guidance |
+| ~~Create DocumentationReflection loop definition~~ | Phase 4 | High | ? Complete | @lead-engineer | 2025-07-17 | `DocumentationReflection.json` with convergence detection |
+| ~~Update BusinessAnalyst actor prompts for documentation awareness~~ | Phase 4 | Medium | ? Complete | @lead-engineer | 2025-07-17 | rolePrompt + criteriaPrompt + intentPrompt enhanced; allowedLoops updated |
+| ~~Update Engineer allowedLoops~~ | Phase 4 | Medium | ? Complete | @lead-engineer | 2025-07-17 | Added `DocumentationReflection` to allowedLoops |
+| ~~Create DocumentationWorkflowGuide.md~~ | Phase 4 | Low | ? Complete | @lead-engineer | 2025-07-17 | Usage patterns, best practices, troubleshooting |
+| Test loop convergence detection | Phase 4 | High | ?? Not Started | @lead-engineer | TBD | End-to-end validation |
+| Test complete documentation workflow with real data | Phase 4 | High | ?? Not Started | @lead-engineer | TBD | End-to-end validation |
 
 ---
 
@@ -144,14 +146,14 @@ flowchart LR
 - [x] `process-mailboxes` reads Inbox ? prompts actor ? deletes Inbox on success
 - [x] `route-outbox` reads Outbox ? parses `to:` ? copies to target Inbox ? deletes Outbox
 - [x] One delivery path: Outbox ? `route-outbox` ? Inbox
-- [ ] Documentation workflow automates reflection and task creation
+- [x] Documentation workflow automates reflection and task creation
 - [x] Console behavior remains unchanged for single-user operations
 - [x] Cancellation propagates end-to-end to LLM processes
 
 ### Should Have (Preferred for Quality)
 - [x] Multiple recipients supported via comma-separated `to:` field
 - [x] Warning logged when inbox has >10 messages
-- [ ] Documentation loop has convergence detection preventing infinite cycles
+- [x] Documentation loop has convergence detection preventing infinite cycles
 - [ ] Performance benchmarks show no regression in single-user scenarios
 
 ### Completion Checklist
