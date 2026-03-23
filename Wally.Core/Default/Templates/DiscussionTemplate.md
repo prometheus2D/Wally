@@ -1,0 +1,237 @@
+# Discussion Document Template
+
+> Reference: Discussion documents capture open questions, design debates, hypotheses, and exploratory thinking. They are not proposals — they exist to surface unknowns, test assumptions, and drive decisions. A discussion document may spawn proposals, requirements, or architecture documents as output.
+
+---
+
+## Document Constraints
+
+| Constraint | Rule |
+|------------|------|
+| **Audience** | Engineers, architects, AI agents, product owners — anyone with a stake in the decision |
+| **Scope** | Open questions, competing options, design tensions, unknowns, and the context needed to resolve them |
+| **Out of Scope** | Finalized decisions, implementation steps, acceptance criteria for shipped features |
+| **Maintenance** | Update as questions are answered; archive when all questions are resolved or the discussion spawns a proposal |
+| **Todo Tracking** | Track open questions as tasks; each must have an owner and a target resolution date |
+| **Acceptance Criteria** | A discussion document is "complete" when every open question is either answered or explicitly deferred to a proposal |
+| **Related Documents** | Must reference the proposals, architecture docs, or requirements that this discussion informs or spawns |
+
+---
+
+## Objectives
+
+- Surface assumptions that have never been made explicit so they can be validated or rejected.
+- Give every stakeholder — including AI agents — a single place to see what is undecided and why.
+- Drive toward concrete decisions without prematurely closing options.
+- Produce a paper trail of *why* a decision was made, not just *what* it was.
+
+---
+
+## Document Relationships
+
+| Relates To | Relationship | Notes |
+|------------|--------------|-------|
+| ProposalTemplate | Spawns | Resolved discussions that require implementation become proposals |
+| RequirementsTemplate | Informs | Discussions may validate or contradict stated requirements |
+| ArchitectureTemplate | Informs | Discussions may expose architectural gaps or tensions |
+| TemplateTemplate | Follows | Conforms to the meta-template's mandatory section rules |
+
+---
+
+## Required Sections
+
+### Header
+
+```markdown
+# [Topic] — Discussion
+
+**Status**: [Open | In Progress | Resolved | Deferred | Archived]
+**Facilitator**: [Name or @handle]
+**Participants**: [Names or @handles; "TBD" is acceptable]
+**Created**: [Date]
+**Last Updated**: [Date]
+**Target Resolution**: [Date or milestone]
+
+*Template: [../Templates/DiscussionTemplate.md](../Templates/DiscussionTemplate.md)*
+```
+
+### Context
+
+2–4 sentences: what situation or problem prompted this discussion. Not a solution — just enough framing so a new reader can engage immediately.
+
+### Open Questions
+
+The heart of the document. Each question gets its own numbered subsection.
+
+```markdown
+## Open Questions
+
+### Q1: [Question Title]
+
+**Question**: [Full question text — specific enough to have a concrete answer]
+
+**Why it matters**: [What decision or design choice depends on the answer]
+
+**Options considered**:
+
+| Option | Description | Pros | Cons |
+|--------|-------------|------|------|
+| A | ... | ... | ... |
+| B | ... | ... | ... |
+
+**Current lean**: [Option X — or "No lean yet"]
+
+**Status**: [Open | In Progress | Resolved — [Answer]]
+
+**Owner**: [@handle]
+```
+
+### Statements & Positions
+
+Opinions, constraints, and design principles that participants want on the record — even when they are not questions. Each statement is attributed.
+
+```markdown
+## Statements & Positions
+
+### S1: [Statement Title]
+**From**: [@handle or persona]
+**Statement**: [The position, constraint, or observation]
+**Implications**: [What this rules out or commits to, if accepted]
+```
+
+### Decisions Log
+
+Populated as questions are resolved. One entry per closed question.
+
+```markdown
+## Decisions Log
+
+| Question | Decision | Rationale | Date | Owner |
+|----------|----------|-----------|------|-------|
+| Q1: [Title] | [Chosen option or outcome] | [One sentence why] | [Date] | [@handle] |
+```
+
+### Todo Tracker
+
+| Task | Priority | Status | Owner | Due Date | Notes |
+|------|----------|--------|-------|----------|-------|
+| Research option A for Q1 | High | ?? Not Started | @handle | YYYY-MM-DD | |
+| Schedule stakeholder review for Q2 | Medium | ?? Not Started | @handle | YYYY-MM-DD | |
+
+**Legend**:
+- Priority: `High | Medium | Low`
+- Status: `?? Blocked | ?? In Progress | ? Complete | ? Paused | ?? Not Started`
+
+### Related Documents
+
+| Document | Relationship | Notes |
+|----------|--------------|-------|
+| [SpawnedProposal](./SpawnedProposal.md) | Spawns | Resolved questions fed into this proposal |
+| [ArchitectureDoc](./ArchitectureDoc.md) | Informs | Discussion references current architecture |
+
+---
+
+## Optional Sections
+
+### Hypotheses
+Include when: discussion involves empirical unknowns (performance, user behavior, technical feasibility).
+Each hypothesis: claim, assumption it rests on, how to test, outcome if true, outcome if false.
+
+### Constraints
+Include when: hard non-negotiables exist that bound the solution space and should be stated upfront.
+List constraints as bullet items with the person or principle that owns each one.
+
+### Background
+Include when: the discussion requires significant domain history or prior art to be understood.
+Keep to prose; reference external documents rather than reproducing them.
+
+### Personas / Voices
+Include when: the discussion is structured as a multi-perspective review (e.g., architect, designer, user advocate).
+Give each participant a labeled section to record their distinctive concerns.
+
+---
+
+## Acceptance Criteria Definition
+
+### Completion Checklist
+- Every open question has an explicit status (`Resolved` or `Deferred`)
+- All `Resolved` questions have entries in the Decisions Log
+- `Deferred` questions reference the document where they are tracked next
+- Spawned proposals or requirements documents are linked in Related Documents
+- Facilitator confirms the document has served its purpose
+
+### Quality Gates
+- Every question is specific enough that a concrete answer is possible
+- Every decision is attributed (owner) and dated
+- No question is left `Open` past its target resolution date without a new target
+
+### Sign-off Requirements
+- Facilitator marks document `Resolved` or `Archived`
+- If spawning a proposal: proposal document is created and linked before archiving
+
+---
+
+## Todo Tracker Specification
+
+### Task Categories
+- **Research**: Gather data, run experiments, review prior art to answer a specific question
+- **Stakeholder input**: Schedule or record input needed from a specific person or team
+- **Drafting**: Write up an option, scenario, or position in enough detail for the group to evaluate
+- **Decision**: Schedule or record a decision meeting / async vote
+
+### Priority Levels
+- **High**: Blocking another proposal, sprint, or design decision
+- **Medium**: Needs resolution before next milestone
+- **Low**: Background enrichment; does not block forward progress
+
+### Status Values
+- **?? Blocked**: Waiting on external input or another decision
+- **?? In Progress**: Actively being researched or written up
+- **? Complete**: Question answered; entry in Decisions Log created
+- **? Paused**: Deprioritized; will resume when conditions change
+- **?? Not Started**: Acknowledged but not yet acted on
+
+### Assignment Rules
+- Every open question must have an owner (`@handle`)
+- Research tasks should specify what artifact is expected as output (doc, data, prototype)
+- Blocked tasks must name the specific blocker
+
+---
+
+## Formatting Rules
+
+| Element | Format |
+|---------|--------|
+| Code / identifiers | Backtick inline code |
+| Diagrams | Mermaid only |
+| Structured data | Tables preferred over prose |
+| Questions | Numbered Q1, Q2, … with full subsection |
+| Statements | Numbered S1, S2, … with attribution |
+| Todo items | `- [ ]` unchecked or `- [x]` checked checkbox format |
+| Status indicators | Emoji prefixes: ?? Blocked, ?? In Progress, ? Complete |
+| Options tables | Option | Description | Pros | Cons |
+
+---
+
+## Anti-Patterns
+
+| ? Avoid | ? Instead |
+|----------|-----------|
+| Rhetorical questions with obvious answers | Only include questions where the answer is genuinely undecided |
+| Questions without owners | Every question needs an owner responsible for driving it to resolution |
+| Recording a decision without rationale | Always include one sentence explaining *why* |
+| Mixing finalized design with open discussion | Finalized decisions go in the Decisions Log; open items stay in Open Questions |
+| Discussion documents that never close | Set a target resolution date; archive or spawn a proposal when done |
+| Statements presented as decisions | Use Statements & Positions for opinions; Decisions Log for closed items |
+| Open questions with no options table | Surface at least two options so the decision space is visible |
+
+---
+
+## File Naming
+
+`[TopicName]Discussion.md` — PascalCase, suffix `Discussion`.
+
+Examples: `RunbookSyntaxDiscussion.md`, `LoopOpenSectionDiscussion.md`, `BotAutonomyArchitectureDiscussion.md`
+
+### When a Discussion Produces Multiple Outputs
+If a single discussion spawns multiple proposals, create one proposal per concern and link all of them in Related Documents. Do not merge unrelated proposals into one document because they came from the same discussion.
