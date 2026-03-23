@@ -14,7 +14,7 @@ This folder contains proposals that are currently being developed, under review,
 | [EnhancedTextEditorAndRunbookLanguageProposal.md](./EnhancedTextEditorAndRunbookLanguageProposal.md) | Draft | High | @architect | Parent: professional text editor + runbook scripting language |
 | [MailboxProtocolProposal.md](./MailboxProtocolProposal.md) | Draft | High | @engineer | Actor-to-actor communication protocol |
 | [RunbookScriptingLanguageProposal.md](./RunbookScriptingLanguageProposal.md) | Draft | High | @developer | WallyScript: variables, loops, conditionals, orchestration for `.wrb` files |
-| [RunbookSyntaxProposal.md](./RunbookSyntaxProposal.md) | Draft | High | @architect | Variables, shell lines, `if`/`else`, `loop`/`open` — simple Turing-complete runbook syntax |
+| [RunbookSyntaxProposal.md](./RunbookSyntaxProposal.md) | Draft | High | @architect | `{ }` brace-delimited `loop`/`call`/`open`/`shell` syntax; two-body loop model; unlimited nested blocks |
 | [TextEditorIntegrationProposal.md](./TextEditorIntegrationProposal.md) | Draft | High | @frontend | ScintillaNET/alternative editor integration into Wally Forms |
 
 ## Current Discussions
@@ -23,7 +23,7 @@ Discussion documents are open roundtables. They capture competing options, desig
 
 | Discussion | Status | Priority | Facilitator | Description |
 |------------|--------|----------|-------------|-------------|
-| [RunbookSyntaxDiscussion.md](./RunbookSyntaxDiscussion.md) | In Progress | High | @ron | 5 open questions: shell prefix, CWD, loop file extension, `each` cap, `$out` clobber handling |
+| [RunbookSyntaxDiscussion.md](./RunbookSyntaxDiscussion.md) | Resolved | High | @ron | All questions resolved: `{ }` brace scoping, two-body loop model (loop body + shot body), unlimited nested `loop { }` / `call { }`, `open` as bare shot-slot keyword, workspace-as-context execution model |
 
 ## Document Templates
 

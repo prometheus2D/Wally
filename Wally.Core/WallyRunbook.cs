@@ -50,8 +50,26 @@ namespace Wally.Core
 
         // ?? Format detection ??????????????????????????????????????????????
 
+        /// <summary>
+        /// Keywords that, when they appear at the start of a non-comment line,
+        /// indicate the runbook uses the WallyScript / brace-block format rather
+        /// than the legacy simple (one command per line) format.
+        /// <para>
+        /// Phase-1/2 keywords: <c>shell</c>, <c>loop</c>, <c>call</c>, <c>open</c>
+        /// (brace-delimited block syntax — see RunbookSyntaxProposal).
+        /// </para>
+        /// <para>
+        /// Reserved future keywords: <c>if</c>, <c>while</c>, <c>foreach</c>,
+        /// <c>function</c>, <c>parallel</c>, <c>pipeline</c>, <c>try</c>, <c>retry</c>.
+        /// </para>
+        /// </summary>
         private static readonly HashSet<string> ScriptKeywords = new(StringComparer.OrdinalIgnoreCase)
         {
+            // Phase 1 – shell integration
+            "shell",
+            // Phase 2 – brace-delimited block syntax
+            "loop", "call", "open",
+            // Reserved future keywords (not yet implemented)
             "if", "while", "foreach", "function", "parallel", "pipeline", "try", "retry"
         };
 
