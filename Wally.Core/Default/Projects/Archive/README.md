@@ -14,6 +14,9 @@ Archive/
 
 | Proposal | Completed Date | Summary |
 |----------|----------------|---------|
+| UnifiedExecutionModelProposal.md | 2025-07-17 | ? `HasRoleAction` deleted; `actor.Actions[]` authoritative at runtime; `WallyLoop.cs` deleted |
+| AutonomyLoopProposal.md | 2025-07-17 | ? `WallyAgentLoop` with stop conditions + feedback modes |
+| MailboxProtocolProposal.md | 2025-07-17 | ? `send_message` ? Outbox; `process-mailboxes` + `route-outbox` |
 | AsyncExecutionProposal.md | 2025-07-15 | ? `ExecuteAsync` at all 4 layers, sync wrappers, `ConfigureAwait(false)`, end-to-end cancellation with `process.Kill` |
 | EnhancedTextEditorAndRunbookLanguageProposal.md | 2025-07-15 | ? Phase 1 (Scintilla.NET) complete; Phase 2 (scripting) cancelled — handled elsewhere |
 | WorkspaceMemoryProposal.md | 2025-07-15 | ? Persistent last-workspace and recent-workspaces across Forms and Console |
@@ -31,6 +34,7 @@ Archive/
 
 | Plan | Completed Date | Summary |
 |------|----------------|---------|
+| UnifiedExecutionModelImplementationPlan.md | 2025-07-17 | ? 7 steps: ActionDefinition models, WallyHelper load/save, ActionDispatcher data-driven auth + GlobMatch, WallyLoop.cs deleted |
 | WorkspaceMemoryImplementationPlan.md | 2025-07-15 | ? All 5 phases delivered: Core store, Forms auto-load, Recent menu, Console interactive, Console one-shot |
 
 ## Guidelines

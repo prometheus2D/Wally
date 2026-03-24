@@ -239,7 +239,21 @@ namespace Wally.Core
                 allowedLoops     = actor.AllowedLoops,
                 preferredWrapper = actor.PreferredWrapper,
                 preferredLoop    = actor.PreferredLoop,
-                abilities        = actor.Abilities
+                abilities        = actor.Abilities,
+                actions          = actor.Actions.Select(a => new
+                {
+                    name        = a.Name,
+                    description = a.Description,
+                    pathPattern = a.PathPattern,
+                    isMutating  = a.IsMutating,
+                    parameters  = a.Parameters.Select(p => new
+                    {
+                        name        = p.Name,
+                        type        = p.Type,
+                        description = p.Description,
+                        required    = p.Required,
+                    })
+                })
             };
 
             File.WriteAllText(
@@ -548,6 +562,7 @@ namespace Wally.Core
             string? preferredWrapper = null;
             string? preferredLoop    = null;
             var abilities        = new List<string>();
+            var actions          = new List<ActionDefinition>();
 
             if (File.Exists(jsonPath))
             {
@@ -568,6 +583,7 @@ namespace Wally.Core
                     allowedWrappers = TryGetStringList(root, "allowedWrappers");
                     allowedLoops    = TryGetStringList(root, "allowedLoops");
                     abilities       = TryGetStringList(root, "abilities");
+                    actions         = TryGetActionList(root, "actions");
                 }
                 catch (JsonException ex)
                 {
@@ -594,6 +610,7 @@ namespace Wally.Core
             actor.PreferredWrapper = preferredWrapper;
             actor.PreferredLoop    = preferredLoop;
             actor.Abilities        = abilities;
+            actor.Actions          = actions;
 
             return actor;
         }
@@ -630,6 +647,47 @@ namespace Wally.Core
             if (prop.ValueKind == JsonValueKind.True)  return true;
             if (prop.ValueKind == JsonValueKind.False) return false;
             return null;
+        }
+
+        private static List<ActionDefinition> TryGetActionList(JsonElement element, string propertyName)
+        {
+            var result = new List<ActionDefinition>();
+            if (!element.TryGetProperty(propertyName, out var prop) ||
+                prop.ValueKind != JsonValueKind.Array)
+                return result;
+
+            foreach (var item in prop.EnumerateArray())
+            {
+                if (item.ValueKind != JsonValueKind.Object) continue;
+
+                var def = new ActionDefinition
+                {
+                    Name        = TryGetString(item, "name")        ?? string.Empty,
+                    Description = TryGetString(item, "description") ?? string.Empty,
+                    PathPattern = TryGetString(item, "pathPattern") ?? "**",
+                    IsMutating  = TryGetBool(item,  "isMutating")   ?? false,
+                };
+
+                if (item.TryGetProperty("parameters", out var paramsEl) &&
+                    paramsEl.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (var p in paramsEl.EnumerateArray())
+                    {
+                        if (p.ValueKind != JsonValueKind.Object) continue;
+                        def.Parameters.Add(new ActionParameterDefinition
+                        {
+                            Name        = TryGetString(p, "name")        ?? string.Empty,
+                            Type        = TryGetString(p, "type")        ?? "string",
+                            Description = TryGetString(p, "description") ?? string.Empty,
+                            Required    = TryGetBool(p,  "required")     ?? false,
+                        });
+                    }
+                }
+
+                if (!string.IsNullOrWhiteSpace(def.Name))
+                    result.Add(def);
+            }
+            return result;
         }
     }
 }

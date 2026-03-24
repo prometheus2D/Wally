@@ -60,29 +60,87 @@ namespace Wally.Core
             if (!actionParams.TryGetValue("name", out string? actionName) || string.IsNullOrEmpty(actionName))
                 return "? Action block missing 'name' parameter";
 
-            // Check if actor has this ability/action
-            bool hasSharedAbility = actor.Abilities.Contains(actionName, StringComparer.OrdinalIgnoreCase);
-            bool hasRoleAction = HasRoleAction(actor, actionName);
-            
-            if (!hasSharedAbility && !hasRoleAction)
+            // ?? Authorization ????????????????????????????????????????????????
+            // Check shared abilities (read_context, browse_workspace, send_message)
+            bool hasAbility = actor.Abilities.Contains(actionName, StringComparer.OrdinalIgnoreCase);
+
+            // Check role actions declared in actor.json actions[]
+            var actionDef = actor.Actions.FirstOrDefault(a =>
+                string.Equals(a.Name, actionName, StringComparison.OrdinalIgnoreCase));
+
+            if (!hasAbility && actionDef == null)
             {
                 logger?.LogError($"Actor '{actor.Name}' attempted to use unauthorized action '{actionName}'");
                 return $"? Actor '{actor.Name}' is not authorized to use action '{actionName}'";
             }
 
+            // ?? Validation ???????????????????????????????????????????????????
+            // Required parameter check
+            if (actionDef != null)
+            {
+                foreach (var param in actionDef.Parameters.Where(p => p.Required))
+                {
+                    if (!actionParams.TryGetValue(param.Name, out string? v) || string.IsNullOrEmpty(v))
+                    {
+                        logger?.LogError($"Action '{actionName}' missing required parameter '{param.Name}'");
+                        return $"? Action '{actionName}' requires parameter '{param.Name}'";
+                    }
+                }
+            }
+
+            // Path pattern check — only enforced when pattern is not the catch-all "**"
+            if (actionDef != null && actionDef.PathPattern != "**"
+                && actionParams.TryGetValue("path", out string? targetPath)
+                && !string.IsNullOrEmpty(targetPath))
+            {
+                if (!GlobMatch(actionDef.PathPattern, targetPath))
+                {
+                    logger?.LogError($"Action '{actionName}' path '{targetPath}' blocked by pattern '{actionDef.PathPattern}'");
+                    return $"? Path '{targetPath}' is not permitted for action '{actionName}' (allowed pattern: {actionDef.PathPattern})";
+                }
+            }
+
             logger?.LogInfo($"Actor '{actor.Name}' executing action '{actionName}'");
 
-            // Execute the action
+            // ?? Dispatch ?????????????????????????????????????????????????????
+            // Handler routing stays name-based and unchanged.
             return actionName.ToLowerInvariant() switch
             {
-                "read_context" => ExecuteReadContext(actionParams, workspace, logger),
-                "browse_workspace" => ExecuteBrowseWorkspace(actionParams, workspace, logger),
-                "send_message" => ExecuteSendMessage(actor, actionParams, workspace, logger),
-                "change_code" => ExecuteChangeCode(actionParams, workspace, logger),
-                "write_document" => ExecuteWriteDocument(actionParams, workspace, logger),
+                "read_context"       => ExecuteReadContext(actionParams, workspace, logger),
+                "browse_workspace"   => ExecuteBrowseWorkspace(actionParams, workspace, logger),
+                "send_message"       => ExecuteSendMessage(actor, actionParams, workspace, logger),
+                "change_code"        => ExecuteChangeCode(actionParams, workspace, logger),
+                "write_document"     => ExecuteWriteDocument(actionParams, workspace, logger),
                 "write_requirements" => ExecuteWriteRequirements(actionParams, workspace, logger),
-                _ => $"? Unknown action: {actionName}"
+                _                    => $"? Unknown action: {actionName}"
             };
+        }
+
+        /// <summary>
+        /// Simple glob matcher supporting <c>**</c> (any path segments) and <c>*</c> (within a segment).
+        /// <list type="bullet">
+        ///   <item><c>"**"</c> — matches any path (catch-all; skipped before this method is called).</item>
+        ///   <item><c>"**/*.md"</c> — matches any <c>.md</c> file at any depth.</item>
+        ///   <item><c>"*.cs"</c> — matches any <c>.cs</c> file in the root only.</item>
+        /// </list>
+        /// </summary>
+        private static bool GlobMatch(string pattern, string path)
+        {
+            if (string.IsNullOrEmpty(pattern) || pattern == "**") return true;
+
+            // Normalise path separators
+            path    = path.Replace('\\', '/');
+            pattern = pattern.Replace('\\', '/');
+
+            // Convert glob to regex
+            string regexPattern = "^"
+                + Regex.Escape(pattern)
+                    .Replace(@"\*\*/", "(.+/)?")  // **/ — zero or more path segments
+                    .Replace(@"\*\*",  ".*")       // **  — anything remaining
+                    .Replace(@"\*",    "[^/]*")    // *   — any chars within one segment
+                + "$";
+
+            return Regex.IsMatch(path, regexPattern, RegexOptions.IgnoreCase);
         }
 
         private static Dictionary<string, string> ParseActionParameters(string actionContent)
@@ -130,20 +188,6 @@ namespace Wally.Core
                 parameters[currentKey] = string.Join('\n', currentValue).Trim();
 
             return parameters;
-        }
-
-        private static bool HasRoleAction(Actor actor, string actionName)
-        {
-            // This would check the actor's "actions" array from actor.json
-            // For now, hardcode the known role actions
-            return actionName.ToLowerInvariant() switch
-            {
-                "change_code" => actor.Name.Equals("Engineer", StringComparison.OrdinalIgnoreCase),
-                "write_document" => actor.Name.Equals("Engineer", StringComparison.OrdinalIgnoreCase) || 
-                                  actor.Name.Equals("BusinessAnalyst", StringComparison.OrdinalIgnoreCase),
-                "write_requirements" => actor.Name.Equals("RequirementsExtractor", StringComparison.OrdinalIgnoreCase),
-                _ => false
-            };
         }
 
         // Shared ability implementations

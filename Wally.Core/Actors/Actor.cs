@@ -35,6 +35,13 @@ namespace Wally.Core.Actors
         /// </summary>
         public List<string> Abilities { get; set; } = new();
 
+        /// <summary>
+        /// Role-specific actions declared in <c>actor.json</c> as <c>"actions": [...]</c>.
+        /// Each entry carries authorization metadata (pathPattern, isMutating, parameters)
+        /// used by <see cref="ActionDispatcher"/> at runtime.
+        /// </summary>
+        public List<ActionDefinition> Actions { get; set; } = new();
+
         public WallyWorkspace? Workspace { get; set; }
         public SessionLogger? Logger { get; set; }
 

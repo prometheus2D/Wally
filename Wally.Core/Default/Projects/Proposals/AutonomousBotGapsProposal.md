@@ -39,9 +39,10 @@ Three independent workstreams delivered in priority order. Each is detailed in i
 
 | Proposal | Relationship | Notes |
 |----------|--------------|-------|
-| ~~[AsyncExecutionProposal](../Archive/CompletedProposals/AsyncExecutionProposal.md)~~ | Child — Phase 1 | ? **COMPLETE** — archived to `../Archive/CompletedProposals/` |
-| [AutonomyLoopProposal](./AutonomyLoopProposal.md) | Child — Phase 2 | Now unblocked — depends on Phase 1 async path |
-| [MailboxProtocolProposal](./MailboxProtocolProposal.md) | Child — Phase 3 | Now unblocked — two commands: `process-mailboxes` + `route-outbox` |
+| ~~[AsyncExecutionProposal](../Archive/CompletedProposals/AsyncExecutionProposal.md)~~ | Child — Phase 1 | ? **COMPLETE** — archived |
+| ~~[AutonomyLoopProposal](../Archive/CompletedProposals/AutonomyLoopProposal.md)~~ | Child — Phase 2 | ? **COMPLETE** — archived |
+| ~~[MailboxProtocolProposal](../Archive/CompletedProposals/MailboxProtocolProposal.md)~~ | Child — Phase 3 | ? **COMPLETE** — archived |
+| [DocumentationWorkflowProposal](./DocumentationWorkflowProposal.md) | Child — Phase 4 | In Progress — phases 1-3 complete, end-to-end validation pending |
 
 ---
 

@@ -7,11 +7,11 @@ using System.Text.Json.Serialization;
 namespace Wally.Core
 {
     /// <summary>
-    /// A serializable definition for a <see cref="WallyPipeline"/>, loaded from a JSON file.
+    /// A serializable definition for a Wally loop, loaded from a JSON file.
     /// <para>
-    /// Each <c>.json</c> file in the workspace's <c>Loops/</c> folder defines one pipeline.
-    /// A pipeline is an ordered list of steps; each step names an actor and a prompt template.
-    /// The output of each step is passed to the next step as <c>{previousStepResult}</c>.
+    /// Each <c>.json</c> file in the workspace's <c>Loops/</c> folder defines one loop.
+    /// A loop is either a single-actor call, an ordered pipeline of steps, or an
+    /// agent loop that iterates until a stop condition is met.
     /// </para>
     /// <para>
     /// Single-actor shorthand: omit <see cref="Steps"/> and set <see cref="ActorName"/> and
