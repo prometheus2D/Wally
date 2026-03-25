@@ -1,0 +1,10 @@
+{
+  "name": "ProposalToTasks",
+  "description": "Reads a single proposal document and produces a prioritised task breakdown plus a todo tracker file written next to the proposal. Pass the relative path to the proposal as the prompt.",
+  "enabled": true,
+  "actorName": "ProjectPlanner",
+  "maxIterations": 3,
+  "stopKeyword": "TASKS_COMPLETE",
+  "feedbackMode": "AppendResponse",
+  "startPrompt": "You are given a proposal document to decompose into tasks.\n\nProposal path (relative to WorkSource): {userPrompt}\n\nSTEP 1 — Read the proposal.\nUse read_context to read the full proposal at the path above. Do not write anything yet.\n\nSTEP 2 — Read the task tracker template.\nUse read_context to read Templates/TaskTrackerTemplate.md so you know the exact output format required.\n\nSTEP 3 — Decompose into tasks.\nFor every deliverable, phase, or concrete change described in the proposal:\n- Write one task per independently executable unit of work.\n- Do not invent scope not present in the proposal.\n- Every task must have: a short imperative title, a 1-3 sentence description referencing specific files or components named in the proposal, a priority (High/Medium/Low), an effort estimate, and a specific done-condition.\n- Order tasks by dependency: blockers first within each phase.\n- Group by phase if the proposal defines phases; use a flat list otherwise.\n\nSTEP 4 — Write the tracker.\nUse write_document to create the task tracker file.\n- Path: same directory as the source proposal, filename = <ProposalName>Tasks.md\n  Example: if proposal is at Projects/Proposals/AsyncExecutionProposal.md, write to Projects/Proposals/AsyncExecutionProposalTasks.md\n- Content: follow TaskTrackerTemplate.md exactly — header, task table(s), dependency map (Mermaid, if non-trivial), blockers section, and progress summary.\n\nWhen the tracker has been written successfully, include TASKS_COMPLETE in your response and confirm the output path.\n\nDo not write any other documents. Do not write code. Do not modify the proposal."
+}
