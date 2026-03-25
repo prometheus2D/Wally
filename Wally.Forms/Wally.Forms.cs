@@ -510,19 +510,40 @@ namespace Wally.Forms
         {
             bool has = _environment.HasWorkspace;
 
+            // ?? File menu items ??
             saveWorkspaceMenuItem.Enabled  = has;
             closeWorkspaceMenuItem.Enabled = has;
+
+            // ?? View menu items ??
             refreshMenuItem.Enabled        = has;
             showExplorerMenuItem.Enabled   = has;
             showChatMenuItem.Enabled       = has;
+            viewLogsMenuItem.Enabled            = has;
+            viewChatHistoryMenuItem.Enabled     = has;
+            viewPromptViewerMenuItem.Enabled    = has;
+            viewWorkspaceViewerMenuItem.Enabled = has;
 
+            // ?? Workspace menu — disable the entire top-level menu ??
+            workspaceToolStripMenuItem.Enabled = has;
+
+            // ?? File ToolStrip ??
             tsbSave.Enabled            = has;
             tsbClose.Enabled           = has;
+
+            // ?? Workspace ToolStrip ??
             tsbRefresh.Enabled         = has;
             tsbReloadActors.Enabled    = has;
             tsbInfo.Enabled            = has;
             tsbVerify.Enabled          = has;
             tsbRepair.Enabled          = has;
+
+            // ?? Editors ToolStrip ??
+            tsbEditActors.Enabled      = has;
+            tsbConfig.Enabled          = has;
+            tsbLogs.Enabled            = has;
+            tsbClearChat.Enabled       = has;
+
+            // ?? Runbook ToolStrip ??
             tsbRunbookDropdown.Enabled = has;
 
             UpdateRunbookButtons();
