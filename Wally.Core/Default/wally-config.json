@@ -42,10 +42,9 @@
     "create-execution-plan"
   ],
   "SelectedModels": [
-    "gpt-5.3-codex",
     "gpt-4.1",
+    "gpt-5.3-codex",
     "gpt-4o"
-
   ],
   "SelectedWrappers": [
     "Copilot"
@@ -57,4 +56,4 @@
     "proposal-to-implementation"
   ],
   "MaxIterations": 10
-}
+}}

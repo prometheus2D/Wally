@@ -64,5 +64,26 @@ namespace Wally.Core.Logging
         /// </summary>
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
         public int Iteration { get; set; }
+
+        /// <summary>
+        /// The unique instance GUID for the runbook execution that produced this entry.
+        /// <see langword="null"/> for entries that are not part of a runbook execution.
+        /// </summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string? RunbookInstanceId { get; set; }
+
+        /// <summary>
+        /// Standard output captured from a <c>shell</c> runbook step.
+        /// <see langword="null"/> for non-shell entries.
+        /// </summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string? ShellStdout { get; set; }
+
+        /// <summary>
+        /// Standard error captured from a <c>shell</c> runbook step.
+        /// <see langword="null"/> for non-shell entries or when stderr was empty.
+        /// </summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string? ShellStderr { get; set; }
     }
 }

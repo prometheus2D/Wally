@@ -459,12 +459,13 @@ namespace Wally.Forms
         private void OnWorkspaceChanged(object? sender, EventArgs e)
         {
             UpdateWorkspaceGating();
-            RefreshAllPanels();
 
             if (_environment.HasWorkspace)
             {
-                ShowWorkspacePanels();
-                _chatPanel.SetWorkspaceLoaded(true);
+                ShowWorkspacePanels();                         // panel must be in tree before Refresh
+                _chatPanel.SetWorkspaceLoaded(true);          // sets _workspaceLoaded = true first
+                RefreshAllPanels();                           // now model/actor/loop lists populate correctly
+
                 _lblWorkspaceStatus.Text = _environment.WorkspaceFolder!;
                 _lblActorCount.Text      = $"Actors: {_environment.Actors.Count}";
 
@@ -485,7 +486,6 @@ namespace Wally.Forms
                 _explorerTabPanel.ClearAll();
                 _welcomePanel.SetWorkspaceInfo(loaded: false);
 
-                // Close all workspace-scoped tabs — keep only Welcome and User Prefs.
                 CloseWorkspaceTabs();
             }
         }

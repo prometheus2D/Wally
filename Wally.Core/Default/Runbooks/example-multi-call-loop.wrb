@@ -1,0 +1,20 @@
+# description: Multi-call loop — same loop body, different shot bodies per reviewer
+# enabled: true
+
+shell git diff HEAD~1 HEAD --stat
+
+loop {
+    run "Review the diff from your perspective and flag any concerns"
+    open
+    run "Summarise your findings in one paragraph"
+}
+
+call {
+    run "Focus on correctness and test coverage" -a Engineer
+}
+
+call {
+    run "Focus on security and attack surface" -a BusinessAnalyst
+}
+
+run "Synthesise all reviews into a go/no-go verdict" -a BusinessAnalyst

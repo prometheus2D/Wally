@@ -1,0 +1,32 @@
+# description: Three-level nested loop — outer/inner/innermost shot bodies
+# enabled: true
+
+shell git log --oneline -5
+
+loop {
+    run "Level 1 — high-level architectural review" -a BusinessAnalyst
+    open
+    run "Level 1 — wrap up with a risk rating" -a BusinessAnalyst
+}
+
+call {
+    loop {
+        run "Level 2 — technical deep-dive" -a Engineer
+        open
+        run "Level 2 — confirm no regressions" -a Engineer
+    }
+
+    call {
+        loop {
+            run "Level 3 — security analysis" -a BusinessAnalyst
+            open
+            run "Level 3 — risk summary" -a BusinessAnalyst
+        }
+
+        call {
+            run "Level 3 shot — check for injection vulnerabilities specifically" -a BusinessAnalyst
+        }
+    }
+}
+
+run "Final synthesis across all levels" -a BusinessAnalyst

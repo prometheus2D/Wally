@@ -22,7 +22,6 @@
 
   <ItemGroup>
     <Folder Include="Default\Logs\" />
-    <Folder Include="Default\Projects\ImplementationPlans\" />
   </ItemGroup>
 
   <ItemGroup>

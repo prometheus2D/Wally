@@ -265,6 +265,108 @@ namespace Wally.Core.Logging
             });
         }
 
+        // ?? Runbook execution logging ?????????????????????????????????????????
+
+        /// <summary>
+        /// Logs the start of a runbook execution.
+        /// Should be written before the first statement is dispatched.
+        /// </summary>
+        public void LogRunbookStart(string runbookInstanceId, string runbookName, string format, int lineCount)
+        {
+            Write(new LogEntry
+            {
+                Timestamp          = DateTimeOffset.UtcNow,
+                SessionId          = SessionId.ToString("N"),
+                Category           = "RunbookStart",
+                RunbookInstanceId  = runbookInstanceId,
+                Command            = runbookName,
+                Message            = $"format={format} lineCount={lineCount}"
+            });
+        }
+
+        /// <summary>
+        /// Logs a single statement step within a runbook execution.
+        /// Written before the statement is dispatched.
+        /// </summary>
+        public void LogRunbookStep(string runbookInstanceId, int stepIndex, string keyword)
+        {
+            Write(new LogEntry
+            {
+                Timestamp         = DateTimeOffset.UtcNow,
+                SessionId         = SessionId.ToString("N"),
+                Category          = "RunbookStep",
+                RunbookInstanceId = runbookInstanceId,
+                Message           = $"stepIndex={stepIndex} keyword={keyword}"
+            });
+        }
+
+        /// <summary>
+        /// Logs the result of a <c>shell</c> line after the process exits.
+        /// </summary>
+        public void LogRunbookShell(string runbookInstanceId, int stepIndex, string command, int exitCode, long durationMs)
+        {
+            Write(new LogEntry
+            {
+                Timestamp         = DateTimeOffset.UtcNow,
+                SessionId         = SessionId.ToString("N"),
+                Category          = "RunbookShell",
+                RunbookInstanceId = runbookInstanceId,
+                ElapsedMs         = durationMs,
+                Message           = $"stepIndex={stepIndex} exitCode={exitCode} command={command}"
+            });
+        }
+
+        /// <summary>
+        /// Logs the result of a <c>shell</c> line including captured stdout/stderr.
+        /// </summary>
+        public void LogRunbookShell(string runbookInstanceId, int stepIndex, string command,
+            int exitCode, long durationMs, string? stdout, string? stderr)
+        {
+            Write(new LogEntry
+            {
+                Timestamp         = DateTimeOffset.UtcNow,
+                SessionId         = SessionId.ToString("N"),
+                Category          = "RunbookShell",
+                RunbookInstanceId = runbookInstanceId,
+                ElapsedMs         = durationMs,
+                Message           = $"stepIndex={stepIndex} exitCode={exitCode} command={command}",
+                ShellStdout       = string.IsNullOrWhiteSpace(stdout) ? null : stdout,
+                ShellStderr       = string.IsNullOrWhiteSpace(stderr) ? null : stderr
+            });
+        }
+
+        /// <summary>
+        /// Logs the successful completion of a runbook execution.
+        /// </summary>
+        public void LogRunbookEnd(string runbookInstanceId, string runbookName, int stepCount, long durationMs)
+        {
+            Write(new LogEntry
+            {
+                Timestamp         = DateTimeOffset.UtcNow,
+                SessionId         = SessionId.ToString("N"),
+                Category          = "RunbookEnd",
+                RunbookInstanceId = runbookInstanceId,
+                Command           = runbookName,
+                ElapsedMs         = durationMs,
+                Message           = $"stepCount={stepCount}"
+            });
+        }
+
+        /// <summary>
+        /// Logs a runbook failure or parser error.
+        /// </summary>
+        public void LogRunbookError(string runbookInstanceId, int stepIndex, string message)
+        {
+            Write(new LogEntry
+            {
+                Timestamp         = DateTimeOffset.UtcNow,
+                SessionId         = SessionId.ToString("N"),
+                Category          = "RunbookError",
+                RunbookInstanceId = runbookInstanceId,
+                Message           = $"stepIndex={stepIndex} {message}"
+            });
+        }
+
         // ?? Core write ????????????????????????????????????????????????????????
 
         private void Write(LogEntry entry)

@@ -301,9 +301,15 @@ namespace Wally.Forms.Controls
         {
             var menu = new ContextMenuStrip
             {
-                BackColor = WallyTheme.Surface2, ForeColor = WallyTheme.TextPrimary,
-                Font = WallyTheme.FontUISmall, ShowImageMargin = false,
-                Renderer = WallyTheme.CreateRenderer()
+                BackColor      = WallyTheme.Surface2,
+                ForeColor      = WallyTheme.TextPrimary,
+                Font           = WallyTheme.FontUISmall,
+                ShowImageMargin = false,
+                // No custom Renderer — the default system renderer respects
+                // BackColor/ForeColor set at the strip level and on each item.
+                // A custom ProfessionalRenderer or ToolStripProfessionalRenderer
+                // ignores per-item colours and paints items invisible against
+                // our dark theme background.
             };
 
             var btn = new Button
@@ -338,6 +344,8 @@ namespace Wally.Forms.Controls
             btn.Click += (s, _) =>
             {
                 var b = (Button)s!;
+                // Show(control, point) sets SourceControl correctly so the menu
+                // is owned by the button's window — point is in control-client coords.
                 ((ContextMenuStrip)b.Tag!).Show(b, new Point(0, b.Height));
             };
 
@@ -362,9 +370,11 @@ namespace Wally.Forms.Controls
             {
                 var mi = new ToolStripMenuItem(item)
                 {
-                    ForeColor = WallyTheme.TextPrimary, BackColor = WallyTheme.Surface2,
-                    Font = WallyTheme.FontUISmall,
-                    Checked = string.Equals(item, selectedValue, StringComparison.Ordinal)
+                    // Colours are inherited from the ContextMenuStrip's BackColor/ForeColor.
+                    // Do not set per-item overrides — the system renderer ignores them and
+                    // it causes items to render as invisible against the dark background.
+                    Font    = WallyTheme.FontUISmall,
+                    Checked = string.Equals(item, selectedValue, StringComparison.OrdinalIgnoreCase)
                 };
                 mi.Click += (s, _) =>
                 {
@@ -372,7 +382,7 @@ namespace Wally.Forms.Controls
                     bool isDefault = defaultValue != null &&
                                      string.Equals(text, defaultValue, StringComparison.OrdinalIgnoreCase);
                     btn.Text = isDefault ? $"{text} (default)" : text;
-                    foreach (ToolStripMenuItem other in menu.Items)
+                    foreach (ToolStripMenuItem other in menu.Items.OfType<ToolStripMenuItem>())
                         other.Checked = string.Equals(other.Text, text, StringComparison.Ordinal);
                     onSelected(text);
                 };
@@ -822,10 +832,10 @@ namespace Wally.Forms.Controls
 
             string cmdText = string.Join(" ",
                 new List<string>(new[] { "run", $"\"{prompt}\"" })
-                .Concat(!directMode          ? new[] { $"-a {actorName}" }      : Array.Empty<string>())
-                .Concat(isLooped             ? new[] { $"-l {loopName}" }       : Array.Empty<string>())
-                .Concat(modelOverride != null ? new[] { $"-m {modelOverride}" } : Array.Empty<string>())
-                .Concat(wrapperName   != null ? new[] { $"-w {wrapperName}" }   : Array.Empty<string>()));
+                .Concat(!directMode           ? new[] { $"-a {actorName}" }      : Array.Empty<string>())
+                .Concat(isLooped              ? new[] { $"-l {loopName}" }       : Array.Empty<string>())
+                .Concat(modelOverride != null ? new[] { $"-m {modelOverride}" }  : Array.Empty<string>())
+                .Concat(wrapperName   != null ? new[] { $"-w {wrapperName}" }    : Array.Empty<string>()));
             CommandIssued?.Invoke(this, cmdText);
 
             AddMessage("You", prompt, MessageKind.User);
@@ -841,10 +851,16 @@ namespace Wally.Forms.Controls
             try
             {
                 var token = _cts.Token;
-                var results = await WallyCommands.HandleRunTypedAsync(
-                    _environment!, prompt, actorName, modelOverride,
-                    loopName: loopName, wrapper: wrapperName,
-                    noHistory: false, cancellationToken: token);
+
+                // Run on a background thread so the UI thread (and its message pump)
+                // remains free — this keeps the progress bar animating and the Stop
+                // button responsive, exactly as CommandPanel.RunCommandAsync does.
+                var results = await Task.Run(
+                    () => WallyCommands.HandleRunTyped(
+                        _environment!, prompt, actorName, modelOverride,
+                        loopName: loopName, wrapper: wrapperName,
+                        noHistory: false, cancellationToken: token),
+                    token).ConfigureAwait(true); // ConfigureAwait(true) to resume on UI thread
 
                 if (results.Count == 0)
                     AddMessage("System", "No response from AI.", MessageKind.Error);

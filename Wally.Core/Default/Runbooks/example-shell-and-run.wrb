@@ -1,0 +1,5 @@
+# description: Shell + run example — git log summary
+# enabled: true
+
+shell git log --oneline -10
+run "Summarise the 10 most recent commits and identify any patterns or risks" -a Engineer
