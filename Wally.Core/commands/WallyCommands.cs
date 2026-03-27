@@ -30,7 +30,7 @@ namespace Wally.Core
         {
             "setup", "repair", "load", "save", "run", "runbook", "list", "list-loops",
             "list-wrappers", "list-runbooks", "info", "reload-actors", "cleanup",
-            "clear-history", "commands", "help", "tutorial", "clear", "cls",
+            "clear-history", "commands", "help", "tutorial", "tutorial-mode", "clear", "cls",
             "add-actor", "edit-actor", "delete-actor",
             "add-loop", "edit-loop", "delete-loop",
             "add-wrapper", "edit-wrapper", "delete-wrapper",
@@ -148,6 +148,12 @@ namespace Wally.Core
                 case "clear-history": HandleClearHistory(env); return true;
                 case "commands" or "help": HandleHelp();     return true;
                 case "tutorial":           HandleTutorial(); return true;
+                case "tutorial-mode":
+                {
+                    string? modeValue = args.Length >= 2 ? args[1] : null;
+                    HandleTutorialMode(modeValue);
+                    return true;
+                }
 
                 // ?? Actor CRUD ????????????????????????????????????????????????
                 case "add-actor":

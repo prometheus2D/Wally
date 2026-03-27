@@ -12,7 +12,6 @@ namespace Wally.Core
         {
             env.LoadWorkspace(path);
             env.Logger.LogCommand("load", $"Loaded workspace from {path}");
-            PrintWorkspaceSummary("Workspace loaded.", env);
         }
 
         public static void HandleSetup(WallyEnvironment env, string? workSourcePath = null, bool verifyOnly = false)
@@ -37,7 +36,6 @@ namespace Wally.Core
             }
             env.SetupLocal(workSourcePath);
             env.Logger.LogCommand("setup", $"Workspace ready at {env.WorkspaceFolder}");
-            PrintWorkspaceSummary("Workspace ready.", env);
         }
 
         public static void HandleRepair(WallyEnvironment env, string? workSourcePath = null)

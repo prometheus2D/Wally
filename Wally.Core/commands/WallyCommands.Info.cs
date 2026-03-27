@@ -152,7 +152,7 @@ namespace Wally.Core
             bool hasProjects    = Directory.Exists(projectsDir);
             int  projectCount   = hasProjects ? Directory.GetDirectories(projectsDir).Length : 0;
             Console.WriteLine($"Projects folder:  {projectsDir}{(hasProjects ? $" ({projectCount} project(s))" : " (not initialised \u2014 run setup)")}");
-
+            
             Console.WriteLine($"Actors:           {ws.Actors.Count}");
             foreach (var a in ws.Actors)
             {
@@ -207,7 +207,6 @@ namespace Wally.Core
             Console.WriteLine("Quick start:");
             Console.WriteLine("  wally setup C:\\repos\\MyApp");
             Console.WriteLine("  wally run \"Review the auth module\" -a Engineer");
-            Console.WriteLine("  wally run \"What is this project about?\"");
             Console.WriteLine();
             Console.WriteLine("Commands:");
             Console.WriteLine("  setup [<path>] [--verify]     Set up / verify a workspace.");
@@ -255,7 +254,6 @@ namespace Wally.Core
             Console.WriteLine("  wally setup C:\\repos\\MyApp");
             Console.WriteLine();
             Console.WriteLine("STEP 2: RUN A PROMPT");
-            Console.WriteLine("  wally run \"What does this codebase do?\"");
             Console.WriteLine("  wally run \"Review the auth module\" -a Engineer");
             Console.WriteLine();
             Console.WriteLine("STEP 3: ADD AN ACTOR");
@@ -275,6 +273,43 @@ namespace Wally.Core
             Console.WriteLine("STEP 5: INSPECT & EXPLORE");
             Console.WriteLine("  wally info | wally list | wally list-loops | wally list-wrappers");
             Console.WriteLine("  wally commands");
+        }
+
+        /// <summary>
+        /// Prints the concise tutorial hint shown at interactive startup.
+        /// At most 3 lines: a run example, an actor+loop example, and the
+        /// "tutorial-mode off to hide" tip.
+        /// </summary>
+        public static void HandleTutorialSummary(WallyEnvironment env)
+        {
+            // Pick a single live name from the workspace when available, else use a placeholder.
+            string actor = env.HasWorkspace && env.Actors.Count > 0 ? env.Actors[0].Name : "Actor";
+
+            Console.WriteLine($"  run \"<prompt>\" -a {actor}  \u00B7  commands \u00B7 tutorial \u00B7 info \u00B7 list  \u00B7  tutorial-mode off to hide this");
+        }
+
+        /// <summary>
+        /// Toggles the <see cref="WallyPreferences.ShowTutorialOnStartup"/> flag.
+        /// Usage: <c>tutorial-mode on|off|toggle</c>
+        /// </summary>
+        public static void HandleTutorialMode(string? value)
+        {
+            var prefs = WallyPreferencesStore.Load();
+            bool current = prefs.ShowTutorialOnStartup;
+
+            bool next = (value?.ToLowerInvariant()) switch
+            {
+                "on"  or "true"  or "1" or "yes" or "enable"  => true,
+                "off" or "false" or "0" or "no"  or "disable" => false,
+                _ => !current   // toggle when no argument or "toggle"
+            };
+
+            prefs.ShowTutorialOnStartup = next;
+            WallyPreferencesStore.Save(prefs);
+
+            Console.WriteLine(next
+                ? "Tutorial summary will be shown at startup.  (tutorial-mode off to hide)"
+                : "Tutorial summary hidden at startup.  (tutorial-mode on to restore)");
         }
     }
 }

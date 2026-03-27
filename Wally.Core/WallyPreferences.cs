@@ -42,6 +42,14 @@ namespace Wally.Core
         /// Entries beyond this limit are dropped (oldest first).
         /// </summary>
         public int MaxRecentCount { get; set; } = 10;
+
+        /// <summary>
+        /// When <see langword="true"/>, a concise tutorial summary is printed
+        /// at the start of every interactive session. Defaults to
+        /// <see langword="true"/> so new users always see it; experienced users
+        /// can turn it off with <c>wally tutorial-mode off</c>.
+        /// </summary>
+        public bool ShowTutorialOnStartup { get; set; } = true;
     }
 
     /// <summary>

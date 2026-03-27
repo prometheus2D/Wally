@@ -161,25 +161,24 @@ namespace Wally.Console
                 {
                     WallyCommands.HandleLoad(_environment, prefs.LastWorkspacePath);
                     WallyPreferencesStore.RecordWorkspaceLoaded(prefs.LastWorkspacePath);
-                    System.Console.WriteLine(
-                        $"Auto-loaded workspace: {_environment.WorkspaceFolder}");
                 }
                 catch (Exception ex)
                 {
-                    System.Console.WriteLine(
-                        $"Warning: could not auto-load last workspace: {ex.Message}");
+                    System.Console.WriteLine($"Warning: could not auto-load last workspace: {ex.Message}");
                     WallyPreferencesStore.RemoveFromRecent(prefs.LastWorkspacePath);
                 }
             }
-            else
-            {
-                System.Console.WriteLine(
-                    string.IsNullOrWhiteSpace(prefs.LastWorkspacePath)
-                        ? "(no previous workspace \u2014 use 'setup <path>' or 'load <path>')"
-                        : $"(last workspace not found: {prefs.LastWorkspacePath})");
-            }
 
-            System.Console.WriteLine("Wally Interactive Mode. Type 'help' for commands, 'exit' to quit.");
+            // ── Single banner line ────────────────────────────────────────────
+            string workspaceLabel = _environment.HasWorkspace
+                ? $"workspace: {_environment.WorkSource}"
+                : "no workspace \u2014 use 'setup <path>' or 'load <path>'";
+            System.Console.WriteLine($"Wally \u2014 {workspaceLabel}  ('exit' to quit)");
+
+            // ── Tutorial hint (at most 2 lines, so total startup \u2264 3 lines) ───
+            if (WallyPreferencesStore.Load().ShowTutorialOnStartup)
+                WallyCommands.HandleTutorialSummary(_environment);
+
             while (true)
             {
                 System.Console.Write("wally> ");
@@ -270,9 +269,14 @@ namespace Wally.Console
                     if (opts is RunbookOptions rbo) { WallyCommands.HandleRunbook(_environment, rbo.Name, rbo.Prompt); return 0; }
 
                     // ── Inspection ────────────────────────────────────────────
-                    if (opts is InfoOptions)     { WallyCommands.HandleInfo(_environment); return 0; }
-                    if (opts is HelpOptions)     { WallyCommands.HandleHelp(); return 0; }
-                    if (opts is TutorialOptions) { WallyCommands.HandleTutorial(); return 0; }
+                    if (opts is InfoOptions)          { WallyCommands.HandleInfo(_environment); return 0; }
+                    if (opts is HelpOptions)          { WallyCommands.HandleHelp(); return 0; }
+                    if (opts is TutorialOptions)      { WallyCommands.HandleTutorial(); return 0; }
+                    if (opts is TutorialModeOptions tmo)
+                    {
+                        WallyCommands.HandleTutorialMode(tmo.Value);
+                        return 0;
+                    }
 
                     // ── Actors ────────────────────────────────────────────────
                     if (opts is ListActorsOptions)      { WallyCommands.HandleList(_environment); return 0; }
