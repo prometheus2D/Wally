@@ -46,6 +46,7 @@ namespace Wally.Console
         private static int RunOneTimeMode(string[] args)
         {
             string[] remaining = ExtractWorkspaceArg(args, out string? explicitWorkspacePath);
+            remaining = ExtractExitFlag(remaining, out bool exitAfter);
 
             if (explicitWorkspacePath != null)
             {
@@ -81,7 +82,42 @@ namespace Wally.Console
                 }
             }
 
-            return HandleArguments(remaining);
+            int exitCode = HandleArguments(remaining);
+
+            if (exitAfter)
+                Environment.Exit(exitCode);
+
+            return exitCode;
+        }
+
+        /// <summary>
+        /// Scans <paramref name="args"/> for a <c>--exit</c> or <c>-x</c> flag,
+        /// removes it, and returns whether it was present via <paramref name="exitAfter"/>.
+        /// Returns the remaining args array. Does not mutate <paramref name="args"/>.
+        /// <para>
+        /// When present, the process will call <see cref="Environment.Exit"/> with the
+        /// command's exit code immediately after the command completes. This enables
+        /// one-shot usage from scripts or CI pipelines where the process must terminate
+        /// regardless of whether it was launched in interactive or argument mode.
+        /// </para>
+        /// </summary>
+        private static string[] ExtractExitFlag(string[] args, out bool exitAfter)
+        {
+            exitAfter = false;
+            var result = new List<string>(args.Length);
+
+            foreach (string arg in args)
+            {
+                if (arg.Equals("--exit", StringComparison.OrdinalIgnoreCase) ||
+                    arg.Equals("-x",     StringComparison.OrdinalIgnoreCase))
+                {
+                    exitAfter = true;
+                    continue;
+                }
+                result.Add(arg);
+            }
+
+            return result.ToArray();
         }
 
         /// <summary>
@@ -154,6 +190,9 @@ namespace Wally.Console
                 string[] interactiveArgs = WallyCommands.SplitArgs(input);
                 if (interactiveArgs.Length == 0) continue;
 
+                interactiveArgs = ExtractExitFlag(interactiveArgs, out bool exitAfter);
+                if (interactiveArgs.Length == 0 && exitAfter) break;
+
                 string verb = interactiveArgs[0].ToLowerInvariant();
 
                 bool success = WallyCommands.DispatchCommand(_environment, interactiveArgs);
@@ -167,6 +206,8 @@ namespace Wally.Console
                         WallyPreferencesStore.RemoveFromRecent(
                             Path.GetFullPath(interactiveArgs[1]));
                 }
+
+                if (exitAfter) break;
             }
             return 0;
         }
