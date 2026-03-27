@@ -181,7 +181,8 @@ namespace Wally.Core
                 WallyHelper.MailboxInboxFolderName,
                 WallyHelper.MailboxOutboxFolderName,
                 WallyHelper.MailboxPendingFolderName,
-                WallyHelper.MailboxActiveFolderName
+                WallyHelper.MailboxActiveFolderName,
+                WallyHelper.MailboxMemoryFolderName
             })
             {
                 string full = Path.Combine(entityDir, folder);

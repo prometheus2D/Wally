@@ -27,7 +27,7 @@ namespace Wally.Core
                     if (Directory.Exists(docsPath))
                         Console.WriteLine($"    Docs folder: {docsPath}");
                     if (Directory.Exists(Path.Combine(actor.FolderPath, WallyHelper.MailboxInboxFolderName)))
-                        Console.WriteLine($"    Mailbox: Inbox / Outbox / Pending / Active");
+                        Console.WriteLine($"    Mailbox: Inbox / Outbox / Pending / Active / Memory");
                 }
             }
         }
