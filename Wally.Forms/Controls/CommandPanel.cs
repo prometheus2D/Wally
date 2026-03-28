@@ -24,6 +24,7 @@ namespace Wally.Forms.Controls
         private readonly Label _lblTitle;
         private readonly Button _btnHelp;      // header help button
         private readonly Button _btnStop;      // header stop button
+        private readonly Button _btnSave;      // header save button
         private readonly ThemedRichTextBox _output;
         private readonly Panel _inputRow;
         private readonly Panel _separator;
@@ -39,6 +40,9 @@ namespace Wally.Forms.Controls
         private bool _isRunning;
         private bool _isExternallyBusy;   // true while the chat panel is running
         private CancellationTokenSource? _cts;
+
+        /// <summary>Default subfolder name for terminal log saves inside the workspace Logs folder.</summary>
+        private const string TerminalLogsFolderName = "TerminalLogs";
 
         // ?? Events ????????????????????????????????????????????????????????????
 
@@ -86,6 +90,23 @@ namespace Wally.Forms.Controls
             _btnStop.FlatAppearance.MouseOverBackColor = WallyTheme.Surface3;
             _btnStop.Click += (_, _) => _cts?.Cancel();
 
+            _btnSave = new Button
+            {
+                Text = "\uD83D\uDCBE Save",
+                Dock = DockStyle.Right,
+                Width = 58,
+                Font = new Font("Segoe UI", 7.5f, FontStyle.Bold),
+                FlatStyle = FlatStyle.Flat,
+                BackColor = WallyTheme.Surface2,
+                ForeColor = WallyTheme.TextSecondary,
+                Cursor = Cursors.Hand,
+                TextAlign = ContentAlignment.MiddleCenter,
+                Margin = Padding.Empty
+            };
+            _btnSave.FlatAppearance.BorderSize = 0;
+            _btnSave.FlatAppearance.MouseOverBackColor = WallyTheme.Surface3;
+            _btnSave.Click += (_, _) => SaveTerminalOutput();
+
             _btnHelp = new Button
             {
                 Text = "? Help",
@@ -109,6 +130,7 @@ namespace Wally.Forms.Controls
 
             var headerTooltip = new ToolTip();
             headerTooltip.SetToolTip(_btnHelp, "Show available console commands");
+            headerTooltip.SetToolTip(_btnSave, "Save terminal output to the TerminalLogs folder");
 
             _header = new Panel
             {
@@ -118,6 +140,7 @@ namespace Wally.Forms.Controls
             };
             _header.Controls.Add(_lblTitle);
             _header.Controls.Add(_btnStop);
+            _header.Controls.Add(_btnSave);
             _header.Controls.Add(_btnHelp);
 
             // ?? Output area ???????????????????????????????????????????????????
@@ -150,13 +173,21 @@ namespace Wally.Forms.Controls
                 _output.Clear();
             });
 
+            var ctxSaveOutput = new ToolStripMenuItem("Save Output\u2026", null, (_, _) =>
+            {
+                SaveTerminalOutput();
+            });
+
             ctxMenu.Items.Add(ctxCopy);
             ctxMenu.Items.Add(ctxSelectAll);
+            ctxMenu.Items.Add(new ToolStripSeparator());
+            ctxMenu.Items.Add(ctxSaveOutput);
             ctxMenu.Items.Add(new ToolStripSeparator());
             ctxMenu.Items.Add(ctxClear);
             ctxMenu.Opening += (_, _) =>
             {
                 ctxCopy.Enabled = _output.SelectionLength > 0;
+                ctxSaveOutput.Enabled = _output.TextLength > 0;
             };
             _output.ContextMenuStrip = ctxMenu;
 
@@ -281,6 +312,71 @@ namespace Wally.Forms.Controls
             _inputBorder.BackColor = busy ? WallyTheme.BorderSubtle : WallyTheme.Border;
         }
 
+        // ?? Save terminal output ??????????????????????????????????????????????
+
+        /// <summary>
+        /// Saves the current terminal output text to a timestamped file in the
+        /// workspace's <c>Logs/TerminalLogs/</c> folder. If no workspace is loaded
+        /// the user is prompted with a SaveFileDialog.
+        /// </summary>
+        private void SaveTerminalOutput()
+        {
+            if (_output.TextLength == 0)
+            {
+                AppendStyledLine("Nothing to save — terminal is empty.", WallyTheme.TextMuted);
+                return;
+            }
+
+            string text = _output.Text;
+            string timestamp = DateTime.Now.ToString("yyyy-MM-dd_HHmmss");
+            string fileName = $"terminal_{timestamp}.log";
+
+            // Try saving to the default TerminalLogs folder in the workspace
+            if (_environment?.HasWorkspace == true && _environment.WorkspaceFolder != null)
+            {
+                string logsFolder = Path.Combine(
+                    _environment.WorkspaceFolder,
+                    _environment.Workspace!.Config.LogsFolderName,
+                    TerminalLogsFolderName);
+
+                try
+                {
+                    Directory.CreateDirectory(logsFolder);
+                    string filePath = Path.Combine(logsFolder, fileName);
+                    File.WriteAllText(filePath, text);
+                    AppendStyledLine($"Terminal output saved: {filePath}", WallyTheme.TextSecondary);
+                    return;
+                }
+                catch (Exception ex)
+                {
+                    AppendStyledLine($"Failed to save to workspace logs: {ex.Message}", WallyTheme.Red);
+                    // Fall through to SaveFileDialog
+                }
+            }
+
+            // Fallback: prompt the user for a save location
+            using var dlg = new SaveFileDialog
+            {
+                Title = "Save Terminal Output",
+                FileName = fileName,
+                Filter = "Log files (*.log)|*.log|Text files (*.txt)|*.txt|All files (*.*)|*.*",
+                DefaultExt = "log"
+            };
+
+            if (dlg.ShowDialog() == DialogResult.OK)
+            {
+                try
+                {
+                    File.WriteAllText(dlg.FileName, text);
+                    AppendStyledLine($"Terminal output saved: {dlg.FileName}", WallyTheme.TextSecondary);
+                }
+                catch (Exception ex)
+                {
+                    AppendStyledLine($"Failed to save: {ex.Message}", WallyTheme.Red);
+                }
+            }
+        }
+
         // ?? Private output helper ?????????????????????????????????????????????
 
         private void AppendStyledLine(string text, Color color)
@@ -324,7 +420,7 @@ namespace Wally.Forms.Controls
             return (lastChar - firstVisible) <= pageChars * 2;
         }
 
-        // ?? Input handling ????????????????????????????????????????????????????
+        // ?? Input handling ??????????????????????????????????????????????????
 
         private void OnInputKeyDown(object? sender, KeyEventArgs e)
         {
