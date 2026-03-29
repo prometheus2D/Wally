@@ -6,6 +6,7 @@ using System.Windows.Forms;
 using Wally.Core;
 using Wally.Core.Actors;
 using Wally.Core.Providers;
+using Wally.Forms.ChatPanelSupport;
 using Wally.Forms.Controls;
 using Wally.Forms.Controls.Editors;
 using Wally.Forms.Theme;
@@ -39,6 +40,7 @@ namespace Wally.Forms
         // ?? Runtime ??????????????????????????????????????????????????????????
 
         private readonly WallyEnvironment _environment;
+        private int _ephemeralTabCounter;
 
         /// <summary>
         /// Reference to the content panel � the parent into which workspace
@@ -189,6 +191,10 @@ namespace Wally.Forms
             _commandPanel.RunningChanged   += OnRunningChanged;
             _chatPanel.RunningChanged      += OnRunningChanged;
             _chatPanel.CommandIssued       += OnChatCommandIssued;
+            _chatPanel.PromptPreviewRequested += (_, e) => OpenPromptPreviewTab(e.TabTitle, e.Preview);
+            _chatPanel.NextPromptPreviewRequested += (_, e) => OpenPromptPreviewTab(e.TabTitle, e.Preview);
+            _chatPanel.DiagramRequested += (_, e) =>
+                OpenDiagramViewer(CreateEphemeralTabKey("chat-diagram"), e.TabTitle, () => e.Definition);
 
             _explorerTabPanel.FileDoubleClicked        += OnFileDoubleClicked;
             _explorerTabPanel.FileSelected             += OnFileSelected;
@@ -1151,6 +1157,17 @@ namespace Wally.Forms
             _tabHost.OpenTab(TabKeyPromptViewer, "Prompt Viewer", "\uD83D\uDD0D", viewer);
         }
 
+        private void OpenPromptPreviewTab(string title, ChatPanelPromptPreview preview)
+        {
+            if (!_environment.HasWorkspace)
+                return;
+
+            var viewer = new ChatPanelPromptViewer();
+            viewer.BindEnvironment(_environment);
+            viewer.LoadPreview(preview);
+            _tabHost.OpenTab(CreateEphemeralTabKey("chat-preview"), title, "\uD83D\uDD0D", viewer);
+        }
+
         private void OpenWorkspaceViewer()
         {
             if (!_environment.HasWorkspace || _tabHost.SelectTab(TabKeyWorkspaceViewer)) return;
@@ -1179,6 +1196,12 @@ namespace Wally.Forms
             viewer.Configure(_environment, definitionFactory);
             _tabHost.OpenTab(key, title, "\uD83D\uDDFA", viewer);
             viewer.GenerateDiagram();
+        }
+
+        private string CreateEphemeralTabKey(string prefix)
+        {
+            _ephemeralTabCounter++;
+            return $"{prefix}:{_ephemeralTabCounter}";
         }
 
         /// <summary>

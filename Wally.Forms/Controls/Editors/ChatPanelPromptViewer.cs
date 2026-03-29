@@ -1,14 +1,9 @@
 using System;
-using System.Collections.Generic;
 using System.Drawing;
-using System.Linq;
-using System.Text;
 using System.Windows.Forms;
 using Wally.Core;
-using Wally.Core.Actors;
-using Wally.Core.Logging;
-using Wally.Core.Providers;
 using Wally.Forms.Controls;
+using Wally.Forms.ChatPanelSupport;
 using Wally.Forms.Theme;
 
 namespace Wally.Forms.Controls.Editors
@@ -19,7 +14,7 @@ namespace Wally.Forms.Controls.Editors
     /// <para>
     /// The user selects an actor, loop, model, wrapper, and action mode,
     /// types a sample prompt, and clicks "Build Prompt" to see exactly what
-    /// the LLM will receive — including RBA enrichment, loop start prompt
+    /// the LLM will receive ï¿½ including RBA enrichment, loop start prompt
     /// expansion, documentation context, and the resolved CLI command.
     /// </para>
     /// </summary>
@@ -267,18 +262,28 @@ namespace Wally.Forms.Controls.Editors
             RefreshSelectors();
         }
 
+        internal void LoadPreview(ChatPanelPromptPreview preview)
+        {
+            ArgumentNullException.ThrowIfNull(preview);
+
+            ApplyRequest(preview.Request);
+            RenderPreview(preview);
+            _lblStatus.Text = $"Loaded preview at {DateTime.Now:HH:mm:ss}";
+            _lblStatus.ForeColor = WallyTheme.Green;
+        }
+
         public void RefreshSelectors()
         {
             if (_environment?.HasWorkspace != true) return;
 
             _cboActor.Items.Clear();
-            _cboActor.Items.Add("(none — direct prompt)");
+            _cboActor.Items.Add("(none ï¿½ direct prompt)");
             foreach (var actor in _environment.Actors)
                 _cboActor.Items.Add(actor.Name);
             _cboActor.SelectedIndex = 0;
 
             _cboLoop.Items.Clear();
-            _cboLoop.Items.Add("(none — single run)");
+            _cboLoop.Items.Add("(none ï¿½ single run)");
             foreach (var loop in _environment.Loops)
                 _cboLoop.Items.Add(loop.Name);
             _cboLoop.SelectedIndex = 0;
@@ -291,7 +296,7 @@ namespace Wally.Forms.Controls.Editors
             _cboModel.SelectedIndex = 0;
 
             _cboWrapper.Items.Clear();
-            _cboWrapper.Items.Add("(auto — based on mode)");
+            _cboWrapper.Items.Add("(auto ï¿½ based on mode)");
             foreach (var wrapper in _environment.Workspace.LlmWrappers)
                 _cboWrapper.Items.Add(wrapper.Name);
             _cboWrapper.SelectedIndex = 0;
@@ -301,212 +306,94 @@ namespace Wally.Forms.Controls.Editors
 
         private void BuildPromptPreview()
         {
-            _txtOutput.Clear();
-            _txtExactPrompt.Clear();
-
             if (_environment?.HasWorkspace != true)
             {
-                AppendSection("Error", "No workspace loaded.", WallyTheme.Red);
-                return;
-            }
-
-            string userPrompt = _txtUserPrompt.Text.Trim();
-            if (string.IsNullOrEmpty(userPrompt))
-            {
-                AppendSection("Error", "Enter a user prompt above to preview.", WallyTheme.Red);
+                RenderError("No workspace loaded.");
                 return;
             }
 
             try
             {
-                // ?? Resolve selections ??
-                string? actorName = _cboActor.SelectedIndex > 0
-                    ? _cboActor.SelectedItem?.ToString()
-                    : null;
-                bool directMode = string.IsNullOrEmpty(actorName);
-
-                string? loopName = _cboLoop.SelectedIndex > 0
-                    ? _cboLoop.SelectedItem?.ToString()
-                    : null;
-                bool isLooped = !string.IsNullOrEmpty(loopName);
-
-                string? modelOverride = _cboModel.SelectedIndex > 0
-                    ? _cboModel.SelectedItem?.ToString()
-                    : null;
-
-                string modeText = _cboMode.SelectedItem?.ToString() ?? "Ask";
-                bool isAgent = string.Equals(modeText, "Agent", StringComparison.OrdinalIgnoreCase);
-                string? exactPromptToSend = null;
-
-                string? wrapperName = null;
-                if (_cboWrapper.SelectedIndex > 0)
+                ChatPanelRequest request = BuildRequestFromControls();
+                if (string.IsNullOrWhiteSpace(request.DisplayPrompt))
                 {
-                    wrapperName = _cboWrapper.SelectedItem?.ToString();
-                }
-                else
-                {
-                    var wrappers = _environment.Workspace!.LlmWrappers;
-                    var match = wrappers.FirstOrDefault(w => w.CanMakeChanges == isAgent);
-                    wrapperName = match?.Name ?? (wrappers.Count > 0 ? wrappers[0].Name : null);
+                    RenderError("Enter a user prompt above to preview.");
+                    return;
                 }
 
-                // ?? Section 1: Selections summary ??
-                var summaryBuilder = new StringBuilder();
-                summaryBuilder.AppendLine($"Mode:    {modeText}");
-                summaryBuilder.AppendLine($"Actor:   {(directMode ? "(none — direct prompt)" : actorName)}");
-                summaryBuilder.AppendLine($"Loop:    {(isLooped ? loopName : "(none — single run)")}");
-                summaryBuilder.AppendLine($"Model:   {modelOverride ?? _environment.Workspace!.Config.DefaultModel ?? "(none)"}");
-                summaryBuilder.AppendLine($"Wrapper: {wrapperName ?? "(none)"}");
-                AppendSection("Resolved Selections", summaryBuilder.ToString().TrimEnd(), WallyTheme.TextSecondary);
-
-                // ?? Section 2: Equivalent CLI command ??
-                var cmdParts = new List<string> { "run", $"\"{userPrompt}\"" };
-                if (!directMode) cmdParts.Add($"-a {actorName}");
-                if (isLooped) cmdParts.Add($"-l {loopName}");
-                if (modelOverride != null) cmdParts.Add($"-m {modelOverride}");
-                if (wrapperName != null) cmdParts.Add($"-w {wrapperName}");
-                string cliCommand = string.Join(" ", cmdParts);
-                AppendSection("Equivalent CLI Command", cliCommand, WallyTheme.TextMuted);
-
-                // ?? Section 3: Loop start prompt (if applicable) ??
-                string effectivePrompt = userPrompt;
-                if (isLooped)
-                {
-                    var loopDef = _environment.GetLoop(loopName!);
-                    if (loopDef != null && !string.IsNullOrWhiteSpace(loopDef.StartPrompt))
-                    {
-                        effectivePrompt = loopDef.StartPrompt.Replace("{userPrompt}", userPrompt);
-                        AppendSection("Loop Start Prompt (expanded)", effectivePrompt, WallyTheme.TextSecondary);
-                    }
-                    else if (loopDef?.HasSteps == true)
-                    {
-                        // Pipeline — show each step's prompt template
-                        var sb = new System.Text.StringBuilder();
-                        for (int i = 0; i < loopDef.Steps.Count; i++)
-                        {
-                            var s = loopDef.Steps[i];
-                            string stepName = string.IsNullOrWhiteSpace(s.Name) ? $"step-{i + 1}" : s.Name;
-                            string actor = string.IsNullOrWhiteSpace(s.ActorName)
-                                ? (string.IsNullOrWhiteSpace(loopDef.ActorName) ? "(direct)" : loopDef.ActorName)
-                                : s.ActorName;
-                            sb.AppendLine($"Step {i + 1}: {stepName}  ({actor})");
-                            sb.AppendLine(string.IsNullOrWhiteSpace(s.PromptTemplate) ? "(default)" : s.PromptTemplate);
-                            sb.AppendLine();
-                        }
-                        AppendSection($"Pipeline Steps ({loopDef.Steps.Count})", sb.ToString().TrimEnd(), WallyTheme.TextSecondary);
-                    }
-                    else
-                    {
-                        AppendSection("Loop Warning", $"Loop '{loopName}' not found or has no prompt.", WallyTheme.Red);
-                    }
-                }
-
-                // — Section 4: Conversation history injection preview —
-                string? historyBlock = null;
-                bool wrapperUsesHistory = true;
-                if (wrapperName != null)
-                {
-                    var resolvedWrapper = _environment.Workspace!.LlmWrappers
-                        .FirstOrDefault(w => string.Equals(w.Name, wrapperName, StringComparison.OrdinalIgnoreCase));
-                    if (resolvedWrapper != null)
-                        wrapperUsesHistory = resolvedWrapper.UseConversationHistory;
-                }
-
-                if (wrapperUsesHistory)
-                {
-                    string? actorFilter = directMode ? null : actorName;
-                    var recentTurns = _environment.History.GetRecentTurns(
-                        ConversationLogger.MaxInjectedTurns, actorFilter);
-
-                    if (recentTurns.Count > 0)
-                    {
-                        historyBlock = ConversationLogger.FormatHistoryBlock(recentTurns);
-                        AppendSection(
-                            $"Conversation History ({recentTurns.Count} turn(s) — same-actor filter: {actorFilter ?? "(direct mode)"})",
-                            historyBlock ?? "(empty)", WallyTheme.TextSecondary);
-                    }
-                    else
-                    {
-                        AppendSection("Conversation History", "(no matching history turns)", WallyTheme.TextMuted);
-                    }
-                }
-                else
-                {
-                    AppendSection("Conversation History",
-                        $"Disabled for wrapper '{wrapperName}' (UseConversationHistory = false).",
-                        WallyTheme.TextMuted);
-                }
-
-                // — Section 5: Actor-enriched prompt (ProcessPrompt) —
-                if (!directMode)
-                {
-                    var actor = _environment.GetActor(actorName!);
-                    if (actor != null)
-                    {
-                        string processedPrompt = actor.ProcessPrompt(effectivePrompt, historyBlock);
-                        exactPromptToSend = processedPrompt;
-                        AppendSection(
-                            $"Actor-Enriched Prompt (Actor.ProcessPrompt — {actor.Name})",
-                            processedPrompt, WallyTheme.TextPrimary);
-                    }
-                    else
-                    {
-                        AppendSection("Actor Error",
-                            $"Actor '{actorName}' not found.", WallyTheme.Red);
-                    }
-                }
-                else
-                {
-                    // Direct mode — history block is prepended to the prompt.
-                    string finalPrompt = historyBlock != null
-                        ? historyBlock + "\n" + effectivePrompt
-                        : effectivePrompt;
-                    exactPromptToSend = finalPrompt;
-                    AppendSection("Final Prompt (direct mode — no actor enrichment)",
-                        finalPrompt, WallyTheme.TextPrimary);
-                }
-
-                // ?? Section 6: Wrapper CLI command preview ??
-                if (wrapperName != null)
-                {
-                    var wrapper = _environment.Workspace!.LlmWrappers
-                        .FirstOrDefault(w => string.Equals(w.Name, wrapperName, StringComparison.OrdinalIgnoreCase));
-                    if (wrapper != null)
-                    {
-                        string resolvedModel = modelOverride
-                            ?? _environment.Workspace.Config.DefaultModel
-                            ?? "";
-                        string sourcePath = _environment.SourcePath ?? "";
-
-                        var cliPreview = new StringBuilder();
-                        cliPreview.AppendLine($"Executable:             {wrapper.Executable}");
-                        cliPreview.AppendLine($"Template:               {wrapper.ArgumentTemplate}");
-                        cliPreview.AppendLine($"CanMakeChanges:         {wrapper.CanMakeChanges}");
-                        cliPreview.AppendLine($"UseConversationHistory: {wrapper.UseConversationHistory}");
-                        cliPreview.AppendLine($"Model:                  {(string.IsNullOrEmpty(resolvedModel) ? "(none)" : resolvedModel)}");
-                        cliPreview.AppendLine($"SourcePath:             {(string.IsNullOrEmpty(sourcePath) ? "(none)" : sourcePath)}");
-
-                        if (!string.IsNullOrWhiteSpace(wrapper.ModelArgFormat) && !string.IsNullOrEmpty(resolvedModel))
-                            cliPreview.AppendLine($"ModelArgs:              {wrapper.ModelArgFormat.Replace("{model}", resolvedModel)}");
-                        if (!string.IsNullOrWhiteSpace(wrapper.SourcePathArgFormat) && !string.IsNullOrEmpty(sourcePath))
-                            cliPreview.AppendLine($"SourcePathArgs:         {wrapper.SourcePathArgFormat.Replace("{sourcePath}", sourcePath)}");
-
-                        AppendSection($"Wrapper: {wrapper.Name}", cliPreview.ToString().TrimEnd(), WallyTheme.TextMuted);
-                    }
-                }
-
-                if (!string.IsNullOrWhiteSpace(exactPromptToSend))
-                    _txtExactPrompt.Text = exactPromptToSend;
-
+                RenderPreview(ChatPanelExecutionService.BuildPromptPreview(_environment, request));
                 _lblStatus.Text = $"Built at {DateTime.Now:HH:mm:ss}";
                 _lblStatus.ForeColor = WallyTheme.Green;
             }
             catch (Exception ex)
             {
-                AppendSection("Error", ex.Message, WallyTheme.Red);
-                _lblStatus.Text = "Build failed.";
-                _lblStatus.ForeColor = WallyTheme.Red;
+                RenderError(ex.Message);
             }
+        }
+
+        private ChatPanelRequest BuildRequestFromControls()
+        {
+            return new ChatPanelRequest
+            {
+                Prompt = _txtUserPrompt.Text.Trim(),
+                ActorName = _cboActor.SelectedIndex > 0 ? _cboActor.SelectedItem?.ToString() : null,
+                LoopName = _cboLoop.SelectedIndex > 0 ? _cboLoop.SelectedItem?.ToString() : null,
+                ModelOverride = _cboModel.SelectedIndex > 0 ? _cboModel.SelectedItem?.ToString() : null,
+                WrapperName = _cboWrapper.SelectedIndex > 0 ? _cboWrapper.SelectedItem?.ToString() : null,
+                Mode = string.Equals(_cboMode.SelectedItem?.ToString(), "Agent", StringComparison.OrdinalIgnoreCase)
+                    ? ChatPanelExecutionMode.Agent
+                    : ChatPanelExecutionMode.Ask
+            };
+        }
+
+        private void ApplyRequest(ChatPanelRequest request)
+        {
+            _txtUserPrompt.Text = request.Prompt;
+            _cboMode.SelectedItem = request.Mode == ChatPanelExecutionMode.Agent ? "Agent" : "Ask";
+            SetComboSelection(_cboActor, request.ActorName, 0);
+            SetComboSelection(_cboLoop, request.LoopName, 0);
+            SetComboSelection(_cboModel, request.ModelOverride, 0);
+            SetComboSelection(_cboWrapper, request.WrapperName, 0);
+        }
+
+        private void RenderPreview(ChatPanelPromptPreview preview)
+        {
+            _txtOutput.Clear();
+            _txtExactPrompt.Clear();
+
+            foreach (var section in preview.Sections)
+                AppendSection(section.Heading, section.Body, WallyTheme.TextSecondary);
+
+            _txtExactPrompt.Text = preview.ExactPrompt;
+        }
+
+        private void RenderError(string message)
+        {
+            _txtOutput.Clear();
+            _txtExactPrompt.Clear();
+            AppendSection("Error", message, WallyTheme.Red);
+            _lblStatus.Text = "Build failed.";
+            _lblStatus.ForeColor = WallyTheme.Red;
+        }
+
+        private static void SetComboSelection(ComboBox comboBox, string? value, int defaultIndex)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                comboBox.SelectedIndex = defaultIndex;
+                return;
+            }
+
+            for (int i = 0; i < comboBox.Items.Count; i++)
+            {
+                if (string.Equals(comboBox.Items[i]?.ToString(), value, StringComparison.OrdinalIgnoreCase))
+                {
+                    comboBox.SelectedIndex = i;
+                    return;
+                }
+            }
+
+            comboBox.SelectedIndex = defaultIndex;
         }
 
         // ?? Output helpers ????????????????????????????????????????????????????

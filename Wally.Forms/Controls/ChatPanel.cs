@@ -9,11 +9,14 @@ using System.Windows.Forms;
 using Wally.Core;
 using Wally.Core.Logging;
 using Wally.Core.Providers;
+using Wally.Forms.ChatPanelSupport;
 using Wally.Forms.Theme;
 
 namespace Wally.Forms.Controls
 {
     internal enum MessageKind { User, Actor, Error, System }
+
+    internal enum ChatPacingMode { Auto, Manual }
 
     internal enum ActionMode
     {
@@ -24,16 +27,17 @@ namespace Wally.Forms.Controls
     }
 
     /// <summary>
-    /// AI chat panel — right-side copilot conversation window.
+    /// AI chat panel ï¿½ right-side copilot conversation window.
     ///
     /// Layout (top ? bottom):
-    ///   Header bar        — "AI CHAT — Ask/Agent" title
-    ///   Row 1 / Mode bar  — Ask | Agent  ·  ? Clear | ?? History  (plain Buttons, no ToolStrip)
-    ///   Row 2 / Selectors — Actor ?  Loop ?  Model ?   (wrapping FlowLayoutPanel,
+    ///   Header bar        ï¿½ "AI CHAT ï¿½ Ask/Agent" title
+    ///   Row 1 / Mode bar  ï¿½ Ask | Agent  ï¿½  ? Clear | ?? History  (plain Buttons, no ToolStrip)
+    ///   Row 2 / Flow bar  ï¿½ Auto | Manual ï¿½ Next | Prompt | Next Prompt | Diagram
+    ///   Row 2 / Selectors ï¿½ Actor ?  Loop ?  Model ?   (wrapping FlowLayoutPanel,
     ///                        never produces a ToolStrip overflow chevron)
-    ///   Messages area     — scrollable chat bubbles
-    ///   Status bar        — ready / running indicator
-    ///   Input area        — text box + Send / Stop buttons
+    ///   Messages area     ï¿½ scrollable chat bubbles
+    ///   Status bar        ï¿½ ready / running indicator
+    ///   Input area        ï¿½ text box + Send / Stop buttons
     /// </summary>
     public sealed class ChatPanel : UserControl
     {
@@ -48,9 +52,18 @@ namespace Wally.Forms.Controls
         private readonly Button _btnClear;
         private readonly Button _btnClearHistory;
 
+        // ?? Row 2: execution / preview bar ??????????????????????????????????
+        private readonly Panel  _flowBar;
+        private readonly Button _btnFlowAuto;
+        private readonly Button _btnFlowManual;
+        private readonly Button _btnNextStep;
+        private readonly Button _btnPreviewPrompt;
+        private readonly Button _btnPreviewNextPrompt;
+        private readonly Button _btnDiagram;
+
         // ?? Row 2: selectors bar ??????????????????????????????????????????????
         // Each selector is a plain Button whose Tag holds a ContextMenuStrip.
-        // No ToolStrip anywhere — no overflow chevron possible.
+        // No ToolStrip anywhere ï¿½ no overflow chevron possible.
         private readonly Panel            _selectorsBar;
         private readonly Button           _btnActorDd;
         private readonly ContextMenuStrip _mnuActor;
@@ -59,12 +72,12 @@ namespace Wally.Forms.Controls
         private readonly Button           _btnModelDd;
         private readonly ContextMenuStrip _mnuModel;
 
-        // ?? Selected values (raw — never contain the " (default)" suffix) /////
+        // ?? Selected values (raw ï¿½ never contain the " (default)" suffix) /////
         private string? _selectedActor;
         private string? _selectedLoop;
         private string? _selectedModel;
 
-        // Resolved defaults — used to apply / restore the " (default)" label.
+        // Resolved defaults ï¿½ used to apply / restore the " (default)" label.
         private string? _defaultActor;
         private string? _defaultLoop;
         private string? _defaultModel;
@@ -89,10 +102,39 @@ namespace Wally.Forms.Controls
         private bool       _isRunning;
         private bool       _workspaceLoaded;
         private ActionMode _currentMode = ActionMode.Ask;
+        private ChatPacingMode _pacingMode = ChatPacingMode.Auto;
+        private ChatPanelExecutionSession? _manualSession;
 
         // ?? Events ????????????????????????????????????????????????????????????
         public event EventHandler<string>? CommandIssued;
         public event EventHandler?         RunningChanged;
+        internal event EventHandler<ChatPromptPreviewRequestedEventArgs>? PromptPreviewRequested;
+        internal event EventHandler<ChatPromptPreviewRequestedEventArgs>? NextPromptPreviewRequested;
+        internal event EventHandler<ChatDiagramRequestedEventArgs>? DiagramRequested;
+
+        internal sealed class ChatPromptPreviewRequestedEventArgs : EventArgs
+        {
+            public ChatPromptPreviewRequestedEventArgs(ChatPanelPromptPreview preview, string tabTitle)
+            {
+                Preview = preview;
+                TabTitle = tabTitle;
+            }
+
+            public ChatPanelPromptPreview Preview { get; }
+            public string TabTitle { get; }
+        }
+
+        internal sealed class ChatDiagramRequestedEventArgs : EventArgs
+        {
+            public ChatDiagramRequestedEventArgs(MermaidDiagramDefinition definition, string tabTitle)
+            {
+                Definition = definition;
+                TabTitle = tabTitle;
+            }
+
+            public MermaidDiagramDefinition Definition { get; }
+            public string TabTitle { get; }
+        }
 
         // =====================================================================
         // Constructor
@@ -127,7 +169,20 @@ namespace Wally.Forms.Controls
                 "Clear persisted conversation history and chat bubbles");
             _btnClearHistory.Click += (_, _) => { _environment?.History.ClearHistory(); ClearMessages(); };
 
-            // Left cluster — mode toggle buttons
+            _btnFlowAuto = CreateModeButton("\u25B6 Auto");
+            _btnFlowManual = CreateModeButton("\u23ED Manual");
+            _btnFlowAuto.Click += (_, _) => SetPacingMode(ChatPacingMode.Auto);
+            _btnFlowManual.Click += (_, _) => SetPacingMode(ChatPacingMode.Manual);
+            _btnNextStep = CreateBarButton("\u23ED Next", "Run exactly one more step or iteration in manual mode.");
+            _btnNextStep.Click += OnNextStepClick;
+            _btnPreviewPrompt = CreateBarButton("\uD83D\uDD0D Prompt", "Open a center tab showing the current chat prompt preview.");
+            _btnPreviewPrompt.Click += OnPreviewPromptClick;
+            _btnPreviewNextPrompt = CreateBarButton("\u27A1 Next Prompt", "Open a center tab showing the next pending prompt in the active manual session.");
+            _btnPreviewNextPrompt.Click += OnPreviewNextPromptClick;
+            _btnDiagram = CreateBarButton("\uD83D\uDDFA Diagram", "Open a center tab showing the execution diagram for the current chat configuration.");
+            _btnDiagram.Click += OnDiagramClick;
+
+            // Left cluster ï¿½ mode toggle buttons
             var modeLeft = new FlowLayoutPanel
             {
                 Dock = DockStyle.Left, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowOnly,
@@ -137,7 +192,7 @@ namespace Wally.Forms.Controls
             modeLeft.Controls.Add(_btnModeAsk);
             modeLeft.Controls.Add(_btnModeAgent);
 
-            // Right cluster — clear buttons
+            // Right cluster ï¿½ clear buttons
             var modeRight = new FlowLayoutPanel
             {
                 Dock = DockStyle.Right, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowOnly,
@@ -151,12 +206,36 @@ namespace Wally.Forms.Controls
             _modeBar.Controls.Add(modeRight);   // Right must be added before Left
             _modeBar.Controls.Add(modeLeft);
 
+            var flowLeft = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Left, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowOnly,
+                FlowDirection = FlowDirection.LeftToRight, WrapContents = false,
+                BackColor = Color.Transparent, Padding = new Padding(6, 4, 0, 4)
+            };
+            flowLeft.Controls.Add(_btnFlowAuto);
+            flowLeft.Controls.Add(_btnFlowManual);
+
+            var flowRight = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Right, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowOnly,
+                FlowDirection = FlowDirection.LeftToRight, WrapContents = false,
+                BackColor = Color.Transparent, Padding = new Padding(0, 4, 6, 4)
+            };
+            flowRight.Controls.Add(_btnNextStep);
+            flowRight.Controls.Add(_btnPreviewPrompt);
+            flowRight.Controls.Add(_btnPreviewNextPrompt);
+            flowRight.Controls.Add(_btnDiagram);
+
+            _flowBar = new Panel { Dock = DockStyle.Top, Height = 34, BackColor = WallyTheme.Surface2 };
+            _flowBar.Controls.Add(flowRight);
+            _flowBar.Controls.Add(flowLeft);
+
             // ?? Row 2: selector dropdowns ?????????????????????????????????????
             (_btnActorDd,   _mnuActor)   = CreateSelectorPair();
             (_btnLoopDd,    _mnuLoop)    = CreateSelectorPair();
             (_btnModelDd,   _mnuModel)   = CreateSelectorPair();
 
-            // Wrapping FlowLayoutPanel — items wrap onto a new line when the
+            // Wrapping FlowLayoutPanel ï¿½ items wrap onto a new line when the
             // panel is narrow; there is NO overflow chevron.
             var selectorsFlow = new FlowLayoutPanel
             {
@@ -203,7 +282,8 @@ namespace Wally.Forms.Controls
                 Text =
                     "\U0001F4AC\n\nType a message to start a conversation.\n\n" +
                     "\uD83D\uDCAC Ask \u2014 read-only, text response only\n" +
-                    "\uD83E\uDD16 Agent \u2014 can make file changes; select a Runbook for multi-step pipelines\n\n" +
+                    "\uD83E\uDD16 Agent \u2014 can make file changes; select a Runbook for multi-step pipelines\n" +
+                    "\u25B6 Auto or \u23ED Manual \u2014 run fully or step-by-step\n\n" +
                     "Use the Actor, Loop, and Model dropdowns\nto customise each request.",
                 Dock = DockStyle.Fill, ForeColor = WallyTheme.TextDisabled,
                 BackColor = WallyTheme.Surface0, Font = WallyTheme.FontUI,
@@ -276,15 +356,17 @@ namespace Wally.Forms.Controls
             Controls.Add(_messagesContainer);   // Fill
             Controls.Add(_lblStatus);           // Bottom
             Controls.Add(_inputArea);           // Bottom
-            Controls.Add(_selectorsBar);        // Top — row 2 (added before row 1)
-            Controls.Add(_modeBar);             // Top — row 1
-            Controls.Add(_header);              // Top — topmost
+            Controls.Add(_selectorsBar);        // Top ï¿½ row 2 (added before row 1)
+            Controls.Add(_flowBar);             // Top ï¿½ row 2
+            Controls.Add(_modeBar);             // Top ï¿½ row 1
+            Controls.Add(_header);              // Top ï¿½ topmost
 
             BackColor = WallyTheme.Surface0;
             ForeColor = WallyTheme.TextPrimary;
             ResumeLayout(true);
 
             SetMode(ActionMode.Ask);
+            SetPacingMode(ChatPacingMode.Auto);
             SetWorkspaceLoaded(false);
         }
 
@@ -295,7 +377,7 @@ namespace Wally.Forms.Controls
         /// <summary>
         /// Creates a themed Button + ContextMenuStrip dropdown pair.
         /// The button opens the menu on click; items call back with the raw value.
-        /// No ToolStrip is involved — no overflow chevron is possible.
+        /// No ToolStrip is involved ï¿½ no overflow chevron is possible.
         /// </summary>
         private static (Button btn, ContextMenuStrip menu) CreateSelectorPair()
         {
@@ -305,7 +387,7 @@ namespace Wally.Forms.Controls
                 ForeColor      = WallyTheme.TextPrimary,
                 Font           = WallyTheme.FontUISmall,
                 ShowImageMargin = false,
-                // No custom Renderer — the default system renderer respects
+                // No custom Renderer ï¿½ the default system renderer respects
                 // BackColor/ForeColor set at the strip level and on each item.
                 // A custom ProfessionalRenderer or ToolStripProfessionalRenderer
                 // ignores per-item colours and paints items invisible against
@@ -345,7 +427,7 @@ namespace Wally.Forms.Controls
             {
                 var b = (Button)s!;
                 // Show(control, point) sets SourceControl correctly so the menu
-                // is owned by the button's window — point is in control-client coords.
+                // is owned by the button's window ï¿½ point is in control-client coords.
                 ((ContextMenuStrip)b.Tag!).Show(b, new Point(0, b.Height));
             };
 
@@ -357,7 +439,7 @@ namespace Wally.Forms.Controls
         /// A check mark tracks the current selection.  When the user picks the
         /// item that matches <paramref name="defaultValue"/> the button label
         /// shows <c>{value} (default)</c>; any other pick shows the raw name.
-        /// The raw value is always passed to <paramref name="onSelected"/> —
+        /// The raw value is always passed to <paramref name="onSelected"/> ï¿½
         /// the suffix is display-only.
         /// </summary>
         private static void PopulateSelector(
@@ -371,7 +453,7 @@ namespace Wally.Forms.Controls
                 var mi = new ToolStripMenuItem(item)
                 {
                     // Colours are inherited from the ContextMenuStrip's BackColor/ForeColor.
-                    // Do not set per-item overrides — the system renderer ignores them and
+                    // Do not set per-item overrides ï¿½ the system renderer ignores them and
                     // it causes items to render as invisible against the dark background.
                     Font    = WallyTheme.FontUISmall,
                     Checked = string.Equals(item, selectedValue, StringComparison.OrdinalIgnoreCase)
@@ -434,6 +516,24 @@ namespace Wally.Forms.Controls
             return btn;
         }
 
+        private void SetPacingMode(ChatPacingMode mode)
+        {
+            _pacingMode = mode;
+
+            foreach (var btn in new[] { _btnFlowAuto, _btnFlowManual })
+            {
+                btn.BackColor = WallyTheme.Surface2;
+                btn.ForeColor = WallyTheme.TextSecondary;
+                btn.FlatAppearance.BorderColor = WallyTheme.Border;
+            }
+
+            Button active = mode == ChatPacingMode.Manual ? _btnFlowManual : _btnFlowAuto;
+            active.BackColor = WallyTheme.Surface4;
+            active.ForeColor = WallyTheme.TextPrimary;
+            active.FlatAppearance.BorderColor = WallyTheme.TextMuted;
+            UpdateFlowButtons();
+        }
+
         // =====================================================================
         // Mode management
         // =====================================================================
@@ -474,6 +574,8 @@ namespace Wally.Forms.Controls
                 _btnSend.Enabled   = true;
                 _txtInput.ReadOnly = false;
             }
+
+            UpdateFlowButtons();
         }
 
         // =====================================================================
@@ -487,7 +589,7 @@ namespace Wally.Forms.Controls
         /// 2. <c>WallyConfig.DefaultWrapper</c> when it exists and its
         ///    <c>CanMakeChanges</c> matches the active mode.
         /// 3. The first loaded wrapper whose <c>CanMakeChanges</c> matches the mode
-        ///    (original behaviour — unchanged when no config override is present).
+        ///    (original behaviour ï¿½ unchanged when no config override is present).
         /// </summary>
         private string? ResolveWrapperForMode()
         {
@@ -496,7 +598,7 @@ namespace Wally.Forms.Controls
             var wrappers   = _environment.Workspace!.LlmWrappers;
             bool wantAgent = _currentMode == ActionMode.Agent;
 
-            // 1 — Actor-level preference / allow-list
+            // 1 ï¿½ Actor-level preference / allow-list
             if (!string.IsNullOrEmpty(_selectedActor))
             {
                 var actor = _environment.GetActor(_selectedActor!);
@@ -531,7 +633,7 @@ namespace Wally.Forms.Controls
                 }
             }
 
-            // 2 — WallyConfig.DefaultWrapper when its CanMakeChanges matches the mode
+            // 2 ï¿½ WallyConfig.DefaultWrapper when its CanMakeChanges matches the mode
             string? configDefault = _environment.Workspace!.Config.DefaultWrapper;
             if (!string.IsNullOrWhiteSpace(configDefault))
             {
@@ -539,10 +641,10 @@ namespace Wally.Forms.Controls
                     string.Equals(w.Name, configDefault, StringComparison.OrdinalIgnoreCase));
                 if (defWrapper != null && defWrapper.CanMakeChanges == wantAgent)
                     return defWrapper.Name;
-                // DefaultWrapper set but wrong mode — fall through to capability search
+                // DefaultWrapper set but wrong mode ï¿½ fall through to capability search
             }
 
-            // 3 — Capability search (original behaviour)
+            // 3 ï¿½ Capability search (original behaviour)
             var match = wrappers.FirstOrDefault(w => w.CanMakeChanges == wantAgent);
             return match?.Name ?? (wrappers.Count > 0 ? wrappers[0].Name : null);
         }
@@ -599,7 +701,8 @@ namespace Wally.Forms.Controls
                 _lblEmptyState.Text =
                     "\U0001F4AC\n\nType a message to start a conversation.\n\n" +
                     "\uD83D\uDCAC Ask \u2014 read-only, text response only\n" +
-                    "\uD83E\uDD16 Agent \u2014 can make file changes; select a Runbook for multi-step pipelines\n\n" +
+                    "\uD83E\uDD16 Agent \u2014 can make file changes; select a Runbook for multi-step pipelines\n" +
+                    "\u25B6 Auto or \u23ED Manual \u2014 run fully or step-by-step\n\n" +
                     "Use the Actor, Loop, and Model dropdowns\nto customise each request.";
                 if (!_isRunning)
                 {
@@ -608,6 +711,12 @@ namespace Wally.Forms.Controls
                 }
                 LoadHistory();
             }
+
+            if (!loaded)
+                _manualSession = null;
+
+            UpdateEmptyState();
+            UpdateFlowButtons();
         }
 
         public void RefreshActorList()
@@ -745,7 +854,9 @@ namespace Wally.Forms.Controls
             _txtInput.Clear();
             _txtInput.SelectionColor = WallyTheme.TextPrimary;
             _txtInput.SelectionFont  = WallyTheme.FontUI;
+            _manualSession = null;
             UpdateEmptyState();
+            UpdateFlowButtons();
         }
 
         private void LoadHistory()
@@ -810,10 +921,76 @@ namespace Wally.Forms.Controls
             if (!_isRunning) _ = SendMessageAsync();
         }
 
+        private void OnNextStepClick(object? sender, EventArgs e)
+        {
+            if (!_isRunning) _ = ContinueManualSessionAsync();
+        }
+
+        private void OnPreviewPromptClick(object? sender, EventArgs e)
+        {
+            if (_environment?.HasWorkspace != true)
+                return;
+
+            try
+            {
+                ChatPanelRequest request = BuildCurrentChatRequest(preferActiveSessionWhenInputBlank: true);
+                if (string.IsNullOrWhiteSpace(request.DisplayPrompt))
+                {
+                    AddMessage("System", "Enter a prompt before opening a prompt preview tab.", MessageKind.Error);
+                    return;
+                }
+
+                var preview = ChatPanelExecutionService.BuildPromptPreview(_environment, request);
+                PromptPreviewRequested?.Invoke(this,
+                    new ChatPromptPreviewRequestedEventArgs(preview, $"Prompt Preview - {request.DisplayLabel}"));
+            }
+            catch (Exception ex)
+            {
+                AddMessage("System", $"Prompt preview failed: {ex.Message}", MessageKind.Error);
+            }
+        }
+
+        private void OnPreviewNextPromptClick(object? sender, EventArgs e)
+        {
+            if (_manualSession == null)
+            {
+                AddMessage("System", "No manual chat session is active. Start one in Manual mode first.", MessageKind.Error);
+                return;
+            }
+
+            try
+            {
+                var preview = _manualSession.BuildNextPromptPreview();
+                NextPromptPreviewRequested?.Invoke(this,
+                    new ChatPromptPreviewRequestedEventArgs(preview, $"Next Prompt - {_manualSession.ResolvedRequest.Request.DisplayLabel}"));
+            }
+            catch (Exception ex)
+            {
+                AddMessage("System", $"Next prompt preview failed: {ex.Message}", MessageKind.Error);
+            }
+        }
+
+        private void OnDiagramClick(object? sender, EventArgs e)
+        {
+            if (_environment?.HasWorkspace != true)
+                return;
+
+            try
+            {
+                ChatPanelRequest request = BuildCurrentChatRequest(preferActiveSessionWhenInputBlank: true, allowEmptyPrompt: true);
+                var definition = ChatPanelExecutionService.BuildDiagramDefinition(_environment, request);
+                DiagramRequested?.Invoke(this,
+                    new ChatDiagramRequestedEventArgs(definition, $"Chat Diagram - {request.DisplayLabel}"));
+            }
+            catch (Exception ex)
+            {
+                AddMessage("System", $"Diagram generation failed: {ex.Message}", MessageKind.Error);
+            }
+        }
+
         private async Task SendMessageAsync()
         {
-            string prompt = _txtInput.Text.Trim();
-            if (string.IsNullOrEmpty(prompt) || _isRunning) return;
+            if (_isRunning) return;
 
             if (_environment?.HasWorkspace != true || !_workspaceLoaded)
             {
@@ -821,24 +998,51 @@ namespace Wally.Forms.Controls
                 return;
             }
 
-            string? actorName     = _selectedActor;
-            string? loopName      = _selectedLoop;
-            string? modelOverride = string.IsNullOrWhiteSpace(_selectedModel) ? null : _selectedModel;
-            string? wrapperName   = ResolveWrapperForMode();
+            ChatPanelRequest request = BuildCurrentChatRequest(preferActiveSessionWhenInputBlank: false);
+            if (string.IsNullOrWhiteSpace(request.DisplayPrompt)) return;
 
-            bool directMode = string.IsNullOrEmpty(actorName);
-            bool isLooped   = !string.IsNullOrEmpty(loopName);
-            string label    = directMode ? "AI" : actorName!;
+            if (_pacingMode == ChatPacingMode.Manual)
+            {
+                await StartManualSessionAsync(request).ConfigureAwait(true);
+                return;
+            }
+
+            await RunAutomaticSessionAsync(request).ConfigureAwait(true);
+        }
+
+        private async Task RunAutomaticSessionAsync(ChatPanelRequest request)
+        {
+            _manualSession = null;
+
+            ChatPanelResolvedRequest resolved;
+            try
+            {
+                resolved = ChatPanelExecutionService.ResolveRequest(_environment!, request);
+            }
+            catch (Exception ex)
+            {
+                AddMessage("System", $"Error: {ex.Message}", MessageKind.Error);
+                return;
+            }
+
+            string? actorName = resolved.DirectMode ? null : resolved.ActorLabel;
+            string? loopName = resolved.LoopDefinition?.Name;
+            string? modelOverride = resolved.ResolvedModel;
+            string? wrapperName = resolved.ResolvedWrapperName;
+            bool directMode = resolved.DirectMode;
+            bool isLooped = resolved.IsLooped;
+            string label = directMode ? "AI" : resolved.ActorLabel;
 
             string cmdText = string.Join(" ",
-                new List<string>(new[] { "run", $"\"{prompt}\"" })
+                new List<string>(new[] { "run", $"\"{request.DisplayPrompt}\"" })
                 .Concat(!directMode           ? new[] { $"-a {actorName}" }      : Array.Empty<string>())
                 .Concat(isLooped              ? new[] { $"-l {loopName}" }       : Array.Empty<string>())
                 .Concat(modelOverride != null ? new[] { $"-m {modelOverride}" }  : Array.Empty<string>())
-                .Concat(wrapperName   != null ? new[] { $"-w {wrapperName}" }    : Array.Empty<string>()));
+                .Concat(wrapperName   != null ? new[] { $"-w {wrapperName}" }    : Array.Empty<string>())
+                .Concat(request.NoHistory     ? new[] { "--no-history" }         : Array.Empty<string>()));
             CommandIssued?.Invoke(this, cmdText);
 
-            AddMessage("You", prompt, MessageKind.User);
+            AddMessage("You", request.DisplayPrompt, MessageKind.User);
             _txtInput.Clear();
             _txtInput.SelectionColor = WallyTheme.TextPrimary;
             _txtInput.SelectionFont  = WallyTheme.FontUI;
@@ -853,13 +1057,13 @@ namespace Wally.Forms.Controls
                 var token = _cts.Token;
 
                 // Run on a background thread so the UI thread (and its message pump)
-                // remains free — this keeps the progress bar animating and the Stop
+                // remains free ï¿½ this keeps the progress bar animating and the Stop
                 // button responsive, exactly as CommandPanel.RunCommandAsync does.
                 var results = await Task.Run(
                     () => WallyCommands.HandleRunTyped(
-                        _environment!, prompt, actorName, modelOverride,
+                        _environment!, request.DisplayPrompt, actorName, modelOverride,
                         loopName: loopName, wrapper: wrapperName,
-                        noHistory: false, cancellationToken: token),
+                        noHistory: request.NoHistory, cancellationToken: token),
                     token).ConfigureAwait(true); // ConfigureAwait(true) to resume on UI thread
 
                 if (results.Count == 0)
@@ -875,7 +1079,91 @@ namespace Wally.Forms.Controls
             }
             catch (OperationCanceledException) { AddMessage("System", "Cancelled.", MessageKind.Error); }
             catch (Exception ex)               { AddMessage("System", $"Error: {ex.Message}", MessageKind.Error); }
-            finally { SetRunning(false); _cts?.Dispose(); _cts = null; }
+            finally
+            {
+                SetRunning(false);
+                _cts?.Dispose();
+                _cts = null;
+                UpdateFlowButtons();
+            }
+        }
+
+        private async Task StartManualSessionAsync(ChatPanelRequest request)
+        {
+            try
+            {
+            _manualSession = ChatPanelExecutionService.CreateSession(_environment!, request);
+            }
+            catch (Exception ex)
+            {
+                AddMessage("System", $"Error: {ex.Message}", MessageKind.Error);
+                return;
+            }
+
+            string cmdText = string.Join(" ",
+                new List<string>(new[] { "run", $"\"{request.DisplayPrompt}\"" })
+                .Concat(!string.IsNullOrWhiteSpace(request.ActorName) ? new[] { $"-a {request.ActorName}" } : Array.Empty<string>())
+                .Concat(!string.IsNullOrWhiteSpace(request.LoopName)  ? new[] { $"-l {request.LoopName}" }  : Array.Empty<string>())
+                .Concat(!string.IsNullOrWhiteSpace(request.ModelOverride) ? new[] { $"-m {request.ModelOverride}" } : Array.Empty<string>())
+                .Concat(request.NoHistory ? new[] { "--no-history" } : Array.Empty<string>()));
+            CommandIssued?.Invoke(this, cmdText);
+
+            AddMessage("You", request.DisplayPrompt, MessageKind.User);
+            _txtInput.Clear();
+            _txtInput.SelectionColor = WallyTheme.TextPrimary;
+            _txtInput.SelectionFont = WallyTheme.FontUI;
+
+            await ExecuteManualStepAsync(isFirstStep: true).ConfigureAwait(true);
+        }
+
+        private async Task ContinueManualSessionAsync()
+        {
+            if (_manualSession == null)
+                return;
+
+            await ExecuteManualStepAsync(isFirstStep: false).ConfigureAwait(true);
+        }
+
+        private async Task ExecuteManualStepAsync(bool isFirstStep)
+        {
+            if (_manualSession == null)
+                return;
+
+            string modeLabel = _currentMode == ActionMode.Agent ? "Agent" : "Ask";
+            string context = _manualSession.CurrentStatus;
+
+            _cts = new CancellationTokenSource();
+            SetRunning(true, $"{modeLabel}: {context}");
+
+            try
+            {
+                WallyRunResult result = await _manualSession.ExecuteNextAsync(_cts.Token).ConfigureAwait(true);
+                AddMessage(result.DisplayLabel(), result.Response, MessageKind.Actor);
+
+                if (_manualSession.IsCompleted)
+                {
+                    AddMessage("System", BuildManualCompletionMessage(_manualSession), MessageKind.System);
+                }
+                else
+                {
+                    AddMessage("System", $"Manual step complete. Next: {_manualSession.CurrentStatus}.", MessageKind.System);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                AddMessage("System", "Cancelled.", MessageKind.Error);
+            }
+            catch (Exception ex)
+            {
+                AddMessage("System", $"Error: {ex.Message}", MessageKind.Error);
+            }
+            finally
+            {
+                SetRunning(false);
+                _cts?.Dispose();
+                _cts = null;
+                UpdateFlowButtons();
+            }
         }
 
         // =====================================================================
@@ -899,7 +1187,9 @@ namespace Wally.Forms.Controls
             int w = Math.Max(200, _messagesContainer.ClientSize.Width - 48);
             _messagesFlow.SuspendLayout();
             foreach (Control c in _messagesFlow.Controls)
+            {
                 if (c is ChatBubble b) b.SetBubbleWidth(w);
+            }
             _messagesFlow.ResumeLayout(true);
         }
 
@@ -930,17 +1220,70 @@ namespace Wally.Forms.Controls
             _btnModelDd.Enabled   = inputEnabled;
             _btnModeAsk.Enabled   = inputEnabled;
             _btnModeAgent.Enabled = inputEnabled;
+            _btnFlowAuto.Enabled  = inputEnabled;
+            _btnFlowManual.Enabled = inputEnabled;
 
             _lblStatus.Text      = running ? $"  \u26A1 {context}\u2026" : "  Ready";
             _lblStatus.ForeColor = running ? WallyTheme.TextSecondary : WallyTheme.TextMuted;
 
             if (!running && _workspaceLoaded) _btnSend.BackColor = WallyTheme.Surface3;
+            UpdateFlowButtons();
             RunningChanged?.Invoke(this, EventArgs.Empty);
+        }
+
+        private ChatPanelRequest BuildCurrentChatRequest(bool preferActiveSessionWhenInputBlank, bool allowEmptyPrompt = false)
+        {
+            string prompt = _txtInput.Text.Trim();
+            if (string.IsNullOrWhiteSpace(prompt) && preferActiveSessionWhenInputBlank && _manualSession != null)
+                return _manualSession.ResolvedRequest.Request;
+
+            if (string.IsNullOrWhiteSpace(prompt) && !allowEmptyPrompt)
+                return new ChatPanelRequest();
+
+            return new ChatPanelRequest
+            {
+                Prompt = prompt,
+                ActorName = _selectedActor,
+                LoopName = _selectedLoop,
+                ModelOverride = string.IsNullOrWhiteSpace(_selectedModel) ? null : _selectedModel,
+                Mode = _currentMode == ActionMode.Agent ? ChatPanelExecutionMode.Agent : ChatPanelExecutionMode.Ask
+            };
+        }
+
+        private string BuildManualCompletionMessage(ChatPanelExecutionSession session)
+        {
+            string stopReason = session.StopReason ?? "Completed";
+            return session.ResolvedRequest.LoopDefinition?.HasSteps == true
+                ? $"Manual pipeline complete - {session.Results.Count} step(s)."
+                : session.ResolvedRequest.LoopDefinition?.IsAgentLoop == true
+                    ? $"Manual agent loop complete - {session.Results.Count} iteration(s), stop reason: {stopReason}."
+                    : "Manual run complete.";
+        }
+
+        private void UpdateFlowButtons()
+        {
+            bool canInspect = _workspaceLoaded && !_isRunning;
+            bool hasPrompt = !string.IsNullOrWhiteSpace(_txtInput.Text) || _manualSession != null;
+            bool hasManualSession = _manualSession != null;
+            bool canContinueManual = hasManualSession && !_manualSession!.IsCompleted && _pacingMode == ChatPacingMode.Manual && !_isRunning;
+
+            _btnPreviewPrompt.Enabled = canInspect && hasPrompt;
+            _btnPreviewNextPrompt.Enabled = canInspect && hasManualSession;
+            _btnDiagram.Enabled = _workspaceLoaded && !_isRunning;
+            _btnNextStep.Enabled = canContinueManual;
+
+            if (!_isRunning && _workspaceLoaded && _pacingMode == ChatPacingMode.Manual && hasManualSession)
+            {
+                _lblStatus.Text = _manualSession!.IsCompleted
+                    ? $"  Manual session complete - {BuildManualCompletionMessage(_manualSession)}"
+                    : $"  Manual ready - {_manualSession.CurrentStatus}. Next continues; Send starts a new run.";
+                _lblStatus.ForeColor = _manualSession.IsCompleted ? WallyTheme.TextMuted : WallyTheme.TextSecondary;
+            }
         }
     }
 
     // =========================================================================
-    //  ChatBubble — custom owner-drawn message bubble with rounded corners
+    //  ChatBubble ï¿½ custom owner-drawn message bubble with rounded corners
     // =========================================================================
 
     internal sealed class ChatBubble : Control
