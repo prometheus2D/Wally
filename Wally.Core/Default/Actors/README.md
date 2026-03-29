@@ -1,4 +1,4 @@
-# Actor System — Shared Reference
+# Actor System ï¿½ Shared Reference
 
 > This file lives in the `Actors/` folder and is automatically injected into **every** actor's
 > prompt as shared context. It is the single source of truth for cross-actor conventions.
@@ -11,10 +11,10 @@
 
 | Actor | Role | Exclusive Actions | Shared Abilities |
 |-------|------|--------------------|------------------|
-| `Engineer` | Senior software engineer — all technical work | `change_code` (any file), `write_document` (.md) | `read_context`, `browse_workspace`, `send_message` |
-| `BusinessAnalyst` | BA + PM — bridges stakeholder needs and engineering | `write_document` (.md) | `read_context`, `browse_workspace`, `send_message` |
-| `RequirementsExtractor` | Requirements specialist — structured req docs only | `write_requirements` (.md) | `read_context`, `browse_workspace`, `send_message` |
-| `Stakeholder` | Business voice — defines needs and success criteria | *(none — read-only)* | `read_context`, `browse_workspace`, `send_message` |
+| `Engineer` | Senior software engineer ï¿½ all technical work | `change_code` (any file), `write_document` (.md) | `read_context`, `browse_workspace`, `send_message` |
+| `BusinessAnalyst` | BA + PM ï¿½ bridges stakeholder needs and engineering | `write_document` (.md) | `read_context`, `browse_workspace`, `send_message` |
+| `RequirementsExtractor` | Requirements specialist ï¿½ structured req docs only | `write_requirements` (.md) | `read_context`, `browse_workspace`, `send_message` |
+| `Stakeholder` | Business voice ï¿½ defines needs and success criteria | *(none ï¿½ read-only)* | `read_context`, `browse_workspace`, `send_message` |
 
 ---
 
@@ -26,7 +26,7 @@ Actor capabilities are split into two categories:
 
 These are universal capabilities that every actor can opt into by listing the name in
 their `"abilities"` array in `actor.json`. The schema (parameters, pathPattern, isMutating)
-is defined **once** in the registry and cannot be overridden per-actor — only the description
+is defined **once** in the registry and cannot be overridden per-actor ï¿½ only the description
 can be customised for role-specific wording.
 
 | Ability | What It Does | Mutating |
@@ -42,7 +42,7 @@ These are capabilities unique to one or two actors. They are fully declared in t
 
 | Action | What It Does | Who Has It | Mutating |
 |--------|-------------|------------|----------|
-| `change_code` | Write or overwrite **any** file — source, config, project files | Engineer only | Yes |
+| `change_code` | Write or overwrite **any** file ï¿½ source, config, project files | Engineer only | Yes |
 | `write_document` | Write or overwrite a **Markdown document** (`.md`) | Engineer, BusinessAnalyst | Yes |
 | `write_requirements` | Write or overwrite a **Markdown requirements doc** (`.md`) | RequirementsExtractor only | Yes |
 
@@ -101,9 +101,9 @@ replyTo: Engineer
 
 | Parameter | Required | Description |
 |-----------|----------|-------------|
-| `to` | Yes | Target actor name — must be a loaded actor |
+| `to` | Yes | Target actor name ï¿½ must be a loaded actor |
 | `subject` | Yes | Short topic identifier, PascalCase or hyphenated |
-| `body` | Yes | Free-text Markdown — the full prompt the target actor receives |
+| `body` | Yes | Free-text Markdown ï¿½ the full prompt the target actor receives |
 | `replyTo` | No | Actor to receive the response (defaults to the sender) |
 
 ### Routing Policy
@@ -121,8 +121,8 @@ replyTo: Engineer
 | Any ? Engineer (direct from Stakeholder) | ? | Route through BusinessAnalyst |
 | Any ? RequirementsExtractor (direct from Stakeholder) | ? | Route through BusinessAnalyst |
 
-> Full protocol detail — message file format, YAML front-matter, lifecycle states,
-> failure handling, and diagnostics — is in `Docs/MailboxSystemArchitecture.md`.
+> Full protocol detail ï¿½ message file format, YAML front-matter, lifecycle states,
+> failure handling, and diagnostics ï¿½ is in `Docs/MailboxSystemArchitecture.md`.
 
 ---
 
@@ -157,12 +157,11 @@ replyTo: Engineer
 | Template | Used By | Purpose |
 |----------|---------|---------|
 | `Templates/ProposalTemplate.md` | Engineer | New technical ideas or approaches |
-| `Templates/ImplementationPlanTemplate.md` | Engineer | Step-by-step execution of an approved proposal |
+| `Templates/TaskTrackerTemplate.md` | ProjectPlanner, Engineer | Decompose approved proposals into executable tasks and track progress |
 | `Templates/ArchitectureTemplate.md` | Engineer | Current system design decisions |
 | `Templates/BugTemplate.md` | Engineer | Defect tracking with reproduction steps |
 | `Templates/TestPlanTemplate.md` | Engineer | Verification strategy for requirements |
 | `Templates/RequirementsTemplate.md` | RequirementsExtractor, BusinessAnalyst | Structured, traceable, testable requirements |
-| `Templates/ExecutionPlanTemplate.md` | BusinessAnalyst | Project coordination and delivery sequencing |
 
 ---
 
@@ -171,6 +170,6 @@ replyTo: Engineer
 - **Document paths**: `{WorkSource}/.wally/Projects/<ProjectName>/...`
 - **Requirements files**: `.wally/Projects/<ProjectName>/Requirements/<FeatureName>.md`
 - **Proposal files**: `.wally/Projects/Proposals/<FeatureName>Proposal.md`
-- **Requirement IDs**: `REQ-001`, `REQ-002`, ... — numbered sequentially per document
+- **Requirement IDs**: `REQ-001`, `REQ-002`, ... ï¿½ numbered sequentially per document
 - **Message subjects**: PascalCase or hyphenated, e.g. `FeasibilityCheck`, `CodeReview-AuthModule`
-- **correlationId**: auto-generated 8-char hex prefix — preserved in all reply chains
+- **correlationId**: auto-generated 8-char hex prefix ï¿½ preserved in all reply chains

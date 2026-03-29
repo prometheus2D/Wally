@@ -17,14 +17,15 @@
 | **Diagrams** | Mermaid only; no ASCII |
 | **Todo Tracking** | Every proposal must track research, validation, and approval tasks |
 | **Acceptance Criteria** | Every proposal must define clear approval criteria and success metrics |
+| **Open Questions** | Every proposal must include an `Open Questions` section, even when empty or fully resolved |
 
 ---
 
 ## Objectives
 
 - Give engineers and AI agents a clear, actionable description of a problem and its proposed solution.
-- Establish phase sequencing, effort estimates, and the concrete set of files affected before implementation begins.
-- Serve as the canonical reference for scope decisions throughout implementation.
+- Establish phase sequencing, effort estimates, and the concrete set of work to be decomposed before task execution begins.
+- Serve as the canonical reference for scope decisions throughout task decomposition and execution.
 - Enable systematic tracking of proposal validation and approval process.
 
 ---
@@ -34,9 +35,8 @@
 | Relates To | Relationship | Notes |
 |------------|--------------|-------|
 | RequirementsTemplate | Follows | Proposals may be preceded by or reference a requirements document |
-| ImplementationPlanTemplate | Precedes | An approved proposal is the input to an implementation plan |
+| TaskTrackerTemplate | Precedes | An approved proposal is decomposed into a task tracker for execution |
 | ArchitectureTemplate | Informs | Proposals that change system design should reference the current architecture doc |
-| ExecutionPlanTemplate | Precedes | Execution plans orchestrate the delivery of one or more approved proposals |
 
 ---
 
@@ -79,6 +79,15 @@ Bullet list with measurable outcomes.
 ### Risks
 Bullet list with mitigation strategies.
 
+### Open Questions
+
+Every proposal must include this section.
+
+- List unresolved questions that block approval, implementation, estimation, or scope confidence.
+- If no active questions remain, write `None` or list all questions as `Resolved` / `Deferred`.
+- Each question should have a stable label or identifier when the proposal is expected to evolve over multiple revisions.
+- Questions that are answered during proposal development should be updated here or explicitly moved into resolved decisions.
+
 ### Todo Tracker
 
 | Task | Priority | Status | Owner | Due Date | Notes |
@@ -114,7 +123,7 @@ Bullet list with mitigation strategies.
 - [ ] Proposal reviewed by architecture team
 - [ ] Status updated to "Approved" or "Rejected"
 - [ ] All todo items resolved
-- [ ] Next steps (implementation plan) initiated if approved
+- [ ] Next steps (task tracker) initiated if approved
 
 ---
 
@@ -182,7 +191,7 @@ Use this section to link proposals that are part of the same workstream, depend 
 | Proposal | Relationship | Notes |
 |----------|--------------|-------|
 | [ParentProposal](./ParentProposal.md) | Parent | Spawned from this parent |
-| [PhaseXProposal](./PhaseXProposal.md) | Child — Phase N | Extracted phase |
+| [PhaseXProposal](./PhaseXProposal.md) | Child ï¿½ Phase N | Extracted phase |
 | [OtherProposal](./OtherProposal.md) | Depends on | Must be implemented first |
 | [AnotherProposal](./AnotherProposal.md) | Depended on by | This must be implemented first |
 | [SiblingProposal](./SiblingProposal.md) | Sibling | Independent parallel workstream |
@@ -193,7 +202,7 @@ Use this section to link proposals that are part of the same workstream, depend 
 | Type | Meaning |
 |------|---------|
 | `Parent` | This document was split out from the linked proposal |
-| `Child — Phase N` | The linked proposal is a phase extracted from this one |
+| `Child ï¿½ Phase N` | The linked proposal is a phase extracted from this one |
 | `Depends on` | This proposal requires the linked proposal to be completed first |
 | `Depended on by` | The linked proposal requires this one first |
 | `Sibling` | Same parent; independent execution order |
@@ -208,9 +217,6 @@ Concrete usage with inline flows.
 
 ### Tech Debt
 Related debt to address.
-
-### Open Questions
-Blockers requiring stakeholder input.
 
 ---
 
@@ -241,12 +247,13 @@ Blockers requiring stakeholder input.
 | Repeating phase detail in parent | Summarise + link to child proposal |
 | Proposals without validation tasks | Every proposal must track validation and approval |
 | Acceptance criteria that aren't measurable | Every criterion must be specific and verifiable |
+| Missing open-questions section | Every proposal includes `Open Questions`, even when the answer is `None` |
 
 ---
 
 ## File Naming
 
-`[FeatureName]Proposal.md` — PascalCase, suffix `Proposal`.
+`[FeatureName]Proposal.md` ï¿½ PascalCase, suffix `Proposal`.
 
 Examples: `AsyncExecutionProposal.md`, `AutonomyLoopProposal.md`
 

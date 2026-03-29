@@ -77,7 +77,7 @@
 | Relates To | Relationship | Notes |
 |------------|--------------|-------|
 | Requirements Documents | Verifies | Test plans verify requirements; must reference specific requirements document |
-| Implementation Plans | Validates | Tests validate what was built per implementation specifications |
+| Task Trackers | Validates | Tests validate what was built from the executed task tracker |
 | Bug Reports | Spawns | Failed test cases that reveal defects should produce bug documentation |
 | Architecture Documents | Informs | System design influences test strategy and approach |
 
@@ -331,6 +331,6 @@ Include when: security testing is part of the test scope.
 
 ## File Naming
 
-`[FeatureName]TestPlan.md` — PascalCase, suffix `TestPlan`.
+`[FeatureName]TestPlan.md` ï¿½ PascalCase, suffix `TestPlan`.
 
 Examples: `AsyncExecutionTestPlan.md`, `MailboxProtocolTestPlan.md`

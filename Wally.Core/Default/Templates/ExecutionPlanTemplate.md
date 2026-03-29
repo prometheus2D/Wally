@@ -1,6 +1,7 @@
 # Execution Plan Template
 
-> Reference: All execution plan documents must conform to this template.
+> Legacy: Execution plans are not part of the current default workflow.
+> Reference: Retained for future or archival use only.
 
 ---
 
@@ -65,7 +66,7 @@ Reference phases by number; details live in Implementation Plans.
 
 ### Key Files
 ```
-[ACTION] path/File.cs — Description
+[ACTION] path/File.cs ï¿½ Description
 ```
 Actions: `CREATE`, `MODIFY`, `DELETE`
 
@@ -228,4 +229,4 @@ Include when: multiple systems interact and AI agents need a reference for cross
 
 ## File Naming
 
-`ExecutionPlan.md` — single file per project or workstream.
+`ExecutionPlan.md` ï¿½ single file per project or workstream.

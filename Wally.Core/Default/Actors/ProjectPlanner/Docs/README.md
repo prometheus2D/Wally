@@ -2,8 +2,8 @@
 
 The **ProjectPlanner** actor reads a single proposal document and produces two outputs:
 
-1. **Task Breakdown** — every deliverable in the proposal decomposed into granular, independently executable tasks with priorities, effort estimates, and done-conditions.
-2. **Todo Tracker** — a `<ProposalName>Tasks.md` file written next to the proposal, ready for a team or AI agent to pick up and start executing immediately.
+1. **Task Breakdown** ï¿½ every deliverable in the proposal decomposed into granular, independently executable tasks with priorities, effort estimates, and done-conditions.
+2. **Todo Tracker** ï¿½ a `<ProposalName>Tasks.md` file written next to the proposal, ready for a team or AI agent to pick up and start executing immediately.
 
 ---
 
@@ -15,7 +15,7 @@ Run this actor (via the `ProposalToTasks` loop) immediately after a proposal is 
 
 - Write code
 - Write new proposals
-- Write architecture, requirements, or implementation plan documents
+- Write architecture, requirements, or plan-based intermediate documents
 - Invent scope not present in the proposal
 
 ## Output convention

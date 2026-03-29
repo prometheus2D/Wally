@@ -1,6 +1,7 @@
 # Implementation Plan Template
 
-> Reference: All implementation plan documents must conform to this template.
+> Legacy: Implementation plans are not part of the current default workflow.
+> Reference: Retained for future or archival use only.
 
 ---
 
@@ -84,8 +85,8 @@ flowchart LR
 Per phase:
 ```markdown
 ### Phase N: [Name]
-1. [ACTION] `File.cs` — Description
-2. [ACTION] `File.cs:Method` — Description
+1. [ACTION] `File.cs` ï¿½ Description
+2. [ACTION] `File.cs:Method` ï¿½ Description
 3. Test: [assertion]
 ```
 
@@ -148,9 +149,9 @@ Actions: `CREATE`, `MODIFY`, `DELETE`, `TEST`
 | Plan | Relationship | Notes |
 |------|--------------|-------|
 | [SystemImplementationPlan](./SystemImplementationPlan.md) | Parent | Overall system implementation |
-| [AuthenticationPlan](./AuthenticationPlan.md) | Child — Component | Authentication implementation |
-| [UIPlan](./UIPlan.md) | Child — Component | User interface implementation |  
-| [APIPlan](./APIPlan.md) | Child — Component | API implementation |
+| [AuthenticationPlan](./AuthenticationPlan.md) | Child ï¿½ Component | Authentication implementation |
+| [UIPlan](./UIPlan.md) | Child ï¿½ Component | User interface implementation |  
+| [APIPlan](./APIPlan.md) | Child ï¿½ Component | API implementation |
 | [DatabasePlan](./DatabasePlan.md) | Sibling | Parallel database implementation |
 | [IntegrationPlan](./IntegrationPlan.md) | Depends on | Integration after component completion |
 
@@ -253,6 +254,6 @@ Use relationship vocabulary from TemplateTemplate: `Precedes / Follows / Impleme
 
 ## File Naming
 
-`[SystemName]ImplementationPlan.md` — PascalCase, suffix `ImplementationPlan`.
+`[SystemName]ImplementationPlan.md` ï¿½ PascalCase, suffix `ImplementationPlan`.
 
 Examples: `AsyncExecutionImplementationPlan.md`, `MailboxProtocolImplementationPlan.md`

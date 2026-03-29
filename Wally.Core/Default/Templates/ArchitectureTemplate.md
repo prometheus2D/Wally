@@ -35,8 +35,8 @@
 
 | Relates To | Relationship | Notes |
 |------------|--------------|-------|
-| ProposalTemplate | Follows | Architecture docs are updated after proposals are implemented |
-| ImplementationPlanTemplate | Follows | Implementation plans change the architecture; docs must reflect the result |
+| ProposalTemplate | Follows | Architecture docs are updated after approved proposal work is implemented |
+| TaskTrackerTemplate | Informs | Task trackers identify the concrete implementation work that may require architecture updates |
 | RequirementsTemplate | Informs | Requirements may reference architecture constraints |
 
 ---

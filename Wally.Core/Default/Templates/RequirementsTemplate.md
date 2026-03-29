@@ -1,6 +1,6 @@
 # Requirements Document Template
 
-> Reference: Requirements documents define WHAT the system must do — not HOW.
+> Reference: Requirements documents define WHAT the system must do ï¿½ not HOW.
 
 ---
 
@@ -24,7 +24,7 @@
 
 - Define the agreed scope of a feature or system change in testable, unambiguous terms.
 - Provide traceability from business need through to acceptance criteria.
-- Serve as the input contract for proposals, implementation plans, and test plans.
+- Serve as the input contract for proposals, task trackers, and test plans.
 - Enable systematic tracking of requirements completion and stakeholder approval.
 - Support requirements decomposition for complex systems with multiple domains or components.
 
@@ -35,7 +35,7 @@
 | Relates To | Relationship | Notes |
 |------------|--------------|-------|
 | ProposalTemplate | Follows | Requirements may originate from or follow a proposal |
-| ImplementationPlanTemplate | Precedes | Implementation plans must satisfy requirements |
+| TaskTrackerTemplate | Precedes | Task trackers must satisfy approved requirements without inventing scope |
 | TestPlanTemplate | Precedes | Test plans verify requirements; every FR/NFR needs test coverage |
 | ArchitectureTemplate | Informs | Architecture constraints may limit or shape requirements |
 
@@ -59,7 +59,7 @@
 
 | Field | Value |
 |-------|-------|
-| **Business Need** | Why this exists — the business driver |
+| **Business Need** | Why this exists ï¿½ the business driver |
 | **Current State** | How things work today |
 | **Future State** | How things should work after delivery |
 | **Success Metrics** | Measurable outcomes |
@@ -131,9 +131,9 @@ Categories: Performance, Security, Scalability, Reliability, Usability, Maintain
 | Document | Relationship | Notes |
 |----------|--------------|-------|
 | [SystemRequirements](./SystemRequirements.md) | Parent | High-level system requirements |
-| [AuthenticationRequirements](./AuthenticationRequirements.md) | Child — Domain | Authentication-specific requirements |
-| [UIRequirements](./UIRequirements.md) | Child — Domain | User interface requirements |
-| [APIRequirements](./APIRequirements.md) | Child — Domain | API and integration requirements |
+| [AuthenticationRequirements](./AuthenticationRequirements.md) | Child ï¿½ Domain | Authentication-specific requirements |
+| [UIRequirements](./UIRequirements.md) | Child ï¿½ Domain | User interface requirements |
+| [APIRequirements](./APIRequirements.md) | Child ï¿½ Domain | API and integration requirements |
 | [SecurityRequirements](./SecurityRequirements.md) | Sibling | Cross-cutting security requirements |
 | [PerformanceRequirements](./PerformanceRequirements.md) | Sibling | System-wide performance requirements |
 
@@ -210,8 +210,8 @@ Include when: assumptions are unresolved or stakeholder sign-off is pending.
 | Diagrams | Mermaid only |
 | Structured data | Tables preferred over prose |
 | Lists | Numbered for ordered items; bullets for assumptions/constraints |
-| Requirement statements | "The system shall…" — active, present tense |
-| Priority | Must / Should / Could — never High/Med/Low |
+| Requirement statements | "The system shallï¿½" ï¿½ active, present tense |
+| Priority | Must / Should / Could ï¿½ never High/Med/Low |
 | Todo items | `- [ ]` unchecked or `- [x]` checked checkbox format |
 | Status indicators | Emoji prefixes: ?? Blocked, ?? In Progress, ? Complete |
 
@@ -233,6 +233,6 @@ Include when: assumptions are unresolved or stakeholder sign-off is pending.
 
 ## File Naming
 
-`[FeatureName]Requirements.md` — PascalCase, suffix `Requirements`.
+`[FeatureName]Requirements.md` ï¿½ PascalCase, suffix `Requirements`.
 
 Examples: `AsyncExecutionRequirements.md`, `MailboxProtocolRequirements.md`

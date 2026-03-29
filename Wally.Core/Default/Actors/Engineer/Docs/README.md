@@ -1,4 +1,4 @@
-# Engineer — Actor Reference
+# Engineer ï¿½ Actor Reference
 
 > Shared cross-actor conventions (ability system, mailbox protocol, workspace layout,
 > templates) are in `Actors/README.md`. This file covers Engineer-specific details only.
@@ -7,12 +7,12 @@
 
 ## Role-Exclusive Actions
 
-These actions are unique to the Engineer — no other actor has them.
+These actions are unique to the Engineer ï¿½ no other actor has them.
 
 | Action | Scope | What It Does |
 |--------|-------|-------------|
-| `change_code` | `**` (any file) | Write or overwrite **any** file: source code, configuration, project files. This is the Engineer's defining ability — the only actor that can touch non-Markdown files. |
-| `write_document` | `**/*.md` | Write or overwrite a technical document: Proposal, Implementation Plan, Architecture doc, Bug Report, or Test Plan. Must conform to the matching template. |
+| `change_code` | `**` (any file) | Write or overwrite **any** file: source code, configuration, project files. This is the Engineer's defining ability ï¿½ the only actor that can touch non-Markdown files. |
+| `write_document` | `**/*.md` | Write or overwrite a technical document: Proposal, Task Tracker, Architecture doc, Bug Report, or Test Plan. Must conform to the matching template. |
 
 > **Always use `read_context` before `change_code` or `write_document`** to understand
 > what already exists and avoid overwriting work.
@@ -21,7 +21,7 @@ These actions are unique to the Engineer — no other actor has them.
 
 ## Shared Abilities
 
-Resolved from `AbilityRegistry` — identical schema across all actors.
+Resolved from `AbilityRegistry` ï¿½ identical schema across all actors.
 
 | Ability | What It Does |
 |---------|-------------|
@@ -46,7 +46,7 @@ Resolved from `AbilityRegistry` — identical schema across all actors.
 | Template | Use For |
 |----------|---------|
 | `Templates/ProposalTemplate.md` | New technical ideas or approaches |
-| `Templates/ImplementationPlanTemplate.md` | Step-by-step execution of an approved proposal |
+| `Templates/TaskTrackerTemplate.md` | Task execution state and progress tracking for approved proposal work |
 | `Templates/ArchitectureTemplate.md` | Current system design decisions |
 | `Templates/BugTemplate.md` | Defect tracking with reproduction steps |
 | `Templates/TestPlanTemplate.md` | Verification strategy for requirements |

@@ -1,7 +1,7 @@
 # Template Template
 
 > Reference: This is the meta-template. Every template document in this folder must conform to it.
-> It defines the **structure** all templates share — not the content of any individual template's sections.
+> It defines the **structure** all templates share ï¿½ not the content of any individual template's sections.
 
 ---
 
@@ -9,7 +9,7 @@
 
 | Constraint | Rule |
 |------------|------|
-| **Audience** | Template authors — engineers or AI agents creating or updating a template |
+| **Audience** | Template authors ï¿½ engineers or AI agents creating or updating a template |
 | **Scope** | The mandatory and optional sections every template must contain; section ordering; naming conventions; todo tracking; acceptance criteria; sub-file relationships |
 | **Out of Scope** | The content of any individual template's sections; instance-level documents; project-specific conventions |
 | **Maintenance** | Update only when a structural rule must change across all templates; changes here require all templates to be audited |
@@ -51,7 +51,7 @@ Every template must contain the following sections, **in this order**.
 > Reference: [One sentence describing the purpose of this document type.]
 ```
 
-- Title: `[DocumentType] Template` — matches the file name without the `.md` suffix.
+- Title: `[DocumentType] Template` ï¿½ matches the file name without the `.md` suffix.
 - Reference line: one sentence; describes what *instances* of this template are used for.
 
 ### 2. Document Constraints
@@ -75,7 +75,7 @@ Additional rows are encouraged; the seven required rows must not be removed.
 ### 3. Objectives
 
 A bullet list of what an instance of this document type is expected to achieve.
-Objectives are the "why" — they justify the document's existence and guide authors on what success looks like.
+Objectives are the "why" ï¿½ they justify the document's existence and guide authors on what success looks like.
 
 - Minimum one objective; maximum five.
 - Format: plain bullet sentences, no sub-bullets.
@@ -83,7 +83,7 @@ Objectives are the "why" — they justify the document's existence and guide autho
 ### 4. Document Relationships
 
 A table declaring how instances of this document type relate to other document types.
-This section defines *type-level* relationships (e.g. "a Proposal precedes an Implementation Plan") — not links to specific sibling documents.
+This section defines *type-level* relationships (e.g. "a Proposal precedes a Task Tracker") ï¿½ not links to specific sibling documents.
 
 ```markdown
 ## Document Relationships
@@ -93,7 +93,7 @@ This section defines *type-level* relationships (e.g. "a Proposal precedes an Im
 | [DocumentType] | [verb from vocabulary below] | [When/why] |
 ```
 
-**Relationship vocabulary** — use these terms consistently across all templates:
+**Relationship vocabulary** ï¿½ use these terms consistently across all templates:
 
 | Term | Meaning |
 |------|---------|
@@ -187,7 +187,7 @@ One paragraph and/or table specifying:
 
 ### Status and Metadata Header
 Include when: instances have a lifecycle (e.g. Draft ? Approved ? Superseded) or require attribution.
-Defines the structured header block — status, owner, dates.
+Defines the structured header block ï¿½ status, owner, dates.
 
 ### Todo Tracker Template
 Include when: the document type requires complex task management beyond basic checklists.
@@ -263,13 +263,13 @@ Every document created from any template **must** include these sections (in add
 | Document | Relationship | Notes |
 |----------|--------------|-------|
 | [ParentDoc](./ParentDoc.md) | Parent | Spawned from this parent |
-| [ChildDoc](./ChildDoc.md) | Child — Component | Extracted section |
+| [ChildDoc](./ChildDoc.md) | Child ï¿½ Component | Extracted section |
 | [SiblingDoc](./SiblingDoc.md) | Sibling | Parallel workstream |
 | [DependencyDoc](./DependencyDoc.md) | Depends on | Must be completed first |
 
 **Relationship Types**:
 - `Parent`: This document was split out from the linked document  
-- `Child — [Aspect]`: The linked document is extracted from this one
+- `Child ï¿½ [Aspect]`: The linked document is extracted from this one
 - `Depends on`: This document requires the linked document first
 - `Depended on by`: The linked document requires this one first  
 - `Sibling`: Independent documents from same parent
