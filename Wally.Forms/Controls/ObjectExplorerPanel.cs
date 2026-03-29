@@ -10,7 +10,7 @@ using Wally.Forms.Theme;
 namespace Wally.Forms.Controls
 {
     /// <summary>
-    /// Object Explorer — shows loaded runtime objects (Actors, Loops, LLM Wrappers,
+    /// Object Explorer ï¿½ shows loaded runtime objects (Actors, Loops, LLM Wrappers,
     /// Runbooks) in a tree so the user can inspect and interact with the live
     /// workspace state rather than raw files.
     /// </summary>
@@ -25,6 +25,7 @@ namespace Wally.Forms.Controls
         private readonly ImageList _imageList;
         private readonly ContextMenuStrip _contextMenu;
         private readonly ToolStripMenuItem _ctxOpen;
+        private readonly ToolStripMenuItem _ctxViewDiagram;
         private readonly ToolStripMenuItem _ctxCopyName;
 
         // ?? State ?????????????????????????????????????????????????????????????
@@ -34,18 +35,36 @@ namespace Wally.Forms.Controls
         // ?? Object node tags ??????????????????????????????????????????????????
 
         private sealed record ObjectNodeTag(object Item, ObjectKind Kind);
+        private sealed record LoopStepNodeData(string LoopName, int StepIndex, WallyStepDefinition Step);
         private enum ObjectKind { Actor, Loop, Wrapper, Runbook, LoopStep, ActorProp }
 
         // ?? Events ????????????????????????????????????????????????????????????
 
-        /// <summary>Raised when the user double-clicks an Actor node — passes the actor name.</summary>
+        /// <summary>Raised when the user double-clicks an Actor node ï¿½ passes the actor name.</summary>
         public event EventHandler<string>? ActorActivated;
-        /// <summary>Raised when the user double-clicks a Loop node — passes the loop name.</summary>
+        /// <summary>Raised when the user double-clicks a Loop node ï¿½ passes the loop name.</summary>
         public event EventHandler<string>? LoopActivated;
-        /// <summary>Raised when the user double-clicks a Wrapper node — passes the wrapper name.</summary>
+        /// <summary>Raised when the user double-clicks a Wrapper node ï¿½ passes the wrapper name.</summary>
         public event EventHandler<string>? WrapperActivated;
-        /// <summary>Raised when the user double-clicks a Runbook node — passes the runbook name.</summary>
+        /// <summary>Raised when the user double-clicks a Runbook node ï¿½ passes the runbook name.</summary>
         public event EventHandler<string>? RunbookActivated;
+        public event EventHandler<string>? LoopDiagramRequested;
+        public event EventHandler<string>? RunbookDiagramRequested;
+        public event EventHandler<LoopStepDiagramRequestedEventArgs>? LoopStepDiagramRequested;
+
+        public sealed class LoopStepDiagramRequestedEventArgs : EventArgs
+        {
+            public LoopStepDiagramRequestedEventArgs(string loopName, int stepIndex, string stepName)
+            {
+                LoopName = loopName;
+                StepIndex = stepIndex;
+                StepName = stepName;
+            }
+
+            public string LoopName { get; }
+            public int StepIndex { get; }
+            public string StepName { get; }
+        }
 
         // ?? Constructor ???????????????????????????????????????????????????????
 
@@ -91,11 +110,14 @@ namespace Wally.Forms.Controls
             _ctxOpen = new ToolStripMenuItem("Open Editor") { ForeColor = WallyTheme.TextPrimary };
             _ctxOpen.Click += (_, _) => ActivateSelected();
 
+            _ctxViewDiagram = new ToolStripMenuItem("View Diagram") { ForeColor = WallyTheme.TextPrimary };
+            _ctxViewDiagram.Click += (_, _) => RequestSelectedDiagram();
+
             _ctxCopyName = new ToolStripMenuItem("Copy Name") { ForeColor = WallyTheme.TextPrimary };
             _ctxCopyName.Click += (_, _) => CopySelectedName();
 
             _contextMenu = new ContextMenuStrip { Renderer = renderer };
-            _contextMenu.Items.AddRange(new ToolStripItem[] { _ctxOpen, new ToolStripSeparator(), _ctxCopyName });
+            _contextMenu.Items.AddRange(new ToolStripItem[] { _ctxOpen, _ctxViewDiagram, new ToolStripSeparator(), _ctxCopyName });
             _contextMenu.BackColor = WallyTheme.Surface2;
             _contextMenu.ForeColor = WallyTheme.TextPrimary;
             _contextMenu.Opening   += OnContextMenuOpening;
@@ -218,7 +240,7 @@ namespace Wally.Forms.Controls
                     {
                         var stepNode = new TreeNode($"{i++}. {step.Name}  \u2192  {step.ActorName}")
                         {
-                            Tag              = new ObjectNodeTag(step, ObjectKind.LoopStep),
+                            Tag              = new ObjectNodeTag(new LoopStepNodeData(loop.Name, i - 2, step), ObjectKind.LoopStep),
                             ImageKey         = "actor",
                             SelectedImageKey = "actor",
                             ForeColor        = WallyTheme.TextSecondary,
@@ -361,13 +383,48 @@ namespace Wally.Forms.Controls
             Clipboard.SetText(text);
         }
 
+        private void RequestSelectedDiagram()
+        {
+            if (_tree.SelectedNode?.Tag is not ObjectNodeTag t)
+                return;
+
+            switch (t.Kind)
+            {
+                case ObjectKind.Loop when t.Item is WallyLoopDefinition loop:
+                    LoopDiagramRequested?.Invoke(this, loop.Name);
+                    break;
+                case ObjectKind.Runbook when t.Item is WallyRunbook runbook:
+                    RunbookDiagramRequested?.Invoke(this, runbook.Name);
+                    break;
+                case ObjectKind.LoopStep when t.Item is LoopStepNodeData stepData:
+                    string stepName = string.IsNullOrWhiteSpace(stepData.Step.Name)
+                        ? $"step-{stepData.StepIndex + 1}"
+                        : stepData.Step.Name;
+                    LoopStepDiagramRequested?.Invoke(
+                        this,
+                        new LoopStepDiagramRequestedEventArgs(stepData.LoopName, stepData.StepIndex, stepName));
+                    break;
+            }
+        }
+
         // ?? Context menu ??????????????????????????????????????????????????????
 
         private void OnContextMenuOpening(object? sender, System.ComponentModel.CancelEventArgs e)
         {
-            if (_tree.SelectedNode?.Tag is not ObjectNodeTag t ||
-                t.Kind is ObjectKind.LoopStep or ObjectKind.ActorProp)
-            { e.Cancel = true; return; }
+            if (_tree.SelectedNode?.Tag is not ObjectNodeTag t)
+            {
+                e.Cancel = true;
+                return;
+            }
+
+            bool canOpen = t.Kind is not ObjectKind.LoopStep and not ObjectKind.ActorProp;
+            bool canDiagram = t.Kind is ObjectKind.Loop or ObjectKind.Runbook or ObjectKind.LoopStep;
+
+            _ctxOpen.Enabled = canOpen;
+            _ctxOpen.Visible = canOpen;
+            _ctxViewDiagram.Enabled = canDiagram;
+            _ctxViewDiagram.Visible = canDiagram;
+            _ctxCopyName.Visible = true;
         }
 
         // ?? Custom draw ???????????????????????????????????????????????????????

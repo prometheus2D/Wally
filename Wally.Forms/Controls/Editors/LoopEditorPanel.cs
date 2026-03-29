@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.Drawing;
+using System.Linq;
 using System.Windows.Forms;
 using Wally.Core;
 using Wally.Forms.Controls;
@@ -16,9 +18,12 @@ namespace Wally.Forms.Controls.Editors
         private readonly TextBox _txtDescription;
         private readonly TextBox _txtActorName;
         private readonly RichTextBox _txtStartPrompt;
+        private readonly ListBox _lstSteps;
         private readonly Label _lblStatus;
         private readonly Button _btnSave;
         private readonly Button _btnRevert;
+        private readonly Button _btnViewDiagram;
+        private readonly Button _btnViewStepDiagram;
 
         private WallyLoopDefinition? _loop;
         private WallyEnvironment? _environment;
@@ -26,6 +31,8 @@ namespace Wally.Forms.Controls.Editors
 
         public event EventHandler? DirtyChanged;
         public event EventHandler? Saved;
+        public event EventHandler? ViewDiagramRequested;
+        public event EventHandler? ViewSelectedStepDiagramRequested;
 
         public bool IsDirty => _isDirty;
         public WallyLoopDefinition? Loop => _loop;
@@ -62,6 +69,10 @@ namespace Wally.Forms.Controls.Editors
             _btnSave.Click += OnSave;
             _btnRevert = CreateButton("\u21BA Revert");
             _btnRevert.Click += OnRevert;
+            _btnViewDiagram = CreateButton("\uD83D\uDDFA Loop Diagram");
+            _btnViewDiagram.Click += (_, _) => ViewDiagramRequested?.Invoke(this, EventArgs.Empty);
+            _btnViewStepDiagram = CreateButton("\uD83E\uDDE9 Step Diagram");
+            _btnViewStepDiagram.Click += (_, _) => ViewSelectedStepDiagramRequested?.Invoke(this, EventArgs.Empty);
 
             _lblStatus = new Label
             {
@@ -75,6 +86,8 @@ namespace Wally.Forms.Controls.Editors
 
             actionBar.Controls.Add(_btnSave);
             actionBar.Controls.Add(_btnRevert);
+            actionBar.Controls.Add(_btnViewDiagram);
+            actionBar.Controls.Add(_btnViewStepDiagram);
             actionBar.Controls.Add(_lblStatus);
             table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             table.Controls.Add(actionBar, 0, row++);
@@ -108,6 +121,24 @@ namespace Wally.Forms.Controls.Editors
             table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             table.Controls.Add(_txtStartPrompt, 0, row++);
 
+            table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            table.Controls.Add(CreateSectionLabel("Pipeline Steps", WallyTheme.FontUISmallBold, WallyTheme.TextMuted), 0, row++);
+
+            _lstSteps = new ListBox
+            {
+                Dock = DockStyle.Top,
+                Height = 140,
+                IntegralHeight = false,
+                Font = WallyTheme.FontUI,
+                BackColor = WallyTheme.Surface2,
+                ForeColor = WallyTheme.TextPrimary,
+                BorderStyle = BorderStyle.FixedSingle,
+                Margin = new Padding(0, 0, 0, 4)
+            };
+            _lstSteps.SelectedIndexChanged += (_, _) => UpdateStepButtons();
+            table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            table.Controls.Add(_lstSteps, 0, row++);
+
             scroll.Controls.Add(table);
             Controls.Add(scroll);
             ResumeLayout(true);
@@ -121,9 +152,49 @@ namespace Wally.Forms.Controls.Editors
         {
             _loop = loop;
             PopulateFields();
+            PopulateSteps();
             SetDirty(false);
             _lblStatus.Text = $"Loaded: {loop.Name}";
             _lblStatus.ForeColor = WallyTheme.TextMuted;
+        }
+
+        public WallyLoopDefinition CreateLoopSnapshot()
+        {
+            if (_loop == null)
+                throw new InvalidOperationException("No loop is loaded.");
+
+            return new WallyLoopDefinition
+            {
+                Name = _txtName.Text.Trim(),
+                Description = _txtDescription.Text.Trim(),
+                ActorName = _txtActorName.Text.Trim(),
+                StartPrompt = _txtStartPrompt.Text.Trim(),
+                Enabled = _loop.Enabled,
+                MaxIterations = _loop.MaxIterations,
+                StopKeyword = _loop.StopKeyword,
+                FeedbackMode = _loop.FeedbackMode,
+                Steps = _loop.Steps
+                    .Select(step => new WallyStepDefinition
+                    {
+                        Name = step.Name,
+                        Description = step.Description,
+                        ActorName = step.ActorName,
+                        PromptTemplate = step.PromptTemplate
+                    })
+                    .ToList()
+            };
+        }
+
+        public bool TryGetSelectedStepIndex(out int stepIndex)
+        {
+            stepIndex = -1;
+            if (_loop?.HasSteps != true)
+                return false;
+            if (_lstSteps.SelectedIndex < 0 || _lstSteps.SelectedIndex >= _loop.Steps.Count)
+                return false;
+
+            stepIndex = _lstSteps.SelectedIndex;
+            return true;
         }
 
         // ?? Field population ??????????????????????????????????????????????????
@@ -135,6 +206,38 @@ namespace Wally.Forms.Controls.Editors
             _txtDescription.Text = _loop.Description;
             _txtActorName.Text   = _loop.ActorName;
             _txtStartPrompt.Text = _loop.StartPrompt;
+            UpdateStepButtons();
+        }
+
+        private void PopulateSteps()
+        {
+            _lstSteps.Items.Clear();
+
+            if (_loop?.HasSteps == true)
+            {
+                for (int i = 0; i < _loop.Steps.Count; i++)
+                {
+                    WallyStepDefinition step = _loop.Steps[i];
+                    string actorName = string.IsNullOrWhiteSpace(step.ActorName)
+                        ? (string.IsNullOrWhiteSpace(_loop.ActorName) ? "direct" : _loop.ActorName + " (fallback)")
+                        : step.ActorName;
+                    string stepName = string.IsNullOrWhiteSpace(step.Name) ? $"step-{i + 1}" : step.Name;
+                    _lstSteps.Items.Add($"{i + 1}. {stepName} -> {actorName}");
+                }
+
+                if (_lstSteps.Items.Count > 0)
+                    _lstSteps.SelectedIndex = 0;
+            }
+            else if (_loop != null)
+            {
+                string mode = _loop.IsAgentLoop
+                    ? $"Agent loop ({_loop.MaxIterations} max iterations)"
+                    : "Single-actor loop (no explicit steps)";
+                _lstSteps.Items.Add(mode);
+                _lstSteps.SelectedIndex = 0;
+            }
+
+            UpdateStepButtons();
         }
 
         private void ApplyFieldsToLoop()
@@ -186,9 +289,18 @@ namespace Wally.Forms.Controls.Editors
         {
             if (_loop == null) return;
             PopulateFields();
+            PopulateSteps();
             SetDirty(false);
             _lblStatus.Text = "Reverted.";
             _lblStatus.ForeColor = WallyTheme.TextMuted;
+        }
+
+        private void UpdateStepButtons()
+        {
+            bool canViewStep = _loop?.HasSteps == true
+                && _lstSteps.SelectedIndex >= 0
+                && _lstSteps.SelectedIndex < _loop.Steps.Count;
+            _btnViewStepDiagram.Enabled = canViewStep;
         }
 
         private void SetDirty(bool dirty)

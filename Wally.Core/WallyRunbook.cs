@@ -7,11 +7,11 @@ namespace Wally.Core
     /// <summary>
     /// A runbook loaded from a <c>.wrb</c> (Wally Runbook) file.
     /// <para>
-    /// <b>Simple format</b> — one Wally command per line. Lines starting with
+    /// <b>Simple format</b> ï¿½ one Wally command per line. Lines starting with
     /// <c>#</c> are comments. Blank lines are ignored.
     /// </para>
     /// <para>
-    /// <b>Script format (WallyScript)</b> — detected automatically when the file
+    /// <b>Script format (WallyScript)</b> ï¿½ detected automatically when the file
     /// contains WallyScript keywords. Script execution is not yet implemented;
     /// the format flag is stored so future phases can act on it.
     /// </para>
@@ -56,7 +56,7 @@ namespace Wally.Core
         /// than the legacy simple (one command per line) format.
         /// <para>
         /// Phase-1/2 keywords: <c>shell</c>, <c>loop</c>, <c>call</c>, <c>open</c>
-        /// (brace-delimited block syntax — see RunbookSyntaxProposal).
+        /// (brace-delimited block syntax ï¿½ see RunbookSyntaxProposal).
         /// </para>
         /// <para>
         /// Reserved future keywords: <c>if</c>, <c>while</c>, <c>foreach</c>,
@@ -65,9 +65,9 @@ namespace Wally.Core
         /// </summary>
         private static readonly HashSet<string> ScriptKeywords = new(StringComparer.OrdinalIgnoreCase)
         {
-            // Phase 1 – shell integration
+            // Phase 1 ï¿½ shell integration
             "shell",
-            // Phase 2 – brace-delimited block syntax
+            // Phase 2 ï¿½ brace-delimited block syntax
             "loop", "call", "open",
             // Reserved future keywords (not yet implemented)
             "if", "while", "foreach", "function", "parallel", "pipeline", "try", "retry"
@@ -100,11 +100,21 @@ namespace Wally.Core
         public static WallyRunbook LoadFromFile(string filePath)
         {
             string rawSource = File.ReadAllText(filePath);
+            return LoadFromSource(Path.GetFileNameWithoutExtension(filePath), rawSource, filePath);
+        }
 
+        /// <summary>
+        /// Parses runbook content from an in-memory source string.
+        /// Useful for editor previews and diagram generation before the file is saved.
+        /// </summary>
+        public static WallyRunbook LoadFromSource(string name, string rawSource, string? filePath = null)
+        {
             var rb = new WallyRunbook
             {
-                Name      = Path.GetFileNameWithoutExtension(filePath),
-                FilePath  = Path.GetFullPath(filePath),
+                Name      = string.IsNullOrWhiteSpace(name)
+                    ? Path.GetFileNameWithoutExtension(filePath ?? "runbook.wrb")
+                    : name,
+                FilePath  = string.IsNullOrWhiteSpace(filePath) ? string.Empty : Path.GetFullPath(filePath),
                 RawSource = rawSource
             };
 
@@ -140,7 +150,7 @@ namespace Wally.Core
                 rb.Commands.Add(line);
             }
 
-            // Tag format for future scripting support — no AST parsing yet.
+            // Tag format for future scripting support ï¿½ no AST parsing yet.
             if (DetectScriptFormat(rawSource))
                 rb.Format = "script";
 

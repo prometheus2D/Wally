@@ -41,7 +41,7 @@ namespace Wally.Forms
         private readonly WallyEnvironment _environment;
 
         /// <summary>
-        /// Reference to the content panel — the parent into which workspace
+        /// Reference to the content panel ï¿½ the parent into which workspace
         /// panels are added and removed dynamically.
         /// </summary>
         private Panel _content = null!;
@@ -116,7 +116,7 @@ namespace Wally.Forms
                 _lblWorkspaceStatus, _lblActorCount, _lblSessionId, _progressBar
             });
 
-            // -- Explorer Tab Panel (left) — created but NOT added to Controls yet --
+            // -- Explorer Tab Panel (left) ï¿½ created but NOT added to Controls yet --
             _explorerTabPanel = new ExplorerTabPanel
             {
                 Dock        = DockStyle.Left,
@@ -133,7 +133,7 @@ namespace Wally.Forms
                 MinSize   = 200
             };
 
-            // -- Chat Panel (right) — created but NOT added to Controls yet --
+            // -- Chat Panel (right) ï¿½ created but NOT added to Controls yet --
             _chatPanel = new ChatPanel
             {
                 Dock        = DockStyle.Right,
@@ -148,7 +148,7 @@ namespace Wally.Forms
                 MinSize   = 280
             };
 
-            // -- Command Panel (bottom) — always present --
+            // -- Command Panel (bottom) ï¿½ always present --
             _commandPanel = new CommandPanel
             {
                 Dock        = DockStyle.Bottom,
@@ -203,6 +203,27 @@ namespace Wally.Forms
                 if (w != null) OpenWrapperEditor(w);
             };
             _explorerTabPanel.RunbookActivated += (_, name) => { var r = _environment.GetRunbook(name); if (r != null) OpenRunbookEditor(r); };
+            _explorerTabPanel.LoopDiagramRequested += (_, name) =>
+            {
+                var loop = _environment.GetLoop(name);
+                if (loop != null)
+                    OpenDiagramViewer($"diagram:loop:{loop.Name}", $"{loop.Name} Diagram", () => MermaidDiagramService.BuildLoopDefinition(loop));
+            };
+            _explorerTabPanel.RunbookDiagramRequested += (_, name) =>
+            {
+                var runbook = _environment.GetRunbook(name);
+                if (runbook != null)
+                    OpenDiagramViewer($"diagram:runbook:{runbook.Name}", $"{runbook.Name} Diagram", () => MermaidDiagramService.BuildRunbookDefinition(runbook));
+            };
+            _explorerTabPanel.LoopStepDiagramRequested += (_, e) =>
+            {
+                var loop = _environment.GetLoop(e.LoopName);
+                if (loop != null)
+                    OpenDiagramViewer(
+                        $"diagram:step:{loop.Name}:{e.StepIndex}",
+                        $"{loop.Name} / {e.StepName}",
+                        () => MermaidDiagramService.BuildLoopStepDefinition(loop, e.StepIndex));
+            };
 
             // ?? File menu ??
             openWorkspaceMenuItem.Click  += OnOpenWorkspace;
@@ -523,7 +544,7 @@ namespace Wally.Forms
             viewPromptViewerMenuItem.Enabled    = has;
             viewWorkspaceViewerMenuItem.Enabled = has;
 
-            // ?? Workspace menu — disable the entire top-level menu ??
+            // ?? Workspace menu ï¿½ disable the entire top-level menu ??
             workspaceToolStripMenuItem.Enabled = has;
 
             // ?? File ToolStrip ??
@@ -852,7 +873,7 @@ namespace Wally.Forms
             {
                 bool   exists = System.IO.Directory.Exists(entry.Path);
                 string label  = entry.DisplayName.Length > 60
-                    ? entry.DisplayName[..60] + "…"
+                    ? entry.DisplayName[..60] + "ï¿½"
                     : entry.DisplayName;
 
                 var item = new ToolStripMenuItem(label)
@@ -867,7 +888,7 @@ namespace Wally.Forms
             }
 
             items.Add(new ToolStripSeparator());
-            var clearItem = new ToolStripMenuItem("Clear Recent…") { ForeColor = WallyTheme.TextSecondary };
+            var clearItem = new ToolStripMenuItem("Clear Recentï¿½") { ForeColor = WallyTheme.TextSecondary };
             clearItem.Click += OnClearRecentWorkspaces;
             items.Add(clearItem);
         }
@@ -888,7 +909,7 @@ namespace Wally.Forms
         // ?? File events / intelligent open ??????????????????????????????
 
         /// <summary>
-        /// Double-click handler — opens the file using the best available method:
+        /// Double-click handler ï¿½ opens the file using the best available method:
         /// <list type="number">
         ///   <item>Custom editor (Actor, Loop, Wrapper, Runbook, Config) if applicable.</item>
         ///   <item>Built-in Scintilla text editor for editable text files.</item>
@@ -972,7 +993,7 @@ namespace Wally.Forms
         }
 
         /// <summary>
-        /// "Edit as Text" handler — always opens the raw file in the Scintilla
+        /// "Edit as Text" handler ï¿½ always opens the raw file in the Scintilla
         /// text editor, bypassing any custom workspace editors.
         /// </summary>
         private void OnFileEditRequested(object? sender, FileSelectedEventArgs e)
@@ -981,7 +1002,7 @@ namespace Wally.Forms
         }
 
         /// <summary>
-        /// "Open with System" handler — always opens the file with the OS
+        /// "Open with System" handler ï¿½ always opens the file with the OS
         /// default application via shell execute.
         /// </summary>
         private void OnFileOpenExternalRequested(object? sender, FileSelectedEventArgs e)
@@ -1039,6 +1060,29 @@ namespace Wally.Forms
             editor.BindEnvironment(_environment);
             editor.LoadLoop(loop);
             editor.DirtyChanged += (_, _) => _tabHost.SetTabDirty(key, editor.IsDirty);
+            editor.ViewDiagramRequested += (_, _) =>
+            {
+                WallyLoopDefinition snapshot = editor.CreateLoopSnapshot();
+                string snapshotKey = $"diagram:loop:{snapshot.Name}";
+                OpenDiagramViewer(
+                    snapshotKey,
+                    $"{snapshot.Name} Diagram",
+                    () => MermaidDiagramService.BuildLoopDefinition(editor.CreateLoopSnapshot()));
+            };
+            editor.ViewSelectedStepDiagramRequested += (_, _) =>
+            {
+                if (!editor.TryGetSelectedStepIndex(out int stepIndex))
+                    return;
+
+                WallyLoopDefinition snapshot = editor.CreateLoopSnapshot();
+                string stepName = snapshot.Steps.Count > stepIndex && !string.IsNullOrWhiteSpace(snapshot.Steps[stepIndex].Name)
+                    ? snapshot.Steps[stepIndex].Name
+                    : $"step-{stepIndex + 1}";
+                OpenDiagramViewer(
+                    $"diagram:step:{snapshot.Name}:{stepIndex}",
+                    $"{snapshot.Name} / {stepName}",
+                    () => MermaidDiagramService.BuildLoopStepDefinition(editor.CreateLoopSnapshot(), stepIndex));
+            };
             _tabHost.OpenTab(key, loop.Name, "\u267B", editor);
         }
 
@@ -1060,6 +1104,14 @@ namespace Wally.Forms
             var editor = new RunbookEditorPanel();
             editor.LoadRunbook(runbook);
             editor.DirtyChanged += (_, _) => _tabHost.SetTabDirty(key, editor.IsDirty);
+            editor.ViewDiagramRequested += (_, _) =>
+            {
+                WallyRunbook snapshot = editor.CreateRunbookSnapshot();
+                OpenDiagramViewer(
+                    $"diagram:runbook:{snapshot.Name}",
+                    $"{snapshot.Name} Diagram",
+                    () => MermaidDiagramService.BuildRunbookDefinition(editor.CreateRunbookSnapshot()));
+            };
             _tabHost.OpenTab(key, runbook.Name, "\uD83D\uDCDC", editor);
         }
 
@@ -1105,7 +1157,28 @@ namespace Wally.Forms
             var viewer = new WorkspaceViewerPanel();
             viewer.BindEnvironment(_environment);
             viewer.BuildView();
+            viewer.ViewDiagramRequested += (_, _) =>
+                OpenDiagramViewer("diagram:workspace", "Workspace Diagram", () => MermaidDiagramService.BuildWorkspaceDefinition(_environment.Workspace!));
             _tabHost.OpenTab(TabKeyWorkspaceViewer, "Workspace", "\uD83D\uDCCA", viewer);
+        }
+
+        private void OpenDiagramViewer(string key, string title, Func<MermaidDiagramDefinition> definitionFactory)
+        {
+            if (!_environment.HasWorkspace)
+                return;
+
+            if (_tabHost.GetTabContent(key) is MermaidDiagramViewerPanel existingViewer)
+            {
+                existingViewer.Configure(_environment, definitionFactory);
+                _tabHost.SelectTab(key);
+                existingViewer.GenerateDiagram();
+                return;
+            }
+
+            var viewer = new MermaidDiagramViewerPanel();
+            viewer.Configure(_environment, definitionFactory);
+            _tabHost.OpenTab(key, title, "\uD83D\uDDFA", viewer);
+            viewer.GenerateDiagram();
         }
 
         /// <summary>

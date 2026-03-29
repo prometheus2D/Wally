@@ -1,0 +1,64 @@
+﻿flowchart TD
+    WS["Workspace<br/>Conversations"]
+    ACTORS["Actors<br/>5"]
+    LOOPS["Loops<br/>3"]
+    RUNBOOKS["Runbooks<br/>13"]
+    WRAPPERS["Wrappers<br/>6"]
+    WS --> ACTORS
+    WS --> LOOPS
+    WS --> RUNBOOKS
+    WS --> WRAPPERS
+    A1["BusinessAnalyst"]
+    ACTORS --> A1
+    A2["Engineer"]
+    ACTORS --> A2
+    A3["ProjectPlanner"]
+    ACTORS --> A3
+    A4["RequirementsExtractor"]
+    ACTORS --> A4
+    A5["Stakeholder"]
+    ACTORS --> A5
+    L1["DocumentationReflection<br/>agent loop (5 max)"]
+    LOOPS --> L1
+    L2["ProposalToTasks<br/>agent loop (6 max)"]
+    LOOPS --> L2
+    L3["SingleRun<br/>agent loop (1 max)"]
+    LOOPS --> L3
+    R1["analyse-and-review<br/>1 command(s)"]
+    RUNBOOKS --> R1
+    R2["code-review<br/>1 command(s)"]
+    RUNBOOKS --> R2
+    R3["create-execution-plan<br/>1 command(s)"]
+    RUNBOOKS --> R3
+    R4["documentation-reflection<br/>1 command(s)"]
+    RUNBOOKS --> R4
+    R5["example-multi-call-loop<br/>13 command(s)"]
+    RUNBOOKS --> R5
+    R6["example-nested-3-level<br/>24 command(s)"]
+    RUNBOOKS --> R6
+    R7["example-shell-and-run<br/>2 command(s)"]
+    RUNBOOKS --> R7
+    R8["full-analysis<br/>4 command(s)"]
+    RUNBOOKS --> R8
+    R9["hello-world<br/>2 command(s)"]
+    RUNBOOKS --> R9
+    R10["MailboxCycle<br/>2 command(s)"]
+    RUNBOOKS --> R10
+    R11["proposal-to-implementation<br/>1 command(s)"]
+    RUNBOOKS --> R11
+    R12["refactor<br/>1 command(s)"]
+    RUNBOOKS --> R12
+    R13["requirements-deep-dive<br/>1 command(s)"]
+    RUNBOOKS --> R13
+    W1["AutoCopilot"]
+    WRAPPERS --> W1
+    W2["Claude"]
+    WRAPPERS --> W2
+    W3["ClaudeAgent"]
+    WRAPPERS --> W3
+    W4["Codex"]
+    WRAPPERS --> W4
+    W5["CodexAgent"]
+    WRAPPERS --> W5
+    W6["Copilot"]
+    WRAPPERS --> W6

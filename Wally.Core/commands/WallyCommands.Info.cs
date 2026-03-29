@@ -224,6 +224,9 @@ namespace Wally.Core
             Console.WriteLine("    --no-history                Suppress conversation history injection.");
             Console.WriteLine();
             Console.WriteLine("  runbook <name> [\"<prompt>\"]   Execute a runbook (.wrb command sequence).");
+            Console.WriteLine("  diagram <target> [...]        Generate a Mermaid diagram via Mermaid CLI.");
+            Console.WriteLine("    Targets: workspace | loop <name> | step <loop> <step> | runbook <name>");
+            Console.WriteLine("    Options: -f png|svg|pdf, -o <outputPath>");
             Console.WriteLine();
             Console.WriteLine("  Actors:   list | add-actor | edit-actor | delete-actor | reload-actors");
             Console.WriteLine("  Loops:    list-loops | add-loop | edit-loop | delete-loop");

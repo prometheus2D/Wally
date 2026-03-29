@@ -15,11 +15,12 @@ namespace Wally.Core
     /// Entry point for all Wally command dispatch.
     /// The implementation is split across partial class files in the Commands/ folder:
     /// <list type="bullet">
-    ///   <item><c>WallyCommands.Workspace.cs</c> — load / setup / repair / save / cleanup</item>
-    ///   <item><c>WallyCommands.Run.cs</c>       — run, pipeline execution</item>
-    ///   <item><c>WallyCommands.Runbook.cs</c>   — runbook execution, script interpreter</item>
-    ///   <item><c>WallyCommands.Crud.cs</c>      — actor / loop / wrapper / runbook CRUD</item>
-    ///   <item><c>WallyCommands.Info.cs</c>      — list, info, help, tutorial</item>
+    ///   <item><c>WallyCommands.Workspace.cs</c> ï¿½ load / setup / repair / save / cleanup</item>
+    ///   <item><c>WallyCommands.Run.cs</c>       ï¿½ run, pipeline execution</item>
+    ///   <item><c>WallyCommands.Runbook.cs</c>   ï¿½ runbook execution, script interpreter</item>
+    ///   <item><c>WallyCommands.Diagrams.cs</c>  ï¿½ Mermaid diagram generation</item>
+    ///   <item><c>WallyCommands.Crud.cs</c>      ï¿½ actor / loop / wrapper / runbook CRUD</item>
+    ///   <item><c>WallyCommands.Info.cs</c>      ï¿½ list, info, help, tutorial</item>
     /// </list>
     /// </summary>
     public static partial class WallyCommands
@@ -29,7 +30,7 @@ namespace Wally.Core
         private static readonly string[] _knownVerbs =
         {
             "setup", "repair", "load", "save", "run", "runbook", "list", "list-loops",
-            "list-wrappers", "list-runbooks", "info", "reload-actors", "cleanup",
+            "list-wrappers", "list-runbooks", "info", "reload-actors", "cleanup", "diagram",
             "clear-history", "commands", "help", "tutorial", "tutorial-mode", "clear", "cls",
             "add-actor", "edit-actor", "delete-actor",
             "add-loop", "edit-loop", "delete-loop",
@@ -132,6 +133,26 @@ namespace Wally.Core
                     if (args.Length < 2) { Console.WriteLine("Usage: runbook <name> [\"<prompt>\"]"); return false; }
                     string? prompt = args.Length >= 3 ? args[2] : null;
                     return HandleRunbook(env, args[1], prompt, runbookDepth);
+                }
+                case "diagram":
+                {
+                    string? targetType = WallyArgParser.GetPositional(args, 1);
+                    if (string.IsNullOrWhiteSpace(targetType))
+                    {
+                        Console.WriteLine("Usage: diagram <workspace|loop|step|runbook> [name] [step-name-or-index] [-f png|svg|pdf] [-o outputPath]");
+                        return false;
+                    }
+
+                    string? outputPath = WallyArgParser.GetOption(args, "-o", "--output");
+                    string outputFormat = WallyArgParser.GetOption(args, "-f", "--format") ?? "png";
+                    string? primaryName = string.Equals(targetType, "workspace", StringComparison.OrdinalIgnoreCase)
+                        ? null
+                        : WallyArgParser.GetPositional(args, 2);
+                    string? secondaryName = string.Equals(targetType, "step", StringComparison.OrdinalIgnoreCase)
+                        ? WallyArgParser.GetPositional(args, 3)
+                        : null;
+
+                    return HandleDiagram(env, targetType, primaryName, secondaryName, outputFormat, outputPath);
                 }
                 case "list":          HandleList(env);         return true;
                 case "list-loops":    HandleListLoops(env);    return true;

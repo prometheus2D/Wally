@@ -21,6 +21,7 @@ namespace Wally.Forms.Controls.Editors
         private readonly Label     _lblStatus;
         private readonly Button    _btnSave;
         private readonly Button    _btnRevert;
+        private readonly Button    _btnViewDiagram;
 
         private WallyRunbook? _runbook;
         private string? _originalContent;
@@ -28,6 +29,7 @@ namespace Wally.Forms.Controls.Editors
 
         public event EventHandler? DirtyChanged;
         public event EventHandler? Saved;
+        public event EventHandler? ViewDiagramRequested;
 
         public bool IsDirty => _isDirty;
         public WallyRunbook? Runbook => _runbook;
@@ -56,6 +58,8 @@ namespace Wally.Forms.Controls.Editors
             _btnSave.Click += OnSave;
             _btnRevert = CreateButton("\u21BA Revert");
             _btnRevert.Click += OnRevert;
+            _btnViewDiagram = CreateButton("\uD83D\uDDFA Diagram");
+            _btnViewDiagram.Click += (_, _) => ViewDiagramRequested?.Invoke(this, EventArgs.Empty);
 
             _lblStatus = new Label
             {
@@ -66,6 +70,7 @@ namespace Wally.Forms.Controls.Editors
 
             actionBar.Controls.Add(_btnSave);
             actionBar.Controls.Add(_btnRevert);
+            actionBar.Controls.Add(_btnViewDiagram);
             actionBar.Controls.Add(_lblStatus);
             headerPanel.Controls.Add(actionBar);
 
@@ -131,6 +136,14 @@ namespace Wally.Forms.Controls.Editors
             if (_runbook == null) return false;
             OnSave(this, EventArgs.Empty);
             return !_isDirty; // OnSave sets dirty=false on success
+        }
+
+        public WallyRunbook CreateRunbookSnapshot()
+        {
+            if (_runbook == null)
+                throw new InvalidOperationException("No runbook is loaded.");
+
+            return WallyRunbook.LoadFromSource(_runbook.Name, _txtContent.Text, _runbook.FilePath);
         }
 
         // ?? Event handlers ?????????????????????????????????????????????????

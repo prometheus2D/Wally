@@ -267,6 +267,18 @@ namespace Wally.Console
                         return 0;
                     }
                     if (opts is RunbookOptions rbo) { WallyCommands.HandleRunbook(_environment, rbo.Name, rbo.Prompt); return 0; }
+                    if (opts is DiagramOptions dio)
+                    {
+                        return WallyCommands.HandleDiagram(
+                            _environment,
+                            dio.TargetType,
+                            dio.Name,
+                            dio.SecondaryName,
+                            dio.Format,
+                            dio.OutputPath)
+                            ? 0
+                            : 1;
+                    }
 
                     // ── Inspection ────────────────────────────────────────────
                     if (opts is InfoOptions)          { WallyCommands.HandleInfo(_environment); return 0; }

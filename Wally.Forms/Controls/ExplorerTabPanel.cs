@@ -13,11 +13,11 @@ namespace Wally.Forms.Controls
     /// <summary>
     /// Tabbed left-panel host that presents three explorer views:
     /// <list type="bullet">
-    ///   <item><b>Files</b>   — raw filesystem tree rooted at the workspace WorkSource.</item>
-    ///   <item><b>Project</b> — live project state: actor mailboxes (Inbox / Outbox / Pending / Active),
+    ///   <item><b>Files</b>   ï¿½ raw filesystem tree rooted at the workspace WorkSource.</item>
+    ///   <item><b>Project</b> ï¿½ live project state: actor mailboxes (Inbox / Outbox / Pending / Active),
     ///                          actor docs, the Projects hierarchy (Epochs ? Sprints ? Tasks),
     ///                          and workspace-level documentation.</item>
-    ///   <item><b>Objects</b> — workspace configuration objects (Actors, Loops, Wrappers, Runbooks)
+    ///   <item><b>Objects</b> ï¿½ workspace configuration objects (Actors, Loops, Wrappers, Runbooks)
     ///                          with their runtime properties for inspection.</item>
     /// </list>
     /// The tab strip is custom-drawn to match the flat dark theme and suppresses
@@ -75,6 +75,9 @@ namespace Wally.Forms.Controls
         public event EventHandler<string>? WrapperActivated;
         /// <summary>Raised when the user double-clicks a Runbook in the Object Explorer.</summary>
         public event EventHandler<string>? RunbookActivated;
+        public event EventHandler<string>? LoopDiagramRequested;
+        public event EventHandler<string>? RunbookDiagramRequested;
+        public event EventHandler<ObjectExplorerPanel.LoopStepDiagramRequestedEventArgs>? LoopStepDiagramRequested;
 
         // ?? Constructor ?????????????????????????????????????????????????????
 
@@ -131,6 +134,9 @@ namespace Wally.Forms.Controls
             _objectExplorer.LoopActivated      += (s, e) => LoopActivated?.Invoke(s, e);
             _objectExplorer.WrapperActivated   += (s, e) => WrapperActivated?.Invoke(s, e);
             _objectExplorer.RunbookActivated   += (s, e) => RunbookActivated?.Invoke(s, e);
+            _objectExplorer.LoopDiagramRequested += (s, e) => LoopDiagramRequested?.Invoke(s, e);
+            _objectExplorer.RunbookDiagramRequested += (s, e) => RunbookDiagramRequested?.Invoke(s, e);
+            _objectExplorer.LoopStepDiagramRequested += (s, e) => LoopStepDiagramRequested?.Invoke(s, e);
 
             // ?? Assembly ??
             Controls.Add(_body);
@@ -178,7 +184,7 @@ namespace Wally.Forms.Controls
             _objectExplorer.Refresh();
         }
 
-        /// <summary>Refreshes only the Object Explorer (cheap — no disk I/O).</summary>
+        /// <summary>Refreshes only the Object Explorer (cheap ï¿½ no disk I/O).</summary>
         public void RefreshObjects() => _objectExplorer.Refresh();
 
         /// <summary>Switches to the Files tab and focuses the tree.</summary>

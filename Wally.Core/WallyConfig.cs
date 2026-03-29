@@ -17,13 +17,13 @@ namespace Wally.Core
     /// </summary>
     public class WallyConfig
     {
-        // — Folder names ——————————————————————————————————————————————————————
+        // ï¿½ Folder names ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
         /// <summary>
         /// Subfolder inside the workspace folder that holds all project state.
         /// Structure inside: <c>&lt;ProjectName&gt;/Epochs/&lt;EpochName&gt;/Sprints/&lt;SprintName&gt;/Tasks/</c>.
         /// Tasks can also live directly under an epoch without a sprint.
-        /// Created at runtime by actors or the user — not pre-populated on setup.
+        /// Created at runtime by actors or the user ï¿½ not pre-populated on setup.
         /// Default: <c>Projects</c>.
         /// </summary>
         public string ProjectsFolderName { get; set; } = "Projects";
@@ -78,7 +78,7 @@ namespace Wally.Core
         /// </summary>
         public int LogRotationMinutes { get; set; } = 2;
 
-        // — Default options (available) ———————————————————————————————————
+        // ï¿½ Default options (available) ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
         /// <summary>
         /// Curated list of model identifiers available in this workspace.
@@ -115,7 +115,7 @@ namespace Wally.Core
         /// </summary>
         public List<string> DefaultRunbooks { get; set; } = new();
 
-        // — Default selected (priority order) —————————————————————————————
+        // ï¿½ Default selected (priority order) ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
         /// <summary>
         /// Priority-ordered list of preferred model identifiers.
@@ -123,7 +123,7 @@ namespace Wally.Core
         /// becomes <see cref="DefaultModel"/>. This separates "what's in the
         /// dropdown" from "what's pre-selected."
         /// <para>
-        /// Models are string identifiers — there is no disk-load check.
+        /// Models are string identifiers ï¿½ there is no disk-load check.
         /// The match is performed against <see cref="DefaultModels"/> so that
         /// removing a model from the available list also removes it as a
         /// candidate for selection.
@@ -160,12 +160,27 @@ namespace Wally.Core
         /// </summary>
         public List<string> SelectedActors { get; set; } = new();
 
-        // — Runtime settings ——————————————————————————————————————————————————
+        // ï¿½ Runtime settings ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
         /// <summary>Maximum number of iterations in iterative actor runs.</summary>
         public int MaxIterations { get; set; } = 10;
 
-        // — Factory ———————————————————————————————————————————————————————
+        /// <summary>
+        /// Executable used to invoke Mermaid CLI rendering.
+        /// Defaults to <c>npx</c> so Wally can run <c>@mermaid-js/mermaid-cli</c>
+        /// without requiring a separate wrapper script.
+        /// </summary>
+        public string MermaidCliCommand { get; set; } = "npx";
+
+        /// <summary>
+        /// Argument template passed to <see cref="MermaidCliCommand"/>.
+        /// Supported tokens: <c>{input}</c>, <c>{output}</c>, <c>{format}</c>.
+        /// File path tokens are shell-quoted automatically.
+        /// </summary>
+        public string MermaidCliArgumentsTemplate { get; set; }
+            = "-y @mermaid-js/mermaid-cli -i {input} -o {output} -b transparent";
+
+        // ï¿½ Factory ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
         /// <summary>Deserializes a <see cref="WallyConfig"/> from a JSON file.</summary>
         public static WallyConfig LoadFromFile(string filePath)
@@ -191,29 +206,29 @@ namespace Wally.Core
             File.WriteAllText(filePath, json);
         }
 
-        // — Resolved defaults (runtime only — not persisted) ——————————————
+        // ï¿½ Resolved defaults (runtime only ï¿½ not persisted) ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
-        /// <summary>Resolved model — first <see cref="SelectedModels"/> entry found in <see cref="DefaultModels"/>.</summary>
+        /// <summary>Resolved model ï¿½ first <see cref="SelectedModels"/> entry found in <see cref="DefaultModels"/>.</summary>
         [JsonIgnore]
         public string? DefaultModel { get; private set; }
 
-        /// <summary>Resolved wrapper — first <see cref="SelectedWrappers"/> entry that is loaded from disk.</summary>
+        /// <summary>Resolved wrapper ï¿½ first <see cref="SelectedWrappers"/> entry that is loaded from disk.</summary>
         [JsonIgnore]
         public string? DefaultWrapper { get; private set; }
 
-        /// <summary>Resolved loop — first <see cref="SelectedLoops"/> entry that is loaded from disk.</summary>
+        /// <summary>Resolved loop ï¿½ first <see cref="SelectedLoops"/> entry that is loaded from disk.</summary>
         [JsonIgnore]
         public string? ResolvedDefaultLoop { get; private set; }
 
-        /// <summary>Resolved runbook — first <see cref="SelectedRunbooks"/> entry that is loaded from disk.</summary>
+        /// <summary>Resolved runbook ï¿½ first <see cref="SelectedRunbooks"/> entry that is loaded from disk.</summary>
         [JsonIgnore]
         public string? ResolvedDefaultRunbook { get; private set; }
 
-        /// <summary>Resolved actor — first <see cref="SelectedActors"/> entry that matches a loaded actor name.</summary>
+        /// <summary>Resolved actor ï¿½ first <see cref="SelectedActors"/> entry that matches a loaded actor name.</summary>
         [JsonIgnore]
         public string? DefaultActorName { get; private set; }
 
-        // — Resolve selected defaults ————————————————————————————————————
+        // ï¿½ Resolve selected defaults ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
         /// <summary>
         /// Resolves the active default for each category by picking the first

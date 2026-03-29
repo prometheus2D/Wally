@@ -15,7 +15,7 @@ namespace Wally.Forms.Controls.Editors
 {
     /// <summary>
     /// Read-only viewer that displays a comprehensive summary of the loaded
-    /// workspace — paths, config, actors, loops, wrappers, runbooks, resolved
+    /// workspace ï¿½ paths, config, actors, loops, wrappers, runbooks, resolved
     /// defaults, session info, and disk structure. Designed for expert users
     /// who want a single-pane view of everything that matters.
     /// </summary>
@@ -26,11 +26,14 @@ namespace Wally.Forms.Controls.Editors
         private readonly RichTextBox _txtOutput;
         private readonly Button _btnRefresh;
         private readonly Button _btnCopy;
+        private readonly Button _btnDiagram;
         private readonly Label _lblStatus;
 
         // ?? State ?????????????????????????????????????????????????????????????
 
         private WallyEnvironment? _environment;
+
+        public event EventHandler? ViewDiagramRequested;
 
         // ?? Constructor ???????????????????????????????????????????????????????
 
@@ -89,8 +92,12 @@ namespace Wally.Forms.Controls.Editors
                 }
             };
 
+            _btnDiagram = CreateButton("\uD83D\uDDFA Diagram");
+            _btnDiagram.Click += (_, _) => ViewDiagramRequested?.Invoke(this, EventArgs.Empty);
+
             actionBar.Controls.Add(_btnRefresh);
             actionBar.Controls.Add(_btnCopy);
+            actionBar.Controls.Add(_btnDiagram);
 
             _lblStatus = new Label
             {

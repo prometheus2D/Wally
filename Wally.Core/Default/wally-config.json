@@ -55,5 +55,7 @@
   "SelectedRunbooks": [
     "proposal-to-implementation"
   ],
-  "MaxIterations": 10
+  "MaxIterations": 10,
+  "MermaidCliCommand": "npx",
+  "MermaidCliArgumentsTemplate": "-y @mermaid-js/mermaid-cli -i {input} -o {output} -b transparent"
 }
