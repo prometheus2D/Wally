@@ -8,7 +8,7 @@ using Wally.Core.Logging;
 namespace Wally.Core.Actors
 {
     /// <summary>
-    /// Represents a Wally Actor — a personality defined by RBA prompts
+    /// Represents a Wally Actor ï¿½ a personality defined by RBA prompts
     /// (Role, AcceptanceCriteria, Intent).
     /// </summary>
     public class Actor
@@ -130,9 +130,13 @@ namespace Wally.Core.Actors
         /// <param name="llmResponse">The response from the LLM that may contain action blocks.</param>
         /// <param name="workspace">The workspace context for executing actions.</param>
         /// <returns>The original response with action execution results appended.</returns>
-        public virtual string PerformActions(string llmResponse, WallyWorkspace workspace)
+        public virtual string PerformActions(
+            string llmResponse,
+            WallyWorkspace workspace,
+            WallyEnvironment? environment = null,
+            WallyStepDefinition? stepDefinition = null)
         {
-            return ActionDispatcher.ProcessActionBlocks(this, llmResponse, workspace, Logger);
+            return ActionDispatcher.ProcessActionBlocks(this, llmResponse, workspace, Logger, environment, stepDefinition);
         }
 
         protected virtual List<(string RelativePath, string Source)> GetDocumentationFiles()

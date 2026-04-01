@@ -3,7 +3,9 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Wally.Core.Actors;
@@ -14,14 +16,16 @@ namespace Wally.Core
 {
     public class WallyEnvironment
     {
-        // — Active workspace ——————————————————————————————————————————————————
+        private static readonly Regex StepPlaceholderRegex = new(@"\{(?<name>[A-Za-z0-9_]+)\}", RegexOptions.Compiled);
+
+        // ï¿½ Active workspace ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
         [JsonIgnore]
         public WallyWorkspace? Workspace { get; private set; }
 
         public bool HasWorkspace => Workspace?.IsLoaded == true;
 
-        // — Session logging ——————————————————————————————————————————————————
+        // ï¿½ Session logging ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
         /// <summary>
         /// The logger for this environment lifetime. Created once at construction;
@@ -30,7 +34,7 @@ namespace Wally.Core
         [JsonIgnore]
         public SessionLogger Logger { get; }
 
-        // — Conversation history ——————————————————————————————————————————————
+        // ï¿½ Conversation history ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
         /// <summary>
         /// Ordered conversation history (prompt/response pairs). Created once at
@@ -39,13 +43,13 @@ namespace Wally.Core
         [JsonIgnore]
         public ConversationLogger History { get; }
 
-        // — Folder pass-throughs ——————————————————————————————————————————————
+        // ï¿½ Folder pass-throughs ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
         /// <summary>The workspace folder path (e.g. <c>/repo/.wally</c>).</summary>
         public string? WorkspaceFolder => Workspace?.WorkspaceFolder;
 
         /// <summary>
-        /// The WorkSource directory — the root of the user's codebase.
+        /// The WorkSource directory ï¿½ the root of the user's codebase.
         /// This is the parent of the <c>.wally/</c> workspace folder and the
         /// directory whose files provide context to the LLM wrapper.
         /// </summary>
@@ -57,7 +61,7 @@ namespace Wally.Core
         /// </summary>
         public string? SourcePath => HasWorkspace ? Workspace!.SourcePath : null;
 
-        // — Pass-throughs ———————————————————————————————————————————————————
+        // ï¿½ Pass-throughs ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
         [JsonIgnore] public List<Actor> Actors => Workspace?.Actors ?? _emptyActors;
         private static readonly List<Actor> _emptyActors = new();
@@ -68,7 +72,7 @@ namespace Wally.Core
         [JsonIgnore] public List<WallyRunbook> Runbooks => Workspace?.Runbooks ?? _emptyRunbooks;
         private static readonly List<WallyRunbook> _emptyRunbooks = new();
 
-        // — Constructor ——————————————————————————————————————————————————————
+        // ï¿½ Constructor ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
         public WallyEnvironment()
         {
@@ -76,7 +80,7 @@ namespace Wally.Core
             History = new ConversationLogger();
         }
 
-        // — Workspace lifecycle ———————————————————————————————————————————————
+        // ï¿½ Workspace lifecycle ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
         /// <summary>Loads the workspace at <paramref name="workspaceFolder"/>.</summary>
         public void LoadWorkspace(string workspaceFolder)
@@ -160,7 +164,7 @@ namespace Wally.Core
         /// <summary>
         /// Closes the current workspace, resetting the environment to an unloaded state.
         /// The session logger is unbound (file handles released) so the workspace
-        /// folder can be safely deleted. The logger remains active — new entries are
+        /// folder can be safely deleted. The logger remains active ï¿½ new entries are
         /// buffered in memory until a workspace is loaded again.
         /// </summary>
         public void CloseWorkspace()
@@ -179,7 +183,7 @@ namespace Wally.Core
             InjectLoggerIntoActors();
         }
 
-        // — Actor management ——————————————————————————————————————————————————
+        // ï¿½ Actor management ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
         /// <summary>
         /// Returns the actor whose name matches <paramref name="name"/> (case-insensitive),
@@ -251,7 +255,7 @@ namespace Wally.Core
         {
             var ws = RequireWorkspace();
 
-            // 1 — Explicit caller override always wins, but still enforce allow-list.
+            // 1 ï¿½ Explicit caller override always wins, but still enforce allow-list.
             if (!string.IsNullOrWhiteSpace(wrapperOverride))
             {
                 if (!actor.IsWrapperAllowed(wrapperOverride!))
@@ -261,7 +265,7 @@ namespace Wally.Core
                 return wrapperOverride;
             }
 
-            // 2 — Actor's own preferred wrapper (must pass allow-list if set).
+            // 2 ï¿½ Actor's own preferred wrapper (must pass allow-list if set).
             if (!string.IsNullOrWhiteSpace(actor.PreferredWrapper))
             {
                 string preferred = actor.PreferredWrapper!;
@@ -270,7 +274,7 @@ namespace Wally.Core
                     return preferred;
             }
 
-            // 3 — First entry in AllowedWrappers that is actually loaded.
+            // 3 ï¿½ First entry in AllowedWrappers that is actually loaded.
             if (actor.AllowedWrappers.Count > 0)
             {
                 foreach (string name in actor.AllowedWrappers)
@@ -280,7 +284,7 @@ namespace Wally.Core
                 }
             }
 
-            // 4 — Workspace default (allow-list check when non-empty).
+            // 4 ï¿½ Workspace default (allow-list check when non-empty).
             string wsDefault = ws.Config.DefaultWrapper;
             if (!string.IsNullOrWhiteSpace(wsDefault))
             {
@@ -311,7 +315,7 @@ namespace Wally.Core
         // ?? Running actors ?????????????????????????????????????????????????????
 
         /// <summary>
-        /// Synchronous wrapper — delegates to <see cref="ExecutePromptAsync"/>
+        /// Synchronous wrapper ï¿½ delegates to <see cref="ExecutePromptAsync"/>
         /// </summary>
         public string ExecutePrompt(
             string prompt,
@@ -327,7 +331,7 @@ namespace Wally.Core
 
         /// <summary>
         /// Executes a prompt directly through the LLM wrapper without any actor
-        /// enrichment. Genuinely async — does not block the calling thread.
+        /// enrichment. Genuinely async ï¿½ does not block the calling thread.
         /// </summary>
         public async Task<string> ExecutePromptAsync(
             string prompt,
@@ -382,7 +386,7 @@ namespace Wally.Core
         }
 
         /// <summary>
-        /// Synchronous wrapper — delegates to <see cref="ExecuteActorAsync"/>
+        /// Synchronous wrapper ï¿½ delegates to <see cref="ExecuteActorAsync"/>
         /// </summary>
         public string ExecuteActor(
             Actor actor,
@@ -399,7 +403,7 @@ namespace Wally.Core
 
         /// <summary>
         /// Executes a single actor: Setup ? ProcessPrompt ? LlmWrapper.ExecuteAsync.
-        /// Genuinely async — does not block the calling thread.
+        /// Genuinely async ï¿½ does not block the calling thread.
         /// </summary>
         public async Task<string> ExecuteActorAsync(
             Actor actor,
@@ -409,7 +413,8 @@ namespace Wally.Core
             string? loopName = null,
             int iteration = 0,
             bool skipHistory = false,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken = default,
+            WallyStepDefinition? stepDefinition = null)
         {
             string? resolvedWrapperName = ResolveWrapperForActor(actor, wrapperOverride);
             if (!string.IsNullOrWhiteSpace(loopName))
@@ -446,7 +451,7 @@ namespace Wally.Core
             sw.Stop();
 
             if (wrapper.CanMakeChanges && !string.IsNullOrEmpty(response))
-                response = actor.PerformActions(response, ws);
+                response = actor.PerformActions(response, ws, this, stepDefinition);
 
             bool isError = IsWrapperError(response, wrapper.Name);
             History.RecordTurn(new ConversationTurn
@@ -495,7 +500,305 @@ namespace Wally.Core
                 .ConfigureAwait(false);
         }
 
-        // — Guard —————————————————————————————————————————————————————————————
+        /// <summary>
+        /// Resolves a workspace-relative path against the active workspace folder.
+        /// Absolute paths are returned unchanged apart from normalization.
+        /// </summary>
+        public string ResolveWorkspaceFilePath(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+                throw new ArgumentException("Path cannot be empty.", nameof(path));
+
+            return Path.IsPathRooted(path)
+                ? Path.GetFullPath(path)
+                : Path.GetFullPath(Path.Combine(RequireWorkspace().WorkspaceFolder, path));
+        }
+
+        /// <summary>
+        /// Builds the fully expanded prompt for a step from its template, declared
+        /// document inputs, and referenced ability guidance blocks.
+        /// </summary>
+        public Task<string> BuildStepPromptAsync(
+            WallyStepDefinition stepDef,
+            string userPrompt,
+            string? previousStepResult,
+            CancellationToken cancellationToken = default)
+            => ExpandStepTemplateAsync(
+                stepDef,
+                stepDef.BuildPrompt(userPrompt, previousStepResult),
+                userPrompt,
+                previousStepResult,
+                cancellationToken);
+
+        /// <summary>
+        /// Builds the fully expanded command text for a shell or command-backed step.
+        /// </summary>
+        public Task<string> BuildStepCommandTextAsync(
+            WallyStepDefinition stepDef,
+            string userPrompt,
+            string? previousStepResult,
+            CancellationToken cancellationToken = default)
+            => ExpandStepTemplateAsync(
+                stepDef,
+                string.IsNullOrWhiteSpace(stepDef.CommandTemplate)
+                    ? stepDef.BuildPrompt(userPrompt, previousStepResult)
+                    : stepDef.CommandTemplate,
+                userPrompt,
+                previousStepResult,
+                cancellationToken);
+
+        /// <summary>
+        /// Expands a code-step argument value using the same declared input scope as step templates.
+        /// </summary>
+        public Task<string> BuildStepArgumentValueAsync(
+            WallyStepDefinition stepDef,
+            string argumentValue,
+            string userPrompt,
+            string? previousStepResult,
+            CancellationToken cancellationToken = default)
+            => ExpandStepTemplateAsync(
+                stepDef,
+                argumentValue ?? string.Empty,
+                userPrompt,
+                previousStepResult,
+                cancellationToken);
+
+        private async Task<string> ExpandStepTemplateAsync(
+            WallyStepDefinition stepDef,
+            string template,
+            string userPrompt,
+            string? previousStepResult,
+            CancellationToken cancellationToken)
+        {
+            ValidateStepTemplateScope(stepDef, template);
+
+            string abilityBlocks = await ResolveAbilityBlocksAsync(stepDef.AbilityRefs, cancellationToken)
+                .ConfigureAwait(false);
+
+            string expanded = template
+                .Replace("{userPrompt}", userPrompt)
+                .Replace("{previousStepResult}", previousStepResult ?? string.Empty)
+                .Replace("{AbilityBlocks}", abilityBlocks);
+
+            foreach (var documentInput in stepDef.DocumentInputs)
+            {
+                string content = await ReadDeclaredStepInputAsync(stepDef, documentInput, cancellationToken)
+                    .ConfigureAwait(false);
+                expanded = expanded.Replace($"{{{documentInput.Key}}}", content);
+            }
+
+            foreach (var argument in stepDef.Arguments)
+                expanded = expanded.Replace($"{{{argument.Key}}}", argument.Value ?? string.Empty);
+
+            if (stepDef.AbilityRefs.Count > 0 &&
+                !template.Contains("{AbilityBlocks}", StringComparison.Ordinal) &&
+                !string.IsNullOrWhiteSpace(abilityBlocks))
+            {
+                expanded = $"{abilityBlocks}{Environment.NewLine}{Environment.NewLine}{expanded}";
+            }
+
+            return expanded;
+        }
+
+        /// <summary>
+        /// Validates that a step template only references built-in placeholders,
+        /// declared document inputs, or declared arguments.
+        /// </summary>
+        public void ValidateStepTemplateScope(WallyStepDefinition stepDef, string template)
+        {
+            if (string.IsNullOrWhiteSpace(template))
+                return;
+
+            var allowedPlaceholders = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            {
+                "userPrompt",
+                "previousStepResult",
+                "AbilityBlocks"
+            };
+
+            foreach (var documentInput in stepDef.DocumentInputs)
+            {
+                if (!string.IsNullOrWhiteSpace(documentInput.Key))
+                    allowedPlaceholders.Add(documentInput.Key);
+            }
+
+            foreach (var argument in stepDef.Arguments.Keys)
+            {
+                if (!string.IsNullOrWhiteSpace(argument))
+                    allowedPlaceholders.Add(argument);
+            }
+
+            string stepName = string.IsNullOrWhiteSpace(stepDef.Name) ? "(unnamed step)" : stepDef.Name;
+            foreach (Match match in StepPlaceholderRegex.Matches(template))
+            {
+                string placeholderName = match.Groups["name"].Value;
+                if (!allowedPlaceholders.Contains(placeholderName))
+                {
+                    throw new InvalidOperationException(
+                        $"Step '{stepName}' references undeclared placeholder '{{{placeholderName}}}'. Declare it in documentInputs or arguments before using it in the step template.");
+                }
+            }
+        }
+
+        /// <summary>
+        /// Enforces a step's declared write scope for mutating workflow actions.
+        /// </summary>
+        public void EnsureStepWriteAllowed(WallyStepDefinition stepDef, string relativePath, string actionName)
+        {
+            if (string.IsNullOrWhiteSpace(relativePath))
+                throw new ArgumentException("Path cannot be empty.", nameof(relativePath));
+
+            string normalizedPath = NormalizeWorkflowRelativePath(relativePath);
+            string stepName = string.IsNullOrWhiteSpace(stepDef.Name) ? "(unnamed step)" : stepDef.Name;
+
+            if (!stepDef.HasDeclaredWriteScope)
+            {
+                throw new InvalidOperationException(
+                    $"Step '{stepName}' does not declare any writesToDocs targets, so action '{actionName}' cannot write '{normalizedPath}'.");
+            }
+
+            foreach (string declaredTarget in stepDef.WritesToDocs)
+            {
+                if (string.IsNullOrWhiteSpace(declaredTarget))
+                    continue;
+
+                if (GlobMatchWorkflowPath(declaredTarget, normalizedPath))
+                    return;
+            }
+
+            throw new InvalidOperationException(
+                $"Step '{stepName}' is not allowed to write '{normalizedPath}' via action '{actionName}'. Allowed writesToDocs: [{string.Join(", ", stepDef.WritesToDocs)}].");
+        }
+
+        private async Task<string> ReadDeclaredStepInputAsync(
+            WallyStepDefinition stepDef,
+            WallyDocumentInputDefinition documentInput,
+            CancellationToken cancellationToken)
+        {
+            string fullPath = ResolveWorkspaceFilePath(documentInput.Path);
+            if (!File.Exists(fullPath))
+            {
+                if (documentInput.Required)
+                {
+                    string stepName = string.IsNullOrWhiteSpace(stepDef.Name) ? "(unnamed step)" : stepDef.Name;
+                    throw new FileNotFoundException(
+                        $"Step '{stepName}' requires missing document input '{documentInput.Key}' at '{documentInput.Path}'.",
+                        fullPath);
+                }
+
+                return string.Empty;
+            }
+
+            return await File.ReadAllTextAsync(fullPath, cancellationToken).ConfigureAwait(false);
+        }
+
+        private async Task<string> ResolveAbilityBlocksAsync(
+            IReadOnlyList<string> abilityRefs,
+            CancellationToken cancellationToken)
+        {
+            if (abilityRefs.Count == 0)
+                return string.Empty;
+
+            var blocks = new List<string>(abilityRefs.Count);
+            foreach (string abilityRef in abilityRefs)
+            {
+                string abilityPath = await ResolveAbilityDocumentPathAsync(abilityRef, cancellationToken)
+                    .ConfigureAwait(false);
+                string markdown = await File.ReadAllTextAsync(abilityPath, cancellationToken).ConfigureAwait(false);
+                string promptGuidance = ExtractMarkdownSection(markdown, "Prompt Guidance");
+                if (string.IsNullOrWhiteSpace(promptGuidance))
+                    promptGuidance = markdown.Trim();
+
+                blocks.Add($"## Ability: {abilityRef}{Environment.NewLine}{promptGuidance.Trim()}" );
+            }
+
+            return string.Join(Environment.NewLine + Environment.NewLine, blocks);
+        }
+
+        private async Task<string> ResolveAbilityDocumentPathAsync(string abilityRef, CancellationToken cancellationToken)
+        {
+            string abilitiesFolder = Path.Combine(RequireWorkspace().WorkspaceFolder, "Abilities");
+            if (!Directory.Exists(abilitiesFolder))
+            {
+                throw new DirectoryNotFoundException(
+                    $"The workspace does not contain an Abilities folder. Cannot resolve ability '{abilityRef}'.");
+            }
+
+            foreach (string file in Directory.GetFiles(abilitiesFolder, "*.md", SearchOption.AllDirectories))
+            {
+                string markdown = await File.ReadAllTextAsync(file, cancellationToken).ConfigureAwait(false);
+                string? abilityId = TryExtractAbilityId(markdown);
+                if (string.Equals(abilityId, abilityRef, StringComparison.OrdinalIgnoreCase))
+                    return file;
+            }
+
+            throw new FileNotFoundException(
+                $"Unable to resolve ability '{abilityRef}' from the workspace Abilities folder.");
+        }
+
+        private static string? TryExtractAbilityId(string markdown)
+        {
+            var match = Regex.Match(
+                markdown,
+                @"^\*\*Ability Id\*\*:\s*`(?<id>[^`]+)`",
+                RegexOptions.IgnoreCase | RegexOptions.Multiline);
+
+            return match.Success ? match.Groups["id"].Value.Trim() : null;
+        }
+
+        private static string ExtractMarkdownSection(string markdown, string heading)
+        {
+            var builder = new StringBuilder();
+            string[] lines = markdown.Replace("\r\n", "\n").Split('\n');
+            bool inSection = false;
+
+            foreach (string rawLine in lines)
+            {
+                string line = rawLine.TrimEnd();
+                if (!inSection)
+                {
+                    if (line.Equals($"## {heading}", StringComparison.OrdinalIgnoreCase))
+                        inSection = true;
+                    continue;
+                }
+
+                if (line.StartsWith("## ", StringComparison.Ordinal))
+                    break;
+
+                builder.AppendLine(rawLine);
+            }
+
+            return builder.ToString().Trim();
+        }
+
+        private static string NormalizeWorkflowRelativePath(string path)
+        {
+            string normalized = path.Replace('\\', '/').Trim();
+            while (normalized.StartsWith("./", StringComparison.Ordinal))
+                normalized = normalized[2..];
+
+            return normalized.TrimStart('/');
+        }
+
+        private static bool GlobMatchWorkflowPath(string pattern, string path)
+        {
+            string normalizedPattern = NormalizeWorkflowRelativePath(pattern);
+            string normalizedPath = NormalizeWorkflowRelativePath(path);
+
+            if (string.IsNullOrWhiteSpace(normalizedPattern) || normalizedPattern == "**")
+                return true;
+
+            string regexPattern = "^"
+                + Regex.Escape(normalizedPattern)
+                    .Replace(@"\*\*/", "(.+/)?")
+                    .Replace(@"\*\*", ".*")
+                    .Replace(@"\*", "[^/]*")
+                + "$";
+
+            return Regex.IsMatch(normalizedPath, regexPattern, RegexOptions.IgnoreCase);
+        }
+
+        // ï¿½ Guard ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
         public WallyWorkspace RequireWorkspace()
         {
@@ -505,16 +808,16 @@ namespace Wally.Core
             return Workspace!;
         }
 
-        // — Static factory ————————————————————————————————————————————————————
+        // ï¿½ Static factory ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
         public static WallyEnvironment LoadDefault() => WallyHelper.LoadDefault();
 
-        // — Private helpers ———————————————————————————————————————————————————
+        // ï¿½ Private helpers ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
         /// <summary>
         /// Binds the session logger to the current workspace's Logs folder.
         /// Creates the Logs directory on disk if it doesn't exist.
-        /// Safe to call multiple times — only the first bind takes effect
+        /// Safe to call multiple times ï¿½ only the first bind takes effect
         /// (subsequent workspace reloads reuse the same session log folder).
         /// </summary>
         private void BindLogger()
@@ -523,13 +826,13 @@ namespace Wally.Core
 
             Logger.RotationMinutes = Workspace!.Config.LogRotationMinutes;
             Logger.Bind(Workspace.WorkspaceFolder, Workspace.Config.LogsFolderName);
-            Logger.LogInfo($"Session started — workspace: {Workspace.WorkspaceFolder}");
+            Logger.LogInfo($"Session started ï¿½ workspace: {Workspace.WorkspaceFolder}");
         }
 
         /// <summary>
         /// Binds the conversation history logger to the current workspace's History folder.
         /// Creates the History directory on disk if it doesn't exist.
-        /// Safe to call multiple times — only the first bind takes effect.
+        /// Safe to call multiple times ï¿½ only the first bind takes effect.
         /// </summary>
         private void BindHistory()
         {

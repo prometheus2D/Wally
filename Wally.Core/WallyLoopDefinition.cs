@@ -36,9 +36,11 @@ namespace Wally.Core
         // ?? Identity ??????????????????????????????????????????????????????????
 
         /// <summary>Unique name used to select this pipeline from the CLI or UI.</summary>
+        [JsonPropertyName("name")]
         public string Name { get; set; } = string.Empty;
 
         /// <summary>Human-readable description shown in <c>list-loops</c>.</summary>
+        [JsonPropertyName("description")]
         public string Description { get; set; } = string.Empty;
 
         /// <summary>
@@ -47,6 +49,7 @@ namespace Wally.Core
         /// by name. Defaults to <see langword="true"/> so existing JSON files
         /// without the field continue to load normally.
         /// </summary>
+        [JsonPropertyName("enabled")]
         public bool Enabled { get; set; } = true;
 
         // ?? Agent loop configuration ??????????????????????????????????????????
@@ -57,6 +60,7 @@ namespace Wally.Core
         /// the loop runs as a self-driving agent loop instead of a single-shot call.
         /// Default is 0, meaning single-shot / pipeline mode (no iteration).
         /// </summary>
+        [JsonPropertyName("maxIterations")]
         public int MaxIterations { get; set; }
 
         /// <summary>
@@ -64,15 +68,17 @@ namespace Wally.Core
         /// the agent loop stops immediately. Checked before action dispatch
         /// and iteration-count limits.
         /// </summary>
+        [JsonPropertyName("stopKeyword")]
         public string StopKeyword { get; set; } = string.Empty;
 
         /// <summary>
         /// Controls how the previous response is fed back into the next iteration's prompt.
         /// <list type="bullet">
-        ///   <item><c>"AppendResponse"</c> (default) — appends the response to the original prompt.</item>
-        ///   <item><c>"ReplacePrompt"</c> — uses the response as the next iteration's prompt, discarding the original.</item>
+        ///   <item><c>"AppendResponse"</c> (default) ï¿½ appends the response to the original prompt.</item>
+        ///   <item><c>"ReplacePrompt"</c> ï¿½ uses the response as the next iteration's prompt, discarding the original.</item>
         /// </list>
         /// </summary>
+        [JsonPropertyName("feedbackMode")]
         public string FeedbackMode { get; set; } = "AppendResponse";
 
         /// <summary>
@@ -88,13 +94,23 @@ namespace Wally.Core
         /// Actor for single-actor runs (no <see cref="Steps"/>).
         /// Also used as fallback for any step that omits its own <c>ActorName</c>.
         /// </summary>
+        [JsonPropertyName("actorName")]
         public string ActorName { get; set; } = string.Empty;
 
         /// <summary>
         /// Prompt for single-actor runs. Supports <c>{userPrompt}</c>.
         /// Ignored when <see cref="Steps"/> is non-empty.
         /// </summary>
+        [JsonPropertyName("startPrompt")]
         public string StartPrompt { get; set; } = string.Empty;
+
+        /// <summary>
+        /// The first named step to execute for dynamic step-routing workflows.
+        /// When empty, loops with explicit steps retain legacy ordered pipeline
+        /// semantics.
+        /// </summary>
+        [JsonPropertyName("startStepName")]
+        public string StartStepName { get; set; } = string.Empty;
 
         // ?? Steps ????????????????????????????????????????????????????????????
 
@@ -102,11 +118,36 @@ namespace Wally.Core
         /// Ordered steps. When non-empty the pipeline executes each in sequence,
         /// threading the previous step's output into the next prompt.
         /// </summary>
+        [JsonPropertyName("steps")]
         public List<WallyStepDefinition> Steps { get; set; } = new();
 
         /// <summary>Returns <see langword="true"/> when this definition uses explicit steps.</summary>
         [JsonIgnore]
         public bool HasSteps => Steps != null && Steps.Count > 0;
+
+        /// <summary>
+        /// Returns <see langword="true"/> when this definition uses named-step
+        /// routing metadata instead of pure ordered pipeline semantics.
+        /// </summary>
+        [JsonIgnore]
+        public bool UsesNamedStepRouting => HasSteps && !string.IsNullOrWhiteSpace(StartStepName);
+
+        /// <summary>
+        /// Returns <see langword="true"/> when the loop omits actor fallback and is
+        /// therefore configured for actor-agnostic direct prompt execution.
+        /// </summary>
+        [JsonIgnore]
+        public bool IsActorAgnostic => string.IsNullOrWhiteSpace(ActorName);
+
+        /// <summary>Finds a step by name using case-insensitive matching.</summary>
+        public WallyStepDefinition? FindStep(string? stepName)
+        {
+            if (string.IsNullOrWhiteSpace(stepName) || !HasSteps)
+                return null;
+
+            return Steps.Find(step =>
+                string.Equals(step.Name, stepName, StringComparison.OrdinalIgnoreCase));
+        }
 
         // ?? Serialization ?????????????????????????????????????????????????????
 

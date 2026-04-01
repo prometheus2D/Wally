@@ -1013,11 +1013,12 @@ namespace Wally.Forms.Controls
         private async Task RunAutomaticSessionAsync(ChatPanelRequest request)
         {
             _manualSession = null;
+            ChatPanelRequest executionRequest = PrepareInvestigationExecutionRequest(request);
 
             ChatPanelResolvedRequest resolved;
             try
             {
-                resolved = ChatPanelExecutionService.ResolveRequest(_environment!, request);
+                resolved = ChatPanelExecutionService.ResolveRequest(_environment!, executionRequest);
             }
             catch (Exception ex)
             {
@@ -1034,12 +1035,12 @@ namespace Wally.Forms.Controls
             string label = directMode ? "AI" : resolved.ActorLabel;
 
             string cmdText = string.Join(" ",
-                new List<string>(new[] { "run", $"\"{request.DisplayPrompt}\"" })
+                new List<string>(new[] { "run", $"\"{executionRequest.DisplayPrompt}\"" })
                 .Concat(!directMode           ? new[] { $"-a {actorName}" }      : Array.Empty<string>())
                 .Concat(isLooped              ? new[] { $"-l {loopName}" }       : Array.Empty<string>())
                 .Concat(modelOverride != null ? new[] { $"-m {modelOverride}" }  : Array.Empty<string>())
                 .Concat(wrapperName   != null ? new[] { $"-w {wrapperName}" }    : Array.Empty<string>())
-                .Concat(request.NoHistory     ? new[] { "--no-history" }         : Array.Empty<string>()));
+                .Concat(executionRequest.NoHistory ? new[] { "--no-history" }    : Array.Empty<string>()));
             CommandIssued?.Invoke(this, cmdText);
 
             AddMessage("You", request.DisplayPrompt, MessageKind.User);
@@ -1061,9 +1062,9 @@ namespace Wally.Forms.Controls
                 // button responsive, exactly as CommandPanel.RunCommandAsync does.
                 var results = await Task.Run(
                     () => WallyCommands.HandleRunTyped(
-                        _environment!, request.DisplayPrompt, actorName, modelOverride,
+                        _environment!, executionRequest.DisplayPrompt, actorName, modelOverride,
                         loopName: loopName, wrapper: wrapperName,
-                        noHistory: request.NoHistory, cancellationToken: token),
+                        noHistory: executionRequest.NoHistory, cancellationToken: token),
                     token).ConfigureAwait(true); // ConfigureAwait(true) to resume on UI thread
 
                 if (results.Count == 0)
@@ -1076,6 +1077,8 @@ namespace Wally.Forms.Controls
                         AddMessage(r.DisplayLabel(), r.Response, MessageKind.Actor);
                     AddMessage("System", $"Pipeline complete \u2014 {results.Count} step(s).", MessageKind.System);
                 }
+
+                ShowPendingInvestigationInteraction(loopName);
             }
             catch (OperationCanceledException) { AddMessage("System", "Cancelled.", MessageKind.Error); }
             catch (Exception ex)               { AddMessage("System", $"Error: {ex.Message}", MessageKind.Error); }
@@ -1090,9 +1093,11 @@ namespace Wally.Forms.Controls
 
         private async Task StartManualSessionAsync(ChatPanelRequest request)
         {
+            ChatPanelRequest executionRequest = PrepareInvestigationExecutionRequest(request);
+
             try
             {
-            _manualSession = ChatPanelExecutionService.CreateSession(_environment!, request);
+            _manualSession = ChatPanelExecutionService.CreateSession(_environment!, executionRequest);
             }
             catch (Exception ex)
             {
@@ -1101,11 +1106,11 @@ namespace Wally.Forms.Controls
             }
 
             string cmdText = string.Join(" ",
-                new List<string>(new[] { "run", $"\"{request.DisplayPrompt}\"" })
-                .Concat(!string.IsNullOrWhiteSpace(request.ActorName) ? new[] { $"-a {request.ActorName}" } : Array.Empty<string>())
-                .Concat(!string.IsNullOrWhiteSpace(request.LoopName)  ? new[] { $"-l {request.LoopName}" }  : Array.Empty<string>())
-                .Concat(!string.IsNullOrWhiteSpace(request.ModelOverride) ? new[] { $"-m {request.ModelOverride}" } : Array.Empty<string>())
-                .Concat(request.NoHistory ? new[] { "--no-history" } : Array.Empty<string>()));
+                new List<string>(new[] { "run", $"\"{executionRequest.DisplayPrompt}\"" })
+                .Concat(!string.IsNullOrWhiteSpace(executionRequest.ActorName) ? new[] { $"-a {executionRequest.ActorName}" } : Array.Empty<string>())
+                .Concat(!string.IsNullOrWhiteSpace(executionRequest.LoopName)  ? new[] { $"-l {executionRequest.LoopName}" }  : Array.Empty<string>())
+                .Concat(!string.IsNullOrWhiteSpace(executionRequest.ModelOverride) ? new[] { $"-m {executionRequest.ModelOverride}" } : Array.Empty<string>())
+                .Concat(executionRequest.NoHistory ? new[] { "--no-history" } : Array.Empty<string>()));
             CommandIssued?.Invoke(this, cmdText);
 
             AddMessage("You", request.DisplayPrompt, MessageKind.User);
@@ -1148,6 +1153,8 @@ namespace Wally.Forms.Controls
                 {
                     AddMessage("System", $"Manual step complete. Next: {_manualSession.CurrentStatus}.", MessageKind.System);
                 }
+
+                ShowPendingInvestigationInteraction(_manualSession.ResolvedRequest.LoopDefinition?.Name);
             }
             catch (OperationCanceledException)
             {
@@ -1258,6 +1265,45 @@ namespace Wally.Forms.Controls
                 : session.ResolvedRequest.LoopDefinition?.IsAgentLoop == true
                     ? $"Manual agent loop complete - {session.Results.Count} iteration(s), stop reason: {stopReason}."
                     : "Manual run complete.";
+        }
+
+        private ChatPanelRequest PrepareInvestigationExecutionRequest(ChatPanelRequest request)
+        {
+            if (_environment == null ||
+                !InvestigationInteractionStore.IsInvestigationLoop(request.LoopName) ||
+                string.IsNullOrWhiteSpace(request.DisplayPrompt))
+            {
+                return request;
+            }
+
+            if (InvestigationInteractionStore.TryRecordResponse(
+                _environment,
+                request.DisplayPrompt,
+                "Forms ChatPanel",
+                out InvestigationInteractionState? state))
+            {
+                AddMessage(
+                    "System",
+                    $"Recorded answer batch {state!.QuestionBatchId} for investigation {state.InvestigationId}.",
+                    MessageKind.System);
+                return request.WithPrompt(InvestigationInteractionStore.BuildResumePrompt(state));
+            }
+
+            return request;
+        }
+
+        private void ShowPendingInvestigationInteraction(string? loopName)
+        {
+            if (_environment == null || !InvestigationInteractionStore.IsInvestigationLoop(loopName))
+                return;
+
+            if (!InvestigationInteractionStore.TryLoadWaiting(_environment, out InvestigationInteractionState? state) ||
+                state == null)
+            {
+                return;
+            }
+
+            AddMessage("System", InvestigationInteractionStore.BuildWaitingDisplayText(state), MessageKind.System);
         }
 
         private void UpdateFlowButtons()

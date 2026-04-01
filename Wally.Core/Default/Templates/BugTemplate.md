@@ -1,6 +1,7 @@
 # Bug Report Template
 
 > Reference: Bug reports track defects with symptoms, investigation, and resolution.
+> See `TemplateTemplate.md` for shared formatting rules and conventions.
 
 ---
 
@@ -9,32 +10,9 @@
 | Constraint | Rule |
 |------------|------|
 | **Audience** | Engineers, QA |
-| **Scope** | A single defect: symptoms, investigation, attempted fixes, resolution |
-| **Out of Scope** | Feature requests, architectural proposals, general technical debt |
-| **Maintenance** | Update after every fix attempt, new evidence, or status change |
-| **Todo Tracking** | Every bug must track investigation tasks, fix attempts, and validation activities |
-| **Acceptance Criteria** | Every bug must define clear resolution criteria and verification steps |
-| **Related Documents** | Must reference related bugs, test plans, and architectural context where applicable |
-
----
-
-## Objectives
-
-- Preserve all investigation context so any engineer can pick up the bug without prior knowledge.
-- Track hypotheses and attempted fixes to avoid repeating failed approaches.
-- Provide a resolution record that prevents the same bug from being reintroduced.
-- Enable systematic tracking of investigation progress and resolution activities.
-
----
-
-## Document Relationships
-
-| Relates To | Relationship | Notes |
-|------------|--------------|-------|
-| RequirementsTemplate | Informs | Bug may reference a broken requirement |
-| TestPlanTemplate | Informs | Bug triggers new or updated test cases |
-| ArchitectureTemplate | Informs | Bug investigation may reveal architectural issues |
-| ProposalTemplate | Spawns | Systemic bugs may spawn a proposal for a structural fix |
+| **Scope** | A single defect: symptoms, investigation, resolution |
+| **Out of Scope** | Feature requests, proposals, general tech debt |
+| **Maintenance** | Update after every fix attempt or new evidence |
 
 ---
 
@@ -46,195 +24,34 @@
 
 **Status**: [Open | In Progress | Blocked | Resolved | Won't Fix]
 **Priority**: [Critical | High | Medium | Low]
-**Affected Systems**: [List of affected components]
-**First Observed**: [Date or version]
+**Affected Systems**: [list]
+**First Observed**: [Date]
 **Last Updated**: [Date]
-
-*Template: [../Templates/BugTemplate.md](../Templates/BugTemplate.md)*
 ```
 
 ### Summary
-2–3 sentences: what breaks and what the expected behaviour is.
-
-### Environment
-Table of relevant environment details.
-
-| Property | Value |
-|----------|-------|
-| **Platform** | Server / Client / Both |
-| **Occurrence** | Always / Intermittent / Specific Conditions |
-| **Impact** | [Description of user impact] |
-
-### Symptoms
-
-**What happens**: bullet list of observable manifestations.
-**What should happen**: bullet list of expected behaviour.
+2–3 sentences: what breaks and expected behaviour.
 
 ### Reproduction Steps
-Numbered minimum steps to reproduce. End with: **Observe**: [bug manifestation].
+Numbered minimum steps. End with: **Observe**: [manifestation].
 
 ### Investigation
-
-#### Data Flow Analysis
-Trace the path data takes; annotate where the issue likely occurs.
-
-#### Hypotheses
-Numbered list. Each entry: description, evidence for, evidence against, status (`Untested | Testing | Confirmed | Ruled Out`).
-
-#### Code Locations
-| File | Role in Bug | Lines of Interest |
-|------|-------------|-------------------|
+- **Hypotheses**: numbered list with evidence and status (`Untested | Confirmed | Ruled Out`)
+- **Code Locations**: `| File | Role in Bug | Lines |`
 
 ### Attempted Fixes
-Chronological. Each entry: approach, files changed, result (`Success | Partial | Failed`), notes.
-
-### Todo Tracker
-
-| Task | Priority | Status | Owner | Due Date | Notes |
-|------|----------|--------|-------|----------|-------|
-| Reproduce bug in test environment | High | ?? In Progress | @developer | 2024-01-15 | Setting up reproduction scenario |
-| Analyze root cause in data flow | High | ? Complete | @developer | 2024-01-12 | Found issue in validation logic |
-| Implement fix for validation bug | High | ?? Blocked | @developer | 2024-01-16 | Waiting on architecture review |
-| Write regression test | Medium | ?? Paused | @qa | 2024-01-18 | Waiting on fix completion |
-| Validate fix in staging | High | ?? Paused | @qa | 2024-01-20 | Depends on fix implementation |
-
-**Legend**: 
-- Priority: `High | Medium | Low`
-- Status: `?? Blocked | ?? In Progress | ? Complete | ?? Paused`
-
-### Acceptance Criteria
-
-#### Must Have (Required for Resolution)
-- [ ] Root cause identified and validated through investigation
-- [ ] Fix implemented and tested in appropriate environment  
-- [ ] Reproduction steps no longer trigger the bug
-- [ ] Regression test created to prevent reoccurrence
-- [ ] Fix reviewed and approved by technical team
-- [ ] Resolution documented with lessons learned
-
-#### Should Have (Preferred for Quality)
-- [ ] Alternative solutions evaluated and compared
-- [ ] Impact on related systems assessed and validated
-- [ ] Performance implications of fix analyzed
-- [ ] Documentation updated to reflect resolution
-- [ ] Knowledge sharing completed with team
-
-#### Completion Checklist
-- [ ] All "Must Have" criteria completed
-- [ ] Bug verified as resolved in production environment
-- [ ] Status updated to "Resolved" with final resolution notes
-- [ ] All todo items completed or transferred to maintenance
-- [ ] Related test cases updated or created
+Chronological entries: approach, files changed, result (`Success | Partial | Failed`).
 
 ### Resolution
-Include when resolved. Fields: Root Cause, Solution, Files Changed, Prevention, Lessons Learned.
+Include when resolved: Root Cause, Solution, Files Changed, Prevention.
 
-### Related Documents
-
-| Document | Relationship | Notes |
-|----------|--------------|-------|
-| [RelatedBug](./RelatedBug.md) | Sibling | Similar manifestation in different component |
-| [ComponentTestPlan](./ComponentTestPlan.md) | Informs | Test plan updated with regression test |
-| [ComponentArchitecture](./ComponentArchitecture.md) | Informs | Architectural issue revealed by investigation |
-| [ValidationProposal](./ValidationProposal.md) | Spawns | Systemic fix proposal created |
-
----
-
-## Acceptance Criteria Definition
-
-### Completion Checklist
-- Bug reproduction confirmed and root cause identified
-- Fix implemented with appropriate testing and validation
-- Regression prevention measures implemented (tests, monitoring, etc.)
-- Impact assessment completed for affected systems
-- Resolution knowledge captured for future reference
-
-### Quality Gates
-- Root cause must be confirmed through testing or analysis
-- Fix must be validated to resolve the issue without creating new problems
-- Regression test must reliably detect if the issue reoccurs
-- Resolution approach must be reviewed and approved by qualified team members
-- Documentation must provide sufficient context for future debugging
-
-### Sign-off Requirements
-- Developer approval for technical fix approach and implementation
-- QA validation that bug is resolved and regression test is effective
-- Technical lead review of resolution approach and impact assessment
-- Product owner acceptance if bug affects user-facing functionality
-
----
-
-## Todo Tracker Specification
-
-### Task Categories
-- **Investigation**: Root cause analysis, reproduction, hypothesis testing
-- **Development**: Fix implementation, code changes, solution development
-- **Testing**: Validation, regression testing, impact assessment
-- **Documentation**: Resolution notes, lessons learned, knowledge sharing
-
-### Priority Levels
-- **High**: Critical bugs, blocking issues, production problems
-- **Medium**: Important quality issues, user impact, regression prevention
-- **Low**: Documentation, process improvements, knowledge sharing
-
-### Status Values
-- **?? Blocked**: Cannot proceed due to dependency, resource, or external issue
-- **?? In Progress**: Actively being investigated or worked on
-- **? Complete**: Finished with validated results
-- **?? Paused**: Waiting for additional information, resources, or dependencies
-
-### Assignment Rules
-- Every task must have a clear owner (@username format)
-- Investigation tasks should include specific hypothesis or approach
-- Blocked tasks must identify specific blocker and escalation path
-- Due dates should reflect bug priority and impact on project timeline
-
----
-
-## Optional Sections
-
-### Potential Solutions
-Include when: fix is not yet chosen. Each option: complexity, risk, pros, cons, status.
-
-### Related Issues
-Include when: related bugs, docs, or external issues exist.
-Format: `| Document | Relationship |` table using vocabulary from TemplateTemplate.
-
----
-
-## Formatting Rules
-
-| Element | Format |
-|---------|--------|
-| Code / identifiers | Backtick inline code |
-| Diagrams | Mermaid only |
-| Structured data | Tables preferred over prose |
-| Lists | Numbered for reproduction steps; bullets for symptoms |
-| Status tags | **Bold**: [Value] |
-| Logs | Code block; truncate to relevant lines only |
-| Todo items | `- [ ]` unchecked or `- [x]` checked checkbox format |
-| Status indicators | Emoji prefixes: ?? Blocked, ?? In Progress, ? Complete |
-| Document relationships | Use standard vocabulary; link with markdown |
-
----
-
-## Anti-Patterns
-
-| ? Avoid | ? Instead |
-|----------|-----------|
-| Feature requests in bug documents | Open a proposal |
-| Hypotheses without evidence | Record evidence for and against |
-| Fix attempts without results | Always record outcome |
-| Exposing sensitive content in resolution notes | Summarise; redact data |
-| Leaving Resolution empty after fix | Complete all Resolution fields |
-| Bug reports without investigation tracking | Must track all investigation and resolution activities |
-| Missing related document references | Link to relevant test plans, architecture docs, and related bugs |
-| Tasks without clear completion criteria | Every todo must have specific validation requirements |
+### Acceptance Criteria
+Must Have / Should Have checkboxes per `TemplateTemplate.md`.
 
 ---
 
 ## File Naming
 
-`[BugID]-[ShortDescription].md` — use issue numbers when available; otherwise descriptive name.
+`[BugID]-[ShortDescription].md` — use issue numbers when available.
 
 Examples: `BUG-123-TileOrganismSync.md`, `NetworkDesync-ChunkLoading.md`

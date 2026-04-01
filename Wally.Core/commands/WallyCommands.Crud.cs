@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Wally.Core.Actors;
+using Wally.Core.Mailbox;
 using Wally.Core.Providers;
 
 namespace Wally.Core
@@ -257,12 +258,12 @@ namespace Wally.Core
 
         // ?? Mailbox stubs (not implemented) ???????????????????????????????????
 
-        /// <summary>Not implemented — the LLM-driven mailbox system has been removed as overengineered.</summary>
+        /// <summary>Not implemented ï¿½ the LLM-driven mailbox system has been removed as overengineered.</summary>
         public static void HandleProcessMailboxes(WallyEnvironment env)
             => throw new NotImplementedException(
                 "process-mailboxes is not implemented. The LLM-driven mailbox system has been removed.");
 
-        /// <summary>Not implemented — the LLM-driven mailbox system has been removed as overengineered.</summary>
+        /// <summary>Not implemented ï¿½ the LLM-driven mailbox system has been removed as overengineered.</summary>
         public static async Task HandleProcessMailboxesAsync(
             WallyEnvironment env, CancellationToken cancellationToken)
         {
@@ -271,9 +272,42 @@ namespace Wally.Core
                 "process-mailboxes is not implemented. The LLM-driven mailbox system has been removed.");
         }
 
-        /// <summary>Not implemented — the LLM-driven mailbox system has been removed as overengineered.</summary>
+        /// <summary>
+        /// Routes mailbox messages from each actor's Outbox into the declared target Inbox folders.
+        /// This uses the shared workflow-owned routing helper rather than a separate router service.
+        /// </summary>
         public static void HandleRouteOutbox(WallyEnvironment env)
-            => throw new NotImplementedException(
-                "route-outbox is not implemented. The LLM-driven mailbox system has been removed.");
+        {
+            if (RequireWorkspace(env, "route-outbox") == null) return;
+
+            int totalRouted = 0;
+            int totalFailed = 0;
+            bool anyMessages = false;
+
+            foreach (var actor in env.Workspace!.Actors)
+            {
+                string outboxPath = Path.Combine(actor.FolderPath, WallyHelper.MailboxOutboxFolderName);
+                MailboxRouteResult routeResult = MailboxHelper.RouteMessages(env.Workspace, outboxPath, env.Logger);
+                if (!routeResult.HasMessages)
+                    continue;
+
+                anyMessages = true;
+                totalRouted += routeResult.RoutedCount;
+                totalFailed += routeResult.FailedCount;
+
+                Console.WriteLine($"[{actor.Name} Outbox]");
+                Console.WriteLine(routeResult.BuildSummary());
+                Console.WriteLine();
+            }
+
+            if (!anyMessages)
+            {
+                Console.WriteLine("NO_MESSAGES");
+                Console.WriteLine("No Outbox messages were found.");
+                return;
+            }
+
+            Console.WriteLine($"route-outbox complete. Routed: {totalRouted}, Failed: {totalFailed}");
+        }
     }
 }

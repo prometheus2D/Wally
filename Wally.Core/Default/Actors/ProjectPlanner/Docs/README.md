@@ -1,36 +1,19 @@
-# ProjectPlanner Actor
+# ProjectPlanner — Actor Reference
 
-The **ProjectPlanner** actor reads a single proposal document and produces two outputs:
+> Shared conventions are in `Actors/README.md`. This file covers ProjectPlanner-specific details only.
 
-1. **Task Breakdown** � every deliverable in the proposal decomposed into granular, independently executable tasks with priorities, effort estimates, and done-conditions.
-2. **Todo Tracker** � a `<ProposalName>Tasks.md` file written next to the proposal, ready for a team or AI agent to pick up and start executing immediately.
+## Purpose
 
----
+Reads a single approved proposal and produces one `<ProposalName>Tasks.md` tracker in the same directory.
 
-## When to use
+## What It Does NOT Do
 
-Run this actor (via the `ProposalToTasks` loop) immediately after a proposal is approved. The output tracker becomes the living work queue for that proposal's implementation.
+Write code, write new proposals, or invent scope not in the proposal.
 
-## What it does NOT do
-
-- Write code
-- Write new proposals
-- Write architecture, requirements, or plan-based intermediate documents
-- Invent scope not present in the proposal
-
-## Output convention
-
-The tracker is always written to the same directory as the source proposal:
+## Usage
 
 ```
-Projects/Proposals/MyFeatureProposal.md        ? input
-Projects/Proposals/MyFeatureProposalTasks.md   ? output
+wally run "Projects/Proposals/MyFeatureProposal.md" -a ProjectPlanner -l ProposalToTasks
 ```
 
-## Loop
-
-Use the `ProposalToTasks` loop to drive this actor. Pass the relative path to the proposal as the prompt:
-
-```
-run ProjectPlanner --loop ProposalToTasks "Projects/Proposals/MyFeatureProposal.md"
-```
+Output: `Projects/Proposals/MyFeatureProposalTasks.md`

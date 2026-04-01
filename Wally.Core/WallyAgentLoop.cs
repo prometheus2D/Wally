@@ -8,6 +8,22 @@ using Wally.Core.Actors;
 
 namespace Wally.Core
 {
+    public readonly struct WallyStepRouteMatch
+    {
+        public WallyStepRouteMatch(string keyword, string nextStepName, int responseIndex)
+        {
+            Keyword = keyword;
+            NextStepName = nextStepName;
+            ResponseIndex = responseIndex;
+        }
+
+        public string Keyword { get; }
+
+        public string NextStepName { get; }
+
+        public int ResponseIndex { get; }
+    }
+
     /// <summary>
     /// A self-driving iteration loop that feeds each response back into the actor
     /// until a <see cref="StopCondition"/> is satisfied or <see cref="MaxIterations"/>
@@ -17,7 +33,7 @@ namespace Wally.Core
     /// <list type="number">
     ///   <item>Response contains <c>StopKeyword</c> (case-insensitive, when configured).</item>
     ///   <item>No action blocks found in response (actor considers itself done).</item>
-    ///   <item><c>MaxIterations</c> reached — loop exits with <c>StopReason = "MaxIterations"</c>.</item>
+    ///   <item><c>MaxIterations</c> reached ï¿½ loop exits with <c>StopReason = "MaxIterations"</c>.</item>
     /// </list>
     /// </para>
     /// <para>
@@ -54,6 +70,57 @@ namespace Wally.Core
         }
 
         /// <summary>
+        /// Resolves the effective iteration limit for loop-driven workflows.
+        /// </summary>
+        public static int ResolveMaxIterations(WallyLoopDefinition loopDef, int fallbackIterations)
+        {
+            if (loopDef == null) throw new ArgumentNullException(nameof(loopDef));
+            return loopDef.MaxIterations > 0
+                ? loopDef.MaxIterations
+                : Math.Max(1, fallbackIterations);
+        }
+
+        /// <summary>
+        /// Returns <see langword="true"/> when the response contains the loop stop keyword.
+        /// </summary>
+        public static bool ContainsStopKeyword(string response, string? stopKeyword)
+        {
+            return !string.IsNullOrWhiteSpace(stopKeyword) &&
+                   response.Contains(stopKeyword, StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
+        /// Finds the earliest matching keyword route in a step response.
+        /// </summary>
+        public static WallyStepRouteMatch? ResolveKeywordRoute(
+            IReadOnlyDictionary<string, string> keywordRoutes,
+            string response)
+        {
+            if (keywordRoutes == null) throw new ArgumentNullException(nameof(keywordRoutes));
+            if (string.IsNullOrWhiteSpace(response) || keywordRoutes.Count == 0)
+                return null;
+
+            WallyStepRouteMatch? bestMatch = null;
+
+            foreach (var route in keywordRoutes)
+            {
+                if (string.IsNullOrWhiteSpace(route.Key) || string.IsNullOrWhiteSpace(route.Value))
+                    continue;
+
+                int matchIndex = response.IndexOf(route.Key, StringComparison.OrdinalIgnoreCase);
+                if (matchIndex < 0)
+                    continue;
+
+                if (bestMatch == null || matchIndex < bestMatch.Value.ResponseIndex)
+                {
+                    bestMatch = new WallyStepRouteMatch(route.Key, route.Value, matchIndex);
+                }
+            }
+
+            return bestMatch;
+        }
+
+        /// <summary>
         /// Runs the agent loop, returning one <see cref="WallyRunResult"/> per iteration.
         /// </summary>
         /// <param name="env">The workspace environment.</param>
@@ -63,7 +130,7 @@ namespace Wally.Core
         /// <param name="model">Model override.</param>
         /// <param name="wrapper">Wrapper override.</param>
         /// <param name="noHistory">Whether to suppress conversation history injection.</param>
-        /// <param name="cancellationToken">Cancellation token — checked at every iteration boundary.</param>
+        /// <param name="cancellationToken">Cancellation token ï¿½ checked at every iteration boundary.</param>
         /// <param name="output">Output writer for console/UI output.</param>
         /// <returns>List of results, one per iteration executed.</returns>
         public async Task<List<WallyRunResult>> RunAsync(
@@ -83,7 +150,7 @@ namespace Wally.Core
             string actorLabel = directMode ? "(no actor)" : actor!.Name;
 
             await output.WriteLineAsync(
-                $"[agent-loop:{loopDef.Name}] Starting — actor={actorLabel}, maxIterations={MaxIterations}" +
+                $"[agent-loop:{loopDef.Name}] Starting ï¿½ actor={actorLabel}, maxIterations={MaxIterations}" +
                 (StopKeyword != null ? $", stopKeyword=\"{StopKeyword}\"" : "") +
                 $", feedbackMode={FeedbackMode}")
                 .ConfigureAwait(false);
@@ -124,8 +191,7 @@ namespace Wally.Core
                 await output.WriteLineAsync().ConfigureAwait(false);
 
                 // Stop condition 1: StopKeyword found
-                if (StopKeyword != null &&
-                    response.Contains(StopKeyword, StringComparison.OrdinalIgnoreCase))
+                if (ContainsStopKeyword(response, StopKeyword))
                 {
                     stopReason = "StopKeyword";
                     results.Add(new WallyRunResult
@@ -136,7 +202,7 @@ namespace Wally.Core
                     });
 
                     await output.WriteLineAsync(
-                        $"[agent-loop:{loopDef.Name}] Stopped — StopKeyword \"{StopKeyword}\" detected at iteration {iteration + 1}.")
+                        $"[agent-loop:{loopDef.Name}] Stopped ï¿½ StopKeyword \"{StopKeyword}\" detected at iteration {iteration + 1}.")
                         .ConfigureAwait(false);
                     env.Logger.LogInfo(
                         $"Agent loop '{loopDef.Name}' stopped: StopKeyword \"{StopKeyword}\" at iteration {iteration + 1}.");
@@ -156,7 +222,7 @@ namespace Wally.Core
                     });
 
                     await output.WriteLineAsync(
-                        $"[agent-loop:{loopDef.Name}] Stopped — no action blocks at iteration {iteration + 1}.")
+                        $"[agent-loop:{loopDef.Name}] Stopped ï¿½ no action blocks at iteration {iteration + 1}.")
                         .ConfigureAwait(false);
                     env.Logger.LogInfo(
                         $"Agent loop '{loopDef.Name}' stopped: no actions at iteration {iteration + 1}.");
@@ -183,7 +249,7 @@ namespace Wally.Core
                     };
 
                     await output.WriteLineAsync(
-                        $"[agent-loop:{loopDef.Name}] Stopped — MaxIterations ({MaxIterations}) reached.")
+                        $"[agent-loop:{loopDef.Name}] Stopped ï¿½ MaxIterations ({MaxIterations}) reached.")
                         .ConfigureAwait(false);
                     env.Logger.LogInfo(
                         $"Agent loop '{loopDef.Name}' stopped: MaxIterations ({MaxIterations}) reached.");
@@ -195,7 +261,7 @@ namespace Wally.Core
             }
 
             await output.WriteLineAsync(
-                $"[agent-loop:{loopDef.Name}] Complete — {results.Count} iteration(s), stopReason={stopReason ?? "unknown"}.")
+                $"[agent-loop:{loopDef.Name}] Complete ï¿½ {results.Count} iteration(s), stopReason={stopReason ?? "unknown"}.")
                 .ConfigureAwait(false);
             env.Logger.LogInfo(
                 $"Agent loop '{loopDef.Name}' complete: {results.Count} iteration(s), stopReason={stopReason ?? "unknown"}.");

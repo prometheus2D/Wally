@@ -52,7 +52,7 @@ Core decisions:
 ### Loop 1: InvestigationLoop
 
 - input: user request
-- output: approved proposal
+- output: approved proposal document
 - purpose: understand the problem, gather evidence, ask questions, and converge on a proposal
 
 ### Loop 2: ProposalToTasks
@@ -64,7 +64,7 @@ Core decisions:
 ### Loop 3: ExecuteTasksLoop
 
 - input: task tracker path
-- output: updated task tracker until all tasks are complete
+- output: the same task tracker updated until all eligible work is complete or recoverably blocked
 - purpose: execute one eligible task at a time, update task state, and recover from blockers without losing workflow state
 
 ---
@@ -91,7 +91,7 @@ Examples:
 
 1. run `InvestigationLoop` to create or refine a proposal
 2. run `ProposalToTasks` against the approved proposal
-3. run `ExecuteTasksLoop` against the resulting task tracker
+3. run `ExecuteTasksLoop` against the resulting task tracker path
 
 This keeps the workflow understandable while the loop contracts are still being refined. Automatic loop chaining can be added later without changing the core artifacts.
 

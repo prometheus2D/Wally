@@ -1,4 +1,0 @@
-# Legacy Deferred Workflow
-# Execution plans are not part of the current default workflow. Use the task tracker as the execution artifact instead.
-
-run "Create execution plan from implementation plan: {userPrompt}" -a BusinessAnalyst

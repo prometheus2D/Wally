@@ -1,4 +1,0 @@
-# Legacy Deferred Workflow
-# Implementation plans are not part of the current default workflow. Use ProposalToTasks and task execution instead.
-
-run "Transform approved proposals into concrete implementation plans with phases, deliverables, and todo tracking" -a BusinessAnalyst -l ProposalToImplementationPlan

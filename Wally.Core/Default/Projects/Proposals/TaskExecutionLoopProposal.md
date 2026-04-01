@@ -35,9 +35,45 @@ Core decisions:
 - the loop focuses on one eligible task at a time
 - task eligibility is determined by task status plus dependency completion
 - the loop updates the tracker after each meaningful execution step
+- each run ends with a named stop outcome derived from the persisted tracker state
 - operational failures should be recorded in the tracker as recoverable workflow state when possible
 - loops and steps may use `abilityRefs`, but they must remain fully customizable without abilities
-- the user may start this loop manually after `ProposalToTasks` completes
+- the user may start this loop manually after `ProposalToTasks` writes the tracker
+
+---
+
+## Canonical Workflow Placement
+
+`ExecuteTasksLoop` is the third loop in the current default three-loop workflow:
+
+1. `InvestigationLoop`: input = user request; output = approved proposal document
+2. `ProposalToTasks`: input = approved proposal path; output = one dependency-aware `*Tasks.md` tracker in the same directory as the proposal
+3. `ExecuteTasksLoop`: input = task tracker path; output = the same tracker updated until all eligible work is complete or recoverably blocked
+
+Current workflow decisions:
+
+- implementation plans are not part of the current default workflow
+- execution plans are not part of the current default workflow
+- the task tracker is the authoritative handoff artifact between proposal approval and task execution
+- the user may start each loop manually; automatic loop-to-loop transition is deferred
+
+---
+
+## Task Tracker Handoff Contract
+
+`ExecuteTasksLoop` expects `ProposalToTasks` to hand off exactly one canonical `*Tasks.md` tracker.
+
+Required tracker assumptions:
+
+- every task row includes `Status`, `Owner`, `Dependencies`, and `Done-Condition`
+- task statuses use only `Not Started`, `In Progress`, `Blocked`, and `Complete`
+- dependency gating is defined in the tracker itself rather than hidden runtime state
+- blocker context is recorded in the tracker when execution cannot continue responsibly
+- the progress summary includes phase rows when phases exist and always includes a `Total` row
+
+This keeps the loop contract artifact-based and inspectable: execution can resume from the tracker alone without an implementation plan, execution plan, or hidden memory.
+
+Detailed runtime behavior is defined in [../../Docs/TaskExecutionWorkflowContract.md](../../Docs/TaskExecutionWorkflowContract.md). This proposal states the design intent; the contract document defines the normative tracker interpretation, stop outcomes, and failure boundary.
 
 ---
 
@@ -54,8 +90,10 @@ Rules:
 
 - every task begins as `Not Started`
 - a task may start only when all of its dependencies are `Complete`
+- a task already marked `In Progress` remains eligible for continuation until it becomes `Complete` or `Blocked`
 - a task enters `Blocked` when it cannot continue responsibly
 - when a task is `Blocked`, dependency completion should be reviewed before introducing or preserving a blocker state
+- a blocked task may become eligible again only after its dependencies are complete and its recorded blocker has been cleared
 - a task becomes `Complete` only when its done-condition is verified
 
 `Blocked` is recoverable workflow state. It should not be treated as proof that the whole tracker has failed permanently.
@@ -66,15 +104,17 @@ Rules:
 
 The loop should execute one eligible task at a time.
 
-Recommended behavior:
+Contract behavior:
 
 1. load the task tracker
-2. find the next eligible task
-3. mark it `In Progress` if it was `Not Started`
-4. perform the task work
-5. update status, notes, and blockers in the tracker
-6. stop after that task reaches `Complete` or `Blocked`
-7. on the next run, re-read the tracker and choose the next eligible task
+2. recompute dependency and blocker state from the tracker only
+3. continue the earliest task already marked `In Progress`, if one exists
+4. otherwise choose the first `Not Started` or recoverably `Blocked` task that is now eligible in tracker order
+5. mark the task `In Progress` before meaningful work starts when it was previously `Not Started`
+6. perform the task work
+7. update status, notes, blockers, and progress summary in the tracker
+8. stop after that task reaches `Complete` or `Blocked`, using a named stop outcome that matches the persisted tracker state
+9. on the next run, re-read the tracker and choose the next eligible task again
 
 This keeps the loop simple, inspectable, and easy for a user to supervise.
 
@@ -84,17 +124,16 @@ This keeps the loop simple, inspectable, and easy for a user to supervise.
 
 A task is eligible when:
 
-- its status is `Not Started`
-- all declared dependencies are `Complete`
+- it is already `In Progress`
+- it is `Not Started` and all declared dependencies are `Complete`
+- it is `Blocked`, all declared dependencies are `Complete`, and its recorded blocker has been cleared
 
-A task already marked `In Progress` remains eligible for continuation.
-
-A task marked `Blocked` may become eligible again when its dependencies and blocker conditions have been cleared.
+A task is not eligible when it is `Complete`, when dependencies remain incomplete, or when a blocker is still active.
 
 If no task is eligible:
 
-- and all tasks are `Complete`, the loop stops successfully
-- and at least one task remains `Blocked` or has incomplete dependencies, the loop stops in recoverable blocked state
+- and all tasks are `Complete`, the loop stops successfully with `ALL_TASKS_COMPLETE`
+- and at least one task remains `Blocked` or has incomplete dependencies, the loop stops in recoverable blocked state with `TASKS_BLOCKED`
 
 ---
 
@@ -107,10 +146,12 @@ Rules:
 - ordinary task-level failures should be written into the tracker as blocker or execution notes
 - task-level failure should prefer `Blocked` over losing context
 - re-running the loop should resume from the current tracker state rather than from hidden memory
-- only true unrecoverable runtime failure should stop the loop as failed
+- only true unrecoverable runtime failure should stop the loop as failed with `EXECUTION_FAILED`
 
-Recommended stop outcomes:
+Named stop outcomes:
 
+- `TASK_COMPLETED`
+- `TASK_BLOCKED`
 - `ALL_TASKS_COMPLETE`
 - `TASKS_BLOCKED`
 - `EXECUTION_FAILED`
@@ -134,17 +175,29 @@ The loop should use abilities only where they provide real reuse, such as task a
 
 ## Proposed Execution Shape
 
-Recommended conceptual step flow:
+The default execution shape for each run is:
 
 1. `readTracker`
 2. `selectNextTask`
-3. `reviewDependencies`
-4. `executeTask`
-5. `verifyTask`
-6. `updateTracker`
-7. `completeExecution`
+3. `reviewSelectedTask`
+4. `executeSelectedTask`
+5. `verifySelectedTask`
+6. `persistTracker`
+7. `stopWithOutcome`
 
-These steps may be implemented as custom steps, ability-backed steps, or mixed steps.
+Step responsibilities:
+
+| Step | Responsibility |
+|------|----------------|
+| `readTracker` | Read and validate the tracker before any state transition |
+| `selectNextTask` | Choose the one eligible task for this run, or stop early with `ALL_TASKS_COMPLETE` or `TASKS_BLOCKED` |
+| `reviewSelectedTask` | Re-check dependencies and blocker state before meaningful work begins |
+| `executeSelectedTask` | Perform the selected task's work against the repository and required documents |
+| `verifySelectedTask` | Compare results to the task's done-condition and decide whether the task is `Complete` or `Blocked` |
+| `persistTracker` | Write task-state changes, notes, and progress counts back to the tracker |
+| `stopWithOutcome` | End the run with `TASK_COMPLETED`, `TASK_BLOCKED`, `ALL_TASKS_COMPLETE`, `TASKS_BLOCKED`, or `EXECUTION_FAILED` |
+
+These steps may be implemented as custom steps, ability-backed steps, or mixed steps. The companion runtime contract document is the normative source for the detailed execution shape, task selection order, blocked-state recovery, tracker update expectations, and stop-outcome boundaries.
 
 ---
 
@@ -165,8 +218,15 @@ None. The current workflow decisions are explicit:
 | Proposal | Relationship | Notes |
 |----------|--------------|-------|
 | [ThreeLoopWorkflowProposal](./ThreeLoopWorkflowProposal.md) | Parent | Defines the canonical three-loop workflow |
-| [InvestigationLoopProposal](./InvestigationLoopProposal.md) | Sibling | Produces the proposal that later becomes a task tracker |
+| [InvestigationLoopProposal](./InvestigationLoopProposal.md) | Upstream sibling | Produces the approved proposal that `ProposalToTasks` later converts into a task tracker |
 | [ExecutableLoopStepsProposal](./ExecutableLoopStepsProposal.md) | Depends on | Provides the shared customizable step model |
+
+## Related Documents
+
+| Document | Relationship | Notes |
+|----------|--------------|-------|
+| [../../Docs/TaskExecutionWorkflowContract.md](../../Docs/TaskExecutionWorkflowContract.md) | Companion contract | Defines the normative runtime behavior for eligibility, blocker recovery, and stop outcomes |
+| [../../Templates/TaskTrackerTemplate.md](../../Templates/TaskTrackerTemplate.md) | Companion template | Defines the canonical tracker structure required by execution |
 
 ---
 
@@ -195,6 +255,7 @@ None. The current workflow decisions are explicit:
 | System/File | Change | Risk Level |
 |-------------|--------|------------|
 | `Wally.Core/Default/Templates/TaskTrackerTemplate.md` | Define execution-ready task states and dependencies | Medium |
+| `Wally.Core/Default/Docs/TaskExecutionWorkflowContract.md` | Define the runtime contract for tracker interpretation and stop outcomes | Low |
 | `Wally.Core/Default/Loops/ProposalToTasks.json` | Produce trackers suitable for loop-3 execution | Low |
 | `Wally.Core/Default/Projects/Proposals/TaskExecutionLoopProposal.md` | Canonical design reference for loop 3 | Low |
 
@@ -221,16 +282,6 @@ Mitigations:
 - require specific done-conditions
 - require blockers to be recorded in the tracker
 - keep decomposition granular in `ProposalToTasks`
-
----
-
-## Todo Tracker
-
-| Task | Priority | Status | Owner | Due Date | Notes |
-|------|----------|--------|-------|----------|-------|
-| Define the canonical stop outcomes for loop 3 | High | ?? Not Started | @developer | 2026-03-30 | Successful completion, blocked state, true failure |
-| Align task tracker generation with execution eligibility rules | High | ?? In Progress | @developer | 2026-03-29 | Dependencies and state transitions are required |
-| Validate one-task-at-a-time execution against a realistic tracker | Medium | ?? Not Started | @developer | 2026-03-30 | Prefer simple, inspectable flow |
 
 ---
 

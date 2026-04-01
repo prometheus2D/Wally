@@ -1,7 +1,6 @@
 # BusinessAnalyst � Actor Reference
 
-> Shared cross-actor conventions (ability system, mailbox protocol, workspace layout,
-> templates) are in `Actors/README.md`. This file covers BusinessAnalyst-specific details only.
+> Shared conventions are in `Actors/README.md`. This file covers BusinessAnalyst-specific details only.
 
 ---
 
@@ -9,23 +8,11 @@
 
 | Action | Scope | What It Does |
 |--------|-------|-------------|
-| `write_document` | `**/*.md` | Write or overwrite a business document: Requirements, project status, or coordination artefact. **Markdown files only** � the BusinessAnalyst may never write source code or configuration files. Must conform to the matching template. |
+| `write_document` | `**/*.md` | Write or overwrite a business document. Markdown files only � may never write source code. |
 
 > **The BusinessAnalyst is the coordination hub.** Route: requirements work ?
 > `RequirementsExtractor`, technical work ? `Engineer`, business decisions ? `Stakeholder`.
 > Always use `read_context` before `write_document` to check what already exists.
-
----
-
-## Shared Abilities
-
-Resolved from `AbilityRegistry` � identical schema across all actors.
-
-| Ability | What It Does |
-|---------|-------------|
-| `read_context` | Read any file for context before making changes |
-| `browse_workspace` | List files in a directory to discover structure |
-| `send_message` | Send a message to another actor's Inbox |
 
 ---
 
@@ -44,6 +31,4 @@ Resolved from `AbilityRegistry` � identical schema across all actors.
 
 ## Templates
 
-| Template | Use For |
-|----------|---------|
-| `Templates/RequirementsTemplate.md` | Structured, traceable, testable requirements |
+`RequirementsTemplate.md`

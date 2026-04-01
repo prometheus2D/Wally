@@ -27,7 +27,13 @@ namespace Wally.Core
         /// <param name="workspace">The workspace context.</param>
         /// <param name="logger">Session logger for recording actions.</param>
         /// <returns>The original response with executed action results appended.</returns>
-        public static string ProcessActionBlocks(Actor actor, string llmResponse, WallyWorkspace workspace, SessionLogger? logger)
+        public static string ProcessActionBlocks(
+            Actor actor,
+            string llmResponse,
+            WallyWorkspace workspace,
+            SessionLogger? logger,
+            WallyEnvironment? environment = null,
+            WallyStepDefinition? stepDefinition = null)
         {
             var matches = ActionBlockRegex.Matches(llmResponse);
             if (matches.Count == 0)
@@ -39,7 +45,7 @@ namespace Wally.Core
             {
                 try
                 {
-                    var actionResult = ExecuteActionBlock(actor, match.Groups[1].Value, workspace, logger);
+                    var actionResult = ExecuteActionBlock(actor, match.Groups[1].Value, workspace, logger, environment, stepDefinition);
                     if (!string.IsNullOrEmpty(actionResult))
                         results.Add(actionResult);
                 }
@@ -53,7 +59,13 @@ namespace Wally.Core
             return string.Join("\n\n", results);
         }
 
-        private static string ExecuteActionBlock(Actor actor, string actionContent, WallyWorkspace workspace, SessionLogger? logger)
+        private static string ExecuteActionBlock(
+            Actor actor,
+            string actionContent,
+            WallyWorkspace workspace,
+            SessionLogger? logger,
+            WallyEnvironment? environment,
+            WallyStepDefinition? stepDefinition)
         {
             var actionParams = ParseActionParameters(actionContent);
             
@@ -88,7 +100,7 @@ namespace Wally.Core
                 }
             }
 
-            // Path pattern check — only enforced when pattern is not the catch-all "**"
+            // Path pattern check ï¿½ only enforced when pattern is not the catch-all "**"
             if (actionDef != null && actionDef.PathPattern != "**"
                 && actionParams.TryGetValue("path", out string? targetPath)
                 && !string.IsNullOrEmpty(targetPath))
@@ -97,6 +109,23 @@ namespace Wally.Core
                 {
                     logger?.LogError($"Action '{actionName}' path '{targetPath}' blocked by pattern '{actionDef.PathPattern}'");
                     return $"? Path '{targetPath}' is not permitted for action '{actionName}' (allowed pattern: {actionDef.PathPattern})";
+                }
+            }
+
+            if (stepDefinition != null
+                && environment != null
+                && actionDef?.IsMutating == true
+                && actionParams.TryGetValue("path", out string? scopedPath)
+                && !string.IsNullOrEmpty(scopedPath))
+            {
+                try
+                {
+                    environment.EnsureStepWriteAllowed(stepDefinition, scopedPath, actionName);
+                }
+                catch (Exception ex)
+                {
+                    logger?.LogError($"Step write scope blocked action '{actionName}' for path '{scopedPath}': {ex.Message}");
+                    return $"? {ex.Message}";
                 }
             }
 
@@ -119,9 +148,9 @@ namespace Wally.Core
         /// <summary>
         /// Simple glob matcher supporting <c>**</c> (any path segments) and <c>*</c> (within a segment).
         /// <list type="bullet">
-        ///   <item><c>"**"</c> — matches any path (catch-all; skipped before this method is called).</item>
-        ///   <item><c>"**/*.md"</c> — matches any <c>.md</c> file at any depth.</item>
-        ///   <item><c>"*.cs"</c> — matches any <c>.cs</c> file in the root only.</item>
+        ///   <item><c>"**"</c> ï¿½ matches any path (catch-all; skipped before this method is called).</item>
+        ///   <item><c>"**/*.md"</c> ï¿½ matches any <c>.md</c> file at any depth.</item>
+        ///   <item><c>"*.cs"</c> ï¿½ matches any <c>.cs</c> file in the root only.</item>
         /// </list>
         /// </summary>
         private static bool GlobMatch(string pattern, string path)
@@ -135,9 +164,9 @@ namespace Wally.Core
             // Convert glob to regex
             string regexPattern = "^"
                 + Regex.Escape(pattern)
-                    .Replace(@"\*\*/", "(.+/)?")  // **/ — zero or more path segments
-                    .Replace(@"\*\*",  ".*")       // **  — anything remaining
-                    .Replace(@"\*",    "[^/]*")    // *   — any chars within one segment
+                    .Replace(@"\*\*/", "(.+/)?")  // **/ ï¿½ zero or more path segments
+                    .Replace(@"\*\*",  ".*")       // **  ï¿½ anything remaining
+                    .Replace(@"\*",    "[^/]*")    // *   ï¿½ any chars within one segment
                 + "$";
 
             return Regex.IsMatch(path, regexPattern, RegexOptions.IgnoreCase);
@@ -307,8 +336,8 @@ namespace Wally.Core
                     {body}
                     """;
 
-                // Write to sender's Outbox (not target's Inbox)
-                // route-outbox will deliver it to the target's Inbox
+                // Write to sender's Outbox (not target's Inbox).
+                // A workflow-owned routing step such as route_messages delivers it later.
                 string outboxPath = Path.Combine(fromActor.FolderPath, "Outbox");
                 Directory.CreateDirectory(outboxPath);
 
@@ -319,7 +348,7 @@ namespace Wally.Core
 
                 logger?.LogInfo($"Message queued in '{fromActor.Name}' Outbox for '{targetActorName}': {subject} (ID: {correlationId})");
 
-                return $"? Message queued in Outbox for {targetActorName}\n**Subject:** {subject}\n**Correlation ID:** {correlationId}\n(Run `route-outbox` to deliver)";
+                return $"? Message queued in Outbox for {targetActorName}\n**Subject:** {subject}\n**Correlation ID:** {correlationId}\n(Run a routing step such as `route_messages` or use `route-outbox` to deliver)";
             }
             catch (Exception ex)
             {

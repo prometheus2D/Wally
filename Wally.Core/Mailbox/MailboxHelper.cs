@@ -1,8 +1,64 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Text;
+using Wally.Core.Actors;
+using Wally.Core.Logging;
 
 namespace Wally.Core.Mailbox
 {
+    /// <summary>
+    /// Result for routing one mailbox file from an Outbox to one or more recipient Inbox folders.
+    /// </summary>
+    public sealed class MailboxRouteItemResult
+    {
+        public string SourceFilePath { get; init; } = string.Empty;
+
+        public IReadOnlyList<string> Recipients { get; init; } = Array.Empty<string>();
+
+        public bool Success { get; init; }
+
+        public string Outcome { get; init; } = string.Empty;
+    }
+
+    public sealed class MailboxRouteResult
+    {
+        public List<MailboxRouteItemResult> Items { get; } = new();
+
+        public int RoutedCount => Items.Count(item => item.Success);
+
+        public int FailedCount => Items.Count(item => !item.Success);
+
+        public bool HasMessages => Items.Count > 0;
+
+        public string PrimaryKeyword => !HasMessages
+            ? "NO_MESSAGES"
+            : FailedCount > 0
+                ? "ROUTING_FAILED"
+                : "ROUTED";
+
+        public string BuildSummary()
+        {
+            var builder = new StringBuilder();
+            builder.AppendLine(PrimaryKeyword);
+            builder.AppendLine($"Routed: {RoutedCount}");
+            builder.AppendLine($"Failed: {FailedCount}");
+
+            foreach (MailboxRouteItemResult item in Items)
+            {
+                string fileName = Path.GetFileName(item.SourceFilePath);
+                string recipients = item.Recipients.Count == 0
+                    ? "(none)"
+                    : string.Join(", ", item.Recipients);
+                builder.AppendLine();
+                builder.AppendLine($"- {fileName} [{recipients}] -> {item.Outcome}");
+            }
+
+            return builder.ToString().TrimEnd();
+        }
+    }
+
     /// <summary>
     /// Parses YAML front-matter fields from mailbox message files.
     /// <para>
@@ -17,6 +73,50 @@ namespace Wally.Core.Mailbox
     /// </summary>
     public static class MailboxHelper
     {
+        /// <summary>
+        /// Routes existing mailbox files from a source Outbox folder into the target actor Inbox folders.
+        /// This helper only reads front matter, resolves recipients, copies the message, and deletes the
+        /// source file after successful delivery. It is intentionally not a background mailbox service.
+        /// </summary>
+        public static MailboxRouteResult RouteMessages(
+            WallyWorkspace workspace,
+            string sourceFolderPath,
+            SessionLogger? logger = null)
+        {
+            ArgumentNullException.ThrowIfNull(workspace);
+            ArgumentException.ThrowIfNullOrWhiteSpace(sourceFolderPath);
+
+            var result = new MailboxRouteResult();
+            if (!Directory.Exists(sourceFolderPath))
+            {
+                logger?.LogInfo($"Mailbox source folder does not exist: {sourceFolderPath}");
+                return result;
+            }
+
+            foreach (string messagePath in Directory.GetFiles(sourceFolderPath, "*.md", SearchOption.TopDirectoryOnly)
+                .OrderBy(path => path, StringComparer.OrdinalIgnoreCase))
+            {
+                result.Items.Add(RouteSingleMessage(workspace, messagePath, logger));
+            }
+
+            return result;
+        }
+
+        public static void AppendRoutingLog(string logPath, MailboxRouteResult routeResult)
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(logPath);
+            ArgumentNullException.ThrowIfNull(routeResult);
+
+            Directory.CreateDirectory(Path.GetDirectoryName(logPath)!);
+            var builder = new StringBuilder();
+            builder.AppendLine($"## Mailbox Routing {DateTimeOffset.UtcNow:O}");
+            builder.AppendLine();
+            builder.AppendLine(routeResult.BuildSummary());
+            builder.AppendLine();
+
+            File.AppendAllText(logPath, builder.ToString());
+        }
+
         /// <summary>
         /// Parses YAML front-matter from a message file's content.
         /// Returns a dictionary of field name ? value pairs (both trimmed).
@@ -94,7 +194,7 @@ namespace Wally.Core.Mailbox
 
             // Must start with ---
             if (lineIndex >= lines.Length || lines[lineIndex].Trim() != "---")
-                return fileContent.Trim(); // No front-matter — entire content is the body
+                return fileContent.Trim(); // No front-matter ï¿½ entire content is the body
 
             lineIndex++; // skip opening ---
 
@@ -114,6 +214,79 @@ namespace Wally.Core.Mailbox
                 return string.Empty;
 
             return string.Join('\n', lines, lineIndex, lines.Length - lineIndex).Trim();
+        }
+
+        private static MailboxRouteItemResult RouteSingleMessage(
+            WallyWorkspace workspace,
+            string messagePath,
+            SessionLogger? logger)
+        {
+            try
+            {
+                string content = File.ReadAllText(messagePath);
+                Dictionary<string, string> frontMatter = ParseFrontMatter(content);
+                string recipientsValue = frontMatter.GetValueOrDefault("to", string.Empty) ?? string.Empty;
+                string[] recipients = recipientsValue
+                    .Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+                if (recipients.Length == 0)
+                {
+                    return new MailboxRouteItemResult
+                    {
+                        SourceFilePath = messagePath,
+                        Success = false,
+                        Outcome = "missing 'to' recipient"
+                    };
+                }
+
+                var targetActors = new List<Actor>(recipients.Length);
+                foreach (string recipient in recipients)
+                {
+                    Actor? targetActor = workspace.Actors.FirstOrDefault(actor =>
+                        string.Equals(actor.Name, recipient, StringComparison.OrdinalIgnoreCase));
+                    if (targetActor == null)
+                    {
+                        return new MailboxRouteItemResult
+                        {
+                            SourceFilePath = messagePath,
+                            Recipients = recipients,
+                            Success = false,
+                            Outcome = $"unknown recipient '{recipient}'"
+                        };
+                    }
+
+                    targetActors.Add(targetActor);
+                }
+
+                foreach (Actor targetActor in targetActors)
+                {
+                    string inboxPath = Path.Combine(targetActor.FolderPath, WallyHelper.MailboxInboxFolderName);
+                    Directory.CreateDirectory(inboxPath);
+                    string destinationPath = Path.Combine(inboxPath, Path.GetFileName(messagePath));
+                    File.Copy(messagePath, destinationPath, overwrite: true);
+                }
+
+                File.Delete(messagePath);
+                logger?.LogInfo($"Routed mailbox item '{Path.GetFileName(messagePath)}' to [{string.Join(", ", recipients)}].");
+
+                return new MailboxRouteItemResult
+                {
+                    SourceFilePath = messagePath,
+                    Recipients = recipients,
+                    Success = true,
+                    Outcome = $"delivered to {string.Join(", ", recipients)}"
+                };
+            }
+            catch (Exception ex)
+            {
+                logger?.LogError($"Failed to route mailbox item '{messagePath}': {ex.Message}");
+                return new MailboxRouteItemResult
+                {
+                    SourceFilePath = messagePath,
+                    Success = false,
+                    Outcome = ex.Message
+                };
+            }
         }
     }
 }

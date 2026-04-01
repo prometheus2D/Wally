@@ -256,15 +256,7 @@ namespace Wally.Console
                     // ── Running ───────────────────────────────────────────────
                     if (opts is RunOptions ro)
                     {
-                        WallyCommands.HandleRun(
-                            _environment,
-                            ro.Prompt,
-                            ro.ActorName,
-                            ro.Model,
-                            ro.LoopName,
-                            ro.Wrapper,
-                            ro.NoHistory);
-                        return 0;
+                        return HandleRunOptions(ro);
                     }
                     if (opts is RunbookOptions rbo) { WallyCommands.HandleRunbook(_environment, rbo.Name, rbo.Prompt); return 0; }
                     if (opts is DiagramOptions dio)
@@ -323,6 +315,51 @@ namespace Wally.Console
                     return 1;
                 }
             );
+        }
+
+        private static int HandleRunOptions(RunOptions options)
+        {
+            string runPrompt = options.Prompt;
+
+            if (InvestigationInteractionStore.IsInvestigationLoop(options.LoopName) &&
+                InvestigationInteractionStore.TryRecordResponse(
+                    _environment,
+                    options.Prompt,
+                    "Console",
+                    out InvestigationInteractionState? interactionState))
+            {
+                System.Console.WriteLine(
+                    $"Recorded answer batch {interactionState!.QuestionBatchId} for investigation {interactionState.InvestigationId}.");
+                runPrompt = InvestigationInteractionStore.BuildResumePrompt(interactionState);
+            }
+
+            WallyCommands.HandleRun(
+                _environment,
+                runPrompt,
+                options.ActorName,
+                options.Model,
+                options.LoopName,
+                options.Wrapper,
+                options.NoHistory);
+
+            RenderPendingInteraction(options.LoopName);
+            return 0;
+        }
+
+        private static void RenderPendingInteraction(string? loopName)
+        {
+            if (!InvestigationInteractionStore.IsInvestigationLoop(loopName))
+                return;
+
+            if (!InvestigationInteractionStore.TryLoadWaiting(_environment, out InvestigationInteractionState? state) ||
+                state == null)
+            {
+                return;
+            }
+
+            System.Console.WriteLine();
+            System.Console.WriteLine(InvestigationInteractionStore.BuildWaitingDisplayText(state));
+            System.Console.WriteLine();
         }
     }
 }

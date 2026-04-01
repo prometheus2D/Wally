@@ -3,12 +3,30 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 using Wally.Core.Scripting;
 
 namespace Wally.Core
 {
     public static partial class WallyCommands
     {
+        private sealed class ShellExecutionResult
+        {
+            public bool Success { get; init; }
+            public int ExitCode { get; init; }
+            public long ElapsedMilliseconds { get; init; }
+            public string Stdout { get; init; } = string.Empty;
+            public string Stderr { get; init; } = string.Empty;
+        }
+
+        private sealed class CommandExecutionResult
+        {
+            public bool Success { get; init; }
+            public string Output { get; init; } = string.Empty;
+        }
+
         // ?? Runbook entry points ??????????????????????????????????????????????
 
         public static bool HandleRunbook(
@@ -53,7 +71,10 @@ namespace Wally.Core
 
                 env.Logger.LogRunbookStep(instanceId, i + 1, SplitArgs(line).FirstOrDefault() ?? "");
                 Console.WriteLine($"[runbook:{runbookName}] ({i + 1}/{runbook.Commands.Count}) {line}");
-                bool success = DispatchCommand(env, SplitArgs(line), depth + 1);
+                bool success = ExecuteWallyCommandLineAsync(env, line, depth + 1)
+                    .GetAwaiter()
+                    .GetResult()
+                    .Success;
                 if (!success)
                 {
                     Console.WriteLine($"[runbook:{runbookName}] Stopped at command {i + 1} due to error.");
@@ -98,7 +119,7 @@ namespace Wally.Core
             }
             catch (RunbookParseException ex)
             {
-                Console.WriteLine($"[runbook:{runbook.Name}] Parse error — {ex.Message}");
+                Console.WriteLine($"[runbook:{runbook.Name}] Parse error ï¿½ {ex.Message}");
                 env.Logger.LogRunbookError(instanceId, 0, ex.Message);
                 env.Logger.LogError($"Runbook '{runbook.Name}' parse error: {ex.Message}", "runbook");
                 return false;
@@ -211,7 +232,7 @@ namespace Wally.Core
             if (parentFrame.CurrentLoop == null)
             {
                 string msg = $"'call' at line {call.LineNumber} has no preceding 'loop {{}}' in the current scope.";
-                Console.WriteLine($"[runbook:{ctx.RunbookName}] Error — {msg}");
+                Console.WriteLine($"[runbook:{ctx.RunbookName}] Error ï¿½ {msg}");
                 ctx.Env.Logger.LogRunbookError(ctx.InstanceId, stepIndex, msg);
                 return false;
             }
@@ -244,65 +265,21 @@ namespace Wally.Core
 
             Console.WriteLine($"[runbook:{ctx.RunbookName}] shell> {command}");
 
-            var sw = Stopwatch.StartNew();
-            int    exitCode = -1;
-            string stdout   = string.Empty;
-            string stderr   = string.Empty;
-
-            try
-            {
-                bool isWindows = System.Runtime.InteropServices.RuntimeInformation
-                    .IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows);
-
-                string shellExe  = isWindows ? "cmd.exe" : "/bin/sh";
-                string shellArgs = isWindows
-                    ? $"/c {command}"
-                    : $"-c \"{command.Replace("\"", "\\\"")}\"";
-
-                var psi = new ProcessStartInfo(shellExe, shellArgs)
-                {
-                    WorkingDirectory       = workDir,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError  = true,
-                    UseShellExecute        = false,
-                    CreateNoWindow         = true
-                };
-
-                using var proc = Process.Start(psi)
-                    ?? throw new InvalidOperationException("Failed to start shell process.");
-
-                stdout = proc.StandardOutput.ReadToEnd();
-                stderr = proc.StandardError.ReadToEnd();
-                proc.WaitForExit();
-                exitCode = proc.ExitCode;
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"[runbook:{ctx.RunbookName}] shell error — {ex.Message}");
-                ctx.Env.Logger.LogRunbookError(ctx.InstanceId, stepIndex, $"shell launch failed: {ex.Message}");
-                ctx.Env.Logger.LogRunbookShell(ctx.InstanceId, stepIndex, command,
-                    exitCode, sw.ElapsedMilliseconds, stdout: null, stderr: ex.Message);
-                return false;
-            }
-            finally
-            {
-                sw.Stop();
-            }
-
-            if (!string.IsNullOrWhiteSpace(stdout)) Console.Write(stdout);
-            if (!string.IsNullOrWhiteSpace(stderr)) Console.Error.Write(stderr);
+            var result = ExecuteShellCommand(command, workDir);
+            if (!string.IsNullOrWhiteSpace(result.Stdout)) Console.Write(result.Stdout);
+            if (!string.IsNullOrWhiteSpace(result.Stderr)) Console.Error.Write(result.Stderr);
 
             // Capture stdout so subsequent run commands can reference {shellOutput}.
-            ctx.LastShellOutput = stdout;
+            ctx.LastShellOutput = result.Stdout;
 
             ctx.Env.Logger.LogRunbookShell(ctx.InstanceId, stepIndex, command,
-                exitCode, sw.ElapsedMilliseconds, stdout, stderr);
+                result.ExitCode, result.ElapsedMilliseconds, result.Stdout, result.Stderr);
 
-            if (exitCode != 0)
+            if (!result.Success)
             {
-                string msg = $"shell exited with code {exitCode}: {command}";
-                if (!string.IsNullOrWhiteSpace(stderr)) msg += $"\nstderr: {stderr.TrimEnd()}";
-                Console.WriteLine($"[runbook:{ctx.RunbookName}] shell failed (exit {exitCode}) — stopping runbook.");
+                string msg = $"shell exited with code {result.ExitCode}: {command}";
+                if (!string.IsNullOrWhiteSpace(result.Stderr)) msg += $"\nstderr: {result.Stderr.TrimEnd()}";
+                Console.WriteLine($"[runbook:{ctx.RunbookName}] shell failed (exit {result.ExitCode}) ï¿½ stopping runbook.");
                 ctx.Env.Logger.LogRunbookError(ctx.InstanceId, stepIndex, msg);
                 return false;
             }
@@ -334,13 +311,15 @@ namespace Wally.Core
             }
 
             Console.WriteLine($"[runbook:{ctx.RunbookName}] {line}");
-            bool success = DispatchCommand(ctx.Env, args, ctx.Depth + 1);
-            if (!success)
+            var result = ExecuteWallyCommandLineAsync(ctx.Env, line, ctx.Depth + 1)
+                .GetAwaiter()
+                .GetResult();
+            if (!result.Success)
             {
                 ctx.Env.Logger.LogRunbookError(ctx.InstanceId, stepIndex, $"Command failed: {line}");
                 Console.WriteLine($"[runbook:{ctx.RunbookName}] Stopped at step {stepIndex} due to error.");
             }
-            return success;
+            return result.Success;
         }
 
         // ?? Template token replacement ????????????????????????????????????????
@@ -348,10 +327,10 @@ namespace Wally.Core
         /// <summary>
         /// Replaces well-known template tokens in <paramref name="text"/>.
         /// <list type="bullet">
-        /// <item><c>{workSourcePath}</c> — workspace work-source root</item>
-        /// <item><c>{workspaceFolder}</c> — .wally folder path</item>
-        /// <item><c>{userPrompt}</c> — user prompt passed to the runbook</item>
-        /// <item><c>{shellOutput}</c> — stdout from the most recent <c>shell</c> step</item>
+        /// <item><c>{workSourcePath}</c> ï¿½ workspace work-source root</item>
+        /// <item><c>{workspaceFolder}</c> ï¿½ .wally folder path</item>
+        /// <item><c>{userPrompt}</c> ï¿½ user prompt passed to the runbook</item>
+        /// <item><c>{shellOutput}</c> ï¿½ stdout from the most recent <c>shell</c> step</item>
         /// </list>
         /// </summary>
         private static string ApplyTemplates(string text, ScriptContext ctx) =>
@@ -360,5 +339,144 @@ namespace Wally.Core
                 .Replace("{workspaceFolder}", ctx.Env.WorkspaceFolder ?? "")
                 .Replace("{userPrompt}",      ctx.UserPrompt          ?? "")
                 .Replace("{shellOutput}",     ctx.LastShellOutput);
+
+        private static ShellExecutionResult ExecuteShellCommand(string command, string workDir)
+        {
+            var sw = Stopwatch.StartNew();
+            int exitCode = -1;
+            string stdout = string.Empty;
+            string stderr = string.Empty;
+
+            try
+            {
+                bool isWindows = System.Runtime.InteropServices.RuntimeInformation
+                    .IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows);
+
+                string shellExe = isWindows ? "cmd.exe" : "/bin/sh";
+                string shellArgs = isWindows
+                    ? $"/c {command}"
+                    : $"-c \"{command.Replace("\"", "\\\"")}\"";
+
+                var psi = new ProcessStartInfo(shellExe, shellArgs)
+                {
+                    WorkingDirectory = workDir,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                };
+
+                using var proc = Process.Start(psi)
+                    ?? throw new InvalidOperationException("Failed to start shell process.");
+
+                stdout = proc.StandardOutput.ReadToEnd();
+                stderr = proc.StandardError.ReadToEnd();
+                proc.WaitForExit();
+                exitCode = proc.ExitCode;
+            }
+            catch (Exception ex)
+            {
+                stderr = ex.Message;
+            }
+            finally
+            {
+                sw.Stop();
+            }
+
+            return new ShellExecutionResult
+            {
+                Success = exitCode == 0,
+                ExitCode = exitCode,
+                ElapsedMilliseconds = sw.ElapsedMilliseconds,
+                Stdout = stdout,
+                Stderr = stderr
+            };
+        }
+
+        private static async Task<CommandExecutionResult> ExecuteWallyCommandLineAsync(
+            WallyEnvironment env,
+            string line,
+            int runbookDepth,
+            TextWriter? mirrorOutput = null,
+            CancellationToken cancellationToken = default)
+        {
+            string[] args = SplitArgs(line);
+            if (args.Length == 0)
+                return new CommandExecutionResult { Success = true };
+
+            if (string.Equals(args[0], "run", StringComparison.OrdinalIgnoreCase))
+            {
+                if (args.Length < 2)
+                    return new CommandExecutionResult { Success = false, Output = "Usage: run \"<prompt>\" [-a actor] [-m model] [-w wrapper] [-l name] [--no-history]" };
+
+                string? actorName = WallyArgParser.GetOption(args, "-a", "--actor");
+                string? model = WallyArgParser.GetOption(args, "-m", "--model");
+                string? wrapper = WallyArgParser.GetOption(args, "-w", "--wrapper");
+                string? loopName = WallyArgParser.GetOption(args, "-l", "--loop-name");
+                bool noHistory = WallyArgParser.HasFlag(args, "--no-history");
+
+                using var capture = new StringWriter();
+                var results = await HandleRunTypedAsync(
+                    env,
+                    args[1],
+                    actorName,
+                    model,
+                    loopName,
+                    wrapper,
+                    noHistory,
+                    cancellationToken,
+                    capture)
+                    .ConfigureAwait(false);
+
+                string output = capture.ToString();
+                if (string.IsNullOrWhiteSpace(output) && results.Count > 0)
+                {
+                    output = string.Join(
+                        Environment.NewLine + Environment.NewLine,
+                        results.Select(result => result.Response));
+                }
+
+                if (mirrorOutput != null && !string.IsNullOrWhiteSpace(output))
+                    await mirrorOutput.WriteAsync(output).ConfigureAwait(false);
+
+                return new CommandExecutionResult
+                {
+                    Success = results.Count > 0,
+                    Output = output
+                };
+            }
+
+            TextWriter originalOut = Console.Out;
+            TextWriter originalError = Console.Error;
+            using var stdoutCapture = TextWriter.Synchronized(new StringWriter());
+            using var stderrCapture = TextWriter.Synchronized(new StringWriter());
+
+            try
+            {
+                Console.SetOut(stdoutCapture);
+                Console.SetError(stderrCapture);
+                bool success = DispatchCommand(env, args, runbookDepth);
+
+                string output = BuildCommandOutput(stdoutCapture.ToString(), stderrCapture.ToString());
+                if (mirrorOutput != null && !string.IsNullOrWhiteSpace(output))
+                    await mirrorOutput.WriteAsync(output).ConfigureAwait(false);
+
+                return new CommandExecutionResult { Success = success, Output = output };
+            }
+            finally
+            {
+                Console.SetOut(originalOut);
+                Console.SetError(originalError);
+            }
+        }
+
+        private static string BuildCommandOutput(string stdout, string stderr)
+        {
+            if (string.IsNullOrWhiteSpace(stdout))
+                return stderr;
+            if (string.IsNullOrWhiteSpace(stderr))
+                return stdout;
+            return $"{stdout.TrimEnd()}{Environment.NewLine}{stderr.TrimEnd()}";
+        }
     }
 }

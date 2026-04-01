@@ -3,7 +3,7 @@
 **Status**: Draft
 **Author**: System Architecture Team
 **Created**: 2026-03-28
-**Last Updated**: 2026-03-28
+**Last Updated**: 2026-03-29
 
 *Template: [../../Templates/ProposalTemplate.md](../../Templates/ProposalTemplate.md)*
 
@@ -66,9 +66,9 @@ The investigation loop may also perform operational workspace steps, such as mov
 
 `InvestigationLoop` is the first loop in the current default three-loop workflow:
 
-1. `InvestigationLoop`: gather information, ask follow-up questions, and produce an approved proposal
-2. `ProposalToTasks`: decompose the approved proposal into a dependency-aware task tracker
-3. `ExecuteTasksLoop`: execute one eligible task at a time from the task tracker until the tracker is complete
+1. `InvestigationLoop`: input = user request; output = approved proposal document
+2. `ProposalToTasks`: input = approved proposal path; output = one dependency-aware `*Tasks.md` tracker in the same directory as the proposal
+3. `ExecuteTasksLoop`: input = task tracker path; output = the same tracker updated until all eligible work is complete or recoverably blocked
 
 Current workflow decisions:
 
@@ -652,7 +652,7 @@ Implementation rule: extract shared shell and command execution helpers from scr
 
 The default end product of an investigation should be:
 
-- one canonical proposal document, promoted from `Memory/ProposalDraft.md` to `Projects/Proposals/` when ready
+- one canonical approved proposal document, promoted from `Memory/ProposalDraft.md` to `Projects/Proposals/` when ready
 - one ideas document or ideas section capturing alternatives, rejected options, and future directions
 - a final investigation summary in `InvestigationLog.md` or a separate summary document
 
@@ -660,7 +660,9 @@ The loop may require several user-answer cycles before those artifacts are compl
 
 The investigator should converge on proposal-quality output, not merely produce notes.
 
-Once a proposal is approved, the next workflow step is to run `ProposalToTasks` manually against that proposal. The investigation loop does not auto-transition into downstream loops in v1.
+In the default three-loop workflow, the handoff artifact from `InvestigationLoop` to `ProposalToTasks` is that approved proposal document.
+
+Once a proposal is approved, the next workflow step is to run `ProposalToTasks` manually against that proposal path. `ProposalToTasks` then writes one `*Tasks.md` tracker in the same directory with task owner placeholders, explicit dependencies, verifiable done-conditions, and a progress summary required for execution. `ExecuteTasksLoop` is started manually against that tracker path. The investigation loop does not auto-transition into downstream loops in v1.
 
 ---
 
@@ -692,7 +694,7 @@ No open questions remain for the v1 investigation workflow model. The resolved d
 
 | Proposal | Relationship | Notes |
 |----------|--------------|-------|
-| [ThreeLoopWorkflowProposal](./ThreeLoopWorkflowProposal.md) | Parent | Defines the default `Investigation -> ProposalToTasks -> ExecuteTasksLoop` workflow |
+| [ThreeLoopWorkflowProposal](./ThreeLoopWorkflowProposal.md) | Parent | Defines the default `InvestigationLoop -> ProposalToTasks -> ExecuteTasksLoop` workflow |
 | [TaskExecutionLoopProposal](./TaskExecutionLoopProposal.md) | Sibling | Defines the third loop that executes task trackers one task at a time |
 | [RunbookSyntaxProposal](./RunbookSyntaxProposal.md) | Depends on | Reuse existing `shell` and scripted command execution patterns |
 | [AutonomyLoopProposal](../Archive/CompletedProposals/AutonomyLoopProposal.md) | Builds on | Existing agent loop provides the iteration baseline |
