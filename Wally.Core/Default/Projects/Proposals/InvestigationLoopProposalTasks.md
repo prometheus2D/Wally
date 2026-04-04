@@ -3,14 +3,14 @@
 **Source Proposal**: [InvestigationLoopProposal.md](./InvestigationLoopProposal.md)
 **Status**: Active
 **Created**: 2026-03-29
-**Last Updated**: 2026-03-30
+**Last Updated**: 2026-04-02
 **Owner**: @developer
 
 *Template: [../../Templates/TaskTrackerTemplate.md](../../Templates/TaskTrackerTemplate.md)*
 
 ## Summary
 
-This tracker covers the twelve tasks required to implement the documentation-first InvestigationLoop workflow; Tasks 1-11 are complete, Task 12 is now the next eligible task, and execution is not currently blocked.
+This tracker covers the twelve tasks required to implement the documentation-first InvestigationLoop workflow; Tasks 1-11 are complete, Task 12 is now in progress, and the latest work generalized execution-state checkpointing into a shared loop-runtime capability while continuing end-to-end investigation validation.
 
 ## Task List
 
@@ -64,7 +64,7 @@ This tracker covers the twelve tasks required to implement the documentation-fir
 
 | # | Task | Description | Priority | Effort | Status | Owner | Dependencies | Done-Condition |
 |---|------|-------------|----------|--------|--------|-------|--------------|----------------|
-| 12 | Validate end-to-end investigation | Run a full investigation that reads docs, asks at least one follow-up question, routes any required messages, records the user's answer, updates findings, and produces a proposal artifact using the InvestigationLoop workflow. | High | 2d | Not Started | @developer | 11 | An end-to-end investigation completes using persisted docs and produces a proposal without relying on hidden prompt carry-over. |
+| 12 | Validate end-to-end investigation | Run a full investigation that reads docs, asks at least one follow-up question, routes any required messages, records the user's answer, updates findings, and produces a proposal artifact using the InvestigationLoop workflow. | High | 2d | In Progress | @developer | 11 | An end-to-end investigation completes using persisted docs and produces a proposal without relying on hidden prompt carry-over. |
 
 ## Task State Rules
 
@@ -118,5 +118,5 @@ flowchart LR
 | Phase 5 | 1 | 1 | 0 | 0 | 0 |
 | Phase 6 | 1 | 1 | 0 | 0 | 0 |
 | Phase 7 | 1 | 1 | 0 | 0 | 0 |
-| Phase 8 | 1 | 0 | 0 | 0 | 1 |
-| **Total** | **12** | **11** | **0** | **0** | **1** |
+| Phase 8 | 1 | 0 | 1 | 0 | 0 |
+| **Total** | **12** | **11** | **1** | **0** | **0** |

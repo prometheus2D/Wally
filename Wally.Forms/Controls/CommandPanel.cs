@@ -12,7 +12,7 @@ using Wally.Forms.Theme;
 namespace Wally.Forms.Controls
 {
     /// <summary>
-    /// Command-line interface panel — bottom terminal window.
+    /// Command-line interface panel ï¿½ bottom terminal window.
     /// Accepts Wally commands, displays coloured output, supports command history,
     /// tab-completion, and captures <see cref="Console"/> output from the Core layer.
     /// </summary>
@@ -222,8 +222,8 @@ namespace Wally.Forms.Controls
                 BorderStyle = BorderStyle.None
             };
             _txtInput.KeyDown += OnInputKeyDown;
-            _txtInput.GotFocus += (_, _) => _inputBorder.BackColor = WallyTheme.BorderFocused;
-            _txtInput.LostFocus += (_, _) => _inputBorder.BackColor = WallyTheme.Border;
+            _txtInput.GotFocus += OnInputGotFocus;
+            _txtInput.LostFocus += OnInputLostFocus;
 
             // ?? Input row with focus border ???????????????????????????????????
             var inputInner = new Panel
@@ -323,7 +323,7 @@ namespace Wally.Forms.Controls
         {
             if (_output.TextLength == 0)
             {
-                AppendStyledLine("Nothing to save — terminal is empty.", WallyTheme.TextMuted);
+                AppendStyledLine("Nothing to save ï¿½ terminal is empty.", WallyTheme.TextMuted);
                 return;
             }
 
@@ -384,7 +384,7 @@ namespace Wally.Forms.Controls
             if (InvokeRequired) { Invoke(() => AppendStyledLine(text, color)); return; }
 
             // Only auto-scroll to the new line if the user is already at (or near)
-            // the bottom of the output — so manually scrolling up to read history
+            // the bottom of the output ï¿½ so manually scrolling up to read history
             // is not interrupted by incoming text.
             bool nearBottom = IsOutputNearBottom();
 
@@ -486,6 +486,16 @@ namespace Wally.Forms.Controls
                         _txtInput.Clear();
                     break;
             }
+        }
+
+        private void OnInputGotFocus(object? sender, EventArgs e)
+        {
+            _inputBorder.BackColor = WallyTheme.BorderFocused;
+        }
+
+        private void OnInputLostFocus(object? sender, EventArgs e)
+        {
+            _inputBorder.BackColor = WallyTheme.Border;
         }
 
         private void HandleTabCompletion()
@@ -641,7 +651,7 @@ namespace Wally.Forms.Controls
         {
             _lblPrompt.ForeColor = WallyTheme.Red;
             await Task.Delay(400);
-            // Only reset if still running — RunCommandAsync restores the
+            // Only reset if still running ï¿½ RunCommandAsync restores the
             // correct colour in its finally block when the operation finishes.
             if (_isRunning)
                 _lblPrompt.ForeColor = WallyTheme.TextMuted;
@@ -670,7 +680,7 @@ namespace Wally.Forms.Controls
                 using var capture = new ConsoleCapture(this);
                 var token = _cts.Token;
 
-                // Do NOT pass the token as Task.Run's second argument — that would
+                // Do NOT pass the token as Task.Run's second argument ï¿½ that would
                 // cancel the task scheduling itself. The token is checked and
                 // threaded through execution inside the lambda instead.
                 await Task.Run(() =>

@@ -123,6 +123,13 @@ namespace Wally.Core
         public List<string> WritesToDocs { get; set; } = new();
 
         /// <summary>
+        /// Optional workspace-relative document path that receives the raw result
+        /// of this step after successful execution.
+        /// </summary>
+        [JsonPropertyName("resultDocumentPath")]
+        public string ResultDocumentPath { get; set; } = string.Empty;
+
+        /// <summary>
         /// Maps routing keywords returned by this step to the next named step.
         /// </summary>
         [JsonPropertyName("keywordRoutes")]
@@ -145,6 +152,10 @@ namespace Wally.Core
         /// <summary>Returns <see langword="true"/> when the step declares any write targets.</summary>
         [JsonIgnore]
         public bool HasDeclaredWriteScope => WritesToDocs.Count > 0;
+
+        /// <summary>Returns <see langword="true"/> when the step persists its raw result.</summary>
+        [JsonIgnore]
+        public bool PersistsResultDocument => !string.IsNullOrWhiteSpace(ResultDocumentPath);
 
         /// <summary>Builds the resolved prompt for this step.</summary>
         public string BuildPrompt(string userPrompt, string? previousStepResult)

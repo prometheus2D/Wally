@@ -100,7 +100,7 @@ namespace Wally.Forms.Controls
                 Font         = new Font("Segoe UI", 10f),
                 ForeColor    = WallyTheme.TextSecondary
             };
-            _btnCollapseAll.Click += (_, _) => _tree.CollapseAll();
+            _btnCollapseAll.Click += OnCollapseAllClick;
 
             _toolbar = new WallyToolStrip();
             _toolbar.Dock = DockStyle.Top;
@@ -353,6 +353,11 @@ namespace Wally.Forms.Controls
         {
             if (e.Node?.Tag is not ObjectNodeTag t) return;
             ActivateTag(t);
+        }
+
+        private void OnCollapseAllClick(object? sender, EventArgs e)
+        {
+            _tree.CollapseAll();
         }
 
         private void ActivateSelected()

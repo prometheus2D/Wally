@@ -85,8 +85,7 @@ namespace Wally.Core
         /// </summary>
         public static bool ContainsStopKeyword(string response, string? stopKeyword)
         {
-            return !string.IsNullOrWhiteSpace(stopKeyword) &&
-                   response.Contains(stopKeyword, StringComparison.OrdinalIgnoreCase);
+            return TryFindExplicitKeyword(response, stopKeyword, out _);
         }
 
         /// <summary>
@@ -107,8 +106,7 @@ namespace Wally.Core
                 if (string.IsNullOrWhiteSpace(route.Key) || string.IsNullOrWhiteSpace(route.Value))
                     continue;
 
-                int matchIndex = response.IndexOf(route.Key, StringComparison.OrdinalIgnoreCase);
-                if (matchIndex < 0)
+                if (!TryFindExplicitKeyword(response, route.Key, out int matchIndex))
                     continue;
 
                 if (bestMatch == null || matchIndex < bestMatch.Value.ResponseIndex)
@@ -118,6 +116,56 @@ namespace Wally.Core
             }
 
             return bestMatch;
+        }
+
+        private static bool TryFindExplicitKeyword(string response, string? keyword, out int matchIndex)
+        {
+            matchIndex = -1;
+
+            if (string.IsNullOrWhiteSpace(response) || string.IsNullOrWhiteSpace(keyword))
+                return false;
+
+            string normalizedKeyword = keyword.Trim();
+            string normalizedResponse = response.Replace("\r\n", "\n");
+            string[] lines = normalizedResponse.Split('\n');
+            int runningIndex = 0;
+
+            foreach (string rawLine in lines)
+            {
+                string trimmedLine = rawLine.Trim();
+                if (string.IsNullOrWhiteSpace(trimmedLine))
+                {
+                    runningIndex += rawLine.Length + 1;
+                    continue;
+                }
+
+                if (string.Equals(trimmedLine, normalizedKeyword, StringComparison.OrdinalIgnoreCase))
+                {
+                    matchIndex = runningIndex + rawLine.IndexOf(trimmedLine, StringComparison.Ordinal);
+                    return true;
+                }
+
+                int separatorIndex = trimmedLine.IndexOf(':');
+                if (separatorIndex > 0)
+                {
+                    string label = trimmedLine[..separatorIndex].Trim();
+                    string value = trimmedLine[(separatorIndex + 1)..].Trim();
+
+                    if ((label.Equals("Routing Keyword", StringComparison.OrdinalIgnoreCase)
+                            || label.Equals("Route", StringComparison.OrdinalIgnoreCase)
+                            || label.Equals("Next Step", StringComparison.OrdinalIgnoreCase)
+                            || label.Equals("Stop Keyword", StringComparison.OrdinalIgnoreCase))
+                        && string.Equals(value, normalizedKeyword, StringComparison.OrdinalIgnoreCase))
+                    {
+                        matchIndex = runningIndex + rawLine.IndexOf(value, StringComparison.OrdinalIgnoreCase);
+                        return true;
+                    }
+                }
+
+                runningIndex += rawLine.Length + 1;
+            }
+
+            return false;
         }
 
         /// <summary>
@@ -142,10 +190,11 @@ namespace Wally.Core
             string? wrapper,
             bool noHistory,
             CancellationToken cancellationToken,
-            TextWriter output)
+            TextWriter output,
+            WallyLoopExecutionState? executionState = null)
         {
             var results = new List<WallyRunResult>();
-            string currentPrompt = initialPrompt;
+            string currentPrompt = executionState?.CurrentPrompt ?? initialPrompt;
             bool directMode = actor == null;
             string actorLabel = directMode ? "(no actor)" : actor!.Name;
 
@@ -166,6 +215,19 @@ namespace Wally.Core
             {
                 // CancellationToken honoured at every iteration boundary
                 cancellationToken.ThrowIfCancellationRequested();
+
+                WallyLoopExecutionStateStore.UpdateAndSave(
+                    env,
+                    loopDef,
+                    executionState,
+                    currentStepName: string.Empty,
+                    nextStepName: string.Empty,
+                    iterationCount: iteration,
+                    status: "Running",
+                    stopReason: null,
+                    currentPrompt: currentPrompt,
+                    previousStepResult: string.Empty,
+                    mode: "agent-loop");
 
                 await output.WriteLineAsync(
                     $"--- Iteration {iteration + 1}/{MaxIterations} ({actorLabel}) ---")
@@ -194,6 +256,18 @@ namespace Wally.Core
                 if (ContainsStopKeyword(response, StopKeyword))
                 {
                     stopReason = "StopKeyword";
+                    WallyLoopExecutionStateStore.UpdateAndSave(
+                        env,
+                        loopDef,
+                        executionState,
+                        currentStepName: string.Empty,
+                        nextStepName: string.Empty,
+                        iterationCount: iteration + 1,
+                        status: "Completed",
+                        stopReason: stopReason,
+                        currentPrompt: currentPrompt,
+                        previousStepResult: response,
+                        mode: "agent-loop");
                     results.Add(new WallyRunResult
                     {
                         StepName = null, ActorName = actorLabel,
@@ -214,6 +288,18 @@ namespace Wally.Core
                 if (!hasActions)
                 {
                     stopReason = "NoActions";
+                    WallyLoopExecutionStateStore.UpdateAndSave(
+                        env,
+                        loopDef,
+                        executionState,
+                        currentStepName: string.Empty,
+                        nextStepName: string.Empty,
+                        iterationCount: iteration + 1,
+                        status: "Completed",
+                        stopReason: stopReason,
+                        currentPrompt: currentPrompt,
+                        previousStepResult: response,
+                        mode: "agent-loop");
                     results.Add(new WallyRunResult
                     {
                         StepName = null, ActorName = actorLabel,
@@ -240,6 +326,19 @@ namespace Wally.Core
                 if (iteration + 1 >= MaxIterations)
                 {
                     stopReason = "MaxIterations";
+                    string resumedPrompt = CombinePrompt(initialPrompt, response, iteration);
+                    WallyLoopExecutionStateStore.UpdateAndSave(
+                        env,
+                        loopDef,
+                        executionState,
+                        currentStepName: string.Empty,
+                        nextStepName: string.Empty,
+                        iterationCount: iteration + 1,
+                        status: "Stopped",
+                        stopReason: stopReason,
+                        currentPrompt: resumedPrompt,
+                        previousStepResult: response,
+                        mode: "agent-loop");
                     // Update the last result's stop reason
                     results[results.Count - 1] = new WallyRunResult
                     {
@@ -258,6 +357,18 @@ namespace Wally.Core
 
                 // Build next prompt using FeedbackMode
                 currentPrompt = CombinePrompt(initialPrompt, response, iteration);
+                WallyLoopExecutionStateStore.UpdateAndSave(
+                    env,
+                    loopDef,
+                    executionState,
+                    currentStepName: string.Empty,
+                    nextStepName: string.Empty,
+                    iterationCount: iteration + 1,
+                    status: "Running",
+                    stopReason: null,
+                    currentPrompt: currentPrompt,
+                    previousStepResult: response,
+                    mode: "agent-loop");
             }
 
             await output.WriteLineAsync(

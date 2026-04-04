@@ -112,6 +112,13 @@ namespace Wally.Core
         [JsonPropertyName("startStepName")]
         public string StartStepName { get; set; } = string.Empty;
 
+        /// <summary>
+        /// Optional execution-state settings for loops that need resumable,
+        /// inspectable runtime checkpoints on disk.
+        /// </summary>
+        [JsonPropertyName("executionState")]
+        public WallyLoopExecutionStateOptions ExecutionState { get; set; } = new();
+
         // ?? Steps ????????????????????????????????????????????????????????????
 
         /// <summary>
@@ -131,6 +138,13 @@ namespace Wally.Core
         /// </summary>
         [JsonIgnore]
         public bool UsesNamedStepRouting => HasSteps && !string.IsNullOrWhiteSpace(StartStepName);
+
+        /// <summary>
+        /// Returns <see langword="true"/> when this loop opts into persisted
+        /// execution-state checkpointing.
+        /// </summary>
+        [JsonIgnore]
+        public bool UsesExecutionState => ExecutionState?.Enabled == true;
 
         /// <summary>
         /// Returns <see langword="true"/> when the loop omits actor fallback and is

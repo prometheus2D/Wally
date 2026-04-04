@@ -19,33 +19,20 @@ namespace Wally.Core
 
     public sealed class InvestigationInteractionState
     {
-        public string InvestigationId { get; set; } = string.Empty;
-
-        public string Status { get; set; } = string.Empty;
-
         public string QuestionBatchId { get; set; } = string.Empty;
-
-        public string ResponseTarget { get; set; } = string.Empty;
-
-        public string ResumeCommand { get; set; } = string.Empty;
 
         public DateTimeOffset? AskedAtUtc { get; set; }
 
-        public DateTimeOffset? AnsweredAtUtc { get; set; }
-
-        public DateTimeOffset? LastUpdatedUtc { get; set; }
-
         public List<InvestigationInteractionQuestion> Questions { get; } = new();
-
-        public bool IsWaitingForUser =>
-            string.Equals(Status, "WaitingForUser", StringComparison.OrdinalIgnoreCase);
     }
 
     public static class InvestigationInteractionStore
     {
         public const string InvestigationLoopName = "InvestigationLoop";
-        public const string DefaultInteractionStatePath = "Actors/Investigator/Docs/InteractionState.md";
-        public const string DefaultUserResponsesPath = "Actors/Investigator/Docs/UserResponses.md";
+        public const string CurrentInvestigationFolder = "Actors/Investigator/Active/CurrentInvestigation";
+        public const string DefaultInteractionStatePath = CurrentInvestigationFolder + "/InteractionState.md";
+        public const string DefaultUserResponsesPath = CurrentInvestigationFolder + "/UserResponses.md";
+        public const string DefaultLatestUserResponsePath = CurrentInvestigationFolder + "/LatestUserResponse.md";
 
         private static readonly Regex QuestionHeadingRegex = new(
             @"^###\s+(?<id>\S+)\s*$",
@@ -77,7 +64,31 @@ namespace Wally.Core
         public static bool TryLoadWaiting(WallyEnvironment env, out InvestigationInteractionState? state)
         {
             state = TryLoadCurrent(env);
-            return state?.IsWaitingForUser == true;
+            if (state == null || state.Questions.Count == 0)
+                return false;
+
+            if (TryLoadExecutionState(env, out WallyLoopExecutionState? executionState) && executionState != null)
+            {
+                return string.Equals(executionState.Status, "WaitingForUser", StringComparison.OrdinalIgnoreCase);
+            }
+
+            return true;
+        }
+
+        public static bool TryLoadCurrentRunId(WallyEnvironment env, out string runId)
+        {
+            ArgumentNullException.ThrowIfNull(env);
+
+            runId = string.Empty;
+            if (!TryLoadExecutionState(env, out WallyLoopExecutionState? executionState) ||
+                executionState == null ||
+                string.IsNullOrWhiteSpace(executionState.RunId))
+            {
+                return false;
+            }
+
+            runId = executionState.RunId;
+            return true;
         }
 
         public static bool TryRecordResponse(
@@ -96,26 +107,28 @@ namespace Wally.Core
 
             DateTimeOffset recordedAtUtc = DateTimeOffset.UtcNow;
             var answers = ParseAnswerBatch(state.Questions, responseMarkdown.Trim());
-            string responseTarget = string.IsNullOrWhiteSpace(state.ResponseTarget)
-                ? DefaultUserResponsesPath
-                : state.ResponseTarget;
+            string runId = TryLoadCurrentRunId(env, out string currentRunId)
+                ? currentRunId
+                : InvestigationLoopName;
 
-            string responsesPath = env.ResolveWorkspaceFilePath(responseTarget);
+            string responsesPath = env.ResolveWorkspaceFilePath(DefaultUserResponsesPath);
             Directory.CreateDirectory(Path.GetDirectoryName(responsesPath)!);
             string existingResponses = File.Exists(responsesPath)
                 ? File.ReadAllText(responsesPath)
                 : string.Empty;
             File.WriteAllText(
                 responsesPath,
-                BuildUpdatedUserResponses(existingResponses, state, answers, source, recordedAtUtc));
+                BuildUpdatedUserResponses(existingResponses, runId, state, answers, source, recordedAtUtc));
 
-            state.Status = "Running";
-            state.AnsweredAtUtc = recordedAtUtc;
-            state.LastUpdatedUtc = recordedAtUtc;
+            string latestResponsePath = env.ResolveWorkspaceFilePath(DefaultLatestUserResponsePath);
+            Directory.CreateDirectory(Path.GetDirectoryName(latestResponsePath)!);
+            File.WriteAllText(
+                latestResponsePath,
+                BuildLatestUserResponse(runId, state, answers, source, recordedAtUtc));
 
             string interactionStatePath = env.ResolveWorkspaceFilePath(DefaultInteractionStatePath);
-            Directory.CreateDirectory(Path.GetDirectoryName(interactionStatePath)!);
-            File.WriteAllText(interactionStatePath, BuildInteractionStateMarkdown(state));
+            if (File.Exists(interactionStatePath))
+                File.Delete(interactionStatePath);
 
             updatedState = state;
             return true;
@@ -123,9 +136,7 @@ namespace Wally.Core
 
         public static InvestigationInteractionState PersistWaitingQuestions(
             WallyEnvironment env,
-            IReadOnlyList<InvestigationInteractionQuestion> questions,
-            string? responseTarget = null,
-            string? resumeCommand = null)
+            IReadOnlyList<InvestigationInteractionQuestion> questions)
         {
             ArgumentNullException.ThrowIfNull(env);
             ArgumentNullException.ThrowIfNull(questions);
@@ -135,27 +146,11 @@ namespace Wally.Core
                 throw new InvalidOperationException("At least one question is required to persist a waiting interaction.");
 
             DateTimeOffset recordedAtUtc = DateTimeOffset.UtcNow;
-            InvestigationInteractionState? currentState = TryLoadCurrent(env);
-            string effectiveResponseTarget = !string.IsNullOrWhiteSpace(responseTarget)
-                ? responseTarget.Trim()
-                : !string.IsNullOrWhiteSpace(currentState?.ResponseTarget)
-                    ? currentState!.ResponseTarget
-                    : DefaultUserResponsesPath;
 
             var state = new InvestigationInteractionState
             {
-                InvestigationId = !string.IsNullOrWhiteSpace(currentState?.InvestigationId)
-                    ? currentState!.InvestigationId
-                    : BuildInvestigationId(recordedAtUtc),
-                Status = "WaitingForUser",
                 QuestionBatchId = BuildQuestionBatchId(recordedAtUtc),
-                ResponseTarget = effectiveResponseTarget,
-                ResumeCommand = !string.IsNullOrWhiteSpace(resumeCommand)
-                    ? resumeCommand.Trim()
-                    : $"wally run \"<answer batch>\" -l {InvestigationLoopName}",
-                AskedAtUtc = recordedAtUtc,
-                AnsweredAtUtc = null,
-                LastUpdatedUtc = recordedAtUtc
+                AskedAtUtc = recordedAtUtc
             };
 
             foreach (InvestigationInteractionQuestion question in normalizedQuestions)
@@ -191,12 +186,17 @@ namespace Wally.Core
             });
         }
 
-        public static string BuildWaitingDisplayText(InvestigationInteractionState state)
+        public static string BuildWaitingDisplayText(WallyEnvironment env, InvestigationInteractionState state)
         {
+            ArgumentNullException.ThrowIfNull(env);
             ArgumentNullException.ThrowIfNull(state);
 
+            string runLabel = TryLoadCurrentRunId(env, out string runId)
+                ? runId
+                : InvestigationLoopName;
+
             var builder = new StringBuilder();
-            builder.AppendLine($"Investigation {state.InvestigationId} is waiting for user input.");
+            builder.AppendLine($"Investigation {runLabel} is waiting for user input.");
             builder.AppendLine($"Question batch: {state.QuestionBatchId}");
             builder.AppendLine();
 
@@ -219,17 +219,9 @@ namespace Wally.Core
                 builder.AppendLine();
             }
 
-            if (!string.IsNullOrWhiteSpace(state.ResumeCommand))
-                builder.AppendLine($"Resume command: {state.ResumeCommand}");
+            builder.AppendLine($"Resume command: {BuildResumeCommand(InvestigationLoopName)}");
 
             return builder.ToString().TrimEnd();
-        }
-
-        public static string BuildResumePrompt(InvestigationInteractionState state)
-        {
-            ArgumentNullException.ThrowIfNull(state);
-
-            return $"Resume investigation {state.InvestigationId} after recording user response batch {state.QuestionBatchId}. Rebuild the next step from InteractionState.md, UserResponses.md, and the other persisted investigation documents instead of relying on this prompt text.";
         }
 
         private static InvestigationInteractionState ParseInteractionState(string[] lines)
@@ -293,29 +285,11 @@ namespace Wally.Core
         {
             switch (key)
             {
-                case "InvestigationId":
-                    state.InvestigationId = value;
-                    break;
-                case "Status":
-                    state.Status = value;
-                    break;
                 case "QuestionBatchId":
                     state.QuestionBatchId = value;
                     break;
-                case "ResponseTarget":
-                    state.ResponseTarget = value;
-                    break;
-                case "ResumeCommand":
-                    state.ResumeCommand = value;
-                    break;
                 case "AskedAtUtc":
                     state.AskedAtUtc = ParseTimestamp(value);
-                    break;
-                case "AnsweredAtUtc":
-                    state.AnsweredAtUtc = ParseTimestamp(value);
-                    break;
-                case "LastUpdatedUtc":
-                    state.LastUpdatedUtc = ParseTimestamp(value);
                     break;
             }
         }
@@ -569,6 +543,7 @@ namespace Wally.Core
 
         private static string BuildUpdatedUserResponses(
             string existingResponses,
+            string runId,
             InvestigationInteractionState state,
             IReadOnlyDictionary<string, string> answers,
             string source,
@@ -589,7 +564,7 @@ namespace Wally.Core
             }
 
             builder.AppendLine($"## Batch {state.QuestionBatchId}");
-            builder.AppendLine($"- InvestigationId: {state.InvestigationId}");
+            builder.AppendLine($"- InvestigationId: {runId}");
             builder.AppendLine($"- RecordedAtUtc: {recordedAtUtc:O}");
             builder.AppendLine($"- Source: {source}");
             builder.AppendLine();
@@ -607,20 +582,47 @@ namespace Wally.Core
             return builder.ToString().TrimEnd() + Environment.NewLine;
         }
 
+        private static string BuildLatestUserResponse(
+            string runId,
+            InvestigationInteractionState state,
+            IReadOnlyDictionary<string, string> answers,
+            string source,
+            DateTimeOffset recordedAtUtc)
+        {
+            var builder = new StringBuilder();
+            builder.AppendLine("# Latest User Response");
+            builder.AppendLine();
+            builder.AppendLine("## Metadata");
+            builder.AppendLine($"- InvestigationId: {runId}");
+            builder.AppendLine($"- QuestionBatchId: {state.QuestionBatchId}");
+            builder.AppendLine($"- RecordedAtUtc: {recordedAtUtc:O}");
+            builder.AppendLine($"- Source: {source}");
+            builder.AppendLine();
+            builder.AppendLine("## Answers");
+            builder.AppendLine();
+
+            foreach (InvestigationInteractionQuestion question in state.Questions)
+            {
+                builder.AppendLine($"### {question.QuestionId}");
+                builder.AppendLine($"- Question: {question.Text}");
+                builder.AppendLine(
+                    answers.TryGetValue(question.QuestionId, out string? answer) && !string.IsNullOrWhiteSpace(answer)
+                        ? $"- Answer: {answer.Trim()}"
+                        : "- Answer: No answer provided.");
+                builder.AppendLine();
+            }
+
+            return builder.ToString().TrimEnd() + Environment.NewLine;
+        }
+
         private static string BuildInteractionStateMarkdown(InvestigationInteractionState state)
         {
             var builder = new StringBuilder();
             builder.AppendLine("# Interaction State");
             builder.AppendLine();
             builder.AppendLine("## Metadata");
-            builder.AppendLine($"- InvestigationId: {state.InvestigationId}");
-            builder.AppendLine($"- Status: {state.Status}");
             builder.AppendLine($"- QuestionBatchId: {state.QuestionBatchId}");
-            builder.AppendLine($"- ResponseTarget: {state.ResponseTarget}");
-            builder.AppendLine($"- ResumeCommand: {state.ResumeCommand}");
             builder.AppendLine($"- AskedAtUtc: {FormatTimestamp(state.AskedAtUtc)}");
-            builder.AppendLine($"- AnsweredAtUtc: {FormatTimestamp(state.AnsweredAtUtc)}");
-            builder.AppendLine($"- LastUpdatedUtc: {FormatTimestamp(state.LastUpdatedUtc)}");
             builder.AppendLine();
             builder.AppendLine("## Questions");
             builder.AppendLine();
@@ -642,9 +644,23 @@ namespace Wally.Core
             return value.HasValue ? value.Value.ToString("O") : string.Empty;
         }
 
-        private static string BuildInvestigationId(DateTimeOffset timestamp)
+        private static bool TryLoadExecutionState(WallyEnvironment env, out WallyLoopExecutionState? executionState)
         {
-            return $"INV-{timestamp:yyyyMMddHHmmss}";
+            executionState = null;
+
+            if (!env.HasWorkspace)
+                return false;
+
+            WallyLoopDefinition? loopDef = env.GetLoop(InvestigationLoopName);
+            if (loopDef == null)
+                return false;
+
+            return WallyLoopExecutionStateStore.TryLoadCurrent(env, loopDef, out executionState);
+        }
+
+        private static string BuildResumeCommand(string loopName)
+        {
+            return $"wally run \"<answer batch>\" -l {loopName}";
         }
 
         private static string BuildQuestionBatchId(DateTimeOffset timestamp)

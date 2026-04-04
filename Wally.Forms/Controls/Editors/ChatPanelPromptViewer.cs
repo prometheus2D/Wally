@@ -87,26 +87,10 @@ namespace Wally.Forms.Controls.Editors
             _btnBuild.Click += (_, _) => BuildPromptPreview();
 
             _btnCopy = CreateButton("\uD83D\uDCCB Copy Details");
-            _btnCopy.Click += (_, _) =>
-            {
-                if (!string.IsNullOrEmpty(_txtOutput.Text))
-                {
-                    Clipboard.SetText(_txtOutput.Text);
-                    _lblStatus.Text = "Prompt details copied.";
-                    _lblStatus.ForeColor = WallyTheme.Green;
-                }
-            };
+            _btnCopy.Click += OnCopyDetailsClick;
 
             _btnCopyExact = CreateButton("\uD83E\uDDFE Copy Exact Prompt");
-            _btnCopyExact.Click += (_, _) =>
-            {
-                if (!string.IsNullOrEmpty(_txtExactPrompt.Text))
-                {
-                    Clipboard.SetText(_txtExactPrompt.Text);
-                    _lblStatus.Text = "Exact prompt copied.";
-                    _lblStatus.ForeColor = WallyTheme.Green;
-                }
-            };
+            _btnCopyExact.Click += OnCopyExactPromptClick;
 
             _lblStatus = new Label
             {
@@ -374,6 +358,26 @@ namespace Wally.Forms.Controls.Editors
             AppendSection("Error", message, WallyTheme.Red);
             _lblStatus.Text = "Build failed.";
             _lblStatus.ForeColor = WallyTheme.Red;
+        }
+
+        private void OnCopyDetailsClick(object? sender, EventArgs e)
+        {
+            if (string.IsNullOrEmpty(_txtOutput.Text))
+                return;
+
+            Clipboard.SetText(_txtOutput.Text);
+            _lblStatus.Text = "Prompt details copied.";
+            _lblStatus.ForeColor = WallyTheme.Green;
+        }
+
+        private void OnCopyExactPromptClick(object? sender, EventArgs e)
+        {
+            if (string.IsNullOrEmpty(_txtExactPrompt.Text))
+                return;
+
+            Clipboard.SetText(_txtExactPrompt.Text);
+            _lblStatus.Text = "Exact prompt copied.";
+            _lblStatus.ForeColor = WallyTheme.Green;
         }
 
         private static void SetComboSelection(ComboBox comboBox, string? value, int defaultIndex)

@@ -3,14 +3,14 @@
 **Source Proposal**: [ExecutableLoopStepsProposal.md](./ExecutableLoopStepsProposal.md)
 **Status**: Active
 **Created**: 2026-03-29
-**Last Updated**: 2026-03-30
+**Last Updated**: 2026-04-02
 **Owner**: @developer
 
 *Template: [../../Templates/TaskTrackerTemplate.md](../../Templates/TaskTrackerTemplate.md)*
 
 ## Summary
 
-This tracker covers the seven tasks required to add typed executable steps, keyword-driven routing, and the first built-in code handler to Wally; Tasks 1-6 are complete, Task 7 is now the next eligible task, and execution is not currently blocked.
+This tracker covers the seven tasks required to add typed executable steps, keyword-driven routing, and the first built-in code handler to Wally; Tasks 1-6 are complete, Task 7 is in progress, and the shared loop execution-state abstraction now allows executable-step loops to opt into resumable checkpointing when they need it.
 
 ## Task List
 
@@ -44,7 +44,7 @@ This tracker covers the seven tasks required to add typed executable steps, keyw
 
 | # | Task | Description | Priority | Effort | Status | Owner | Dependencies | Done-Condition |
 |---|------|-------------|----------|--------|--------|-------|--------------|----------------|
-| 7 | Validate executable steps in real workflows | Wire the new executable-step model and abilityRefs support into Wally.Core/Default/Loops/InvestigationLoop.json and at least one Wally.Core/Default/Runbooks/*.wrb scenario to prove the abstraction works outside a synthetic example. | Medium | 1d | Not Started | @developer | 4, 5, 6 | At least one loop and one runbook use the shared step model successfully, and both validate the typed execution path in real workspace artifacts. |
+| 7 | Validate executable steps in real workflows | Wire the new executable-step model and abilityRefs support into Wally.Core/Default/Loops/InvestigationLoop.json and at least one Wally.Core/Default/Runbooks/*.wrb scenario to prove the abstraction works outside a synthetic example. | Medium | 1d | In Progress | @developer | 4, 5, 6 | At least one loop and one runbook use the shared step model successfully, and both validate the typed execution path in real workspace artifacts. |
 
 ## Task State Rules
 
@@ -86,5 +86,5 @@ flowchart LR
 | Phase 2 | 2 | 2 | 0 | 0 | 0 |
 | Phase 3 | 1 | 1 | 0 | 0 | 0 |
 | Phase 4 | 1 | 1 | 0 | 0 | 0 |
-| Phase 5 | 1 | 0 | 0 | 0 | 1 |
-| **Total** | **7** | **6** | **0** | **0** | **1** |
+| Phase 5 | 1 | 0 | 1 | 0 | 0 |
+| **Total** | **7** | **6** | **1** | **0** | **0** |

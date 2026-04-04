@@ -490,13 +490,14 @@ namespace Wally.Core
             string? wrapperOverride = null,
             bool noHistory = false,
             CancellationToken cancellationToken = default,
-            TextWriter? output = null)
+            TextWriter? output = null,
+            WallyLoopExecutionState? executionState = null)
         {
             var loop = new WallyAgentLoop(loopDef);
             return await loop.RunAsync(
                 this, actor, prompt, loopDef,
                 modelOverride, wrapperOverride, noHistory,
-                cancellationToken, output ?? Console.Out)
+                cancellationToken, output ?? Console.Out, executionState)
                 .ConfigureAwait(false);
         }
 
@@ -590,7 +591,12 @@ namespace Wally.Core
             foreach (var argument in stepDef.Arguments)
                 expanded = expanded.Replace($"{{{argument.Key}}}", argument.Value ?? string.Empty);
 
-            if (stepDef.AbilityRefs.Count > 0 &&
+            bool shouldPrependAbilityBlocks =
+                stepDef.AbilityRefs.Count > 0 &&
+                (string.Equals(stepDef.EffectiveKind, "prompt", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(stepDef.EffectiveKind, "user_input", StringComparison.OrdinalIgnoreCase));
+
+            if (shouldPrependAbilityBlocks &&
                 !template.Contains("{AbilityBlocks}", StringComparison.Ordinal) &&
                 !string.IsNullOrWhiteSpace(abilityBlocks))
             {

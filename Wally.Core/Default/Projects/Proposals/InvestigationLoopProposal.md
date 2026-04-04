@@ -3,7 +3,7 @@
 **Status**: Draft
 **Author**: System Architecture Team
 **Created**: 2026-03-28
-**Last Updated**: 2026-03-29
+**Last Updated**: 2026-04-02
 
 *Template: [../../Templates/ProposalTemplate.md](../../Templates/ProposalTemplate.md)*
 
@@ -54,6 +54,7 @@ Core decisions:
 - If mailbox or memory behavior needs additional runtime work, that behavior must first be documented as file contracts and step responsibilities in the proposal docs.
 - The loop must support `WaitingForUser` as a first-class paused state.
 - User questions and answers must be persisted so the console and Forms chat UI can resume the loop without hidden prompt carry-over.
+- Loop execution-state persistence must be a shared loop-runtime capability, not an InvestigationLoop-specific one-off, so any loop can opt into resumable checkpointing when needed.
 
 The investigation loop produces two primary outcomes:
 
@@ -76,6 +77,18 @@ Current workflow decisions:
 - execution plans are not part of the current default workflow
 - the task tracker is the authoritative handoff artifact between proposal approval and task execution
 - the user may start each loop manually; automatic loop-to-loop transition is deferred
+
+## Shared Loop Execution State
+
+Resumable loop execution is now a shared runtime concept.
+
+Design rules:
+
+- loops may opt into persisted execution-state checkpointing through top-level loop metadata rather than relying on loop-specific runtime classes
+- the execution-state document records the loop name, run id, status, current step, next step, iteration count, current resumable prompt, and the last step result
+- starting a fresh run with a new prompt may clear loop-specific transient artifacts declared by that loop before the new execution-state document is written
+- InvestigationLoop still owns its domain artifacts such as `InteractionState.md`, `LatestUserResponse.md`, and `UserResponses.md`, but resume mechanics come from the shared loop execution-state contract
+- promptless resume should only be available when a loop explicitly opts into execution-state persistence
 
 ---
 
@@ -196,6 +209,12 @@ Recommended top-level JSON shape for named-step investigation loops:
     "description": "Investigates a request, asks follow-up questions, gathers evidence, and produces proposal artifacts.",
     "enabled": true,
     "startStepName": "assessState",
+    "executionState": {
+        "enabled": true,
+        "statePath": "Actors/Investigator/Active/CurrentInvestigation/ExecutionState.md",
+        "resetPathsOnNewRun": ["Actors/Investigator/Active/CurrentInvestigation"],
+        "preservePathsOnReset": ["Actors/Investigator/Active/CurrentInvestigation/README.md"]
+    },
     "maxIterations": 24,
     "stopKeyword": "INVESTIGATION_COMPLETE",
     "steps": [
@@ -234,6 +253,7 @@ Field rules:
 - `description`: human-readable summary shown in list surfaces
 - `enabled`: whether the loop is selectable
 - `startStepName`: the first named step to execute for this loop
+- `executionState`: optional shared loop-runtime checkpoint settings for resumable loops
 - `maxIterations`: hard safety limit for the loop runtime
 - `stopKeyword`: optional emergency stop keyword; not the primary completion mechanism
 - `steps`: ordered collection of named step definitions stored inside the loop JSON
@@ -243,6 +263,7 @@ Field rules:
 Compatibility rules:
 
 - existing single-shot and pipeline loops may continue using `startPrompt`, `maxIterations`, and the current step model
+- any loop type may opt into `executionState` when it needs resumable checkpointing; opt-in should remain explicit
 - named-step investigation loops should prefer `startStepName` plus step-owned templates
 - for named-step loops, `feedbackMode` is legacy compatibility only; persisted docs and step templates are the primary prompt inputs
 
@@ -280,59 +301,56 @@ The runtime may maintain a typed model for convenience, but it must be reconstru
 
 Recommended minimal contract:
 
-- `InvestigationId`: stable id for the active investigation or thread
-- `Status`: `Running`, `WaitingForUser`, `Completed`, `Failed`
 - `QuestionBatchId`: stable id for the current user-question batch, or `None` when not waiting
+- `AskedAtUtc`: when the current question batch was issued
 - `Questions`: ordered list of one or more questions, each with `QuestionId`, `QuestionText`, `Reason`, and `ExpectedAnswerShape`
-- `ResponseTarget`: where the answer is first persisted, normally `Docs/UserResponses.md`
-- `ResumeCommand`: the command template the app should use to continue
-- `AskedAtUtc`: when the question was issued
-- `AnsweredAtUtc`: when the answer was recorded, if present
-- `LastUpdatedUtc`: last write timestamp for the state document
+
+Execution-state ownership:
+
+- `ExecutionState.md` owns run id, loop status, next step, and resumability
+- `InteractionState.md` owns only the current pending question batch
+- Console and Forms derive display labels and resume guidance from execution state instead of persisting UI-specific resume metadata into interaction state
 
 Recommended v1 rules:
 
 - only one active waiting question batch per investigation
 - `InteractionState.md` describes the current pending batch only
+- `InteractionState.md` exists only while the loop is waiting for input
+- if there is no pending batch, `InteractionState.md` should be absent
 - `UserResponses.md` is the chronological answer ledger
+- `LatestUserResponse.md` is a convenience projection of the newest answer batch for prompt inputs that only need the latest clarification
 - the loop may ask one question or several related questions in the same batch
-- when the answer batch is recorded, `InteractionState.md` is updated before the loop resumes
+- when the answer batch is recorded, `UserResponses.md` and `LatestUserResponse.md` are updated, then `InteractionState.md` is deleted before the loop resumes
 - v1 keeps one active investigation workflow in the workspace so follow-up `run` commands can attach implicitly to the current investigation
 - UI-specific display details should not be persisted here unless both console and Forms require them
 
 Recommended simple process:
 
 1. The loop determines it cannot continue without user input.
-2. It writes the current question batch into `Docs/InteractionState.md` and updates `Docs/OpenQuestions.md` for any unresolved items.
-3. The loop returns `WaitingForUser`.
-4. Console or Forms reads `Docs/InteractionState.md` and renders the ordered question list.
+2. It writes the current question batch into `InteractionState.md` and updates any investigation docs needed for unresolved items.
+3. The shared execution-state document already records that the loop is now `WaitingForUser` and what step should resume next.
+4. Console or Forms reads `InteractionState.md` for the ordered questions and `ExecutionState.md` for the run label and resume context.
 5. The user submits one response containing one or more answers.
-6. The application appends the answer batch to `Docs/UserResponses.md`, updates `AnsweredAtUtc` and `LastUpdatedUtc`, and marks the batch no longer waiting.
-7. The application resumes the loop using `ResumeCommand`.
+6. The application appends the answer batch to `UserResponses.md`, refreshes `LatestUserResponse.md`, and deletes `InteractionState.md`.
+7. The application resumes the loop using the current execution state.
 8. The next one-shot iteration reloads docs, applies the answers to `Findings.md`, `OpenQuestions.md`, or the proposal draft, and either continues investigating or asks the next batch.
 
 Required markdown format for `InteractionState.md`:
 
 - exactly one H1: `# Interaction State`
-- exactly one `## Metadata` section with these bullet keys in this order: `InvestigationId`, `Status`, `QuestionBatchId`, `ResponseTarget`, `ResumeCommand`, `AskedAtUtc`, `AnsweredAtUtc`, `LastUpdatedUtc`
+- exactly one `## Metadata` section with these bullet keys in this order: `QuestionBatchId`, `AskedAtUtc`
 - exactly one `## Questions` section
 - one `### <QuestionId>` subsection per pending question, in display order
 - each question subsection uses exactly these bullet keys: `Text`, `Reason`, `ExpectedAnswerShape`
-- while waiting for input, `Status` must be `WaitingForUser` and `AnsweredAtUtc` must be blank
-- after the answer batch is persisted, `AnsweredAtUtc` is filled before the loop resumes
+- the file should exist only while the loop is waiting for input
+- after the answer batch is persisted, the file should be deleted before the loop resumes
 
 ```md
 # Interaction State
 
 ## Metadata
-- InvestigationId: INV-001
-- Status: WaitingForUser
 - QuestionBatchId: QB-003
-- ResponseTarget: Docs/UserResponses.md
-- ResumeCommand: wally run "<answer batch>" -l InvestigationLoop
 - AskedAtUtc: 2026-03-29T18:00:00Z
-- AnsweredAtUtc:
-- LastUpdatedUtc: 2026-03-29T18:00:00Z
 
 ## Questions
 
@@ -676,7 +694,7 @@ No open questions remain for the v1 investigation workflow model. The resolved d
 4. ~~How much raw shell output should be retained in `Memory/` before summarization or truncation?~~ **Removed:** This was overcomplicated and unnecessary. Shell output that matters gets summarized into documentation. Raw output does not need a retention policy � use common sense.
 5. ~~Which parts of `Memory/` should be private to the investigator versus promotable into shared docs?~~ **Resolved:** `Memory/` is private to the actor. It is the actor's own working space. The shared project documentation under `Projects/` is the public workspace. If something is the actor's working notes, it belongs in Memory. If something is a finished artifact intended for the project, it belongs in shared docs. Use common sense.
 6. ~~Should user responses be persisted directly to canonical docs, to Inbox messages, or to both?~~ **Resolved:** Outputs go where they need to be. Bots are one-shot, so every iteration must have all information it needs available in persisted files. User responses should be written to `UserResponses.md` and any other canonical doc that needs the information for the next iteration to function.
-7. ~~What data should be persisted in `InteractionState.md` so that both console and Forms UI can render and resume a paused investigation identically?~~ **Resolved:** Keep `InteractionState.md` as a single current-state document with `InvestigationId`, `Status`, `QuestionBatchId`, `Questions`, `ResponseTarget`, `ResumeCommand`, `AskedAtUtc`, `AnsweredAtUtc`, and `LastUpdatedUtc`. Historical answers stay in `UserResponses.md`.
+7. ~~What data should be persisted in `InteractionState.md` so that both console and Forms UI can render and resume a paused investigation identically?~~ **Resolved:** Keep `InteractionState.md` as a single current pending-batch document with `QuestionBatchId`, `AskedAtUtc`, and `Questions`. Run id, loop status, and resume mechanics belong to `ExecutionState.md`. Historical answers stay in `UserResponses.md`.
 8. ~~Should v1 enforce exactly one active waiting user question per investigation, or allow multiple pending questions at once?~~ **Resolved:** Allow one active waiting batch per investigation. A batch may contain one question or several related questions.
 9. ~~After a user answer is persisted, should the application resume the loop automatically, or should it wait for an explicit continue action from the user?~~ **Resolved:** Keep the workflow simple. Once the answer batch is persisted, the application continues the loop.
 10. ~~Should the workflow use a dedicated `run-loop` or `answer` command?~~ **Resolved:** No. Reuse the existing `run` command as the canonical entry point for both starting an investigation and answering a pending question batch.

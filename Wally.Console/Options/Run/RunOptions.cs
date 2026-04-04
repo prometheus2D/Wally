@@ -5,7 +5,7 @@ namespace Wally.Console.Options.Run
     [Verb("run", HelpText = "Run a prompt through an actor and/or a named pipeline loop.")]
     public class RunOptions
     {
-        [Value(0, Required = true, HelpText = "The prompt to process.")]
+        [Value(0, Required = false, HelpText = "The prompt to process. Omit to resume a resumable loop that already has persisted state.")]
         public string Prompt { get; set; }
 
         [Option('a', "actor", Required = false, Default = null,

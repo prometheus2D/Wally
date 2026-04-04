@@ -50,6 +50,18 @@ Actors use their natural abilities for documentation refinement. Engineering mak
 - `SelectedLoops`: Only `SingleRun` as default
 - `SelectedRunbooks`: Only `proposal-to-implementation`
 
+### ? Continued Runtime Minimization
+**Reduced duplicated loop and UI code**:
+- Centralized loop execution-state mutation in `WallyLoopExecutionStateStore.UpdateAndSave(...)`
+- Removed duplicate state-persistence helpers from `WallyCommands.Run.cs` and `WallyAgentLoop.cs`
+- Removed dead Investigation-only resume helpers and other unused parameters/branches
+- Kept Forms manual mode strict by blocking unsupported routed-loop resume instead of preserving a partial legacy path
+- Replaced constructor lambdas that captured uninitialized controls with named handlers across Forms panels
+- Updated `ThemedEditorFactory` to the current Scintilla theming API surface
+
+**Validation**:
+- `dotnet build .\Wally.sln` now completes cleanly with no warnings
+
 ---
 
 ## Streamlined Core Workflow

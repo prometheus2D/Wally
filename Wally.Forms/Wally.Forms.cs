@@ -531,7 +531,7 @@ namespace Wally.Forms
         }
 
         private void OnChatCommandIssued(object? sender, string command) =>
-            _commandPanel.ExecuteCommand(command);
+            _commandPanel.AppendLine($"> {command}", WallyTheme.TextMuted);
 
         private void UpdateWorkspaceGating()
         {

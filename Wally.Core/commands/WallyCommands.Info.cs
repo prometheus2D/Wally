@@ -52,7 +52,9 @@ namespace Wally.Core
 
                 if (loop.HasSteps)
                 {
-                    Console.WriteLine($"    Mode:        pipeline ({loop.Steps.Count} step(s))");
+                    Console.WriteLine(loop.UsesNamedStepRouting
+                        ? $"    Mode:        routed-loop ({loop.Steps.Count} step(s), start={loop.StartStepName}, max {Math.Max(1, loop.MaxIterations)} iteration(s))"
+                        : $"    Mode:        pipeline ({loop.Steps.Count} step(s))");
                     for (int i = 0; i < loop.Steps.Count; i++)
                     {
                         var s = loop.Steps[i];

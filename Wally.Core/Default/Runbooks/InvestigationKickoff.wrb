@@ -1,0 +1,4 @@
+# description: Start the default InvestigationLoop against the shipped investigator workspace artifacts.
+# enabled: true
+
+run "{userPrompt}" -l InvestigationLoop --no-history

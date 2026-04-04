@@ -319,18 +319,54 @@ namespace Wally.Console
 
         private static int HandleRunOptions(RunOptions options)
         {
-            string runPrompt = options.Prompt;
+            string runPrompt = options.Prompt ?? string.Empty;
+            WallyLoopDefinition? loopDef = !string.IsNullOrWhiteSpace(options.LoopName)
+                ? _environment.GetLoop(options.LoopName)
+                : null;
 
-            if (InvestigationInteractionStore.IsInvestigationLoop(options.LoopName) &&
-                InvestigationInteractionStore.TryRecordResponse(
-                    _environment,
-                    options.Prompt,
-                    "Console",
-                    out InvestigationInteractionState? interactionState))
+            if (InvestigationInteractionStore.IsInvestigationLoop(options.LoopName))
             {
-                System.Console.WriteLine(
-                    $"Recorded answer batch {interactionState!.QuestionBatchId} for investigation {interactionState.InvestigationId}.");
-                runPrompt = InvestigationInteractionStore.BuildResumePrompt(interactionState);
+                if (InvestigationInteractionStore.TryLoadWaiting(_environment, out InvestigationInteractionState? waitingState) &&
+                    waitingState != null && string.IsNullOrWhiteSpace(runPrompt))
+                {
+                    System.Console.WriteLine();
+                    System.Console.WriteLine(InvestigationInteractionStore.BuildWaitingDisplayText(_environment, waitingState));
+                    System.Console.Write("answer> ");
+                    runPrompt = System.Console.ReadLine() ?? string.Empty;
+                }
+
+                if (!string.IsNullOrWhiteSpace(runPrompt) &&
+                    InvestigationInteractionStore.TryRecordResponse(
+                        _environment,
+                        runPrompt,
+                        "Console",
+                        out InvestigationInteractionState? interactionState))
+                {
+                    string runSuffix = InvestigationInteractionStore.TryLoadCurrentRunId(_environment, out string runId)
+                        ? $" for investigation {runId}"
+                        : string.Empty;
+                    System.Console.WriteLine(
+                        $"Recorded answer batch {interactionState!.QuestionBatchId}{runSuffix}.");
+                    runPrompt = string.Empty;
+                }
+
+                if (string.IsNullOrWhiteSpace(runPrompt) &&
+                    (loopDef == null ||
+                     !WallyLoopExecutionStateStore.TryLoadCurrent(_environment, loopDef, out _)))
+                {
+                    System.Console.Error.WriteLine(
+                        $"Loop '{options.LoopName}' has no persisted state to resume. Provide an initial request to start a new investigation.");
+                    return 1;
+                }
+            }
+            else if (string.IsNullOrWhiteSpace(runPrompt) && loopDef?.UsesExecutionState == true)
+            {
+                if (!WallyLoopExecutionStateStore.TryLoadCurrent(_environment, loopDef, out _))
+                {
+                    System.Console.Error.WriteLine(
+                        $"Loop '{options.LoopName}' has no persisted state to resume. Provide an initial request to start a new run.");
+                    return 1;
+                }
             }
 
             WallyCommands.HandleRun(
@@ -358,7 +394,7 @@ namespace Wally.Console
             }
 
             System.Console.WriteLine();
-            System.Console.WriteLine(InvestigationInteractionStore.BuildWaitingDisplayText(state));
+            System.Console.WriteLine(InvestigationInteractionStore.BuildWaitingDisplayText(_environment, state));
             System.Console.WriteLine();
         }
     }

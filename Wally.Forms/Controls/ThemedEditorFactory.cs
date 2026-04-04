@@ -171,7 +171,7 @@ namespace Wally.Forms.Controls
 
         private static void ApplyWallyTheme(Scintilla editor)
         {
-            // Control-level background — prevents WinForms default from leaking
+            // Control-level background ï¿½ prevents WinForms default from leaking
             editor.BackColor = WallyTheme.Surface1;
 
             editor.StyleResetDefault();
@@ -181,29 +181,28 @@ namespace Wally.Forms.Controls
             editor.Styles[Style.Default].ForeColor = WallyTheme.TextPrimary;
             editor.StyleClearAll();   // propagates Default's Back/ForeColor to all styles
 
-            editor.SetSelectionBackColor(true, WallyTheme.Surface4);
-            editor.SetSelectionForeColor(false, WallyTheme.TextPrimary);
+            editor.SelectionBackColor = WallyTheme.Surface4;
+            editor.SelectionTextColor = WallyTheme.TextPrimary;
             editor.CaretForeColor     = WallyTheme.TextPrimary;
-            editor.CaretLineBackColor = WallyTheme.Surface2;
-            editor.CaretLineVisible   = true;
+            editor.CaretLineBackColor = Color.FromArgb(96, WallyTheme.Surface2);
 
             // Whitespace rendering (visible or not, colours must be correct)
-            editor.SetWhitespaceBackColor(true, WallyTheme.Surface1);
-            editor.SetWhitespaceForeColor(true, WallyTheme.Border);
+            editor.WhitespaceBackColor = WallyTheme.Surface1;
+            editor.WhitespaceTextColor = WallyTheme.Border;
 
-            // Margin 0 — line numbers
+            // Margin 0 ï¿½ line numbers
             editor.Margins[0].Width   = 40;
             editor.Margins[0].Type    = MarginType.Number;
             editor.Styles[Style.LineNumber].BackColor = WallyTheme.Surface1;
             editor.Styles[Style.LineNumber].ForeColor = WallyTheme.TextMuted;
 
-            // Margin 1 — fold markers
+            // Margin 1 ï¿½ fold markers
             editor.Margins[1].Width     = 16;
             editor.Margins[1].Type      = MarginType.Symbol;
             editor.Margins[1].Mask      = Marker.MaskFolders;
             editor.Margins[1].Sensitive = true;
 
-            // Fold margin background — fills the entire fold-margin gutter area
+            // Fold margin background ï¿½ fills the entire fold-margin gutter area
             editor.SetFoldMarginColor(true, WallyTheme.Surface1);
             editor.SetFoldMarginHighlightColor(true, WallyTheme.Surface1);
 
@@ -387,7 +386,7 @@ namespace Wally.Forms.Controls
 
         private static void ConfigureWallyRunbook(Scintilla editor)
         {
-            // Batch lexer — closest built-in to a command-oriented language.
+            // Batch lexer ï¿½ closest built-in to a command-oriented language.
             // Gives us comment colouring (#), keyword highlighting, and $variable
             // support out of the box.
             editor.LexerName = "batch";

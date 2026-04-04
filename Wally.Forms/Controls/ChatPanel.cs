@@ -104,6 +104,7 @@ namespace Wally.Forms.Controls
         private ActionMode _currentMode = ActionMode.Ask;
         private ChatPacingMode _pacingMode = ChatPacingMode.Auto;
         private ChatPanelExecutionSession? _manualSession;
+        private ChatPanelSessionRecorder? _chatSessionRecorder;
 
         // ?? Events ????????????????????????????????????????????????????????????
         public event EventHandler<string>? CommandIssued;
@@ -315,9 +316,7 @@ namespace Wally.Forms.Controls
 
             // ?? Input area ????????????????????????????????????????????????????
             _txtInput = ThemedEditorFactory.CreateInputTextArea(wordWrap: true, acceptsTab: false, backColor: WallyTheme.Surface2);
-            _txtInput.KeyDown   += OnInputKeyDown;
-            _txtInput.GotFocus  += (_, _) => _inputBorder.BackColor = WallyTheme.BorderFocused;
-            _txtInput.LostFocus += (_, _) => _inputBorder.BackColor = WallyTheme.Border;
+            _txtInput.KeyDown += OnInputKeyDown;
 
             _btnSend   = CreateActionButton("Send  \u23CE", WallyTheme.Surface3);
             _btnSend.Click += OnSendClick;
@@ -338,6 +337,8 @@ namespace Wally.Forms.Controls
                 Dock = DockStyle.Fill, Padding = new Padding(1), BackColor = WallyTheme.Border
             };
             _inputBorder.Controls.Add(_txtInput);
+            _txtInput.GotFocus += OnInputGotFocus;
+            _txtInput.LostFocus += OnInputLostFocus;
 
             var inputContent = new Panel { Dock = DockStyle.Fill };
             inputContent.Controls.Add(_inputBorder);
@@ -460,7 +461,10 @@ namespace Wally.Forms.Controls
                 };
                 mi.Click += (s, _) =>
                 {
-                    string text = ((ToolStripMenuItem)s!).Text;
+                    if (s is not ToolStripMenuItem menuItem)
+                        return;
+
+                    string text = menuItem.Text ?? string.Empty;
                     bool isDefault = defaultValue != null &&
                                      string.Equals(text, defaultValue, StringComparison.OrdinalIgnoreCase);
                     btn.Text = isDefault ? $"{text} (default)" : text;
@@ -998,8 +1002,13 @@ namespace Wally.Forms.Controls
                 return;
             }
 
-            ChatPanelRequest request = BuildCurrentChatRequest(preferActiveSessionWhenInputBlank: false);
-            if (string.IsNullOrWhiteSpace(request.DisplayPrompt)) return;
+            bool canResumeFromState = CanResumeSelectedLoopFromState();
+            ChatPanelRequest request = BuildCurrentChatRequest(
+                preferActiveSessionWhenInputBlank: false,
+                allowEmptyPrompt: canResumeFromState);
+
+            if (string.IsNullOrWhiteSpace(request.DisplayPrompt) && !canResumeFromState)
+                return;
 
             if (_pacingMode == ChatPacingMode.Manual)
             {
@@ -1033,17 +1042,10 @@ namespace Wally.Forms.Controls
             bool directMode = resolved.DirectMode;
             bool isLooped = resolved.IsLooped;
             string label = directMode ? "AI" : resolved.ActorLabel;
-
-            string cmdText = string.Join(" ",
-                new List<string>(new[] { "run", $"\"{executionRequest.DisplayPrompt}\"" })
-                .Concat(!directMode           ? new[] { $"-a {actorName}" }      : Array.Empty<string>())
-                .Concat(isLooped              ? new[] { $"-l {loopName}" }       : Array.Empty<string>())
-                .Concat(modelOverride != null ? new[] { $"-m {modelOverride}" }  : Array.Empty<string>())
-                .Concat(wrapperName   != null ? new[] { $"-w {wrapperName}" }    : Array.Empty<string>())
-                .Concat(executionRequest.NoHistory ? new[] { "--no-history" }    : Array.Empty<string>()));
-            CommandIssued?.Invoke(this, cmdText);
-
-            AddMessage("You", request.DisplayPrompt, MessageKind.User);
+            string commandText = BuildRunCommandText(executionRequest, actorName, loopName, modelOverride, wrapperName, directMode, isLooped);
+            StartChatSessionRecorder(resolved, commandText, "Auto");
+            CommandIssued?.Invoke(this, commandText);
+            ShowExecutionStartMessage(request.DisplayPrompt, loopName);
             _txtInput.Clear();
             _txtInput.SelectionColor = WallyTheme.TextPrimary;
             _txtInput.SelectionFont  = WallyTheme.FontUI;
@@ -1079,9 +1081,21 @@ namespace Wally.Forms.Controls
                 }
 
                 ShowPendingInvestigationInteraction(loopName);
+                string completionReason = results.Count > 0
+                    ? results[^1].StopReason ?? "Completed"
+                    : "NoResults";
+                CompleteChatSessionRecorder("Auto session complete.", completionReason, results.Count);
             }
-            catch (OperationCanceledException) { AddMessage("System", "Cancelled.", MessageKind.Error); }
-            catch (Exception ex)               { AddMessage("System", $"Error: {ex.Message}", MessageKind.Error); }
+            catch (OperationCanceledException)
+            {
+                AddMessage("System", "Cancelled.", MessageKind.Error);
+                CompleteChatSessionRecorder("Auto session cancelled.", "Cancelled", 0);
+            }
+            catch (Exception ex)
+            {
+                AddMessage("System", $"Error: {ex.Message}", MessageKind.Error);
+                CompleteChatSessionRecorder($"Auto session failed: {ex.Message}", "Error", 0);
+            }
             finally
             {
                 SetRunning(false);
@@ -1105,20 +1119,22 @@ namespace Wally.Forms.Controls
                 return;
             }
 
-            string cmdText = string.Join(" ",
-                new List<string>(new[] { "run", $"\"{executionRequest.DisplayPrompt}\"" })
-                .Concat(!string.IsNullOrWhiteSpace(executionRequest.ActorName) ? new[] { $"-a {executionRequest.ActorName}" } : Array.Empty<string>())
-                .Concat(!string.IsNullOrWhiteSpace(executionRequest.LoopName)  ? new[] { $"-l {executionRequest.LoopName}" }  : Array.Empty<string>())
-                .Concat(!string.IsNullOrWhiteSpace(executionRequest.ModelOverride) ? new[] { $"-m {executionRequest.ModelOverride}" } : Array.Empty<string>())
-                .Concat(executionRequest.NoHistory ? new[] { "--no-history" } : Array.Empty<string>()));
-            CommandIssued?.Invoke(this, cmdText);
-
-            AddMessage("You", request.DisplayPrompt, MessageKind.User);
+            string commandText = BuildRunCommandText(
+                executionRequest,
+                executionRequest.ActorName,
+                executionRequest.LoopName,
+                executionRequest.ModelOverride,
+                wrapperName: null,
+                directMode: string.IsNullOrWhiteSpace(executionRequest.ActorName),
+                isLooped: !string.IsNullOrWhiteSpace(executionRequest.LoopName));
+            StartChatSessionRecorder(_manualSession.ResolvedRequest, commandText, "Manual");
+            CommandIssued?.Invoke(this, commandText);
+            ShowExecutionStartMessage(request.DisplayPrompt, executionRequest.LoopName);
             _txtInput.Clear();
             _txtInput.SelectionColor = WallyTheme.TextPrimary;
             _txtInput.SelectionFont = WallyTheme.FontUI;
 
-            await ExecuteManualStepAsync(isFirstStep: true).ConfigureAwait(true);
+            await ExecuteManualStepAsync().ConfigureAwait(true);
         }
 
         private async Task ContinueManualSessionAsync()
@@ -1126,10 +1142,10 @@ namespace Wally.Forms.Controls
             if (_manualSession == null)
                 return;
 
-            await ExecuteManualStepAsync(isFirstStep: false).ConfigureAwait(true);
+            await ExecuteManualStepAsync().ConfigureAwait(true);
         }
 
-        private async Task ExecuteManualStepAsync(bool isFirstStep)
+        private async Task ExecuteManualStepAsync()
         {
             if (_manualSession == null)
                 return;
@@ -1144,6 +1160,12 @@ namespace Wally.Forms.Controls
             {
                 WallyRunResult result = await _manualSession.ExecuteNextAsync(_cts.Token).ConfigureAwait(true);
                 AddMessage(result.DisplayLabel(), result.Response, MessageKind.Actor);
+                _chatSessionRecorder?.RecordEvent(
+                    "step-result",
+                    "Manual step executed.",
+                    result.StepName,
+                    result.Iteration,
+                    result.StopReason);
 
                 if (_manualSession.IsCompleted)
                 {
@@ -1155,14 +1177,24 @@ namespace Wally.Forms.Controls
                 }
 
                 ShowPendingInvestigationInteraction(_manualSession.ResolvedRequest.LoopDefinition?.Name);
+
+                if (_manualSession.IsCompleted)
+                {
+                    CompleteChatSessionRecorder(
+                        "Manual session complete.",
+                        _manualSession.StopReason,
+                        _manualSession.Results.Count);
+                }
             }
             catch (OperationCanceledException)
             {
                 AddMessage("System", "Cancelled.", MessageKind.Error);
+                _chatSessionRecorder?.RecordEvent("cancelled", "Manual step cancelled.");
             }
             catch (Exception ex)
             {
                 AddMessage("System", $"Error: {ex.Message}", MessageKind.Error);
+                _chatSessionRecorder?.RecordEvent("error", ex.Message);
             }
             finally
             {
@@ -1187,6 +1219,7 @@ namespace Wally.Forms.Controls
             _messagesFlow.ResumeLayout(true);
             _messagesContainer.ScrollControlIntoView(bubble);
             UpdateEmptyState();
+            _chatSessionRecorder?.RecordMessage(sender, text, kind.ToString());
         }
 
         private void OnMessagesResize(object? sender, EventArgs e)
@@ -1238,6 +1271,18 @@ namespace Wally.Forms.Controls
             RunningChanged?.Invoke(this, EventArgs.Empty);
         }
 
+        private void OnInputGotFocus(object? sender, EventArgs e)
+        {
+            if (_inputBorder != null)
+                _inputBorder.BackColor = WallyTheme.BorderFocused;
+        }
+
+        private void OnInputLostFocus(object? sender, EventArgs e)
+        {
+            if (_inputBorder != null)
+                _inputBorder.BackColor = WallyTheme.Border;
+        }
+
         private ChatPanelRequest BuildCurrentChatRequest(bool preferActiveSessionWhenInputBlank, bool allowEmptyPrompt = false)
         {
             string prompt = _txtInput.Text.Trim();
@@ -1260,7 +1305,9 @@ namespace Wally.Forms.Controls
         private string BuildManualCompletionMessage(ChatPanelExecutionSession session)
         {
             string stopReason = session.StopReason ?? "Completed";
-            return session.ResolvedRequest.LoopDefinition?.HasSteps == true
+            return session.ResolvedRequest.LoopDefinition?.UsesNamedStepRouting == true
+                ? $"Manual routed loop complete - {session.Results.Count} step(s), stop reason: {stopReason}."
+                : session.ResolvedRequest.LoopDefinition?.HasSteps == true
                 ? $"Manual pipeline complete - {session.Results.Count} step(s)."
                 : session.ResolvedRequest.LoopDefinition?.IsAgentLoop == true
                     ? $"Manual agent loop complete - {session.Results.Count} iteration(s), stop reason: {stopReason}."
@@ -1282,14 +1329,78 @@ namespace Wally.Forms.Controls
                 "Forms ChatPanel",
                 out InvestigationInteractionState? state))
             {
+                string runSuffix = InvestigationInteractionStore.TryLoadCurrentRunId(_environment, out string runId)
+                    ? $" for investigation {runId}"
+                    : string.Empty;
                 AddMessage(
                     "System",
-                    $"Recorded answer batch {state!.QuestionBatchId} for investigation {state.InvestigationId}.",
+                    $"Recorded answer batch {state!.QuestionBatchId}{runSuffix}.",
                     MessageKind.System);
-                return request.WithPrompt(InvestigationInteractionStore.BuildResumePrompt(state));
+                return request.WithPrompt(string.Empty);
             }
 
             return request;
+        }
+
+        private bool CanResumeSelectedLoopFromState()
+        {
+            if (_environment?.HasWorkspace != true || string.IsNullOrWhiteSpace(_selectedLoop))
+                return false;
+
+            WallyLoopDefinition? loopDef = _environment.GetLoop(_selectedLoop);
+            return loopDef?.UsesExecutionState == true &&
+                   WallyLoopExecutionStateStore.TryLoadCurrent(_environment, loopDef, out WallyLoopExecutionState? state) &&
+                   state?.CanResume == true;
+        }
+
+        private static string GetExecutionDisplayPrompt(ChatPanelRequest request)
+        {
+            return string.IsNullOrWhiteSpace(request.DisplayPrompt)
+                ? "<resume-from-state>"
+                : request.DisplayPrompt;
+        }
+
+        private string BuildRunCommandText(
+            ChatPanelRequest request,
+            string? actorName,
+            string? loopName,
+            string? modelOverride,
+            string? wrapperName,
+            bool directMode,
+            bool isLooped)
+        {
+            return string.Join(" ",
+                new List<string>(new[] { "run", $"\"{GetExecutionDisplayPrompt(request)}\"" })
+                .Concat(!directMode ? new[] { $"-a {actorName}" } : Array.Empty<string>())
+                .Concat(isLooped ? new[] { $"-l {loopName}" } : Array.Empty<string>())
+                .Concat(modelOverride != null ? new[] { $"-m {modelOverride}" } : Array.Empty<string>())
+                .Concat(wrapperName != null ? new[] { $"-w {wrapperName}" } : Array.Empty<string>())
+                .Concat(request.NoHistory ? new[] { "--no-history" } : Array.Empty<string>()));
+        }
+
+        private void ShowExecutionStartMessage(string? displayPrompt, string? loopName)
+        {
+            if (string.IsNullOrWhiteSpace(displayPrompt))
+                AddMessage("System", $"Resuming {loopName ?? "loop"} from persisted state.", MessageKind.System);
+            else
+                AddMessage("You", displayPrompt, MessageKind.User);
+        }
+
+        private void StartChatSessionRecorder(
+            ChatPanelResolvedRequest resolved,
+            string commandText,
+            string pacingMode)
+        {
+            CompleteChatSessionRecorder("Superseded by a new ChatPanel session.", "Superseded", _manualSession?.Results.Count ?? 0);
+            _chatSessionRecorder?.Dispose();
+            _chatSessionRecorder = ChatPanelSessionRecorder.Start(_environment!, resolved, pacingMode, commandText);
+        }
+
+        private void CompleteChatSessionRecorder(string outcome, string? stopReason, int resultCount)
+        {
+            _chatSessionRecorder?.Complete(outcome, stopReason, resultCount);
+            _chatSessionRecorder?.Dispose();
+            _chatSessionRecorder = null;
         }
 
         private void ShowPendingInvestigationInteraction(string? loopName)
@@ -1303,13 +1414,13 @@ namespace Wally.Forms.Controls
                 return;
             }
 
-            AddMessage("System", InvestigationInteractionStore.BuildWaitingDisplayText(state), MessageKind.System);
+            AddMessage("System", InvestigationInteractionStore.BuildWaitingDisplayText(_environment, state), MessageKind.System);
         }
 
         private void UpdateFlowButtons()
         {
             bool canInspect = _workspaceLoaded && !_isRunning;
-            bool hasPrompt = !string.IsNullOrWhiteSpace(_txtInput.Text) || _manualSession != null;
+            bool hasPrompt = !string.IsNullOrWhiteSpace(_txtInput.Text) || _manualSession != null || CanResumeSelectedLoopFromState();
             bool hasManualSession = _manualSession != null;
             bool canContinueManual = hasManualSession && !_manualSession!.IsCompleted && _pacingMode == ChatPacingMode.Manual && !_isRunning;
 

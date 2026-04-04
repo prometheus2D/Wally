@@ -9,12 +9,12 @@ using Wally.Forms.Theme;
 namespace Wally.Forms.Controls
 {
     /// <summary>
-    /// Project Explorer — shows the live state of the Wally workspace:
+    /// Project Explorer ï¿½ shows the live state of the Wally workspace:
     /// actors with their mailbox folders (Inbox / Outbox / Pending / Active)
     /// and private docs, the Projects hierarchy (Epochs ? Sprints ? Tasks),
     /// and workspace-level documentation.
     ///
-    /// This is a "what's in flight" view — use the Object Explorer to inspect
+    /// This is a "what's in flight" view ï¿½ use the Object Explorer to inspect
     /// the workspace configuration objects (Loops, Wrappers, Runbooks, etc.).
     /// </summary>
     public sealed class ProjectExplorerPanel : UserControl
@@ -94,7 +94,7 @@ namespace Wally.Forms.Controls
                 Font         = new Font("Segoe UI", 10f),
                 ForeColor    = WallyTheme.TextSecondary
             };
-            _btnCollapseAll.Click += (_, _) => _tree.CollapseAll();
+            _btnCollapseAll.Click += OnCollapseAllClick;
 
             _toolbar = new WallyToolStrip();
             _toolbar.Dock = DockStyle.Top;
@@ -181,7 +181,7 @@ namespace Wally.Forms.Controls
 
         public override void Refresh()
         {
-            // Skip base.Refresh() — BuildTree() calls BeginUpdate/EndUpdate which
+            // Skip base.Refresh() ï¿½ BuildTree() calls BeginUpdate/EndUpdate which
             // handles invalidation. Calling base first causes a redundant repaint.
             BuildTree();
         }
@@ -220,7 +220,7 @@ namespace Wally.Forms.Controls
                     ToolTipText      = actorFolder
                 };
 
-                // Mailbox folders — shown with live item counts
+                // Mailbox folders ï¿½ shown with live item counts
                 AddMailboxNode(actorNode, actorFolder, WallyHelper.MailboxInboxFolderName,   "?? Inbox",   "inbox");
                 AddMailboxNode(actorNode, actorFolder, WallyHelper.MailboxActiveFolderName,  "? Active",  "active");
                 AddMailboxNode(actorNode, actorFolder, WallyHelper.MailboxPendingFolderName, "? Pending", "pending");
@@ -433,6 +433,11 @@ namespace Wally.Forms.Controls
         {
             if (e.Node?.Tag is NodeTag t && File.Exists(t.Path))
                 FileDoubleClicked?.Invoke(this, new FileSelectedEventArgs(t.Path));
+        }
+
+        private void OnCollapseAllClick(object? sender, EventArgs e)
+        {
+            _tree.CollapseAll();
         }
 
         private void OnDrawNode(object? sender, DrawTreeNodeEventArgs e)

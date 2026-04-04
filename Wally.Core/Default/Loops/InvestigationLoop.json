@@ -1,225 +1,165 @@
 {
   "name": "InvestigationLoop",
-  "description": "Investigates a request, gathers evidence, asks follow-up questions, routes mailbox items, and produces proposal artifacts from persisted docs.",
+  "description": "Plans an investigation, asks targeted user questions, executes the next selected ability, and stops when the recorded acceptance criteria are satisfied.",
   "enabled": true,
-  "startStepName": "assessState",
-  "maxIterations": 24,
+  "startStepName": "planInvestigation",
+  "executionState": {
+    "enabled": true,
+    "statePath": "Actors/Investigator/Active/CurrentInvestigation/ExecutionState.md",
+    "resetPathsOnNewRun": [
+      "Actors/Investigator/Active/CurrentInvestigation"
+    ],
+    "preservePathsOnReset": [
+      "Actors/Investigator/Active/CurrentInvestigation/README.md"
+    ]
+  },
+  "maxIterations": 10,
   "stopKeyword": "INVESTIGATION_COMPLETE",
   "steps": [
     {
-      "name": "assessState",
-      "description": "Read the canonical investigation docs, assess gaps, and choose the next action.",
+      "name": "planInvestigation",
+      "description": "Establish the current open questions, acceptance criteria, and the next investigation step from persisted loop state.",
       "kind": "prompt",
       "abilityRefs": [
         "investigation-assessment"
       ],
-      "promptTemplate": "Assess the current investigation state from persisted documentation only. Restate the current goal, separate findings from assumptions, choose exactly one routing keyword, and specify the document updates needed before the next step completes.\n\nAbility Guidance:\n{AbilityBlocks}\n\nOriginal request:\n{userPrompt}\n\nBrief:\n{InvestigationBrief}\n\nOpen Questions:\n{OpenQuestions}\n\nFindings:\n{Findings}\n\nIdeas:\n{Ideas}\n\nInteraction State:\n{InteractionState}\n\nUser Responses:\n{UserResponses}",
+      "promptTemplate": "Plan the current investigation turn from persisted state only. Use the exact markdown structure below, then emit exactly one routing keyword. Treat the latest recorded user response as authoritative when it clarifies the goal, scope, or stopping conditions. Do not ask the same kickoff question again if the user already answered it. Route to REQUEST_USER_INPUT only when a specific blocking question remains after considering the latest recorded response.\n\nRequired markdown structure:\n# Investigation Loop State\n\n## Request Summary\n<concise restatement of the user's request and current scope>\n\n## Open Questions\n- <active unanswered question or `None`>\n\n## Acceptance Criteria\n- [ ] <criterion needed before the loop can stop>\n\n## Completion Assessment\n<state whether the current information satisfies the acceptance criteria and why>\n\n## Next Ability\n<name the next ability or step and why>\n\n## Routing Keyword\n<one of REQUEST_USER_INPUT, GATHER_CONTEXT, GENERATE_IDEAS, DRAFT_PROPOSAL, COMPLETE>\n\nAbility Guidance:\n{AbilityBlocks}\n\nOriginal request:\n{userPrompt}\n\nLoop state:\n{LoopState}\n\nLatest recorded user response:\n{LatestUserResponse}\n\nRecorded user responses:\n{UserResponses}\n\nCurrent findings:\n{Findings}\n\nCurrent ideas:\n{Ideas}\n\nCurrent proposal draft:\n{ProposalDraft}",
       "documentInputs": [
-        { "key": "InvestigationBrief", "path": "Actors/Investigator/Docs/InvestigationBrief.md", "required": true },
-        { "key": "OpenQuestions", "path": "Actors/Investigator/Docs/OpenQuestions.md", "required": false },
-        { "key": "Findings", "path": "Actors/Investigator/Docs/Findings.md", "required": false },
-        { "key": "Ideas", "path": "Actors/Investigator/Docs/Ideas.md", "required": false },
-        { "key": "InteractionState", "path": "Actors/Investigator/Docs/InteractionState.md", "required": false },
-        { "key": "UserResponses", "path": "Actors/Investigator/Docs/UserResponses.md", "required": false }
+        { "key": "LoopState", "path": "Actors/Investigator/Active/CurrentInvestigation/LoopState.md", "required": false },
+        { "key": "LatestUserResponse", "path": "Actors/Investigator/Active/CurrentInvestigation/LatestUserResponse.md", "required": false },
+        { "key": "UserResponses", "path": "Actors/Investigator/Active/CurrentInvestigation/UserResponses.md", "required": false },
+        { "key": "Findings", "path": "Actors/Investigator/Active/CurrentInvestigation/Findings.md", "required": false },
+        { "key": "Ideas", "path": "Actors/Investigator/Active/CurrentInvestigation/Ideas.md", "required": false },
+        { "key": "ProposalDraft", "path": "Actors/Investigator/Active/CurrentInvestigation/ProposalDraft.md", "required": false }
       ],
       "writesToDocs": [
-        "Actors/Investigator/Docs/InvestigationLog.md",
-        "Actors/Investigator/Docs/OpenQuestions.md",
-        "Actors/Investigator/Docs/Findings.md",
-        "Actors/Investigator/Docs/Ideas.md"
+        "Actors/Investigator/Active/CurrentInvestigation/LoopState.md"
       ],
+      "resultDocumentPath": "Actors/Investigator/Active/CurrentInvestigation/LoopState.md",
       "keywordRoutes": {
+        "REQUEST_USER_INPUT": "requestUserInput",
         "GATHER_CONTEXT": "gatherContext",
-        "NEED_USER_INPUT": "requestUserInput",
         "GENERATE_IDEAS": "generateIdeas",
-        "ROUTE_MESSAGES": "routeMessages",
-        "UPDATE_MEMORY": "updateMemory",
         "DRAFT_PROPOSAL": "draftProposal",
         "COMPLETE": "complete"
       },
-      "defaultNextStep": "gatherContext"
+      "defaultNextStep": "requestUserInput"
+    },
+    {
+      "name": "requestUserInput",
+      "description": "Ask the minimum next user questions needed to resolve open questions and refine the loop acceptance criteria.",
+      "kind": "user_input",
+      "promptTemplate": "Ask only the minimum next questions needed to clarify the investigation, reduce the current open questions, and refine the acceptance criteria that define when the loop can stop. Base the questions on the persisted loop state and prior user responses. If the latest recorded response already defines the goal and stopping conditions well enough to continue, ask only the remaining blocking follow-up questions instead of repeating the generic kickoff question.\n\nOriginal request:\n{userPrompt}\n\nLoop state:\n{LoopState}\n\nLatest recorded user response:\n{LatestUserResponse}\n\nRecorded user responses:\n{UserResponses}",
+      "documentInputs": [
+        { "key": "LoopState", "path": "Actors/Investigator/Active/CurrentInvestigation/LoopState.md", "required": false },
+        { "key": "LatestUserResponse", "path": "Actors/Investigator/Active/CurrentInvestigation/LatestUserResponse.md", "required": false },
+        { "key": "UserResponses", "path": "Actors/Investigator/Active/CurrentInvestigation/UserResponses.md", "required": false }
+      ],
+      "writesToDocs": [
+        "Actors/Investigator/Active/CurrentInvestigation/InteractionState.md",
+        "Actors/Investigator/Active/CurrentInvestigation/LatestUserResponse.md",
+        "Actors/Investigator/Active/CurrentInvestigation/UserResponses.md"
+      ],
+      "keywordRoutes": {
+        "WAITING_FOR_USER": "planInvestigation"
+      },
+      "defaultNextStep": "planInvestigation"
     },
     {
       "name": "gatherContext",
-      "description": "Run a repository scan to capture current workspace evidence.",
-      "kind": "shell",
+      "description": "Use the context-gathering ability to collect only the evidence needed to close current open questions.",
+      "kind": "prompt",
       "abilityRefs": [
         "context-gathering"
       ],
-      "commandTemplate": "rg --files .",
-      "writesToDocs": [
-        "Actors/Investigator/Docs/Findings.md",
-        "Actors/Investigator/Docs/InvestigationLog.md"
+      "promptTemplate": "Gather only the evidence needed to address the current open questions and move the investigation toward its acceptance criteria. Use the exact markdown structure below, then emit exactly one routing keyword.\n\nRequired markdown structure:\n# Findings\n\n## Evidence\n<key facts, code observations, or document findings>\n\n## Resolved Questions\n- <resolved question or `None`>\n\n## Remaining Gaps\n- <remaining gap or `None`>\n\n## Routing Keyword\n<one of REQUEST_USER_INPUT, GENERATE_IDEAS, DRAFT_PROPOSAL, COMPLETE>\n\nAbility Guidance:\n{AbilityBlocks}\n\nOriginal request:\n{userPrompt}\n\nLoop state:\n{LoopState}\n\nRecorded user responses:\n{UserResponses}\n\nExisting findings:\n{Findings}",
+      "documentInputs": [
+        { "key": "LoopState", "path": "Actors/Investigator/Active/CurrentInvestigation/LoopState.md", "required": true },
+        { "key": "UserResponses", "path": "Actors/Investigator/Active/CurrentInvestigation/UserResponses.md", "required": false },
+        { "key": "Findings", "path": "Actors/Investigator/Active/CurrentInvestigation/Findings.md", "required": false }
       ],
+      "writesToDocs": [
+        "Actors/Investigator/Active/CurrentInvestigation/Findings.md"
+      ],
+      "resultDocumentPath": "Actors/Investigator/Active/CurrentInvestigation/Findings.md",
       "keywordRoutes": {
-        "CONTEXT_CAPTURED": "assessState"
+        "REQUEST_USER_INPUT": "requestUserInput",
+        "GENERATE_IDEAS": "generateIdeas",
+        "DRAFT_PROPOSAL": "draftProposal",
+        "COMPLETE": "complete"
       },
-      "defaultNextStep": "assessState"
+      "defaultNextStep": "planInvestigation"
     },
     {
       "name": "generateIdeas",
-      "description": "Generate and refine materially different candidate approaches.",
+      "description": "Use the alternative-generation ability to turn findings into materially different candidate approaches.",
       "kind": "prompt",
       "abilityRefs": [
         "alternative-generation"
       ],
-      "promptTemplate": "Generate or refine candidate approaches using the current investigation state. Distinguish recommended, deferred, and rejected options, then emit exactly one routing keyword.\n\nAbility Guidance:\n{AbilityBlocks}\n\nBrief:\n{InvestigationBrief}\n\nFindings:\n{Findings}\n\nOpen Questions:\n{OpenQuestions}\n\nIdeas:\n{Ideas}",
+      "promptTemplate": "Generate materially different candidate approaches using the current findings, open questions, and acceptance criteria. Use the exact markdown structure below, then emit exactly one routing keyword.\n\nRequired markdown structure:\n# Ideas\n\n## Recommended\n<recommended approach>\n\n## Deferred\n- <deferred option or `None`>\n\n## Rejected\n- <rejected option or `None`>\n\n## Decision Gaps\n- <gap that still blocks a decision or `None`>\n\n## Routing Keyword\n<one of REQUEST_USER_INPUT, GATHER_CONTEXT, DRAFT_PROPOSAL, COMPLETE>\n\nAbility Guidance:\n{AbilityBlocks}\n\nOriginal request:\n{userPrompt}\n\nLoop state:\n{LoopState}\n\nCurrent findings:\n{Findings}\n\nExisting ideas:\n{Ideas}",
       "documentInputs": [
-        { "key": "InvestigationBrief", "path": "Actors/Investigator/Docs/InvestigationBrief.md", "required": true },
-        { "key": "Findings", "path": "Actors/Investigator/Docs/Findings.md", "required": false },
-        { "key": "OpenQuestions", "path": "Actors/Investigator/Docs/OpenQuestions.md", "required": false },
-        { "key": "Ideas", "path": "Actors/Investigator/Docs/Ideas.md", "required": false }
+        { "key": "LoopState", "path": "Actors/Investigator/Active/CurrentInvestigation/LoopState.md", "required": true },
+        { "key": "Findings", "path": "Actors/Investigator/Active/CurrentInvestigation/Findings.md", "required": false },
+        { "key": "Ideas", "path": "Actors/Investigator/Active/CurrentInvestigation/Ideas.md", "required": false }
       ],
       "writesToDocs": [
-        "Actors/Investigator/Docs/Ideas.md",
-        "Actors/Investigator/Docs/InvestigationLog.md"
+        "Actors/Investigator/Active/CurrentInvestigation/Ideas.md"
       ],
+      "resultDocumentPath": "Actors/Investigator/Active/CurrentInvestigation/Ideas.md",
       "keywordRoutes": {
-        "ASK_USER": "requestUserInput",
+        "REQUEST_USER_INPUT": "requestUserInput",
         "GATHER_CONTEXT": "gatherContext",
-        "ROUTE_MESSAGES": "routeMessages",
-        "DRAFT_PROPOSAL": "draftProposal"
+        "DRAFT_PROPOSAL": "draftProposal",
+        "COMPLETE": "complete"
       },
-      "defaultNextStep": "assessState"
+      "defaultNextStep": "planInvestigation"
     },
     {
       "name": "draftProposal",
-      "description": "Turn the current findings into a proposal draft or revise the working draft.",
+      "description": "Use the proposal-drafting ability to turn the current loop state into a working draft.",
       "kind": "prompt",
       "abilityRefs": [
         "proposal-drafting"
       ],
-      "promptTemplate": "Draft or revise the working proposal using the current brief, findings, ideas, open questions, and any existing draft. Keep the structure aligned with ProposalTemplate.md and emit exactly one routing keyword.\n\nAbility Guidance:\n{AbilityBlocks}\n\nBrief:\n{InvestigationBrief}\n\nFindings:\n{Findings}\n\nIdeas:\n{Ideas}\n\nOpen Questions:\n{OpenQuestions}\n\nExisting Draft:\n{ExistingDraft}",
+      "promptTemplate": "Draft or revise the working proposal using the current request summary, acceptance criteria, findings, and ideas. Use the exact markdown structure below, then emit exactly one routing keyword.\n\nRequired markdown structure:\n# Proposal Draft\n\n## Problem Statement\n...\n\n## Resolution\n...\n\n## Risks\n- ...\n\n## Outstanding Questions\n- ...\n\n## Routing Keyword\n<one of REQUEST_USER_INPUT, GATHER_CONTEXT, GENERATE_IDEAS, COMPLETE>\n\nAbility Guidance:\n{AbilityBlocks}\n\nOriginal request:\n{userPrompt}\n\nLoop state:\n{LoopState}\n\nCurrent findings:\n{Findings}\n\nCurrent ideas:\n{Ideas}\n\nExisting proposal draft:\n{ProposalDraft}",
       "documentInputs": [
-        { "key": "InvestigationBrief", "path": "Actors/Investigator/Docs/InvestigationBrief.md", "required": true },
-        { "key": "Findings", "path": "Actors/Investigator/Docs/Findings.md", "required": false },
-        { "key": "Ideas", "path": "Actors/Investigator/Docs/Ideas.md", "required": false },
-        { "key": "OpenQuestions", "path": "Actors/Investigator/Docs/OpenQuestions.md", "required": false },
-        { "key": "ExistingDraft", "path": "Actors/Investigator/Memory/ProposalDraft.md", "required": false }
+        { "key": "LoopState", "path": "Actors/Investigator/Active/CurrentInvestigation/LoopState.md", "required": true },
+        { "key": "Findings", "path": "Actors/Investigator/Active/CurrentInvestigation/Findings.md", "required": false },
+        { "key": "Ideas", "path": "Actors/Investigator/Active/CurrentInvestigation/Ideas.md", "required": false },
+        { "key": "ProposalDraft", "path": "Actors/Investigator/Active/CurrentInvestigation/ProposalDraft.md", "required": false }
       ],
       "writesToDocs": [
-        "Actors/Investigator/Memory/ProposalDraft.md",
-        "Projects/Proposals/*.md",
-        "Actors/Investigator/Docs/InvestigationLog.md"
+        "Actors/Investigator/Active/CurrentInvestigation/ProposalDraft.md"
       ],
+      "resultDocumentPath": "Actors/Investigator/Active/CurrentInvestigation/ProposalDraft.md",
       "keywordRoutes": {
-        "NEED_USER_INPUT": "requestUserInput",
-        "ROUTE_MESSAGES": "routeMessages",
-        "UPDATE_MEMORY": "updateMemory",
-        "DRAFT_UPDATED": "assessState",
-        "COMPLETE": "complete"
-      },
-      "defaultNextStep": "assessState"
-    },
-    {
-      "name": "requestUserInput",
-      "description": "Persist a user-facing question batch and pause the loop for an answer.",
-      "kind": "user_input",
-      "promptTemplate": "Convert the current open questions into a user-facing question batch. Ask only the minimum questions needed to unblock the investigation.\n\nOpen Questions:\n{OpenQuestions}\n\nBrief:\n{InvestigationBrief}",
-      "documentInputs": [
-        { "key": "OpenQuestions", "path": "Actors/Investigator/Docs/OpenQuestions.md", "required": true },
-        { "key": "InvestigationBrief", "path": "Actors/Investigator/Docs/InvestigationBrief.md", "required": true }
-      ],
-      "writesToDocs": [
-        "Actors/Investigator/Docs/InteractionState.md",
-        "Actors/Investigator/Docs/UserResponses.md",
-        "Actors/Investigator/Docs/InvestigationLog.md"
-      ],
-      "keywordRoutes": {
-        "WAITING_FOR_USER": "assessState"
-      },
-      "defaultNextStep": "assessState"
-    },
-    {
-      "name": "routeMessages",
-      "description": "Route outbound mailbox items to the correct recipient inbox.",
-      "kind": "code",
-      "abilityRefs": [
-        "mailbox-routing"
-      ],
-      "handlerName": "route_messages",
-      "arguments": {
-        "sourceFolder": "Actors/Investigator/Outbox",
-        "logPath": "Actors/Investigator/Docs/InvestigationLog.md"
-      },
-      "writesToDocs": [
-        "Actors/Investigator/Docs/InvestigationLog.md"
-      ],
-      "keywordRoutes": {
-        "ROUTED": "reviewInbox",
-        "NO_MESSAGES": "assessState",
-        "ROUTING_FAILED": "assessState"
-      },
-      "defaultNextStep": "assessState"
-    },
-    {
-      "name": "reviewInbox",
-      "description": "Review newly delivered responses and reconcile investigation docs.",
-      "kind": "prompt",
-      "promptTemplate": "Review the latest routed messages or user responses and summarize what changed in the investigation state. Emit exactly one routing keyword.\n\nLatest routing or prior step result:\n{previousStepResult}\n\nUser Responses:\n{UserResponses}\n\nOpen Questions:\n{OpenQuestions}\n\nFindings:\n{Findings}",
-      "documentInputs": [
-        { "key": "UserResponses", "path": "Actors/Investigator/Docs/UserResponses.md", "required": false },
-        { "key": "OpenQuestions", "path": "Actors/Investigator/Docs/OpenQuestions.md", "required": false },
-        { "key": "Findings", "path": "Actors/Investigator/Docs/Findings.md", "required": false }
-      ],
-      "writesToDocs": [
-        "Actors/Investigator/Docs/Findings.md",
-        "Actors/Investigator/Docs/OpenQuestions.md",
-        "Actors/Investigator/Docs/InvestigationLog.md"
-      ],
-      "keywordRoutes": {
+        "REQUEST_USER_INPUT": "requestUserInput",
         "GATHER_CONTEXT": "gatherContext",
-        "NEED_USER_INPUT": "requestUserInput",
         "GENERATE_IDEAS": "generateIdeas",
-        "DRAFT_PROPOSAL": "draftProposal"
-      },
-      "defaultNextStep": "assessState"
-    },
-    {
-      "name": "updateMemory",
-      "description": "Condense durable investigation context into private memory artifacts.",
-      "kind": "prompt",
-      "abilityRefs": [
-        "memory-summarization"
-      ],
-      "promptTemplate": "Summarize the durable investigation context that should survive future one-shot iterations. Emit exactly one routing keyword and keep canonical docs as the source of truth.\n\nAbility Guidance:\n{AbilityBlocks}\n\nFindings:\n{Findings}\n\nIdeas:\n{Ideas}\n\nInvestigation Log:\n{InvestigationLog}\n\nExisting Summary:\n{MemorySummary}",
-      "documentInputs": [
-        { "key": "Findings", "path": "Actors/Investigator/Docs/Findings.md", "required": false },
-        { "key": "Ideas", "path": "Actors/Investigator/Docs/Ideas.md", "required": false },
-        { "key": "InvestigationLog", "path": "Actors/Investigator/Docs/InvestigationLog.md", "required": false },
-        { "key": "MemorySummary", "path": "Actors/Investigator/Memory/CurrentSummary.md", "required": false }
-      ],
-      "writesToDocs": [
-        "Actors/Investigator/Memory/CurrentSummary.md",
-        "Actors/Investigator/Docs/InvestigationLog.md"
-      ],
-      "keywordRoutes": {
-        "MEMORY_UPDATED": "assessState",
         "COMPLETE": "complete"
       },
-      "defaultNextStep": "assessState"
+      "defaultNextStep": "planInvestigation"
     },
     {
       "name": "complete",
-      "description": "Finalize proposal artifacts and stop the investigation.",
+      "description": "Stop only when the recorded acceptance criteria are satisfied; otherwise send the loop back to the missing work.",
       "kind": "prompt",
       "abilityRefs": [
-        "proposal-drafting"
+        "investigation-assessment"
       ],
-      "promptTemplate": "Finalize the investigation output. If the proposal draft is ready, state the final artifact location and include the exact keyword INVESTIGATION_COMPLETE. If it is not ready, explain what is missing and emit DRAFT_PROPOSAL instead.\n\nBrief:\n{InvestigationBrief}\n\nFindings:\n{Findings}\n\nIdeas:\n{Ideas}\n\nOpen Questions:\n{OpenQuestions}\n\nExisting Draft:\n{ExistingDraft}",
+      "promptTemplate": "Decide whether the investigation can end. Treat the acceptance criteria in the loop state as the authority. If every required criterion is satisfied, include the exact keyword INVESTIGATION_COMPLETE. Otherwise explain what is still missing and emit exactly one routing keyword from REQUEST_USER_INPUT, GATHER_CONTEXT, GENERATE_IDEAS, or DRAFT_PROPOSAL.\n\nOriginal request:\n{userPrompt}\n\nLoop state:\n{LoopState}\n\nRecorded user responses:\n{UserResponses}\n\nCurrent findings:\n{Findings}\n\nCurrent ideas:\n{Ideas}\n\nCurrent proposal draft:\n{ProposalDraft}",
       "documentInputs": [
-        { "key": "InvestigationBrief", "path": "Actors/Investigator/Docs/InvestigationBrief.md", "required": true },
-        { "key": "Findings", "path": "Actors/Investigator/Docs/Findings.md", "required": false },
-        { "key": "Ideas", "path": "Actors/Investigator/Docs/Ideas.md", "required": false },
-        { "key": "OpenQuestions", "path": "Actors/Investigator/Docs/OpenQuestions.md", "required": false },
-        { "key": "ExistingDraft", "path": "Actors/Investigator/Memory/ProposalDraft.md", "required": false }
-      ],
-      "writesToDocs": [
-        "Actors/Investigator/Memory/ProposalDraft.md",
-        "Projects/Proposals/*.md",
-        "Actors/Investigator/Docs/InvestigationLog.md"
+        { "key": "LoopState", "path": "Actors/Investigator/Active/CurrentInvestigation/LoopState.md", "required": true },
+        { "key": "UserResponses", "path": "Actors/Investigator/Active/CurrentInvestigation/UserResponses.md", "required": false },
+        { "key": "Findings", "path": "Actors/Investigator/Active/CurrentInvestigation/Findings.md", "required": false },
+        { "key": "Ideas", "path": "Actors/Investigator/Active/CurrentInvestigation/Ideas.md", "required": false },
+        { "key": "ProposalDraft", "path": "Actors/Investigator/Active/CurrentInvestigation/ProposalDraft.md", "required": false }
       ],
       "keywordRoutes": {
+        "REQUEST_USER_INPUT": "requestUserInput",
+        "GATHER_CONTEXT": "gatherContext",
+        "GENERATE_IDEAS": "generateIdeas",
         "DRAFT_PROPOSAL": "draftProposal"
       },
       "defaultNextStep": "draftProposal"

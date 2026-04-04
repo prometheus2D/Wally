@@ -86,15 +86,32 @@ namespace Wally.Core
 
             string loopLabel = loopDef != null ? $"[run:{loopDef.Name}]" : "[run]";
 
+            // Resolve the prompt once so execution-state aware loops can either
+            // start a fresh run or resume from persisted runtime state.
+            string resolvedPrompt = (loopDef != null && !string.IsNullOrWhiteSpace(loopDef.StartPrompt))
+                ? loopDef.StartPrompt.Replace("{userPrompt}", prompt)
+                : prompt;
+
+            WallyLoopExecutionState? executionState = null;
+            if (loopDef != null && WallyLoopExecutionStateStore.IsEnabled(loopDef))
+            {
+                executionState = WallyLoopExecutionStateStore.PrepareForRun(
+                    env,
+                    loopDef,
+                    prompt,
+                    resolvedPrompt,
+                    GetLoopExecutionMode(loopDef));
+            }
+
             // Named-step routed loop
             if (loopDef?.UsesNamedStepRouting == true)
                 return await RunNamedStepLoopAsync(env, prompt, loopDef, loopLabel, model, wrapper,
-                    noHistory, cancellationToken, out_).ConfigureAwait(false);
+                    noHistory, cancellationToken, out_, executionState).ConfigureAwait(false);
 
             // Multi-step pipeline
             if (loopDef?.HasSteps == true)
                 return await RunPipelineAsync(env, prompt, loopDef, loopLabel, model, wrapper,
-                    noHistory, cancellationToken, out_).ConfigureAwait(false);
+                    noHistory, cancellationToken, out_, executionState).ConfigureAwait(false);
 
             // Single-actor / direct
             if (string.IsNullOrWhiteSpace(actorName) && !string.IsNullOrWhiteSpace(loopDef?.ActorName))
@@ -115,17 +132,30 @@ namespace Wally.Core
 
             string actorLabel = directMode ? "(no actor)" : actorName!;
 
-            // Resolve the prompt � apply StartPrompt template if defined.
-            string resolvedPrompt = (loopDef != null && !string.IsNullOrWhiteSpace(loopDef.StartPrompt))
-                ? loopDef.StartPrompt.Replace("{userPrompt}", prompt)
-                : prompt;
+            if (executionState != null && string.IsNullOrWhiteSpace(prompt) && !string.IsNullOrWhiteSpace(executionState.CurrentPrompt))
+                resolvedPrompt = executionState.CurrentPrompt;
 
             // Agent loop routing � when loop defines MaxIterations > 0
             if (loopDef?.IsAgentLoop == true)
             {
                 return await env.RunAgentLoopAsync(
                     loopDef, actor, resolvedPrompt, model, wrapper,
-                    noHistory, cancellationToken, out_).ConfigureAwait(false);
+                    noHistory, cancellationToken, out_, executionState).ConfigureAwait(false);
+            }
+
+            if (executionState != null && loopDef != null)
+            {
+                WallyLoopExecutionStateStore.UpdateAndSave(
+                    env,
+                    loopDef,
+                    executionState,
+                    currentStepName: string.Empty,
+                    nextStepName: string.Empty,
+                    iterationCount: 0,
+                    status: "Running",
+                    stopReason: null,
+                    currentPrompt: resolvedPrompt,
+                    previousStepResult: string.Empty);
             }
 
             env.Logger.LogCommand("run", $"Actor='{actorLabel}' loop='{loopDef?.Name ?? "(none)"}' model='{model ?? "(default)"}' wrapper='{wrapper ?? "(default)"}'");
@@ -143,6 +173,21 @@ namespace Wally.Core
             await out_.WriteLineAsync(response).ConfigureAwait(false);
             await out_.WriteLineAsync().ConfigureAwait(false);
 
+            if (executionState != null && loopDef != null)
+            {
+                WallyLoopExecutionStateStore.UpdateAndSave(
+                    env,
+                    loopDef,
+                    executionState,
+                    currentStepName: string.Empty,
+                    nextStepName: string.Empty,
+                    iterationCount: 1,
+                    status: "Completed",
+                    stopReason: "Completed",
+                    currentPrompt: resolvedPrompt,
+                    previousStepResult: response);
+            }
+
             return new List<WallyRunResult>
             {
                 new WallyRunResult { StepName = null, ActorName = actorLabel, Response = response }
@@ -151,18 +196,21 @@ namespace Wally.Core
 
         // ?? Pipeline execution ????????????????????????????????????????????????
 
-        private static List<WallyRunResult> RunPipeline(
-            WallyEnvironment env, string prompt, WallyLoopDefinition loopDef, string loopLabel,
-            string? model, string? wrapper, bool noHistory, CancellationToken cancellationToken = default)
-            => RunPipelineAsync(env, prompt, loopDef, loopLabel, model, wrapper, noHistory,
-                cancellationToken, Console.Out).GetAwaiter().GetResult();
-
         private static async Task<List<WallyRunResult>> RunPipelineAsync(
             WallyEnvironment env, string prompt, WallyLoopDefinition loopDef, string loopLabel,
             string? model, string? wrapper, bool noHistory,
-            CancellationToken cancellationToken, TextWriter out_)
+            CancellationToken cancellationToken, TextWriter out_,
+            WallyLoopExecutionState? executionState = null)
         {
             var stepDefs = loopDef.Steps;
+            string effectivePrompt = executionState?.OriginalRequest ?? prompt;
+            string? previousStepResult = string.IsNullOrWhiteSpace(executionState?.PreviousStepResult)
+                ? null
+                : executionState!.PreviousStepResult;
+            int startIndex = 0;
+
+            if (executionState != null && string.IsNullOrWhiteSpace(prompt) && !string.IsNullOrWhiteSpace(executionState.NextStepName))
+                startIndex = FindPipelineStepIndex(loopDef, executionState.NextStepName);
             env.Logger.LogCommand("run", $"[pipeline] loop='{loopDef.Name}' steps={stepDefs.Count} model='{model ?? "(default)"}' wrapper='{wrapper ?? "(default)"}'");
             await out_.WriteLineAsync($"{loopLabel} Pipeline \u2014 {stepDefs.Count} step(s)").ConfigureAwait(false);
             await out_.WriteLineAsync().ConfigureAwait(false);
@@ -178,14 +226,25 @@ namespace Wally.Core
 
             // Run steps in order
             var results = new List<WallyRunResult>(stepDefs.Count);
-            string? previousStepResult = null;
 
-            for (int i = 0; i < stepDefs.Count; i++)
+            for (int i = startIndex; i < stepDefs.Count; i++)
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 var stepDef = stepDefs[i];
-                string stepName   = string.IsNullOrWhiteSpace(stepDef.Name) ? $"step-{i + 1}" : stepDef.Name;
+                string stepName = WallyLoopExecutionStateStore.GetStableStepName(stepDef, i);
                 string stepLabel = GetStepExecutionLabel(loopDef, stepDef);
+
+                WallyLoopExecutionStateStore.UpdateAndSave(
+                    env,
+                    loopDef,
+                    executionState,
+                    currentStepName: stepName,
+                    nextStepName: stepName,
+                    iterationCount: i,
+                    status: "Running",
+                    stopReason: null,
+                    currentPrompt: effectivePrompt,
+                    previousStepResult: previousStepResult);
 
                 await out_.WriteLineAsync($"--- Step {i + 1}: {stepName} [{stepDef.EffectiveKind}] ({stepLabel}) ---").ConfigureAwait(false);
 
@@ -194,7 +253,7 @@ namespace Wally.Core
                 {
                     stepResult = await ExecuteStepAsync(
                         env,
-                        prompt,
+                        effectivePrompt,
                         previousStepResult,
                         loopDef,
                         stepDef,
@@ -208,6 +267,7 @@ namespace Wally.Core
                 catch (Exception ex)
                 {
                     string message = $"{loopLabel} Step '{stepName}' failed: {ex.Message}";
+                    WallyLoopExecutionStateStore.UpdateAndSave(env, loopDef, executionState, stepName, stepName, i, "Failed", ex.GetType().Name, effectivePrompt, previousStepResult);
                     await out_.WriteLineAsync(message).ConfigureAwait(false);
                     env.Logger.LogError(message, "run");
                     return new List<WallyRunResult>();
@@ -221,6 +281,10 @@ namespace Wally.Core
 
                 if (stepResult.RequestsPause)
                 {
+                    string nextStepName = i + 1 < stepDefs.Count
+                        ? WallyLoopExecutionStateStore.GetStableStepName(stepDefs[i + 1], i + 1)
+                        : string.Empty;
+                    WallyLoopExecutionStateStore.UpdateAndSave(env, loopDef, executionState, stepName, nextStepName, i + 1, "WaitingForUser", stepResult.StopReason ?? "WaitingForUser", effectivePrompt, stepResult.Response);
                     await out_.WriteLineAsync($"{loopLabel} Pipeline paused - waiting for user input at step '{stepName}'.").ConfigureAwait(false);
                     env.Logger.LogInfo($"Pipeline '{loopDef.Name}' paused: waiting for user input at step '{stepName}'.");
                     return results;
@@ -228,6 +292,8 @@ namespace Wally.Core
 
                 previousStepResult = stepResult.Response;
             }
+
+            WallyLoopExecutionStateStore.UpdateAndSave(env, loopDef, executionState, string.Empty, string.Empty, results.Count, "Completed", "Completed", effectivePrompt, previousStepResult);
 
             await out_.WriteLineAsync($"{loopLabel} Pipeline complete \u2014 {results.Count} step(s).").ConfigureAwait(false);
             env.Logger.LogInfo($"Pipeline '{loopDef.Name}' complete: {results.Count} step(s).");
@@ -237,13 +303,20 @@ namespace Wally.Core
         private static async Task<List<WallyRunResult>> RunNamedStepLoopAsync(
             WallyEnvironment env, string prompt, WallyLoopDefinition loopDef, string loopLabel,
             string? model, string? wrapper, bool noHistory,
-            CancellationToken cancellationToken, TextWriter out_)
+            CancellationToken cancellationToken, TextWriter out_,
+            WallyLoopExecutionState? executionState = null)
         {
             int maxIterations = WallyAgentLoop.ResolveMaxIterations(loopDef, loopDef.Steps.Count);
+            string effectivePrompt = executionState?.OriginalRequest ?? prompt;
             string currentStepName = loopDef.StartStepName;
-            string? previousStepResult = null;
+            string? previousStepResult = string.IsNullOrWhiteSpace(executionState?.PreviousStepResult)
+                ? null
+                : executionState!.PreviousStepResult;
             string? stopReason = null;
             var results = new List<WallyRunResult>();
+
+            if (executionState != null && string.IsNullOrWhiteSpace(prompt) && !string.IsNullOrWhiteSpace(executionState.NextStepName))
+                currentStepName = executionState.NextStepName;
 
             env.Logger.LogCommand("run", $"[named-step-loop] loop='{loopDef.Name}' start='{currentStepName}' maxIterations={maxIterations} model='{model ?? "(default)"}' wrapper='{wrapper ?? "(default)"}'");
             await out_.WriteLineAsync($"{loopLabel} Routed loop - startStep='{currentStepName}', maxIterations={maxIterations}").ConfigureAwait(false);
@@ -257,6 +330,7 @@ namespace Wally.Core
                 if (stepDef == null)
                 {
                     string message = $"{loopLabel} Routed step '{currentStepName}' was not found in loop '{loopDef.Name}'.";
+                    WallyLoopExecutionStateStore.UpdateAndSave(env, loopDef, executionState, currentStepName, currentStepName, iteration, "Failed", "MissingStep", effectivePrompt, previousStepResult);
                     await out_.WriteLineAsync(message).ConfigureAwait(false);
                     env.Logger.LogError(message, "run");
                     return new List<WallyRunResult>();
@@ -269,9 +343,10 @@ namespace Wally.Core
                 StepExecutionResult stepResult;
                 try
                 {
+                    WallyLoopExecutionStateStore.UpdateAndSave(env, loopDef, executionState, currentStepName, currentStepName, iteration, "Running", null, effectivePrompt, previousStepResult);
                     stepResult = await ExecuteStepAsync(
                         env,
-                        prompt,
+                        effectivePrompt,
                         previousStepResult,
                         loopDef,
                         stepDef,
@@ -285,6 +360,7 @@ namespace Wally.Core
                 catch (Exception ex)
                 {
                     string message = $"{loopLabel} Step '{stepName}' failed: {ex.Message}";
+                    WallyLoopExecutionStateStore.UpdateAndSave(env, loopDef, executionState, stepName, stepName, iteration, "Failed", ex.GetType().Name, effectivePrompt, previousStepResult);
                     await out_.WriteLineAsync(message).ConfigureAwait(false);
                     env.Logger.LogError(message, "run");
                     return new List<WallyRunResult>();
@@ -322,18 +398,23 @@ namespace Wally.Core
                 if (stopForPause)
                 {
                     stopReason = stepResult.StopReason ?? "WaitingForUser";
+                    string pauseNextStep = ResolvePauseResumeStep(loopDef, stepDef);
+                    WallyLoopExecutionStateStore.UpdateAndSave(env, loopDef, executionState, stepName, pauseNextStep, iteration + 1, "WaitingForUser", stopReason, effectivePrompt, stepResult.Response);
                 }
                 else if (stopForKeyword)
                 {
                     stopReason = "StopKeyword";
+                    WallyLoopExecutionStateStore.UpdateAndSave(env, loopDef, executionState, stepName, string.Empty, iteration + 1, "Completed", stopReason, effectivePrompt, stepResult.Response);
                 }
                 else if (stopForNoRoute)
                 {
                     stopReason = "NoRoute";
+                    WallyLoopExecutionStateStore.UpdateAndSave(env, loopDef, executionState, stepName, string.Empty, iteration + 1, "Completed", stopReason, effectivePrompt, stepResult.Response);
                 }
                 else if (stopForMaxIterations)
                 {
                     stopReason = "MaxIterations";
+                    WallyLoopExecutionStateStore.UpdateAndSave(env, loopDef, executionState, stepName, nextStepName ?? stepName, iteration + 1, "Stopped", stopReason, effectivePrompt, stepResult.Response);
                 }
 
                 results.Add(new WallyRunResult
@@ -385,12 +466,96 @@ namespace Wally.Core
                 await out_.WriteLineAsync().ConfigureAwait(false);
                 previousStepResult = stepResult.Response;
                 currentStepName = nextStepName!;
+                WallyLoopExecutionStateStore.UpdateAndSave(env, loopDef, executionState, stepName, currentStepName, iteration + 1, "Running", null, effectivePrompt, previousStepResult);
                 stopReason = null;
             }
 
             await out_.WriteLineAsync($"{loopLabel} Routed loop complete - {results.Count} step(s), stopReason={stopReason ?? "unknown"}.").ConfigureAwait(false);
             env.Logger.LogInfo($"Named-step loop '{loopDef.Name}' complete: {results.Count} step(s), stopReason={stopReason ?? "unknown"}.");
             return results;
+        }
+
+        private static string ResolvePauseResumeStep(WallyLoopDefinition loopDef, WallyStepDefinition stepDef)
+        {
+            if (stepDef.KeywordRoutes.TryGetValue("WAITING_FOR_USER", out string? waitingNextStep) &&
+                !string.IsNullOrWhiteSpace(waitingNextStep))
+            {
+                return waitingNextStep;
+            }
+
+            if (!string.IsNullOrWhiteSpace(stepDef.DefaultNextStep))
+                return stepDef.DefaultNextStep;
+
+            return loopDef.StartStepName;
+        }
+
+        private static string GetLoopExecutionMode(WallyLoopDefinition loopDef)
+        {
+            if (loopDef.UsesNamedStepRouting)
+                return "routed-loop";
+
+            if (loopDef.HasSteps)
+                return "pipeline";
+
+            if (loopDef.IsAgentLoop)
+                return "agent-loop";
+
+            return "single-shot";
+        }
+
+        private static int FindPipelineStepIndex(WallyLoopDefinition loopDef, string stepName)
+        {
+            for (int i = 0; i < loopDef.Steps.Count; i++)
+            {
+                string stableName = WallyLoopExecutionStateStore.GetStableStepName(loopDef.Steps[i], i);
+                if (string.Equals(stableName, stepName, StringComparison.OrdinalIgnoreCase))
+                    return i;
+            }
+
+            return 0;
+        }
+
+        public static string GetLoopStepExecutionLabel(WallyLoopDefinition loopDef, WallyStepDefinition stepDef)
+        {
+            return GetStepExecutionLabel(loopDef, stepDef);
+        }
+
+        public static string GetLoopPauseResumeStep(WallyLoopDefinition loopDef, WallyStepDefinition stepDef)
+        {
+            return ResolvePauseResumeStep(loopDef, stepDef);
+        }
+
+        public static async Task<WallyLoopStepExecutionOutcome> ExecuteLoopStepAsync(
+            WallyEnvironment env,
+            string userPrompt,
+            string? previousStepResult,
+            WallyLoopDefinition loopDef,
+            WallyStepDefinition stepDef,
+            string? model,
+            string? wrapper,
+            bool noHistory,
+            CancellationToken cancellationToken,
+            int stepIndex)
+        {
+            StepExecutionResult result = await ExecuteStepAsync(
+                env,
+                userPrompt,
+                previousStepResult,
+                loopDef,
+                stepDef,
+                model,
+                wrapper,
+                noHistory,
+                cancellationToken,
+                stepIndex).ConfigureAwait(false);
+
+            return new WallyLoopStepExecutionOutcome
+            {
+                ActorLabel = result.ActorLabel,
+                Response = result.Response,
+                RequestsPause = result.RequestsPause,
+                StopReason = result.StopReason
+            };
         }
 
         private sealed class StepExecutionResult
@@ -504,6 +669,7 @@ namespace Wally.Core
 
             sw.Stop();
             env.Logger.LogResponse(actorLabel, response, sw.ElapsedMilliseconds, stepIndex);
+            PersistStepResultIfConfigured(env, stepDef, response, stepDef.Name);
             return new StepExecutionResult { ActorLabel = actorLabel, Response = response };
         }
 
@@ -563,17 +729,18 @@ namespace Wally.Core
 
             env.EnsureStepWriteAllowed(stepDef, InvestigationInteractionStore.DefaultInteractionStatePath, stepDef.Name);
             env.EnsureStepWriteAllowed(stepDef, InvestigationInteractionStore.DefaultUserResponsesPath, stepDef.Name);
+            env.EnsureStepWriteAllowed(stepDef, InvestigationInteractionStore.DefaultLatestUserResponsePath, stepDef.Name);
 
             List<InvestigationInteractionQuestion> questions = InvestigationInteractionStore.ParseQuestionBatchMarkdown(response);
-            InvestigationInteractionState waitingState = InvestigationInteractionStore.PersistWaitingQuestions(
-                env,
-                questions,
-                responseTarget: InvestigationInteractionStore.DefaultUserResponsesPath,
-                resumeCommand: $"wally run \"<answer batch>\" -l {loopDef.Name}");
+            InvestigationInteractionState waitingState = InvestigationInteractionStore.PersistWaitingQuestions(env, questions);
+
+            string runSuffix = InvestigationInteractionStore.TryLoadCurrentRunId(env, out string runId)
+                ? $" for investigation {runId}"
+                : string.Empty;
 
             string summary = string.IsNullOrWhiteSpace(response)
-                ? $"WAITING_FOR_USER\nRecorded question batch {waitingState.QuestionBatchId} for investigation {waitingState.InvestigationId}."
-                : $"{response.TrimEnd()}\n\nWAITING_FOR_USER\nRecorded question batch {waitingState.QuestionBatchId} for investigation {waitingState.InvestigationId}.";
+                ? $"WAITING_FOR_USER\nRecorded question batch {waitingState.QuestionBatchId}{runSuffix}."
+                : $"{response.TrimEnd()}\n\nWAITING_FOR_USER\nRecorded question batch {waitingState.QuestionBatchId}{runSuffix}.";
 
             return new StepExecutionResult
             {
@@ -614,6 +781,8 @@ namespace Wally.Core
             if (!result.Success && !stepDef.ContinueOnFailure)
                 throw new InvalidOperationException(response);
 
+            PersistStepResultIfConfigured(env, stepDef, response, stepDef.Name);
+
             return new StepExecutionResult { ActorLabel = "shell", Response = response };
         }
 
@@ -638,12 +807,16 @@ namespace Wally.Core
                         : result.Output.TrimEnd());
             }
 
+            string response = string.IsNullOrWhiteSpace(result.Output)
+                ? $"Command {(result.Success ? "completed" : "failed")}: {commandLine}"
+                : result.Output.TrimEnd();
+
+            PersistStepResultIfConfigured(env, stepDef, response, stepDef.Name);
+
             return new StepExecutionResult
             {
                 ActorLabel = "wally-command",
-                Response = string.IsNullOrWhiteSpace(result.Output)
-                    ? $"Command {(result.Success ? "completed" : "failed")}: {commandLine}"
-                    : result.Output.TrimEnd()
+                Response = response
             };
         }
 
@@ -673,6 +846,8 @@ namespace Wally.Core
                 _ => throw new NotSupportedException(
                     $"Step '{stepDef.Name}' uses unknown code handler '{stepDef.HandlerName}'.")
             };
+
+            PersistStepResultIfConfigured(env, stepDef, response, stepDef.HandlerName);
 
             return new StepExecutionResult
             {
@@ -735,6 +910,23 @@ namespace Wally.Core
                 env.Logger);
             MailboxHelper.AppendRoutingLog(resolvedLogPath, routeResult);
             return routeResult.BuildSummary();
+        }
+
+        private static void PersistStepResultIfConfigured(
+            WallyEnvironment env,
+            WallyStepDefinition stepDef,
+            string response,
+            string actionName)
+        {
+            if (!stepDef.PersistsResultDocument || string.IsNullOrWhiteSpace(response))
+                return;
+
+            string relativePath = stepDef.ResultDocumentPath;
+            env.EnsureStepWriteAllowed(stepDef, relativePath, actionName);
+
+            string resolvedPath = env.ResolveWorkspaceFilePath(relativePath);
+            Directory.CreateDirectory(Path.GetDirectoryName(resolvedPath)!);
+            File.WriteAllText(resolvedPath, response.TrimEnd() + Environment.NewLine);
         }
 
         private static string BuildShellStepResponse(string command, ShellExecutionResult result)

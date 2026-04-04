@@ -82,15 +82,7 @@ namespace Wally.Forms.Controls.Editors
             _btnRefresh.Click += (_, _) => BuildView();
 
             _btnCopy = CreateButton("\uD83D\uDCCB Copy");
-            _btnCopy.Click += (_, _) =>
-            {
-                if (!string.IsNullOrEmpty(_txtOutput.Text))
-                {
-                    Clipboard.SetText(_txtOutput.Text);
-                    _lblStatus.Text = "Copied to clipboard.";
-                    _lblStatus.ForeColor = WallyTheme.Green;
-                }
-            };
+            _btnCopy.Click += OnCopyClick;
 
             _btnDiagram = CreateButton("\uD83D\uDDFA Diagram");
             _btnDiagram.Click += (_, _) => ViewDiagramRequested?.Invoke(this, EventArgs.Empty);
@@ -132,6 +124,16 @@ namespace Wally.Forms.Controls.Editors
             Controls.Add(scroll);
 
             ResumeLayout(true);
+        }
+
+        private void OnCopyClick(object? sender, EventArgs e)
+        {
+            if (string.IsNullOrEmpty(_txtOutput.Text))
+                return;
+
+            Clipboard.SetText(_txtOutput.Text);
+            _lblStatus.Text = "Copied to clipboard.";
+            _lblStatus.ForeColor = WallyTheme.Green;
         }
 
         // ?? Public API ????????????????????????????????????????????????????????

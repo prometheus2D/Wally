@@ -62,13 +62,17 @@ namespace Wally.Forms.ChatPanelSupport
 
         public static ChatPanelPromptPreview BuildPromptPreview(WallyEnvironment env, ChatPanelRequest request)
         {
-            var session = CreateSession(env, request);
+            var session = CreateSession(env, request, prepareExecutionState: false);
             return session.BuildNextPromptPreview();
         }
 
-        public static ChatPanelExecutionSession CreateSession(WallyEnvironment env, ChatPanelRequest request)
+        public static ChatPanelExecutionSession CreateSession(
+            WallyEnvironment env,
+            ChatPanelRequest request,
+            bool prepareExecutionState = true)
         {
-            return new ChatPanelExecutionSession(env, ResolveRequest(env, request));
+            ChatPanelResolvedRequest resolved = ResolveRequest(env, request);
+            return new ChatPanelExecutionSession(env, resolved, prepareExecutionState);
         }
 
         public static MermaidDiagramDefinition BuildDiagramDefinition(WallyEnvironment env, ChatPanelRequest request)
@@ -85,7 +89,16 @@ namespace Wally.Forms.ChatPanelSupport
             sb.AppendLine("    MODE --> MODEL");
             sb.AppendLine("    MODEL --> WRAPPER");
 
-            if (resolved.LoopDefinition?.HasSteps == true)
+            if (resolved.LoopDefinition?.UsesNamedStepRouting == true)
+            {
+                sb.AppendLine($"    ROUTED[\"Routed Loop<br/>{EscapeLabel(resolved.LoopDefinition.Name)}<br/>Start: {EscapeLabel(resolved.LoopDefinition.StartStepName)}\"]");
+                sb.AppendLine($"    MAX[\"Max Iterations<br/>{resolved.LoopDefinition.MaxIterations}\"]");
+                sb.AppendLine("    OUTPUT[\"Routed Loop Result\"]");
+                sb.AppendLine("    WRAPPER --> ROUTED");
+                sb.AppendLine("    ROUTED --> MAX");
+                sb.AppendLine("    MAX --> OUTPUT");
+            }
+            else if (resolved.LoopDefinition?.HasSteps == true)
             {
                 for (int i = 0; i < resolved.LoopDefinition.Steps.Count; i++)
                 {
@@ -178,7 +191,40 @@ namespace Wally.Forms.ChatPanelSupport
                 Body = BuildEquivalentCommand(resolved)
             });
 
-            if (resolved.LoopDefinition?.HasSteps == true)
+            if (resolved.LoopDefinition?.UsesNamedStepRouting == true)
+            {
+                var sb = new StringBuilder();
+                sb.AppendLine($"Start step: {resolved.LoopDefinition.StartStepName}");
+                sb.AppendLine($"MaxIterations: {resolved.LoopDefinition.MaxIterations}");
+                sb.AppendLine();
+
+                for (int i = 0; i < resolved.LoopDefinition.Steps.Count; i++)
+                {
+                    WallyStepDefinition step = resolved.LoopDefinition.Steps[i];
+                    string stepActor = string.IsNullOrWhiteSpace(step.ActorName)
+                        ? (string.IsNullOrWhiteSpace(resolved.LoopDefinition.ActorName) ? "(direct)" : resolved.LoopDefinition.ActorName)
+                        : step.ActorName;
+                    string stepName = string.IsNullOrWhiteSpace(step.Name) ? $"step-{i + 1}" : step.Name;
+                    sb.AppendLine($"Step {i + 1}: {stepName} ({stepActor})");
+                    sb.AppendLine($"Kind: {step.EffectiveKind}");
+                    if (!string.IsNullOrWhiteSpace(step.DefaultNextStep))
+                        sb.AppendLine($"Default next: {step.DefaultNextStep}");
+                    if (step.KeywordRoutes.Count > 0)
+                    {
+                        sb.AppendLine("Routes:");
+                        foreach (KeyValuePair<string, string> route in step.KeywordRoutes)
+                            sb.AppendLine($"  {route.Key} -> {route.Value}");
+                    }
+                    sb.AppendLine();
+                }
+
+                sections.Add(new ChatPanelPromptPreviewSection
+                {
+                    Heading = $"Routed Loop Steps ({resolved.LoopDefinition.Steps.Count})",
+                    Body = sb.ToString().TrimEnd()
+                });
+            }
+            else if (resolved.LoopDefinition?.HasSteps == true)
             {
                 var sb = new StringBuilder();
                 for (int i = 0; i < resolved.LoopDefinition.Steps.Count; i++)
@@ -298,7 +344,10 @@ namespace Wally.Forms.ChatPanelSupport
 
         private static string BuildEquivalentCommand(ChatPanelResolvedRequest resolved)
         {
-            var parts = new List<string> { "run", $"\"{resolved.Request.DisplayPrompt}\"" };
+            string displayPrompt = string.IsNullOrWhiteSpace(resolved.Request.DisplayPrompt)
+                ? "<resume-from-state>"
+                : resolved.Request.DisplayPrompt;
+            var parts = new List<string> { "run", $"\"{displayPrompt}\"" };
             if (!resolved.DirectMode)
                 parts.Add($"-a {resolved.ActorLabel}");
             if (!string.IsNullOrWhiteSpace(resolved.Request.LoopName))

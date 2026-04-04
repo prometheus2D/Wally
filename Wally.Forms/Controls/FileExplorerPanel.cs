@@ -8,7 +8,7 @@ using Wally.Forms.Theme;
 namespace Wally.Forms.Controls
 {
     /// <summary>
-    /// File explorer panel — left-side workspace tree with type-specific icons,
+    /// File explorer panel ï¿½ left-side workspace tree with type-specific icons,
     /// lazy-loading, context menus, tooltips with size/date, and a styled header.
     /// </summary>
     public sealed class FileExplorerPanel : UserControl
@@ -112,7 +112,7 @@ namespace Wally.Forms.Controls
                 Font = new Font("Segoe UI", 10f),
                 ForeColor = WallyTheme.TextSecondary
             };
-            _btnCollapseAll.Click += (_, _) => _tree.CollapseAll();
+            _btnCollapseAll.Click += OnCollapseAllClick;
 
             _btnExpandWally = new ToolStripButton(".wally")
             {
@@ -389,6 +389,11 @@ namespace Wally.Forms.Controls
         {
             if (e.Node?.Tag is string fp && File.Exists(fp))
                 FileDoubleClicked?.Invoke(this, new FileSelectedEventArgs(fp));
+        }
+
+        private void OnCollapseAllClick(object? sender, EventArgs e)
+        {
+            _tree.CollapseAll();
         }
 
         private void OnDrawNode(object? sender, DrawTreeNodeEventArgs e)
