@@ -3,7 +3,7 @@
 **Status**: Draft
 **Author**: System Architecture Team
 **Created**: 2026-03-28
-**Last Updated**: 2026-03-28
+**Last Updated**: 2026-04-04
 
 *Template: [../../Templates/ProposalTemplate.md](../../Templates/ProposalTemplate.md)*
 
@@ -22,7 +22,7 @@ Current gap:
 
 Wally needs loop steps that can execute code-backed runtime handlers while remaining declarative in loop definitions.
 
-These executable steps are intended to support all three default loops: investigation, proposal-to-tasks, and task execution.
+The first required consumer is `InvestigationLoop`; the model should remain reusable for other loops later without making those later consumers part of this proposal's core scope.
 
 ---
 
@@ -37,6 +37,8 @@ Prompt construction remains template-driven. Each named step definition owns its
 Step customization and ability reuse must both be first-class. A step may be authored entirely with step-local configuration, or it may keep that step-local configuration and additionally reference one or more reusable abilities through `abilityRefs`. The presence of an ability reference must never take ownership of the step away from the step definition itself.
 
 For the first loop implementations, prompt execution should be actor-agnostic. No actor role, criteria, or intent prompt should be injected unless a later loop explicitly opts into actor-backed execution.
+
+The typed-step executor must be surface-agnostic. Auto execution, WinForms manual stepping, and any future Console step-by-step control surface must all call the same Core step execution path and consume the same persisted checkpoint semantics.
 
 Recommended v1 step kinds:
 
@@ -137,6 +139,12 @@ Execution routing:
 - `command` -> existing `DispatchCommand`; output scanned for keywords
 - `code` -> built-in handler registry; handler returns result with optional keyword
 - `user_input` -> pause loop, persist interaction request, resume after answer persisted
+
+Surface rules:
+
+- a preview of a prompt step or command step must be read-only and must not create or mutate execution state
+- manual stepping in any UI is a presentation mode layered over the shared Core executor, not a separate execution engine
+- operator-visible equivalent commands are informational unless explicitly executed through the shared dispatcher
 
 Prompt-step validation rules:
 
@@ -359,7 +367,20 @@ When an inbox message is consumed by any step, the relevant documentation must b
 
 It should be callable from loops and runbooks through the same executable-step abstraction.
 
-This gives the product a working mailbox flow without introducing a separate daemon, background worker, or always-on router.
+---
+
+## Simple Resume Expectations
+
+Typed executable steps only need to cooperate with the shared resume model in v1.
+
+High-level rules:
+
+- step execution must leave enough persisted state that the loop can continue from `NextStepName`
+- `user_input` must pause through canonical docs and shared execution state rather than UI memory
+- preview flows remain read-only
+- richer replay or retry controls are deferred until a concrete need exists
+
+Detailed shared state and resume rules live in [Loop Resume Contract](../../Docs/LoopResumeContract.md).
 
 ---
 
@@ -375,6 +396,7 @@ Rules:
 - mutating handlers must log their actions and outputs
 - workflow docs remain the source of truth for why the step ran and what it changed
 - if mailbox or memory behavior requires new runtime support, document the file contract and step responsibilities before implementing the handler
+- preview flows must not create new attempts or write checkpoints
 
 ---
 
@@ -390,6 +412,8 @@ No open questions remain. The key design decisions have been resolved:
 - **JSON loops are the composition model** � executable steps live inside JSON loop definitions, not a custom engine.
 - **Keyword-driven step selection** is the fundamental routing mechanism � each step outputs a keyword that determines the next step.
 - **Consumed inbox messages** update documentation and then get deleted.
+- **Surface behavior is shared-runtime first** � WinForms manual stepping and future Console controls must reuse the same Core step executor.
+- **Simple resume comes first** � persist enough loop state to continue work reliably before adding richer operator controls.
 
 ---
 
@@ -400,6 +424,12 @@ No open questions remain. The key design decisions have been resolved:
 | [InvestigationLoopProposal](./InvestigationLoopProposal.md) | Primary consumer | InvestigationLoop needs executable steps for mailbox routing, user interaction, and durable state handling |
 | [RunbookSyntaxProposal](./RunbookSyntaxProposal.md) | Builds on | Reuse the existing shell and command execution model |
 | [UnifiedExecutionModelProposal](../Archive/CompletedProposals/UnifiedExecutionModelProposal.md) | Informs | Reuse data-driven validation patterns |
+
+## Related Documents
+
+| Document | Relationship | Notes |
+|----------|--------------|-------|
+| [Loop Resume Contract](../../Docs/LoopResumeContract.md) | Spawns | Defines the minimal shared execution-state and resume rules used by typed steps |
 
 ---
 
@@ -412,6 +442,7 @@ No open questions remain. The key design decisions have been resolved:
 | 3 | Implement keyword-driven step selection in the loop runtime | 1-2 | Phase 2 |
 | 4 | Implement `route_messages` as the first built-in code handler | 1-2 | Phase 3 |
 | 5 | Wire executable steps and reusable abilities into at least one loop and one runbook use case | 1-2 | Phase 4 |
+| 6 | Keep typed-step execution aligned with the shared resume model | 1-2 | Phase 5 |
 
 ---
 
@@ -434,8 +465,10 @@ No open questions remain. The key design decisions have been resolved:
 | `Wally.Core/WallyStepDefinition.cs` | Add step kind, `abilityRefs`, keyword routing fields, and handler metadata | High |
 | `Wally.Core/WallyLoopDefinition.cs` | Add keyword-driven step routing support to loop definitions | High |
 | `Wally.Core/commands/WallyCommands.Run.cs` | Route step kinds to the correct executor; implement keyword-driven routing | High |
+| `Wally.Core/WallyLoopExecutionStateStore.cs` | Persist the minimal shared state needed to resume typed-step workflows | High |
 | `Wally.Core/commands/WallyCommands.Runbook.cs` | Extract shared shell and command execution helpers | Medium |
 | `Wally.Core/Mailbox/` | Add mailbox-routing helper or handler registry | Medium |
+| `Wally.Forms/ChatPanelSupport/ChatPanelExecutionSession.cs` | Consume the shared typed-step executor for manual stepping instead of a parallel runtime | Medium |
 | `Wally.Core/Default/Templates/AbilityTemplate.md` | Template for reusable Wally abilities referenced by `abilityRefs` | Low |
 | `Wally.Core/Default/Projects/Proposals/ExecutableLoopStepsProposal.md` | Canonical design reference | Low |
 
@@ -450,6 +483,7 @@ No open questions remain. The key design decisions have been resolved:
 - Keyword-driven step selection makes any JSON loop definition a dynamic branching workflow.
 - `user_input` as a first-class step kind gives loops a clean pause/resume model for interactive workflows.
 - The same step model works in all Wally loops � not specific to any single loop profile.
+- Lets WinForms manual stepping and Console resume behavior stay aligned on one runtime contract.
 
 ---
 
@@ -459,6 +493,7 @@ No open questions remain. The key design decisions have been resolved:
 - Overloading `WallyStepDefinition` may blur the line between pipeline steps and dynamic workflow steps.
 - Mutation-capable handlers raise the need for stronger validation and logging.
 - Keyword-driven routing adds complexity to the step model.
+- Future control features could overcomplicate the step model if they are added before a real need exists.
 
 Mitigations:
 
@@ -466,24 +501,7 @@ Mitigations:
 - keep the initial handler set small
 - extend `WallyStepDefinition` incrementally � kind, keyword routes, and handler name are well-defined additions
 - keep keyword routing simple: one keyword field per step, one route map, one default fallback
-
----
-
-## Todo Tracker
-
-| Task | Priority | Status | Owner | Due Date | Notes |
-|------|----------|--------|-------|----------|-------|
-| Define the typed step schema for `prompt`, `shell`, `command`, `code`, and `user_input` | High | ?? Not Started | @developer | 2026-04-01 | Core model decision; includes `abilityRefs` and keyword routing fields |
-| Define keyword-driven step selection model and routing fields | High | ?? Not Started | @developer | 2026-04-01 | Fundamental to all loops |
-| Extract shared shell and command execution helpers for reuse by loop steps | High | ?? Not Started | @developer | 2026-04-02 | Avoid duplicate execution logic |
-| Implement built-in handler registry for `code` steps | High | ?? Not Started | @developer | 2026-04-03 | Named handlers only |
-| Implement `route_messages` handler with consume-then-delete semantics | High | ?? Not Started | @developer | 2026-04-04 | First concrete runtime step |
-| Implement `user_input` step kind with pause/resume semantics | High | ?? Not Started | @developer | 2026-04-04 | Required for interactive loops |
-| Validate executable steps inside InvestigationLoop | Medium | ?? Not Started | @developer | 2026-04-05 | Primary consumer |
-
-**Legend**:
-- Priority: `High | Medium | Low`
-- Status: `?? Blocked | ?? In Progress | ? Complete | ? Paused | ?? Not Started`
+- defer richer operator controls until resume-only workflows have proved insufficient
 
 ---
 
@@ -497,14 +515,32 @@ Mitigations:
 - [ ] Shared shell and command execution logic is reused, not duplicated.
 - [ ] Keyword-driven step selection is implemented as the standard routing mechanism for JSON loops.
 - [ ] `user_input` is a first-class step kind that pauses the loop and resumes after the user's answer is persisted.
+- [ ] The shared step executor can support WinForms manual stepping and Console resume behavior without a second runtime path.
 
 ### Should Have
 
 - [ ] The same executable-step abstraction works in loops and runbooks.
 - [ ] Handler logging is sufficient to debug runtime behavior.
+- [ ] Preview flows are explicitly read-only and cannot mutate execution state.
 
 ### Success Metrics
 
 - [ ] A workflow can send a message, route it, and consume it without any always-on mailbox process.
 - [ ] A reviewer can explain the difference between `prompt`, `shell`, `command`, `code`, and `user_input` steps quickly and precisely.
 - [ ] A JSON loop definition can express dynamic branching using keyword-driven step selection without any custom loop engine code.
+- [ ] A reviewer can explain how a typed step participates in pause/resume without relying on hidden UI state.
+
+---
+
+## Documentation Exit Strategy
+
+This proposal is temporary planning material.
+
+Expected end state after implementation is stable:
+
+- typed-step behavior is understandable from the shared runtime code, tests, loop definitions, and minimal durable docs
+- loop authors do not need this proposal open to understand ordinary step kinds or resume behavior
+- any still-useful reference material has been folded into durable runtime documentation or authoring guidance
+- this proposal and its task tracker can be archived or removed without losing required operational knowledge
+
+Implementation is only truly complete when the codebase no longer depends on this proposal as routine explanation.

@@ -3,7 +3,7 @@
 **Status**: Draft
 **Author**: System Architecture Team
 **Created**: 2026-03-28
-**Last Updated**: 2026-04-02
+**Last Updated**: 2026-04-04
 
 *Template: [../../Templates/ProposalTemplate.md](../../Templates/ProposalTemplate.md)*
 
@@ -65,18 +65,14 @@ The investigation loop may also perform operational workspace steps, such as mov
 
 ## Canonical Workflow Placement
 
-`InvestigationLoop` is the first loop in the current default three-loop workflow:
+`InvestigationLoop` is the first loop in the broader Wally workflow, but this proposal only defines loop 1.
 
-1. `InvestigationLoop`: input = user request; output = approved proposal document
-2. `ProposalToTasks`: input = approved proposal path; output = one dependency-aware `*Tasks.md` tracker in the same directory as the proposal
-3. `ExecuteTasksLoop`: input = task tracker path; output = the same tracker updated until all eligible work is complete or recoverably blocked
+Scope rules:
 
-Current workflow decisions:
-
-- implementation plans are not part of the current default workflow
-- execution plans are not part of the current default workflow
-- the task tracker is the authoritative handoff artifact between proposal approval and task execution
-- the user may start each loop manually; automatic loop-to-loop transition is deferred
+- this proposal covers investigation, questioning, evidence gathering, and proposal authoring
+- downstream decomposition and execution workflows are separate concerns
+- implementation plans and execution plans are not part of the current default workflow
+- the user may move between loops manually in v1; automatic loop-to-loop transition is deferred
 
 ## Shared Loop Execution State
 
@@ -89,6 +85,22 @@ Design rules:
 - starting a fresh run with a new prompt may clear loop-specific transient artifacts declared by that loop before the new execution-state document is written
 - InvestigationLoop still owns its domain artifacts such as `InteractionState.md`, `LatestUserResponse.md`, and `UserResponses.md`, but resume mechanics come from the shared loop execution-state contract
 - promptless resume should only be available when a loop explicitly opts into execution-state persistence
+- every interactive surface must consume the same shared execution-state contract; WinForms manual stepping may be the first rich operator surface, but future Console step-by-step support must reuse the same core semantics instead of inventing a second runtime model
+- prompt preview, diagram preview, and other inspection-only flows must be read-only; they may inspect the current step and render equivalent commands, but they must not prepare, mutate, or advance persisted execution state
+- equivalent CLI commands shown by a UI surface are operator-facing display artifacts unless explicitly dispatched through the shared run path; showing a command must never cause a second hidden execution
+
+### Simple Resume Semantics
+
+Loop continuation is part of the shared loop-runtime contract, not InvestigationLoop-specific runtime logic.
+
+High-level rules:
+
+- execution is resumable from persisted state, not transactionally reversible
+- a step is usable for continuation only after required document writes and the matching state update are persisted
+- fresh run, pause, resume, and preview are the only required controls in v1
+- user-response recording updates investigation docs and then resumes from shared execution state
+
+The detailed state shape and lifecycle rules live in [Loop Resume Contract](../../Docs/LoopResumeContract.md).
 
 ---
 
@@ -390,31 +402,31 @@ The primary deployment target is Windows desktop for internal users.
 - No cloud hosting is needed for v1.
 ```
 
+## Operational History And UI Transcripts
+
+Canonical investigation state lives in the investigation docs plus shared execution state. Operator transcripts and UI history are separate operational artifacts.
+
+Rules:
+
+- chat-session transcripts belong under workspace history, for example `History/ChatSessions/`, and are operational logs rather than canonical workflow state
+- process logs, wrapper conversation history, and UI transcripts may help debugging, but they are not authoritative inputs for the next investigation iteration unless a step explicitly copies needed facts into canonical docs
+- Console and Forms must render waiting state, run labels, and resume guidance from `ExecutionState.md` plus `InteractionState.md`, not from surface-specific hidden metadata
+- WinForms manual stepping and any future Console step-by-step mode must call the same shared typed-step execution path in Core
+- the existence of a transcript log must never be treated as proof that a workflow boundary committed; only canonical docs and execution-state checkpoints can do that
+
 ---
 
 ## Why The Source Of Truth Must Be Documentation
 
-The existing agent loop relies on prompt feedback between iterations. That is not sufficient here.
+The investigation loop cannot rely on prompt carry-over or UI memory. If a fact matters after the current step, it must be written to persisted documentation before the next step begins.
 
-The investigation loop must assume:
+In practice this means:
 
-- no prompt history is authoritative
-- no prior iteration response is guaranteed to be available in the next prompt
-- no implicit memory exists except persisted files
+- prompt history is never authoritative
+- interactive questions and answers must be persisted before reuse
+- drafts, findings, open questions, and operational decisions must live in docs, not transient chat state
 
-Therefore:
-
-- every important fact must be written to docs
-- every open question must be written to docs
-- every proposed next step must be written to docs
-- every draft proposal must be written to docs (or Memory while in progress)
-- every question to the user or another actor must be written to Outbox or another explicit document
-
-The same rule applies to interactive questioning. A loop is never allowed to "just ask in chat" and hold the result in transient UI state. The question and the answer must both exist in persisted documentation before the next investigative iteration uses them.
-
-Because bots are one-shot, every iteration must have all the information it needs available in persisted files. Outputs must go to wherever they need to be so that the next iteration � or a different actor consuming the output � can find them without any implicit context.
-
-This makes the loop resumable, inspectable, testable, and deterministic enough to review.
+That is what makes the workflow resumable, inspectable, and reviewable.
 
 ---
 
@@ -678,9 +690,7 @@ The loop may require several user-answer cycles before those artifacts are compl
 
 The investigator should converge on proposal-quality output, not merely produce notes.
 
-In the default three-loop workflow, the handoff artifact from `InvestigationLoop` to `ProposalToTasks` is that approved proposal document.
-
-Once a proposal is approved, the next workflow step is to run `ProposalToTasks` manually against that proposal path. `ProposalToTasks` then writes one `*Tasks.md` tracker in the same directory with task owner placeholders, explicit dependencies, verifiable done-conditions, and a progress summary required for execution. `ExecuteTasksLoop` is started manually against that tracker path. The investigation loop does not auto-transition into downstream loops in v1.
+Downstream planning and execution artifacts are outside the scope of this proposal.
 
 ---
 
@@ -702,9 +712,16 @@ No open questions remain for the v1 investigation workflow model. The resolved d
 12. ~~Should prompt construction use a fixed runtime composer or step-owned templates?~~ **Resolved:** Use template-driven prompt construction. Each named step owns its prompt template and declared document inputs, while the loop routes between step names.
 13. ~~Should the first investigation loops be actor-backed or actor-agnostic?~~ **Resolved:** The first investigation loops should be actor-agnostic. No actor role, criteria, or intent prompt should be injected.
 14. ~~Should loop steps be able to reference reusable Wally abilities?~~ **Resolved:** Yes. Steps may reference reusable workflow abilities through `abilityRefs`, while still owning their final prompt template and routing behavior.
-15. ~~Should approved proposals transition into implementation plans before execution?~~ **Resolved:** No. Implementation plans are redundant for the current default workflow. Approved proposals transition directly into task trackers.
-16. ~~Should execution plans orchestrate delivery after proposal approval?~~ **Resolved:** No. Execution plans are redundant for the current default workflow. Task trackers are the execution artifact.
+15. ~~Should approved proposals transition into implementation plans before downstream execution?~~ **Resolved:** No. An extra planning layer is redundant for the current default workflow.
+16. ~~Should execution plans orchestrate delivery after proposal approval?~~ **Resolved:** No. An extra execution-plan layer is redundant for the current default workflow.
 17. ~~Should Wally automatically transition between loops in v1?~~ **Resolved:** No. The user may start each loop manually. Automation can be added later.
+18. ~~Should step-by-step execution be treated as fully transactional?~~ **Resolved:** No. The real v1 need is resumable execution from persisted state, not transactional replay.
+19. ~~Do we need explicit replay, retry, or run-from-step controls in v1?~~ **Resolved:** No. Persist enough state to pause and resume reliably. Richer operator controls should be deferred until a concrete use case proves they are necessary.
+20. ~~Should WinForms manual stepping keep its own runtime approximation?~~ **Resolved:** No. Manual stepping must reuse the shared typed-step execution path in Core so auto mode, manual mode, and future Console resume behavior stay aligned.
+21. ~~Does Console need first-class step-by-step controls immediately?~~ **Resolved:** No. Shared resume behavior is enough for v1.
+22. ~~Are chat transcripts canonical investigation state?~~ **Resolved:** No. Chat transcripts are operational history under workspace history folders. Canonical workflow state remains the investigation docs plus execution-state checkpoints.
+23. ~~Should prompt previews or equivalent command previews mutate workflow state?~~ **Resolved:** No. Preview paths are read-only inspection flows.
+24. ~~Should a UI that displays an equivalent CLI command also dispatch it automatically?~~ **Resolved:** No. Displaying an equivalent command is informational only unless the operator explicitly executes it.
 
 ---
 
@@ -712,12 +729,18 @@ No open questions remain for the v1 investigation workflow model. The resolved d
 
 | Proposal | Relationship | Notes |
 |----------|--------------|-------|
-| [ThreeLoopWorkflowProposal](./ThreeLoopWorkflowProposal.md) | Parent | Defines the default `InvestigationLoop -> ProposalToTasks -> ExecuteTasksLoop` workflow |
-| [TaskExecutionLoopProposal](./TaskExecutionLoopProposal.md) | Sibling | Defines the third loop that executes task trackers one task at a time |
+| [ThreeLoopWorkflowProposal](./ThreeLoopWorkflowProposal.md) | Parent | Defines the broader workflow sequence that this loop begins |
+| [TaskExecutionLoopProposal](./TaskExecutionLoopProposal.md) | Sibling | Defines a downstream execution workflow outside the scope of this proposal |
 | [RunbookSyntaxProposal](./RunbookSyntaxProposal.md) | Depends on | Reuse existing `shell` and scripted command execution patterns |
 | [AutonomyLoopProposal](../Archive/CompletedProposals/AutonomyLoopProposal.md) | Builds on | Existing agent loop provides the iteration baseline |
 | [UnifiedExecutionModelProposal](../Archive/CompletedProposals/UnifiedExecutionModelProposal.md) | Informs | Reuse data-driven validation and action authorization patterns |
 | [ExecutableLoopStepsProposal](./ExecutableLoopStepsProposal.md) | Depends on | InvestigationLoop needs reusable code-backed steps such as mailbox routing |
+
+## Related Documents
+
+| Document | Relationship | Notes |
+|----------|--------------|-------|
+| [Loop Resume Contract](../../Docs/LoopResumeContract.md) | Spawns | Defines the minimal shared execution-state and resume rules for Console and Forms |
 
 ---
 
@@ -733,6 +756,8 @@ No open questions remain for the v1 investigation workflow model. The resolved d
 | 6 | Extract shared shell and Wally-command execution helpers from script-runbook execution | 1-2 | Phase 5 |
 | 7 | Add default investigation artifacts, ability documents, memory conventions, and sample investigation loop definition | 1-2 | Phases 2-6 |
 | 8 | Validate with an end-to-end investigation that asks questions, routes required messages, records user answers, updates docs, and produces a proposal | 1-2 | Phase 7 |
+| 9 | Define the minimal shared resume contract and transcript boundaries for persisted investigation workflows | 1-2 | Phase 8 |
+| 10 | Keep shared execution-state persistence small and align Console and WinForms resume behavior | 1-2 | Phase 9 |
 
 ---
 
@@ -749,6 +774,8 @@ No open questions remain for the v1 investigation workflow model. The resolved d
 - `Proposal draft`: The proposal currently being shaped by the investigation, stored in Memory until promoted.
 - `Interaction request`: A persisted request for user input that pauses the loop until answered.
 - `Paused loop state`: The state where investigation is waiting for user input instead of actively executing AI work.
+- `Resumable execution`: A workflow contract where the next step can be continued from persisted docs and shared execution state.
+- `Operational transcript`: A non-canonical history artifact such as a chat-session log used for review and debugging.
 - `Executable step`: A loop step backed by runtime code rather than an AI prompt.
 - `Mailbox folders`: Investigator-owned `Inbox`, `Outbox`, `Pending`, `Active`, and `Memory` directories used as persisted workflow surfaces.
 
@@ -763,11 +790,15 @@ No open questions remain for the v1 investigation workflow model. The resolved d
 | `Wally.Core/WallyAgentLoop.cs` | Extend agent loop to support keyword-driven step selection | High |
 | `Wally.Core/WallyEnvironment.cs` | Add investigation-loop execution entry point | Medium |
 | `Wally.Core/commands/WallyCommands.Run.cs` | Route keyword-driven loops through existing loop infrastructure | Medium |
+| `Wally.Core/WallyLoopExecutionStateStore.cs` | Keep persisted execution state minimal and reusable across loop surfaces | High |
+| `Wally.Core/InvestigationInteractionStore.cs` | Keep pending-question-batch persistence separate from loop lifecycle and resume mechanics | Medium |
 | `Wally.Core/commands/WallyCommands.Runbook.cs` | Extract reusable shell and command execution helpers | Medium |
 | `Wally.Core/Mailbox/` | Add mailbox-routing helper used by executable loop steps | Medium |
 | `Wally.Core/ActionDispatcher.cs` | Keep actor-level abilities distinct from loop-owned `abilityRefs` | Medium |
 | `Wally.Console/Program.cs` | Support paused loop question rendering and user-answer capture | Medium |
 | `Wally.Forms/Controls/ChatPanel.cs` | Support interaction-request rendering and response submission for loop continuation | Medium |
+| `Wally.Forms/ChatPanelSupport/ChatPanelExecutionSession.cs` | Reuse shared typed-step execution and shared resume behavior for manual stepping | Medium |
+| `Wally.Forms/ChatPanelSupport/ChatPanelSessionRecorder.cs` | Persist operational chat transcripts without turning them into canonical investigation state | Low |
 | `Wally.Core/Default/Loops/InvestigationLoop.json` | Add default investigation loop definition as JSON | Low |
 | `Wally.Core/Default/Templates/AbilityTemplate.md` | Template for reusable Wally abilities referenced by `abilityRefs` | Low |
 | `Wally.Core/Default/Projects/Proposals/InvestigationLoopProposal.md` | Canonical design reference | Low |
@@ -782,9 +813,11 @@ No open questions remain for the v1 investigation workflow model. The resolved d
 - Produces auditable investigation artifacts that a human can inspect between iterations.
 - Converges naturally from question asking and evidence gathering into proposal authoring.
 - Gives both console and UI chat a clear way to pause for user input and resume from persisted state.
+- Keeps WinForms manual stepping and Console resume behavior on one shared runtime path.
 - Avoids adding a separate router subsystem by letting the workflow itself move messages when needed.
 - Keyword-driven step selection makes the loop a dynamic branching workflow without requiring a custom loop engine.
 - Keeps the loop infrastructure generic � the same keyword-driven model applies to all Wally loops.
+- Separates canonical workflow state from operational chat transcripts and other debugging history.
 
 ---
 
@@ -796,6 +829,7 @@ No open questions remain for the v1 investigation workflow model. The resolved d
 - Dynamic investigation-step selection may still become noisy without strong stop criteria.
 - Console and UI behavior may diverge if the paused interaction contract is not shared.
 - Executable steps may become an unstructured escape hatch if they are not typed and constrained.
+- UI-specific manual execution could drift from the real runtime if step preview and step execution are not kept separate.
 
 Mitigations:
 
@@ -807,30 +841,7 @@ Mitigations:
 - Make stop criteria documentation-based and explicit; loop continues until the user is satisfied.
 - Define one shared paused-interaction model consumed by both console and Forms.
 - Prefer typed executable steps over arbitrary inline code.
-
----
-
-## Todo Tracker
-
-| Task | Priority | Status | Owner | Due Date | Notes |
-|------|----------|--------|-------|----------|-------|
-| Finalize the canonical investigator document set and naming conventions | High | ? Complete | @developer | 2026-04-01 | Resolved: see Documentation-First State Model section |
-| Define direct-mode prompt templates, `abilityRefs`, and document-write scope | High | ?? Not Started | @developer | 2026-04-02 | Initial loops are actor-agnostic |
-| Create the first reusable ability documents and validate `AbilityTemplate.md` | High | ?? Not Started | @developer | 2026-04-02 | Start with investigation assessment and mailbox routing |
-| Define keyword-driven step selection model for JSON loop definitions | High | ?? Not Started | @developer | 2026-04-03 | Fundamental to all loops, not just investigation |
-| Define the paused interaction contract for console and Forms chat | High | ?? Not Started | @developer | 2026-04-03 | Must support request-response continuation |
-| Define the executable step contract, including mailbox-routing behavior | High | ?? Not Started | @developer | 2026-04-03 | Avoid separate router subsystem |
-| Define ingestion and consumption rules for `Inbox/`, `Outbox/`, `Pending/`, `Active/`, and `Memory/` | High | ? Complete | @developer | 2026-04-04 | Resolved: consumed messages update docs then get deleted; Memory is private; shared docs are public |
-| Define where user responses are persisted and how they resume the loop | High | ? Complete | @developer | 2026-04-04 | Resolved: outputs go where they need to be; `UserResponses.md` plus any docs needed for next iteration |
-| Extract reusable shell and command execution helpers from script-runbook execution | Medium | ?? Not Started | @developer | 2026-04-05 | Avoid duplicate execution stacks |
-| Implement mailbox movement as an executable workflow step, not a dedicated service | Medium | ?? Not Started | @developer | 2026-04-06 | Route Outbox items to next location on demand |
-| Design stop criteria for "ask again", "investigate more", and "draft proposal now" transitions | Medium | ?? Not Started | @developer | 2026-04-06 | Loop continues until user is satisfied |
-| Build a proof-of-concept investigation that reads docs, asks the user for input, routes messages, records the answer, and produces a proposal | Medium | ?? Not Started | @developer | 2026-04-08 | Validate end-to-end flow |
-| Define promotion path from `Memory/ProposalDraft.md` to `Projects/Proposals/` | Low | ? Complete | @developer | 2026-04-09 | Resolved: drafts stay in Memory until formally promoted |
-
-**Legend**:
-- Priority: `High | Medium | Low`
-- Status: `?? Blocked | ?? In Progress | ? Complete | ? Paused | ?? Not Started`
+- Treat preview flows as read-only and keep manual step execution on the same Core executor used by automatic runs.
 
 ---
 
@@ -847,11 +858,17 @@ Mitigations:
 - [ ] Paused interaction request and user-response persistence model defined for both console and Forms UI.
 - [ ] Executable step behavior defined well enough that mailbox routing can happen inside a workflow without a separate router service.
 - [ ] Keyword-driven step selection model defined as the standard mechanism for step-to-step routing in JSON loops.
+- [ ] Shared execution-state semantics define fresh run, pause, resume, and preview distinctly.
+- [ ] Resume behavior is defined precisely enough that reviewers do not confuse it with automatic rollback of external side effects.
+- [ ] WinForms manual stepping and Console resume behavior are explicitly required to reuse the same shared Core step executor.
+- [ ] Prompt preview and equivalent-command preview are defined as read-only inspection flows that do not mutate execution state.
+- [ ] Operational chat transcripts are documented as history artifacts rather than canonical investigation state.
 
 ### Should Have
 
 - [ ] Clear separation between loop-owned ability references and actor-owned abilities defined.
 - [ ] A shared InteractionState contract exists for rendering the investigator's current question in both console and UI chat.
+- [ ] Shared execution-state responsibilities are scoped clearly enough that implementation can proceed without inventing new runtime semantics in the UI.
 
 ### Success Metrics
 
@@ -860,3 +877,20 @@ Mitigations:
 - [ ] A human reviewer can inspect the investigator folder and understand the current state of the investigation without reading runtime logs.
 - [ ] The same paused question can be surfaced and answered through either the console or the Forms chat UI, with the loop resuming from persisted documentation.
 - [ ] A workflow can move mailbox items from `Outbox/` to their next location using an executable loop step.
+- [ ] An operator can tell from persisted state alone whether the next safe action is to resume the loop or start a new run.
+- [ ] Chat-session logs provide debugging value without becoming required input for the next investigation iteration.
+
+---
+
+## Documentation Exit Strategy
+
+This proposal is temporary design material.
+
+Expected end state after implementation is stable:
+
+- the runtime behavior is evident from code, tests, loop definitions, and minimal durable docs
+- Console and WinForms resume behavior no longer require proposal text to understand or maintain
+- any still-useful operator guidance has been folded into a durable runtime or user-facing doc
+- this proposal and its task tracker can be archived or removed without losing essential implementation knowledge
+
+Implementation is only truly complete when the codebase no longer depends on this proposal as a day-to-day explanation of normal runtime behavior.

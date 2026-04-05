@@ -3,14 +3,32 @@
 **Source Proposal**: [InvestigationLoopProposal.md](./InvestigationLoopProposal.md)
 **Status**: Active
 **Created**: 2026-03-29
-**Last Updated**: 2026-04-02
+**Last Updated**: 2026-04-04
 **Owner**: @developer
 
 *Template: [../../Templates/TaskTrackerTemplate.md](../../Templates/TaskTrackerTemplate.md)*
 
 ## Summary
 
-This tracker covers the twelve tasks required to implement the documentation-first InvestigationLoop workflow; Tasks 1-11 are complete, Task 12 is now in progress, and the latest work generalized execution-state checkpointing into a shared loop-runtime capability while continuing end-to-end investigation validation.
+This tracker now covers the eighteen tasks required to implement the documentation-first InvestigationLoop workflow end to end; Tasks 1-11 are complete, Task 12 remains in progress, Task 13 is complete as part of the resume-semantics documentation update, the companion runtime plan now lives in `Default/Docs/LoopResumeContract.md`, and the remaining follow-on work formalizes shared execution-state persistence plus aligned Console and Forms resume behavior.
+
+## Recommended Delivery Sequence
+
+Execute the remaining work in this order:
+
+1. Confirm the persisted execution state is sufficient for fresh run, waiting, and resume.
+2. Move routed-loop lifecycle mutations onto shared Core resume helpers.
+3. Keep WinForms and future Console behavior aligned on the same resume path.
+4. Add any surface controls against the shared Core resume APIs only.
+5. Keep Console on run/resume until a concrete need justifies richer controls.
+6. Validate resumable investigation behavior from persisted artifacts, not transcript history.
+
+Minimality rules:
+
+- do not add new UI affordances before the shared state store is authoritative
+- do not add Console replay UX for parity alone
+- do not broaden scope beyond InvestigationLoop plus the shared typed-step runtime until the resume contract is proven
+- when implementation is stable, fold any still-useful guidance into durable docs and retire this tracker instead of keeping it as a second source of truth
 
 ## Task List
 
@@ -66,6 +84,27 @@ This tracker covers the twelve tasks required to implement the documentation-fir
 |---|------|-------------|----------|--------|--------|-------|--------------|----------------|
 | 12 | Validate end-to-end investigation | Run a full investigation that reads docs, asks at least one follow-up question, routes any required messages, records the user's answer, updates findings, and produces a proposal artifact using the InvestigationLoop workflow. | High | 2d | In Progress | @developer | 11 | An end-to-end investigation completes using persisted docs and produces a proposal without relying on hidden prompt carry-over. |
 
+#### Phase 9: Formalize minimal investigation resume semantics and persisted boundaries
+
+| # | Task | Description | Priority | Effort | Status | Owner | Dependencies | Done-Condition |
+|---|------|-------------|----------|--------|--------|-------|--------------|----------------|
+| 13 | Document resume and transcript boundaries | Update the InvestigationLoop and ExecutableLoopSteps proposals so fresh run, pause, resume, prompt preview, and operational transcript boundaries are explicit instead of implied by UI behavior, and capture the implementation contract in `Default/Docs/LoopResumeContract.md`. | High | 4h | Complete | @developer | 12 | The proposals plus `Default/Docs/LoopResumeContract.md` define resumable loop state, non-canonical transcript rules, and surface-agnostic resume expectations clearly enough to guide implementation. |
+| 14 | Confirm persisted execution state is sufficient | Review Wally.Core/WallyLoopExecutionStateStore.cs and related helpers to confirm the current persisted fields remain sufficient for fresh run, waiting-for-input, completion, and cross-surface resume without hidden UI-only state. | High | 1d | Not Started | @developer | 13 | Shared execution-state persistence clearly covers the minimal resume path, and any gaps are documented without introducing speculative replay metadata. |
+
+#### Phase 10: Expose shared resume controls without splitting the runtime model by surface
+
+| # | Task | Description | Priority | Effort | Status | Owner | Dependencies | Done-Condition |
+|---|------|-------------|----------|--------|--------|-------|--------------|----------------|
+| 15 | Implement shared resume control APIs | Add or refine Core APIs for resume pending work and completion/waiting transitions in Wally.Core/commands/WallyCommands.Run.cs and related execution-state helpers, replacing the current open-coded lifecycle updates rather than layering a second control path on top. | High | 2d | Not Started | @developer | 13, 14 | Core exposes explicit resume control points that every surface can call without inventing its own semantics, and routed-loop lifecycle writes flow through the shared helper path. |
+| 16 | Keep WinForms controls on the shared resume path | Extend Wally.Forms/Controls/ChatPanel.cs and Wally.Forms/ChatPanelSupport/ChatPanelExecutionSession.cs only as needed so WinForms pause, continue, and prompt preview behavior remains aligned with the shared Core runtime. | Medium | 1d | Not Started | @developer | 15 | WinForms continues to drive step-by-step execution through the shared Core executor and persisted resume model without adding surface-specific semantics. |
+| 17 | Keep future Console work on run-resume semantics | Define future Console work so it continues to build on the same shared Core resume path and does not introduce surface-specific checkpoint behavior. | High | 1d | Not Started | @developer | 15 | Console remains aligned with the same persisted execution-state model as Forms and automatic runs. |
+
+#### Phase 11: Validate resume controls against real investigation artifacts
+
+| # | Task | Description | Priority | Effort | Status | Owner | Dependencies | Done-Condition |
+|---|------|-------------|----------|--------|--------|-------|--------------|----------------|
+| 18 | Validate resumable investigation behavior | Run investigation scenarios that exercise fresh run, waiting for input, pause, and resume against persisted docs and checkpoints without relying on transcript history or hidden UI state, proving that the same semantics hold for automatic runs and WinForms manual stepping. | High | 2d | Not Started | @developer | 12, 15, 16, 17 | A reviewer can tell from persisted investigation artifacts alone what the next resumable action is, the checkpoint sequence matches across Core and WinForms, and the resulting code/tests/minimal durable docs are sufficient to retire this tracker and proposal as day-to-day implementation references. |
+
 ## Task State Rules
 
 - Every new task starts as `Not Started`.
@@ -105,6 +144,17 @@ flowchart LR
     T9 --> T11[11 Add default investigation assets]
     T10 --> T11
     T11 --> T12[12 Validate end-to-end investigation]
+    T12 --> T13[13 Document resume and transcript boundaries]
+    T13 --> T14[14 Confirm persisted execution state is sufficient]
+    T13 --> T15[15 Implement shared resume control APIs]
+    T14 --> T15
+    T15 --> T17[17 Keep future Console work on run-resume semantics]
+    T15 --> T16[16 Keep WinForms controls on the shared resume path]
+    T17 --> T16
+    T12 --> T18[18 Validate resumable investigation behavior]
+    T15 --> T18
+    T16 --> T18
+    T17 --> T18
 ```
 
 ## Progress Summary
@@ -119,4 +169,7 @@ flowchart LR
 | Phase 6 | 1 | 1 | 0 | 0 | 0 |
 | Phase 7 | 1 | 1 | 0 | 0 | 0 |
 | Phase 8 | 1 | 0 | 1 | 0 | 0 |
-| **Total** | **12** | **11** | **1** | **0** | **0** |
+| Phase 9 | 2 | 1 | 0 | 0 | 1 |
+| Phase 10 | 3 | 0 | 0 | 0 | 3 |
+| Phase 11 | 1 | 0 | 0 | 0 | 1 |
+| **Total** | **18** | **12** | **1** | **0** | **5** |

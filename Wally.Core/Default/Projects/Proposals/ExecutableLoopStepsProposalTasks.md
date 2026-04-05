@@ -3,14 +3,31 @@
 **Source Proposal**: [ExecutableLoopStepsProposal.md](./ExecutableLoopStepsProposal.md)
 **Status**: Active
 **Created**: 2026-03-29
-**Last Updated**: 2026-04-02
+**Last Updated**: 2026-04-04
 **Owner**: @developer
 
 *Template: [../../Templates/TaskTrackerTemplate.md](../../Templates/TaskTrackerTemplate.md)*
 
 ## Summary
 
-This tracker covers the seven tasks required to add typed executable steps, keyword-driven routing, and the first built-in code handler to Wally; Tasks 1-6 are complete, Task 7 is in progress, and the shared loop execution-state abstraction now allows executable-step loops to opt into resumable checkpointing when they need it.
+This tracker now covers the twelve tasks required to add typed executable steps, keyword-driven routing, and a shared resume model; Tasks 1-6 are complete, Task 7 remains in progress, Task 8 is complete as part of the proposal update, the companion runtime plan now lives in `Default/Docs/LoopResumeContract.md`, and the remaining work centers on keeping typed-step execution aligned with the shared Core resume path.
+
+## Recommended Delivery Sequence
+
+Execute the remaining work in this order:
+
+1. Confirm shared execution-state and step outcomes expose the minimum data needed for resume.
+2. Replace open-coded step lifecycle mutations with shared Core resume helpers.
+3. Keep typed-step execution surface-agnostic across Forms today and Console later.
+4. Validate WinForms against the shared executor.
+5. Leave Console on the thin run/resume surface until a concrete need justifies more.
+
+Minimality rules:
+
+- prefer conservative defaults over mandatory loop-definition churn
+- keep resume semantics in Core, not in UI code
+- do not add separate surface-specific executors or checkpoint writers
+- when implementation is stable, fold any still-useful guidance into durable docs and retire this tracker instead of keeping it as a second source of truth
 
 ## Task List
 
@@ -46,6 +63,16 @@ This tracker covers the seven tasks required to add typed executable steps, keyw
 |---|------|-------------|----------|--------|--------|-------|--------------|----------------|
 | 7 | Validate executable steps in real workflows | Wire the new executable-step model and abilityRefs support into Wally.Core/Default/Loops/InvestigationLoop.json and at least one Wally.Core/Default/Runbooks/*.wrb scenario to prove the abstraction works outside a synthetic example. | Medium | 1d | In Progress | @developer | 4, 5, 6 | At least one loop and one runbook use the shared step model successfully, and both validate the typed execution path in real workspace artifacts. |
 
+#### Phase 6: Keep typed-step execution aligned with the shared resume model
+
+| # | Task | Description | Priority | Effort | Status | Owner | Dependencies | Done-Condition |
+|---|------|-------------|----------|--------|--------|-------|--------------|----------------|
+| 8 | Document typed-step resume contract | Update the executable-step and investigation proposals so shared resume behavior, read-only preview rules, and surface-agnostic continuation are explicit, and capture the runtime sequencing in `Default/Docs/LoopResumeContract.md`. | High | 4h | Complete | @developer | 7 | The proposals plus `Default/Docs/LoopResumeContract.md` define typed-step resume behavior precisely enough that Core and UI work can build against one contract. |
+| 9 | Align execution outcomes with persisted resume state | Confirm that shared execution outcomes and persisted execution state expose the minimum route and next-step data needed for pause and resume without introducing replay-specific metadata. | High | 1d | Not Started | @developer | 8 | Shared runtime models stay minimal while still giving Core and UI surfaces enough information to resume typed steps consistently. |
+| 10 | Centralize Core resume lifecycle helpers | Route current step lifecycle mutations through shared Core helpers so pause, completion, waiting-for-input, and resume sequencing are not duplicated across callers or surfaces. | High | 2d | Not Started | @developer | 8, 9 | Step lifecycle writes are centralized in Core, and all surfaces continue to share one resume path instead of open-coding transitions. |
+| 11 | Keep future surface controls on the resume path | Define future surface work so Forms and eventual Console controls continue to call the same Core resume helpers instead of introducing surface-specific semantics. | High | 1d | Not Started | @developer | 8, 9, 10 | Surface behavior remains a thin layer over the shared Core resume path, and richer controls stay deferred until a concrete need exists. |
+| 12 | Validate shared step resume behavior across surfaces | Validate that WinForms manual stepping uses the shared step executor correctly, that the automatic routed-loop runtime produces the same persisted next-step state, and that future Console controls can build on the same APIs without semantic drift. | Medium | 1d | Not Started | @developer | 7, 10, 11 | Shared step resume behavior remains surface-agnostic in practice, not just in proposal text, and the resulting code/tests/minimal durable docs are sufficient to retire this tracker and proposal as routine implementation references. |
+
 ## Task State Rules
 
 - Every new task starts as `Not Started`.
@@ -76,6 +103,15 @@ flowchart LR
     T4 --> T7[7 Validate executable steps in real workflows]
     T5 --> T7
     T6 --> T7
+    T7 --> T8[8 Document typed-step resume contract]
+    T8 --> T9[9 Align execution outcomes with persisted resume state]
+    T8 --> T10[10 Centralize Core resume lifecycle helpers]
+    T9 --> T10
+    T8 --> T11[11 Keep future surface controls on the resume path]
+    T10 --> T11
+    T7 --> T12[12 Validate shared step resume behavior across surfaces]
+    T10 --> T12
+    T11 --> T12
 ```
 
 ## Progress Summary
@@ -87,4 +123,5 @@ flowchart LR
 | Phase 3 | 1 | 1 | 0 | 0 | 0 |
 | Phase 4 | 1 | 1 | 0 | 0 | 0 |
 | Phase 5 | 1 | 0 | 1 | 0 | 0 |
-| **Total** | **7** | **6** | **1** | **0** | **0** |
+| Phase 6 | 5 | 1 | 0 | 0 | 4 |
+| **Total** | **12** | **7** | **1** | **0** | **4** |

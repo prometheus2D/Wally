@@ -173,17 +173,6 @@ Mitigations:
 
 ---
 
-## Todo Tracker
-
-| Task | Priority | Status | Owner | Due Date | Notes |
-|------|----------|--------|-------|----------|-------|
-| Align proposal docs to the canonical three-loop workflow | High | ?? In Progress | @developer | 2026-03-29 | Remove redundant plan-based workflow references |
-| Define loop-3 task execution behavior | High | ?? Not Started | @developer | 2026-03-30 | One eligible task at a time |
-| Align task tracker template with execution state rules | High | ?? In Progress | @developer | 2026-03-29 | Add dependencies and state transitions |
-| Validate manual user transition across all three loops | Medium | ?? Not Started | @developer | 2026-03-30 | Workflow remains manual in v1 |
-
----
-
 ## Acceptance Criteria
 
 ### Must Have (Required for Approval)
