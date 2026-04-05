@@ -262,15 +262,12 @@ namespace Wally.Forms.ChatPanelSupport
             string stepName = pending.StepName ?? _currentNamedStepName;
             int maxIterations = WallyAgentLoop.ResolveMaxIterations(loopDef, loopDef.Steps.Count);
 
-            WallyLoopExecutionStateStore.UpdateAndSave(
+            WallyLoopExecutionStateStore.BeginStep(
                 _environment,
                 loopDef,
                 _executionState,
                 currentStepName: _currentNamedStepName,
-                nextStepName: _currentNamedStepName,
                 iterationCount: _nextNamedIteration,
-                status: "Running",
-                stopReason: null,
                 currentPrompt: _originalPrompt,
                 previousStepResult: _previousNamedStepResult);
 
@@ -286,83 +283,52 @@ namespace Wally.Forms.ChatPanelSupport
                 cancellationToken,
                 _nextNamedIteration + 1).ConfigureAwait(false);
 
-            WallyStepRouteMatch? routeMatch = stepResult.RequestsPause
-                ? (WallyStepRouteMatch?)null
-                : WallyAgentLoop.ResolveKeywordRoute(stepDef.KeywordRoutes, stepResult.Response);
-            string? nextStepName = routeMatch?.NextStepName;
+            WallyLoopContinuationDecision decision = WallyCommands.ResolveNamedStepDecision(
+                loopDef,
+                stepDef,
+                stepName,
+                stepResult,
+                _nextNamedIteration + 1,
+                maxIterations);
 
-            if (!stepResult.RequestsPause && string.IsNullOrWhiteSpace(nextStepName) && !string.IsNullOrWhiteSpace(stepDef.DefaultNextStep))
-                nextStepName = stepDef.DefaultNextStep;
-
-            if (!stepResult.RequestsPause && !string.IsNullOrWhiteSpace(nextStepName) && loopDef.FindStep(nextStepName) == null)
-                throw new InvalidOperationException(
-                    $"Routed step '{stepName}' resolved unknown next step '{nextStepName}'.");
-
-            bool stopForPause = stepResult.RequestsPause;
-            bool stopForKeyword = !stopForPause && WallyAgentLoop.ContainsStopKeyword(stepResult.Response, loopDef.StopKeyword);
-            bool stopForNoRoute = !stopForPause && string.IsNullOrWhiteSpace(nextStepName);
-            bool stopForMaxIterations = !stopForPause && !stopForKeyword && !stopForNoRoute && _nextNamedIteration + 1 >= maxIterations;
-
-            string? stopReason = null;
-            if (stopForPause)
+            string? stopReason = decision.StopReason;
+            if (string.Equals(decision.Status, "WaitingForUser", StringComparison.OrdinalIgnoreCase))
             {
-                stopReason = stepResult.StopReason ?? "WaitingForUser";
-                WallyLoopExecutionStateStore.UpdateAndSave(
+                WallyLoopExecutionStateStore.PauseForUser(
                     _environment,
                     loopDef,
                     _executionState,
                     currentStepName: stepName,
-                    nextStepName: WallyCommands.GetLoopPauseResumeStep(loopDef, stepDef),
+                    nextStepName: decision.NextStepName,
                     iterationCount: _nextNamedIteration + 1,
-                    status: "WaitingForUser",
-                    stopReason: stopReason,
                     currentPrompt: _originalPrompt,
-                    previousStepResult: stepResult.Response);
+                    previousStepResult: stepResult.Response,
+                    stopReason: stopReason);
             }
-            else if (stopForKeyword)
+            else if (string.Equals(decision.Status, "Completed", StringComparison.OrdinalIgnoreCase))
             {
-                stopReason = "StopKeyword";
-                WallyLoopExecutionStateStore.UpdateAndSave(
+                WallyLoopExecutionStateStore.CompleteRun(
                     _environment,
                     loopDef,
                     _executionState,
                     currentStepName: stepName,
-                    nextStepName: string.Empty,
                     iterationCount: _nextNamedIteration + 1,
-                    status: "Completed",
-                    stopReason: stopReason,
                     currentPrompt: _originalPrompt,
-                    previousStepResult: stepResult.Response);
+                    previousStepResult: stepResult.Response,
+                    stopReason: stopReason);
             }
-            else if (stopForNoRoute)
+            else if (string.Equals(decision.Status, "Stopped", StringComparison.OrdinalIgnoreCase))
             {
-                stopReason = "NoRoute";
-                WallyLoopExecutionStateStore.UpdateAndSave(
+                WallyLoopExecutionStateStore.StopRun(
                     _environment,
                     loopDef,
                     _executionState,
                     currentStepName: stepName,
-                    nextStepName: string.Empty,
+                    nextStepName: decision.NextStepName,
                     iterationCount: _nextNamedIteration + 1,
-                    status: "Completed",
-                    stopReason: stopReason,
                     currentPrompt: _originalPrompt,
-                    previousStepResult: stepResult.Response);
-            }
-            else if (stopForMaxIterations)
-            {
-                stopReason = "MaxIterations";
-                WallyLoopExecutionStateStore.UpdateAndSave(
-                    _environment,
-                    loopDef,
-                    _executionState,
-                    currentStepName: stepName,
-                    nextStepName: nextStepName ?? stepName,
-                    iterationCount: _nextNamedIteration + 1,
-                    status: "Stopped",
-                    stopReason: stopReason,
-                    currentPrompt: _originalPrompt,
-                    previousStepResult: stepResult.Response);
+                    previousStepResult: stepResult.Response,
+                    stopReason: stopReason);
             }
 
             var result = new WallyRunResult
@@ -384,17 +350,15 @@ namespace Wally.Forms.ChatPanelSupport
             }
 
             _previousNamedStepResult = stepResult.Response;
-            _currentNamedStepName = nextStepName!;
+            _currentNamedStepName = decision.NextStepName;
             _nextNamedIteration++;
-            WallyLoopExecutionStateStore.UpdateAndSave(
+            WallyLoopExecutionStateStore.ContinueToNextStep(
                 _environment,
                 loopDef,
                 _executionState,
                 currentStepName: stepName,
                 nextStepName: _currentNamedStepName,
                 iterationCount: _nextNamedIteration,
-                status: "Running",
-                stopReason: null,
                 currentPrompt: _originalPrompt,
                 previousStepResult: _previousNamedStepResult);
             return result;
@@ -407,15 +371,12 @@ namespace Wally.Forms.ChatPanelSupport
                 ?? throw new InvalidOperationException("No pipeline step is pending.");
             string stepName = pending.StepName ?? WallyLoopExecutionStateStore.GetStableStepName(stepDef, _nextPipelineStepIndex);
 
-            WallyLoopExecutionStateStore.UpdateAndSave(
+            WallyLoopExecutionStateStore.BeginStep(
                 _environment,
                 loopDef,
                 _executionState,
                 currentStepName: stepName,
-                nextStepName: stepName,
                 iterationCount: _nextPipelineStepIndex,
-                status: "Running",
-                stopReason: null,
                 currentPrompt: _originalPrompt,
                 previousStepResult: _previousPipelineResult);
 
@@ -449,17 +410,16 @@ namespace Wally.Forms.ChatPanelSupport
                     : string.Empty;
                 StopReason = stepResult.StopReason ?? "WaitingForUser";
                 IsCompleted = true;
-                WallyLoopExecutionStateStore.UpdateAndSave(
+                WallyLoopExecutionStateStore.PauseForUser(
                     _environment,
                     loopDef,
                     _executionState,
                     currentStepName: stepName,
                     nextStepName: nextStepName,
                     iterationCount: _nextPipelineStepIndex + 1,
-                    status: "WaitingForUser",
-                    stopReason: StopReason,
                     currentPrompt: _originalPrompt,
-                    previousStepResult: stepResult.Response);
+                    previousStepResult: stepResult.Response,
+                    stopReason: StopReason);
                 return result;
             }
 
@@ -470,32 +430,28 @@ namespace Wally.Forms.ChatPanelSupport
             {
                 StopReason = "PipelineComplete";
                 IsCompleted = true;
-                WallyLoopExecutionStateStore.UpdateAndSave(
+                WallyLoopExecutionStateStore.CompleteRun(
                     _environment,
                     loopDef,
                     _executionState,
                     currentStepName: string.Empty,
-                    nextStepName: string.Empty,
                     iterationCount: Results.Count,
-                    status: "Completed",
-                    stopReason: "Completed",
                     currentPrompt: _originalPrompt,
-                    previousStepResult: _previousPipelineResult);
+                    previousStepResult: _previousPipelineResult,
+                    stopReason: "Completed");
                 return result;
             }
 
             string upcomingStep = WallyLoopExecutionStateStore.GetStableStepName(
                 loopDef.Steps[_nextPipelineStepIndex],
                 _nextPipelineStepIndex);
-            WallyLoopExecutionStateStore.UpdateAndSave(
+            WallyLoopExecutionStateStore.ContinueToNextStep(
                 _environment,
                 loopDef,
                 _executionState,
                 currentStepName: stepName,
                 nextStepName: upcomingStep,
                 iterationCount: _nextPipelineStepIndex,
-                status: "Running",
-                stopReason: null,
                 currentPrompt: _originalPrompt,
                 previousStepResult: _previousPipelineResult);
             return result;
@@ -505,15 +461,12 @@ namespace Wally.Forms.ChatPanelSupport
         {
             WallyLoopDefinition loopDef = ResolvedRequest.LoopDefinition!;
 
-            WallyLoopExecutionStateStore.UpdateAndSave(
+            WallyLoopExecutionStateStore.BeginStep(
                 _environment,
                 loopDef,
                 _executionState,
                 currentStepName: string.Empty,
-                nextStepName: string.Empty,
                 iterationCount: _nextAgentIteration,
-                status: "Running",
-                stopReason: null,
                 currentPrompt: _currentAgentPrompt,
                 previousStepResult: string.Empty,
                 mode: "agent-loop");
@@ -553,18 +506,33 @@ namespace Wally.Forms.ChatPanelSupport
             {
                 StopReason = stopReason;
                 IsCompleted = true;
-                WallyLoopExecutionStateStore.UpdateAndSave(
-                    _environment,
-                    loopDef,
-                    _executionState,
-                    currentStepName: string.Empty,
-                    nextStepName: string.Empty,
-                    iterationCount: _nextAgentIteration + 1,
-                    status: stopReason == "MaxIterations" ? "Stopped" : "Completed",
-                    stopReason: stopReason,
-                    currentPrompt: _currentAgentPrompt,
-                    previousStepResult: response,
-                    mode: "agent-loop");
+                if (stopReason == "MaxIterations")
+                {
+                    WallyLoopExecutionStateStore.StopRun(
+                        _environment,
+                        loopDef,
+                        _executionState,
+                        currentStepName: string.Empty,
+                        nextStepName: string.Empty,
+                        iterationCount: _nextAgentIteration + 1,
+                        currentPrompt: _currentAgentPrompt,
+                        previousStepResult: response,
+                        stopReason: stopReason,
+                        mode: "agent-loop");
+                }
+                else
+                {
+                    WallyLoopExecutionStateStore.CompleteRun(
+                        _environment,
+                        loopDef,
+                        _executionState,
+                        currentStepName: string.Empty,
+                        iterationCount: _nextAgentIteration + 1,
+                        currentPrompt: _currentAgentPrompt,
+                        previousStepResult: response,
+                        stopReason: stopReason,
+                        mode: "agent-loop");
+                }
                 return result;
             }
 
@@ -575,15 +543,13 @@ namespace Wally.Forms.ChatPanelSupport
                 _nextAgentIteration);
             _nextAgentIteration++;
 
-            WallyLoopExecutionStateStore.UpdateAndSave(
+            WallyLoopExecutionStateStore.ContinueToNextStep(
                 _environment,
                 loopDef,
                 _executionState,
                 currentStepName: string.Empty,
                 nextStepName: string.Empty,
                 iterationCount: _nextAgentIteration,
-                status: "Running",
-                stopReason: null,
                 currentPrompt: _currentAgentPrompt,
                 previousStepResult: response,
                 mode: "agent-loop");

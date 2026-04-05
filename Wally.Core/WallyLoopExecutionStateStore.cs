@@ -184,6 +184,158 @@ namespace Wally.Core
             Save(env, loopDef, state);
         }
 
+        public static void BeginStep(
+            WallyEnvironment env,
+            WallyLoopDefinition loopDef,
+            WallyLoopExecutionState? state,
+            string currentStepName,
+            int iterationCount,
+            string currentPrompt,
+            string? previousStepResult,
+            string? mode = null)
+        {
+            UpdateAndSave(
+                env,
+                loopDef,
+                state,
+                currentStepName,
+                currentStepName,
+                iterationCount,
+                status: "Running",
+                stopReason: null,
+                currentPrompt,
+                previousStepResult,
+                mode);
+        }
+
+        public static void ContinueToNextStep(
+            WallyEnvironment env,
+            WallyLoopDefinition loopDef,
+            WallyLoopExecutionState? state,
+            string currentStepName,
+            string nextStepName,
+            int iterationCount,
+            string currentPrompt,
+            string? previousStepResult,
+            string? mode = null)
+        {
+            UpdateAndSave(
+                env,
+                loopDef,
+                state,
+                currentStepName,
+                nextStepName,
+                iterationCount,
+                status: "Running",
+                stopReason: null,
+                currentPrompt,
+                previousStepResult,
+                mode);
+        }
+
+        public static void PauseForUser(
+            WallyEnvironment env,
+            WallyLoopDefinition loopDef,
+            WallyLoopExecutionState? state,
+            string currentStepName,
+            string nextStepName,
+            int iterationCount,
+            string currentPrompt,
+            string? previousStepResult,
+            string? stopReason = null,
+            string? mode = null)
+        {
+            UpdateAndSave(
+                env,
+                loopDef,
+                state,
+                currentStepName,
+                nextStepName,
+                iterationCount,
+                status: "WaitingForUser",
+                stopReason: string.IsNullOrWhiteSpace(stopReason) ? "WaitingForUser" : stopReason,
+                currentPrompt,
+                previousStepResult,
+                mode);
+        }
+
+        public static void CompleteRun(
+            WallyEnvironment env,
+            WallyLoopDefinition loopDef,
+            WallyLoopExecutionState? state,
+            string currentStepName,
+            int iterationCount,
+            string currentPrompt,
+            string? previousStepResult,
+            string? stopReason = null,
+            string? mode = null)
+        {
+            UpdateAndSave(
+                env,
+                loopDef,
+                state,
+                currentStepName,
+                string.Empty,
+                iterationCount,
+                status: "Completed",
+                stopReason: string.IsNullOrWhiteSpace(stopReason) ? "Completed" : stopReason,
+                currentPrompt,
+                previousStepResult,
+                mode);
+        }
+
+        public static void StopRun(
+            WallyEnvironment env,
+            WallyLoopDefinition loopDef,
+            WallyLoopExecutionState? state,
+            string currentStepName,
+            string nextStepName,
+            int iterationCount,
+            string currentPrompt,
+            string? previousStepResult,
+            string? stopReason = null,
+            string? mode = null)
+        {
+            UpdateAndSave(
+                env,
+                loopDef,
+                state,
+                currentStepName,
+                nextStepName,
+                iterationCount,
+                status: "Stopped",
+                stopReason: string.IsNullOrWhiteSpace(stopReason) ? "Stopped" : stopReason,
+                currentPrompt,
+                previousStepResult,
+                mode);
+        }
+
+        public static void FailRun(
+            WallyEnvironment env,
+            WallyLoopDefinition loopDef,
+            WallyLoopExecutionState? state,
+            string currentStepName,
+            string nextStepName,
+            int iterationCount,
+            string currentPrompt,
+            string? previousStepResult,
+            string stopReason,
+            string? mode = null)
+        {
+            UpdateAndSave(
+                env,
+                loopDef,
+                state,
+                currentStepName,
+                nextStepName,
+                iterationCount,
+                status: "Failed",
+                stopReason,
+                currentPrompt,
+                previousStepResult,
+                mode);
+        }
+
         public static string ResolveStatePath(WallyLoopDefinition loopDef)
         {
             ArgumentNullException.ThrowIfNull(loopDef);

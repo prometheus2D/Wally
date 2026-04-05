@@ -3,14 +3,14 @@
 **Source Proposal**: [ThreeLoopWorkflowProposal.md](./ThreeLoopWorkflowProposal.md)
 **Status**: Blocked
 **Created**: 2026-03-29
-**Last Updated**: 2026-03-30
+**Last Updated**: 2026-04-05
 **Owner**: @developer
 
 *Template: [../../Templates/TaskTrackerTemplate.md](../../Templates/TaskTrackerTemplate.md)*
 
 ## Summary
 
-This tracker covers the six tasks required to make InvestigationLoop -> ProposalToTasks -> ExecuteTasksLoop the canonical default workflow; Tasks 1-5 are complete, and Task 6 remains blocked because loop-2 validation still fails with a wrapper command-length error and loop 3 is not yet shipped as a runnable selectable loop.
+This tracker covers the six tasks required to make InvestigationLoop -> ProposalToTasks -> ExecuteTasksLoop the canonical default workflow; Tasks 1-5 are complete, and Task 6 remains blocked only because loop-2 validation still fails with a wrapper command-length error.
 
 ## Task List
 
@@ -77,7 +77,7 @@ flowchart LR
 |--------|----------------|--------|----------|
 | 6 | `gh copilot -- --version` now succeeds, so the original missing-CLI blocker has been cleared. | 2026-03-29 | 2026-03-30 |
 | 6 | `dotnet run --project Wally.Console -- --workspace Wally.Core/Default run "Projects/Proposals/RunbookSyntaxProposal.md" -a ProjectPlanner -l ProposalToTasks` now reaches the wrapper but still stops in iteration 1 with `Error from Copilot (exit 1): The command line is too long.`, so no real tracker was generated for end-to-end handoff validation. | 2026-03-30 | - |
-| 6 | `dotnet run --project Wally.Console -- --workspace Wally.Core/Default list-loops` confirms that `ExecuteTasksLoop` is not yet present in the shipped loop list, so loop-3 handoff cannot be validated end to end yet. | 2026-03-30 | - |
+| 6 | `ExecuteTasksLoop` is now present as a shipped default loop definition, so loop-3 handoff is implemented and available for the remaining end-to-end workflow validation work. | 2026-03-30 | 2026-04-05 |
 
 ## Progress Summary
 

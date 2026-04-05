@@ -3,7 +3,7 @@
 **Source Proposal**: [ExecutableLoopStepsProposal.md](./ExecutableLoopStepsProposal.md)
 **Status**: Active
 **Created**: 2026-03-29
-**Last Updated**: 2026-04-04
+**Last Updated**: 2026-04-05
 **Owner**: @developer
 
 *Template: [../../Templates/TaskTrackerTemplate.md](../../Templates/TaskTrackerTemplate.md)*
@@ -68,10 +68,10 @@ Minimality rules:
 | # | Task | Description | Priority | Effort | Status | Owner | Dependencies | Done-Condition |
 |---|------|-------------|----------|--------|--------|-------|--------------|----------------|
 | 8 | Document typed-step resume contract | Update the executable-step and investigation proposals so shared resume behavior, read-only preview rules, and surface-agnostic continuation are explicit, and capture the runtime sequencing in `Default/Docs/LoopResumeContract.md`. | High | 4h | Complete | @developer | 7 | The proposals plus `Default/Docs/LoopResumeContract.md` define typed-step resume behavior precisely enough that Core and UI work can build against one contract. |
-| 9 | Align execution outcomes with persisted resume state | Confirm that shared execution outcomes and persisted execution state expose the minimum route and next-step data needed for pause and resume without introducing replay-specific metadata. | High | 1d | Not Started | @developer | 8 | Shared runtime models stay minimal while still giving Core and UI surfaces enough information to resume typed steps consistently. |
-| 10 | Centralize Core resume lifecycle helpers | Route current step lifecycle mutations through shared Core helpers so pause, completion, waiting-for-input, and resume sequencing are not duplicated across callers or surfaces. | High | 2d | Not Started | @developer | 8, 9 | Step lifecycle writes are centralized in Core, and all surfaces continue to share one resume path instead of open-coding transitions. |
-| 11 | Keep future surface controls on the resume path | Define future surface work so Forms and eventual Console controls continue to call the same Core resume helpers instead of introducing surface-specific semantics. | High | 1d | Not Started | @developer | 8, 9, 10 | Surface behavior remains a thin layer over the shared Core resume path, and richer controls stay deferred until a concrete need exists. |
-| 12 | Validate shared step resume behavior across surfaces | Validate that WinForms manual stepping uses the shared step executor correctly, that the automatic routed-loop runtime produces the same persisted next-step state, and that future Console controls can build on the same APIs without semantic drift. | Medium | 1d | Not Started | @developer | 7, 10, 11 | Shared step resume behavior remains surface-agnostic in practice, not just in proposal text, and the resulting code/tests/minimal durable docs are sufficient to retire this tracker and proposal as routine implementation references. |
+| 9 | Align execution outcomes with persisted resume state | Confirm that shared execution outcomes and persisted execution state expose the minimum route and next-step data needed for pause and resume without introducing replay-specific metadata. | High | 1d | Complete | @developer | 8 | Shared runtime models stay minimal while still giving Core and UI surfaces enough information to resume typed steps consistently. |
+| 10 | Centralize Core resume lifecycle helpers | Route current step lifecycle mutations through shared Core helpers so pause, completion, waiting-for-input, and resume sequencing are not duplicated across callers or surfaces. | High | 2d | Complete | @developer | 8, 9 | Step lifecycle writes are centralized in Core, and all surfaces continue to share one resume path instead of open-coding transitions. |
+| 11 | Keep future surface controls on the resume path | Define future surface work so Forms and eventual Console controls continue to call the same Core resume helpers instead of introducing surface-specific semantics. | High | 1d | Complete | @developer | 8, 9, 10 | Surface behavior remains a thin layer over the shared Core resume path, richer controls stay deferred until a concrete need exists, and both current Console and Forms paths now consume the shared helper surface. |
+| 12 | Validate shared step resume behavior across surfaces | Validate that WinForms manual stepping uses the shared step executor correctly, that the automatic routed-loop runtime produces the same persisted next-step state, and that future Console controls can build on the same APIs without semantic drift. | Medium | 1d | Not Started | @developer | 7, 10, 11 | Shared step resume behavior remains surface-agnostic in practice, not just in proposal text, and the resulting code/minimal durable docs are sufficient to retire this tracker and proposal as routine implementation references. |
 
 ## Task State Rules
 
@@ -123,5 +123,5 @@ flowchart LR
 | Phase 3 | 1 | 1 | 0 | 0 | 0 |
 | Phase 4 | 1 | 1 | 0 | 0 | 0 |
 | Phase 5 | 1 | 0 | 1 | 0 | 0 |
-| Phase 6 | 5 | 1 | 0 | 0 | 4 |
-| **Total** | **12** | **7** | **1** | **0** | **4** |
+| Phase 6 | 5 | 4 | 0 | 0 | 1 |
+| **Total** | **12** | **10** | **1** | **0** | **1** |

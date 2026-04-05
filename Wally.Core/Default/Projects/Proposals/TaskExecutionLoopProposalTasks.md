@@ -3,14 +3,14 @@
 **Source Proposal**: [TaskExecutionLoopProposal.md](./TaskExecutionLoopProposal.md)
 **Status**: Blocked
 **Created**: 2026-03-29
-**Last Updated**: 2026-03-30
+**Last Updated**: 2026-04-05
 **Owner**: @developer
 
 *Template: [../../Templates/TaskTrackerTemplate.md](../../Templates/TaskTrackerTemplate.md)*
 
 ## Summary
 
-This tracker covers the five tasks required to define and validate ExecuteTasksLoop against a real task tracker; Tasks 1-4 are complete, and Task 5 is currently blocked pending a runnable ExecuteTasksLoop runtime and a ProposalToTasks validation path that completes without wrapper command-length failure.
+This tracker covers the five tasks required to define and validate ExecuteTasksLoop against a real task tracker; Tasks 1-4 are complete, and Task 5 remains blocked only on an upstream ProposalToTasks validation path that still fails with the wrapper command-length error.
 
 ## Task List
 
@@ -81,7 +81,7 @@ flowchart LR
 
 | Task # | Blocker / Note | Raised | Resolved |
 |--------|----------------|--------|----------|
-| 5 | `dotnet run --project Wally.Console -- --workspace Wally.Core/Default list-loops` confirms that `ExecuteTasksLoop` is not yet shipped as a selectable loop, so the one-task-at-a-time runtime cannot currently be invoked for validation. | 2026-03-30 | - |
+| 5 | `ExecuteTasksLoop` is now shipped in `Wally.Core/Default/Loops/ExecuteTasksLoop.json`, and the Core task-tracker runtime plus code handlers now compile into the solution. | 2026-03-30 | 2026-04-05 |
 | 5 | `dotnet run --project Wally.Console -- --workspace Wally.Core/Default run "Projects/Proposals/RunbookSyntaxProposal.md" -a ProjectPlanner -l ProposalToTasks` still stops in iteration 1 with `Error from Copilot (exit 1): The command line is too long.`, so the upstream tracker-generation handoff is not yet validating cleanly against a real proposal. | 2026-03-30 | - |
 
 ## Progress Summary

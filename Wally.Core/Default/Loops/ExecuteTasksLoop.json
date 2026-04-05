@@ -1,0 +1,147 @@
+{
+  "name": "ExecuteTasksLoop",
+  "description": "Reads one canonical task tracker, executes one eligible task, persists the tracker update, and stops with the resulting task outcome.",
+  "enabled": true,
+  "startStepName": "readTracker",
+  "executionState": {
+    "enabled": true,
+    "statePath": "Projects/TaskExecution/Active/CurrentTaskExecution/ExecutionState.md",
+    "resetPathsOnNewRun": [
+      "Projects/TaskExecution/Active/CurrentTaskExecution"
+    ],
+    "preservePathsOnReset": [
+      "Projects/TaskExecution/Active/CurrentTaskExecution/README.md"
+    ]
+  },
+  "maxIterations": 7,
+  "steps": [
+    {
+      "name": "readTracker",
+      "description": "Load the tracker path for this run, validate the tracker, and initialize task execution state.",
+      "kind": "code",
+      "handlerName": "task_tracker_read",
+      "arguments": {
+        "trackerPath": "{userPrompt}",
+        "statePath": "Projects/TaskExecution/Active/CurrentTaskExecution/TrackerState.json",
+        "outcomePath": "Projects/TaskExecution/Active/CurrentTaskExecution/Outcome.md"
+      },
+      "writesToDocs": [
+        "Projects/TaskExecution/Active/CurrentTaskExecution/**"
+      ],
+      "keywordRoutes": {
+        "TRACKER_READY": "selectNextTask",
+        "EXECUTION_FAILED": "stopWithOutcome"
+      }
+    },
+    {
+      "name": "selectNextTask",
+      "description": "Choose the single eligible task for this run, or stop early when the tracker is complete or blocked.",
+      "kind": "code",
+      "handlerName": "task_tracker_select",
+      "arguments": {
+        "statePath": "Projects/TaskExecution/Active/CurrentTaskExecution/TrackerState.json",
+        "selectedTaskPath": "Projects/TaskExecution/Active/CurrentTaskExecution/SelectedTask.md",
+        "outcomePath": "Projects/TaskExecution/Active/CurrentTaskExecution/Outcome.md"
+      },
+      "writesToDocs": [
+        "Projects/TaskExecution/Active/CurrentTaskExecution/**"
+      ],
+      "keywordRoutes": {
+        "TASK_SELECTED": "reviewSelectedTask",
+        "ALL_TASKS_COMPLETE": "stopWithOutcome",
+        "TASKS_BLOCKED": "stopWithOutcome",
+        "EXECUTION_FAILED": "stopWithOutcome"
+      }
+    },
+    {
+      "name": "reviewSelectedTask",
+      "description": "Recheck the selected task against the current tracker state and mark it in progress before meaningful work begins.",
+      "kind": "code",
+      "handlerName": "task_tracker_begin",
+      "arguments": {
+        "statePath": "Projects/TaskExecution/Active/CurrentTaskExecution/TrackerState.json",
+        "selectedTaskPath": "Projects/TaskExecution/Active/CurrentTaskExecution/SelectedTask.md",
+        "outcomePath": "Projects/TaskExecution/Active/CurrentTaskExecution/Outcome.md"
+      },
+      "writesToDocs": [
+        "Projects/TaskExecution/Active/CurrentTaskExecution/**",
+        "**/*Tasks.md"
+      ],
+      "keywordRoutes": {
+        "READY_TO_EXECUTE": "executeSelectedTask",
+        "EXECUTION_FAILED": "stopWithOutcome"
+      }
+    },
+    {
+      "name": "executeSelectedTask",
+      "description": "Perform the selected task's repository work and capture a concise execution report.",
+      "kind": "prompt",
+      "actorName": "Engineer",
+      "promptTemplate": "Execute exactly one tracker task using the context below. Do the minimum repository and document changes needed to satisfy only this task's stated done-condition. Read any additional files you need before changing code. Do not start unrelated work from later tasks. After making changes, return a concise markdown report using this exact structure.\n\n# Task Execution Result\n\n## Task\n<task number and title>\n\n## Files Changed\n- <path or `None`>\n\n## Summary\n<what changed>\n\n## Verification Notes\n- <evidence tied to the done-condition or `None`>\n\nSelected task:\n{SelectedTask}",
+      "documentInputs": [
+        {
+          "key": "SelectedTask",
+          "path": "Projects/TaskExecution/Active/CurrentTaskExecution/SelectedTask.md",
+          "required": true
+        }
+      ],
+      "writesToDocs": [
+        "**"
+      ],
+      "resultDocumentPath": "Projects/TaskExecution/Active/CurrentTaskExecution/ExecutionResult.md",
+      "defaultNextStep": "verifySelectedTask"
+    },
+    {
+      "name": "verifySelectedTask",
+      "description": "Compare the execution report to the task's done-condition and decide whether the task is complete or blocked.",
+      "kind": "prompt",
+      "promptTemplate": "Review the selected task and the execution result. Decide whether the task's done-condition is satisfied. Respond using this exact markdown structure and do not include any other headings.\n\n# Verification Result\n\n- Outcome: TASK_COMPLETED or TASK_BLOCKED\n- Blocker: <specific blocker text or ->\n- Evidence: <brief evidence that supports the outcome or ->\n\n## Verification Notes\n<brief rationale tied directly to the done-condition>\n\nSelected task:\n{SelectedTask}\n\nExecution result:\n{ExecutionResult}",
+      "documentInputs": [
+        {
+          "key": "SelectedTask",
+          "path": "Projects/TaskExecution/Active/CurrentTaskExecution/SelectedTask.md",
+          "required": true
+        },
+        {
+          "key": "ExecutionResult",
+          "path": "Projects/TaskExecution/Active/CurrentTaskExecution/ExecutionResult.md",
+          "required": true
+        }
+      ],
+      "writesToDocs": [
+        "Projects/TaskExecution/Active/CurrentTaskExecution/**"
+      ],
+      "resultDocumentPath": "Projects/TaskExecution/Active/CurrentTaskExecution/VerificationResult.md",
+      "defaultNextStep": "persistTracker"
+    },
+    {
+      "name": "persistTracker",
+      "description": "Write the selected task's final status and any blocker context back to the same tracker.",
+      "kind": "code",
+      "handlerName": "task_tracker_persist",
+      "arguments": {
+        "statePath": "Projects/TaskExecution/Active/CurrentTaskExecution/TrackerState.json",
+        "verificationPath": "Projects/TaskExecution/Active/CurrentTaskExecution/VerificationResult.md",
+        "selectedTaskPath": "Projects/TaskExecution/Active/CurrentTaskExecution/SelectedTask.md",
+        "outcomePath": "Projects/TaskExecution/Active/CurrentTaskExecution/Outcome.md"
+      },
+      "writesToDocs": [
+        "Projects/TaskExecution/Active/CurrentTaskExecution/**",
+        "**/*Tasks.md"
+      ],
+      "keywordRoutes": {
+        "OUTCOME_READY": "stopWithOutcome",
+        "EXECUTION_FAILED": "stopWithOutcome"
+      }
+    },
+    {
+      "name": "stopWithOutcome",
+      "description": "Return the persisted loop outcome that matches the tracker state written during this run.",
+      "kind": "code",
+      "handlerName": "task_tracker_stop",
+      "arguments": {
+        "outcomePath": "Projects/TaskExecution/Active/CurrentTaskExecution/Outcome.md"
+      }
+    }
+  ]
+}

@@ -216,15 +216,12 @@ namespace Wally.Core
                 // CancellationToken honoured at every iteration boundary
                 cancellationToken.ThrowIfCancellationRequested();
 
-                WallyLoopExecutionStateStore.UpdateAndSave(
+                WallyLoopExecutionStateStore.BeginStep(
                     env,
                     loopDef,
                     executionState,
                     currentStepName: string.Empty,
-                    nextStepName: string.Empty,
                     iterationCount: iteration,
-                    status: "Running",
-                    stopReason: null,
                     currentPrompt: currentPrompt,
                     previousStepResult: string.Empty,
                     mode: "agent-loop");
@@ -256,17 +253,15 @@ namespace Wally.Core
                 if (ContainsStopKeyword(response, StopKeyword))
                 {
                     stopReason = "StopKeyword";
-                    WallyLoopExecutionStateStore.UpdateAndSave(
+                    WallyLoopExecutionStateStore.CompleteRun(
                         env,
                         loopDef,
                         executionState,
                         currentStepName: string.Empty,
-                        nextStepName: string.Empty,
                         iterationCount: iteration + 1,
-                        status: "Completed",
-                        stopReason: stopReason,
                         currentPrompt: currentPrompt,
                         previousStepResult: response,
+                        stopReason: stopReason,
                         mode: "agent-loop");
                     results.Add(new WallyRunResult
                     {
@@ -288,17 +283,15 @@ namespace Wally.Core
                 if (!hasActions)
                 {
                     stopReason = "NoActions";
-                    WallyLoopExecutionStateStore.UpdateAndSave(
+                    WallyLoopExecutionStateStore.CompleteRun(
                         env,
                         loopDef,
                         executionState,
                         currentStepName: string.Empty,
-                        nextStepName: string.Empty,
                         iterationCount: iteration + 1,
-                        status: "Completed",
-                        stopReason: stopReason,
                         currentPrompt: currentPrompt,
                         previousStepResult: response,
+                        stopReason: stopReason,
                         mode: "agent-loop");
                     results.Add(new WallyRunResult
                     {
@@ -327,17 +320,16 @@ namespace Wally.Core
                 {
                     stopReason = "MaxIterations";
                     string resumedPrompt = CombinePrompt(initialPrompt, response, iteration);
-                    WallyLoopExecutionStateStore.UpdateAndSave(
+                    WallyLoopExecutionStateStore.StopRun(
                         env,
                         loopDef,
                         executionState,
                         currentStepName: string.Empty,
                         nextStepName: string.Empty,
                         iterationCount: iteration + 1,
-                        status: "Stopped",
-                        stopReason: stopReason,
                         currentPrompt: resumedPrompt,
                         previousStepResult: response,
+                        stopReason: stopReason,
                         mode: "agent-loop");
                     // Update the last result's stop reason
                     results[results.Count - 1] = new WallyRunResult
@@ -357,15 +349,13 @@ namespace Wally.Core
 
                 // Build next prompt using FeedbackMode
                 currentPrompt = CombinePrompt(initialPrompt, response, iteration);
-                WallyLoopExecutionStateStore.UpdateAndSave(
+                WallyLoopExecutionStateStore.ContinueToNextStep(
                     env,
                     loopDef,
                     executionState,
                     currentStepName: string.Empty,
                     nextStepName: string.Empty,
                     iterationCount: iteration + 1,
-                    status: "Running",
-                    stopReason: null,
                     currentPrompt: currentPrompt,
                     previousStepResult: response,
                     mode: "agent-loop");
