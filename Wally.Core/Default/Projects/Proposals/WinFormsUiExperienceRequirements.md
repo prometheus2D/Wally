@@ -432,7 +432,98 @@ Use this checklist when evaluating the rebuilt application.
 
 ---
 
-## 10. Final Requirement Statement
+## 10. Additional Practical Notes for Rebuild Teams
+
+These details are easy to overlook but matter to user experience.
+
+### 10.1 The product is not single-mode
+Do not accidentally rebuild only the chat experience, only the editor experience, or only the terminal experience. The current product is the combination of all of them.
+
+### 10.2 The left side is not just navigation
+The explorer region is part of how users think. It supports different mental models and should not be reduced to a single generic tree without understanding what would be lost.
+
+### 10.3 The center is not just document display
+The tabbed area is the user’s memory of active work. It is where comparisons, edits, reviews, and temporary investigations remain available.
+
+### 10.4 The right side is not just chat
+The AI panel is a configurable execution surface with visible context, pacing, inspection, and interruption.
+
+### 10.5 The bottom is not just logs
+The terminal is an active command surface, not a passive output pane.
+
+### 10.6 The application depends on visible state changes
+Users rely on the UI changing clearly when:
+- a workspace loads
+- a workspace closes
+- work starts running
+- work stops running
+- a tab becomes dirty
+- a destructive action requires confirmation
+
+### 10.7 The application rewards confidence growth
+A new user can begin with menus and visible buttons. A frequent user can rely on shortcuts, direct commands, and quick switching. The rebuilt application should preserve that progression.
+
+---
+
+## 11. Common Rebuild Risks
+
+These are common ways a rebuild could accidentally lose the current experience.
+
+### 11.1 Over-simplifying into a single-pane app
+Risk:
+- users lose parallel visibility
+- users lose the workbench feeling
+
+### 11.2 Treating AI as a standalone chat page
+Risk:
+- users lose context selection, inspection, and integration with the rest of the workspace
+
+### 11.3 Replacing multiple navigation models with one generic tree
+Risk:
+- users lose the ability to navigate by work-state or by conceptual object
+
+### 11.4 Removing tab persistence
+Risk:
+- users lose the ability to keep multiple work items open and compare them over time
+
+### 11.5 Hiding too many actions behind secondary menus
+Risk:
+- discoverability drops for occasional users
+- speed drops for frequent users
+
+### 11.6 Removing review surfaces
+Risk:
+- users lose trust because they can no longer inspect prompts, history, logs, summaries, or diagrams easily
+
+### 11.7 Weakening safety behaviors
+Risk:
+- users lose confidence in editing and operations
+
+---
+
+## 12. Decision Rules for Redesign
+
+When deciding whether a UI change is acceptable, use these rules.
+
+### Keep the change if it:
+- preserves user understanding
+- preserves discoverability
+- preserves inspectability
+- preserves multi-surface work
+- preserves safety and recovery
+- preserves speed for frequent users
+
+### Reject or reconsider the change if it:
+- hides important state
+- removes a navigation model
+- removes a review surface
+- forces users through a more linear workflow
+- makes AI behavior less inspectable
+- makes the application feel less like a coordinated workbench
+
+---
+
+## 13. Final Requirement Statement
 
 If the application is rebuilt in another engine or environment, users should still feel that they are using:
 - one workspace-centered product
